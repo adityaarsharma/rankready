@@ -563,11 +563,17 @@ class RR_Rest {
 		$post_id  = (int) $request->get_param( 'id' );
 		$faq_data = RR_Faq::get_faq_data( $post_id );
 
+		$generated_ts  = (int) get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
+		$generated_str = '';
+		if ( $generated_ts > 0 ) {
+			$generated_str = wp_date( get_option( 'date_format' ), $generated_ts );
+		}
+
 		return new WP_REST_Response( array(
 			'success'   => true,
 			'faq'       => $faq_data,
 			'keyword'   => (string) get_post_meta( $post_id, RR_META_FAQ_KEYWORD, true ),
-			'generated' => (int) get_post_meta( $post_id, RR_META_FAQ_GENERATED, true ),
+			'generated' => $generated_str,
 			'disabled'  => (bool) get_post_meta( $post_id, RR_META_FAQ_DISABLE, true ),
 		), 200 );
 	}

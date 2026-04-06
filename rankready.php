@@ -156,6 +156,9 @@ add_action( 'plugins_loaded', function (): void {
 		add_action( 'elementor/widgets/register', function ( $widgets_manager ): void {
 			require_once RR_DIR . 'includes/class-rr-elementor.php';
 			$widgets_manager->register( new RR_Elementor_Widget() );
+
+			require_once RR_DIR . 'includes/class-rr-elementor-faq.php';
+			$widgets_manager->register( new RR_Elementor_Faq_Widget() );
 		} );
 
 		add_action( 'elementor/frontend/after_enqueue_styles', function (): void {

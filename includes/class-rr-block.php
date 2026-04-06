@@ -11,6 +11,7 @@ class RR_Block {
 
 	public static function init(): void {
 		add_action( 'init',                        array( self::class, 'register_block' ) );
+		add_action( 'init',                        array( self::class, 'register_faq_block' ) );
 		add_action( 'enqueue_block_editor_assets', array( self::class, 'enqueue_editor_assets' ) );
 		add_action( 'wp_enqueue_scripts',          array( self::class, 'enqueue_frontend_assets' ) );
 		add_action( 'wp_head',                     array( self::class, 'maybe_inject_schema' ), 1 );
@@ -46,6 +47,139 @@ class RR_Block {
 				'bulletMarkerColor' => array( 'type' => 'string',  'default' => '' ),
 			),
 		) );
+	}
+
+	// ── FAQ Block registration ────────────────────────────────────────────────
+
+	public static function register_faq_block(): void {
+		register_block_type( 'rankready/faq', array(
+			'api_version'     => 3,
+			'render_callback' => array( self::class, 'render_faq' ),
+			'attributes'      => array(
+				// Content
+				'showTitle'        => array( 'type' => 'boolean', 'default' => true ),
+				'titleText'        => array( 'type' => 'string',  'default' => 'Frequently Asked Questions' ),
+				'headingTag'       => array( 'type' => 'string',  'default' => 'h3' ),
+				'showReviewed'     => array( 'type' => 'boolean', 'default' => true ),
+				'keyword'          => array( 'type' => 'string',  'default' => '' ),
+				// Box style
+				'boxBgColor'       => array( 'type' => 'string',  'default' => '' ),
+				'boxBorderColor'   => array( 'type' => 'string',  'default' => '' ),
+				'boxBorderWidth'   => array( 'type' => 'number',  'default' => 0 ),
+				'boxBorderRadius'  => array( 'type' => 'number',  'default' => 0 ),
+				'boxPadding'       => array( 'type' => 'number',  'default' => 0 ),
+				// Question style
+				'questionColor'    => array( 'type' => 'string',  'default' => '' ),
+				'questionFontSize' => array( 'type' => 'number',  'default' => 0 ),
+				// Answer style
+				'answerColor'      => array( 'type' => 'string',  'default' => '' ),
+				'answerFontSize'   => array( 'type' => 'number',  'default' => 0 ),
+				// Divider
+				'dividerColor'     => array( 'type' => 'string',  'default' => '' ),
+			),
+		) );
+	}
+
+	// ── FAQ server-side render ────────────────────────────────────────────────
+
+	public static function render_faq( $attrs, $content = '', $block = null ): string {
+		$post_id = get_the_ID();
+		if ( ! $post_id ) {
+			return '';
+		}
+
+		$faq_data = RR_Faq::get_faq_data( $post_id );
+		if ( empty( $faq_data ) ) {
+			return '';
+		}
+
+		$heading_tag = self::validate_heading_tag( ! empty( $attrs['headingTag'] ) ? $attrs['headingTag'] : 'h3' );
+		$show_title  = isset( $attrs['showTitle'] ) ? (bool) $attrs['showTitle'] : true;
+		$title_text  = ! empty( $attrs['titleText'] ) ? sanitize_text_field( $attrs['titleText'] ) : __( 'Frequently Asked Questions', 'rankready' );
+		$show_reviewed = isset( $attrs['showReviewed'] ) ? (bool) $attrs['showReviewed'] : true;
+
+		// Box styles.
+		$box_styles = array();
+		if ( ! empty( $attrs['boxBgColor'] ) ) {
+			$box_styles[] = 'background-color:' . self::sanitize_color( $attrs['boxBgColor'] );
+		}
+		if ( ! empty( $attrs['boxBorderColor'] ) && ! empty( $attrs['boxBorderWidth'] ) ) {
+			$box_styles[] = 'border:' . (int) $attrs['boxBorderWidth'] . 'px solid ' . self::sanitize_color( $attrs['boxBorderColor'] );
+		}
+		if ( ! empty( $attrs['boxBorderRadius'] ) ) {
+			$box_styles[] = 'border-radius:' . (int) $attrs['boxBorderRadius'] . 'px';
+		}
+		if ( ! empty( $attrs['boxPadding'] ) ) {
+			$box_styles[] = 'padding:' . (int) $attrs['boxPadding'] . 'px';
+		}
+		$box_style_attr = ! empty( $box_styles ) ? ' style="' . esc_attr( implode( ';', $box_styles ) ) . '"' : '';
+
+		// Question styles.
+		$q_styles = array();
+		if ( ! empty( $attrs['questionColor'] ) ) {
+			$q_styles[] = 'color:' . self::sanitize_color( $attrs['questionColor'] );
+		}
+		if ( ! empty( $attrs['questionFontSize'] ) ) {
+			$q_styles[] = 'font-size:' . (int) $attrs['questionFontSize'] . 'px';
+		}
+		$q_style_attr = ! empty( $q_styles ) ? ' style="' . esc_attr( implode( ';', $q_styles ) ) . '"' : '';
+
+		// Answer styles.
+		$a_styles = array();
+		if ( ! empty( $attrs['answerColor'] ) ) {
+			$a_styles[] = 'color:' . self::sanitize_color( $attrs['answerColor'] );
+		}
+		if ( ! empty( $attrs['answerFontSize'] ) ) {
+			$a_styles[] = 'font-size:' . (int) $attrs['answerFontSize'] . 'px';
+		}
+		$a_style_attr = ! empty( $a_styles ) ? ' style="' . esc_attr( implode( ';', $a_styles ) ) . '"' : '';
+
+		// Divider style.
+		$d_style_attr = '';
+		if ( ! empty( $attrs['dividerColor'] ) ) {
+			$d_style_attr = ' style="border-bottom-color:' . esc_attr( self::sanitize_color( $attrs['dividerColor'] ) ) . '"';
+		}
+
+		// Build HTML.
+		$wrapper = get_block_wrapper_attributes( array( 'class' => 'rr-faq-wrapper' ) );
+		$out     = '<div ' . $wrapper . $box_style_attr . '>';
+
+		if ( $show_title ) {
+			$out .= '<' . $heading_tag . ' class="rr-faq-title"' . $q_style_attr . '>'
+				. esc_html( $title_text )
+				. '</' . $heading_tag . '>';
+		}
+
+		$out .= '<div class="rr-faq-list">';
+
+		foreach ( $faq_data as $item ) {
+			$q = isset( $item['question'] ) ? $item['question'] : '';
+			$a = isset( $item['answer'] ) ? $item['answer'] : '';
+			if ( empty( $q ) || empty( $a ) ) {
+				continue;
+			}
+
+			$out .= '<div class="rr-faq-item"' . $d_style_attr . '>';
+			$out .= '<h4 class="rr-faq-question"' . $q_style_attr . '>' . esc_html( $q ) . '</h4>';
+			$out .= '<p class="rr-faq-answer"' . $a_style_attr . '>' . wp_kses_post( $a ) . '</p>';
+			$out .= '</div>';
+		}
+
+		$out .= '</div>';
+
+		if ( $show_reviewed ) {
+			$generated = get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
+			if ( ! empty( $generated ) ) {
+				$date = wp_date( get_option( 'date_format' ), (int) $generated );
+				$out .= '<p class="rr-faq-reviewed">'
+					. esc_html( sprintf( __( 'Last reviewed: %s', 'rankready' ), $date ) )
+					. '</p>';
+			}
+		}
+
+		$out .= '</div>';
+
+		return $out;
 	}
 
 	// ── Server-side render ────────────────────────────────────────────────────
@@ -228,13 +362,23 @@ class RR_Block {
 	// ── Assets ────────────────────────────────────────────────────────────────
 
 	public static function enqueue_editor_assets(): void {
+		$deps = array(
+			'wp-blocks', 'wp-element', 'wp-block-editor',
+			'wp-components', 'wp-data', 'wp-api-fetch', 'wp-i18n',
+		);
+
 		wp_enqueue_script(
 			'rr-block-editor',
 			RR_URL . 'assets/block.js',
-			array(
-				'wp-blocks', 'wp-element', 'wp-block-editor',
-				'wp-components', 'wp-data', 'wp-api-fetch', 'wp-i18n',
-			),
+			$deps,
+			RR_VERSION,
+			true
+		);
+
+		wp_enqueue_script(
+			'rr-faq-block-editor',
+			RR_URL . 'assets/faq-block.js',
+			$deps,
 			RR_VERSION,
 			true
 		);
@@ -258,12 +402,18 @@ class RR_Block {
 			return;
 		}
 
-		// Only enqueue if summary exists or auto-display is on
-		$has_summary  = ! empty( get_post_meta( $post_id, RR_META_SUMMARY, true ) );
-		$auto_display = 'on' === get_option( RR_OPT_AUTO_DISPLAY, 'off' );
-		$has_block    = has_block( 'rankready/ai-summary' );
+		// Only enqueue if summary/FAQ exists or auto-display is on
+		$has_summary    = ! empty( get_post_meta( $post_id, RR_META_SUMMARY, true ) );
+		$has_faq        = ! empty( get_post_meta( $post_id, RR_META_FAQ, true ) );
+		$auto_display   = 'on' === get_option( RR_OPT_AUTO_DISPLAY, 'off' );
+		$faq_auto       = 'on' === get_option( RR_OPT_FAQ_AUTO_DISPLAY, 'off' );
+		$has_block      = has_block( 'rankready/ai-summary' );
+		$has_faq_block  = has_block( 'rankready/faq' );
 
-		if ( $has_summary && ( $has_block || $auto_display ) ) {
+		$needs_style = ( $has_summary && ( $has_block || $auto_display ) )
+			|| ( $has_faq && ( $has_faq_block || $faq_auto ) );
+
+		if ( $needs_style ) {
 			wp_enqueue_style( 'rankready-style', RR_URL . 'assets/style.css', array(), RR_VERSION );
 		}
 	}

@@ -412,7 +412,7 @@ class RR_Faq {
 			'body'    => wp_json_encode( array(
 				'model'       => $model,
 				'messages'    => array(
-					array( 'role' => 'system', 'content' => 'You are an expert FAQ content writer. Always respond with valid JSON only.' ),
+					array( 'role' => 'system', 'content' => 'You are an FAQ content writer. Write in simple conversational tone. No em dashes. No filler phrases. No hallucination. Only state facts from the provided page content. Always respond with valid JSON only.' ),
 					array( 'role' => 'user',   'content' => $prompt ),
 				),
 				'temperature' => 0.7,
@@ -525,13 +525,15 @@ class RR_Faq {
 		$prompt .= "RULES:\n";
 		$prompt .= "1. Each answer MUST be 40-60 words (optimal for AI extraction)\n";
 		$prompt .= "2. Use semantic triples: '{$brand_terms} (subject) provides/enables/offers (predicate) [specific feature] (object)'\n";
-		$prompt .= "3. Mention brand terms naturally in answers — not forced, not in every answer\n";
-		$prompt .= "4. Answers must be factual and match the page content\n";
+		$prompt .= "3. Mention brand terms naturally in answers, not forced, not in every answer\n";
+		$prompt .= "4. Answers must be factual and match the page content. Do NOT hallucinate features or details not on the page\n";
 		$prompt .= "5. Each answer must be self-contained (readable without surrounding context)\n";
 		$prompt .= "6. Include specific details, numbers, or feature names where possible\n";
 		$prompt .= "7. Do NOT use promotional language or superlatives\n";
 		$prompt .= "8. If internal links are provided, reference relevant ones naturally using markdown links\n";
-		$prompt .= "9. Questions should be genuine user questions, not keyword-stuffed\n\n";
+		$prompt .= "9. Questions should be genuine user questions, not keyword-stuffed\n";
+		$prompt .= "10. Write in simple, conversational tone matching how a website copy reads. No em dashes. No filler words. Stick to the vocabulary and terminology used on the page itself\n";
+		$prompt .= "11. Keep answers plain and direct. No 'certainly', 'indeed', 'absolutely', 'it is worth noting'. Just state the fact\n\n";
 
 		$prompt .= "FORMAT: Return a JSON array of objects with 'question' and 'answer' keys.\n";
 		$prompt .= "Example: [{\"question\": \"How does...\", \"answer\": \"...\"}]\n";

@@ -378,7 +378,7 @@ class RR_Faq {
 			),
 			$login,
 			$password,
-			20
+			5
 		);
 
 		if ( ! empty( $suggestions ) ) {
@@ -417,7 +417,7 @@ class RR_Faq {
 			),
 			$login,
 			$password,
-			20
+			5
 		);
 
 		if ( ! empty( $related ) ) {
@@ -486,10 +486,10 @@ class RR_Faq {
 	 * @param array  $post_data Request body.
 	 * @param string $login    DFS login.
 	 * @param string $password DFS password.
-	 * @param int    $timeout  Request timeout in seconds (default 20).
+	 * @param int    $timeout  Request timeout in seconds (default 5).
 	 * @return array Parsed items array or empty on failure.
 	 */
-	private static function dfs_api_call( string $url, array $post_data, string $login, string $password, int $timeout = 20 ): array {
+	private static function dfs_api_call( string $url, array $post_data, string $login, string $password, int $timeout = 5 ): array {
 		$response = wp_remote_post( $url, array(
 			'headers' => array(
 				'Authorization' => 'Basic ' . base64_encode( $login . ':' . $password ),
@@ -647,7 +647,7 @@ class RR_Faq {
 				'temperature'     => 0.5,
 				'max_tokens'      => 2000,
 			) ),
-			'timeout' => 60,
+			'timeout' => 15,
 		) );
 
 		if ( is_wp_error( $response ) ) {
@@ -687,13 +687,21 @@ class RR_Faq {
 			return new \WP_Error( 'parse_error', 'Failed to parse FAQ response.' );
 		}
 
-		// Handle wrapped responses: { "faq": [...] } or { "questions": [...] } or flat array.
+		// Handle wrapped responses: { "faq": [...] }, { "faqs": [...] }, { "questions": [...] } or flat array.
 		if ( isset( $faq_data['faq'] ) && is_array( $faq_data['faq'] ) ) {
 			$faq_data = $faq_data['faq'];
+		} elseif ( isset( $faq_data['faqs'] ) && is_array( $faq_data['faqs'] ) ) {
+			$faq_data = $faq_data['faqs'];
 		} elseif ( isset( $faq_data['questions'] ) && is_array( $faq_data['questions'] ) ) {
 			$faq_data = $faq_data['questions'];
 		} elseif ( isset( $faq_data['items'] ) && is_array( $faq_data['items'] ) ) {
 			$faq_data = $faq_data['items'];
+		} elseif ( ! isset( $faq_data[0] ) ) {
+			// Unknown wrapper key — try the first array value.
+			$first = reset( $faq_data );
+			if ( is_array( $first ) && isset( $first[0]['question'] ) ) {
+				$faq_data = $first;
+			}
 		}
 
 		// Normalize structure.

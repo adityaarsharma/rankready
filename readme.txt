@@ -4,7 +4,7 @@ Tags: llm seo, ai summary, schema markup, llms.txt, eeat
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.5
+Stable tag: 1.5.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,13 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 1.5.1 =
+* Fix: FAQ generation failing with "No valid FAQ items" — OpenAI returns `faqs` wrapper key which was not handled
+* Fix: Added universal JSON response wrapper detection — handles `faq`, `faqs`, `questions`, `items`, and any unknown wrapper key
+* Fix: DataForSEO API timeout reduced from 20s to 5s per call to fit within 30s max_execution_time
+* Fix: OpenAI timeout reduced from 60s to 15s — total worst-case generation time now 25s (was 100s)
+* Improvement: FAQ generation consistently completes in ~9s on shared hosting
 
 = 1.5 =
 * New: Schema Automation tab — enable/disable toggles for Article, FAQPage, HowTo, ItemList, and Speakable schema with SEO plugin compatibility guide

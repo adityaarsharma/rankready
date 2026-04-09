@@ -77,6 +77,11 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	// Cron — Schema scanner.
 	define( 'RR_SCHEMA_CRON_HOOK', 'rr_schema_scan' );
 
+	// Cron — Bulk operations (run even after browser close).
+	define( 'RR_CRON_BULK_STARTOVER', 'rr_cron_bulk_startover' );
+	define( 'RR_CRON_BULK_FAQ',       'rr_cron_bulk_faq' );
+	define( 'RR_CRON_BULK_SUMMARY',   'rr_cron_bulk_summary' );
+
 	// Bulk state — Schema scan.
 	define( 'RR_SCHEMA_QUEUE',   'rr_schema_queue' );
 	define( 'RR_SCHEMA_DONE',    'rr_schema_done' );
@@ -211,12 +216,18 @@ add_action( 'plugins_loaded', function (): void {
 		}
 	}
 
-	// Register custom cron schedule for schema scanner.
+	// Register custom cron schedules.
 	add_filter( 'cron_schedules', function ( array $schedules ): array {
 		if ( ! isset( $schedules['rr_five_minutes'] ) ) {
 			$schedules['rr_five_minutes'] = array(
 				'interval' => 5 * MINUTE_IN_SECONDS,
 				'display'  => __( 'Every 5 Minutes (RankReady)', 'rankready' ),
+			);
+		}
+		if ( ! isset( $schedules['rr_one_minute'] ) ) {
+			$schedules['rr_one_minute'] = array(
+				'interval' => MINUTE_IN_SECONDS,
+				'display'  => __( 'Every Minute (RankReady Bulk)', 'rankready' ),
 			);
 		}
 		return $schedules;

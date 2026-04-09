@@ -356,6 +356,7 @@ class RR_Faq {
 		$comparison_regex = '/\b(vs\.?|versus|alternative|compared|comparison|difference|better|worth|review)\b/i';
 
 		// ── Call 1: People Also Ask via SERP (highest quality — real Google PAA) ──
+		// Short timeout (15s) — this is supplementary. If it fails, we still have calls 2+3.
 		$serp_items = self::dfs_api_call(
 			'https://api.dataforseo.com/v3/serp/google/organic/live/advanced',
 			array(
@@ -363,27 +364,43 @@ class RR_Faq {
 					'keyword'       => $keyword,
 					'language_code' => 'en',
 					'location_code' => 2840,
-					'depth'         => 20,
+					'depth'         => 10,
 				),
 			),
 			$login,
-			$password
+			$password,
+			15 // Short timeout — fail fast if slow.
 		);
 
 		if ( ! empty( $serp_items ) ) {
 			foreach ( $serp_items as $item ) {
 				$type = isset( $item['type'] ) ? $item['type'] : '';
 
-				// People Also Ask questions.
-				if ( 'people_also_ask' === $type && ! empty( $item['items'] ) ) {
-					foreach ( $item['items'] as $paa ) {
-						$q = isset( $paa['title'] ) ? trim( $paa['title'] ) : '';
-						if ( empty( $q ) ) continue;
+				// People Also Ask questions — can be nested or flat.
+				if ( 'people_also_ask' === $type ) {
+					// Nested structure: { type: "people_also_ask", items: [{title: "Q?"}] }
+					if ( ! empty( $item['items'] ) ) {
+						foreach ( $item['items'] as $paa ) {
+							$q = isset( $paa['title'] ) ? trim( $paa['title'] ) : '';
+							if ( empty( $q ) ) continue;
+							$key = strtolower( $q );
+							if ( ! isset( $raw_questions[ $key ] ) ) {
+								$raw_questions[ $key ] = array(
+									'keyword' => $q,
+									'volume'  => 500,
+									'source'  => 'paa',
+								);
+							}
+						}
+					}
+					// Flat structure: { type: "people_also_ask", title: "Q?" }
+					if ( ! empty( $item['title'] ) ) {
+						$q   = trim( $item['title'] );
 						$key = strtolower( $q );
 						if ( ! isset( $raw_questions[ $key ] ) ) {
 							$raw_questions[ $key ] = array(
 								'keyword' => $q,
-								'volume'  => 500, // PAA questions have inherent high relevance.
+								'volume'  => 500,
 								'source'  => 'paa',
 							);
 						}
@@ -427,7 +444,8 @@ class RR_Faq {
 				),
 			),
 			$login,
-			$password
+			$password,
+			20
 		);
 
 		if ( ! empty( $suggestions ) ) {
@@ -465,7 +483,8 @@ class RR_Faq {
 				),
 			),
 			$login,
-			$password
+			$password,
+			20
 		);
 
 		if ( ! empty( $related ) ) {
@@ -529,15 +548,22 @@ class RR_Faq {
 
 	/**
 	 * Make a DataForSEO API call.
+	 *
+	 * @param string $url      API endpoint URL.
+	 * @param array  $post_data Request body.
+	 * @param string $login    DFS login.
+	 * @param string $password DFS password.
+	 * @param int    $timeout  Request timeout in seconds (default 20).
+	 * @return array Parsed items array or empty on failure.
 	 */
-	private static function dfs_api_call( string $url, array $post_data, string $login, string $password ): array {
+	private static function dfs_api_call( string $url, array $post_data, string $login, string $password, int $timeout = 20 ): array {
 		$response = wp_remote_post( $url, array(
 			'headers' => array(
 				'Authorization' => 'Basic ' . base64_encode( $login . ':' . $password ),
 				'Content-Type'  => 'application/json',
 			),
 			'body'    => wp_json_encode( $post_data ),
-			'timeout' => 30,
+			'timeout' => $timeout,
 		) );
 
 		if ( is_wp_error( $response ) ) {

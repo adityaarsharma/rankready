@@ -29,6 +29,11 @@ class RR_Rest {
 
 	public static function init(): void {
 		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );
+
+		// WP-Cron hooks for bulk operations — run even after browser close.
+		add_action( RR_CRON_BULK_STARTOVER, array( self::class, 'cron_startover_tick' ) );
+		add_action( RR_CRON_BULK_FAQ,       array( self::class, 'cron_faq_tick' ) );
+		add_action( RR_CRON_BULK_SUMMARY,   array( self::class, 'cron_summary_tick' ) );
 	}
 
 	public static function register_routes(): void {
@@ -444,6 +449,10 @@ class RR_Rest {
 				$done  = (int) get_option( RR_SO_DONE, 0 );
 				$total = (int) get_option( RR_SO_TOTAL, 0 );
 				update_option( RR_SO_RUNNING, true, false );
+				// Re-schedule cron for background processing.
+				if ( ! wp_next_scheduled( RR_CRON_BULK_STARTOVER ) ) {
+					wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_STARTOVER );
+				}
 				return new WP_REST_Response( array(
 					'total'   => $total,
 					'done'    => $done,
@@ -485,6 +494,11 @@ class RR_Rest {
 		update_option( RR_SO_TOTAL,   $total, false );
 		update_option( RR_SO_DONE,    0,      false );
 		update_option( RR_SO_RUNNING, true,   false );
+
+		// Schedule WP-Cron to process queue even if browser closes.
+		if ( ! wp_next_scheduled( RR_CRON_BULK_STARTOVER ) ) {
+			wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_STARTOVER );
+		}
 
 		return new WP_REST_Response( array(
 			'total'   => $total,
@@ -575,6 +589,9 @@ class RR_Rest {
 		update_option( RR_SO_RUNNING, false, false );
 		// Keep queue intact so Resume can pick it up.
 
+		// Clear WP-Cron schedule.
+		wp_clear_scheduled_hook( RR_CRON_BULK_STARTOVER );
+
 		return new WP_REST_Response( array(
 			'stopped'         => true,
 			'done'            => $done,
@@ -597,6 +614,9 @@ class RR_Rest {
 				$done  = (int) get_option( RR_BULK_DONE, 0 );
 				$total = (int) get_option( RR_BULK_TOTAL, 0 );
 				update_option( RR_BULK_RUNNING, true, false );
+				if ( ! wp_next_scheduled( RR_CRON_BULK_SUMMARY ) ) {
+					wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_SUMMARY );
+				}
 				return new WP_REST_Response( array(
 					'total'   => $total,
 					'done'    => $done,
@@ -638,6 +658,11 @@ class RR_Rest {
 		update_option( RR_BULK_RUNNING,    true,   false );
 		update_option( 'rr_bulk_skipped',  0,      false );
 		update_option( 'rr_bulk_failed',   0,      false );
+
+		// Schedule WP-Cron to process queue even if browser closes.
+		if ( ! wp_next_scheduled( RR_CRON_BULK_SUMMARY ) ) {
+			wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_SUMMARY );
+		}
 
 		return new WP_REST_Response( array(
 			'total'   => $total,
@@ -736,6 +761,7 @@ class RR_Rest {
 	public static function bulk_stop() {
 		update_option( RR_BULK_RUNNING, false );
 		// Keep queue intact for resume — don't clear it.
+		wp_clear_scheduled_hook( RR_CRON_BULK_SUMMARY );
 		return new WP_REST_Response( array_merge( array( 'stopped' => true ), self::bulk_state() ), 200 );
 	}
 
@@ -1153,6 +1179,9 @@ class RR_Rest {
 				$done  = (int) get_option( RR_FAQ_DONE, 0 );
 				$total = (int) get_option( RR_FAQ_TOTAL, 0 );
 				update_option( RR_FAQ_RUNNING, true, false );
+				if ( ! wp_next_scheduled( RR_CRON_BULK_FAQ ) ) {
+					wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_FAQ );
+				}
 				return new WP_REST_Response( array(
 					'running' => true,
 					'done'    => $done,
@@ -1210,6 +1239,11 @@ class RR_Rest {
 		update_option( RR_FAQ_RUNNING,      true,          false );
 		update_option( 'rr_faq_skipped',    0,             false );
 		update_option( 'rr_faq_failed',     0,             false );
+
+		// Schedule WP-Cron to process queue even if browser closes.
+		if ( ! wp_next_scheduled( RR_CRON_BULK_FAQ ) ) {
+			wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_FAQ );
+		}
 
 		return new WP_REST_Response( array(
 			'running' => true,
@@ -1323,6 +1357,7 @@ class RR_Rest {
 	public static function faq_bulk_stop() {
 		update_option( RR_FAQ_RUNNING, false );
 		// Keep queue intact for resume.
+		wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
 
 		return new WP_REST_Response( array(
 			'running'         => false,
@@ -1785,5 +1820,145 @@ class RR_Rest {
 			'success' => true,
 			'data'    => RR_Block::get_server_recommendation(),
 		), 200 );
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// WP-CRON BULK TICKS — process queue items even after browser close
+	// ══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * WP-Cron tick for Start Over bulk — processes 1 post per tick.
+	 * Runs every minute. Clears itself when queue is empty or stopped.
+	 */
+	public static function cron_startover_tick(): void {
+		if ( ! get_option( RR_SO_RUNNING ) ) {
+			wp_clear_scheduled_hook( RR_CRON_BULK_STARTOVER );
+			return;
+		}
+
+		$queue = (array) get_option( RR_SO_QUEUE, array() );
+		if ( empty( $queue ) ) {
+			update_option( RR_SO_RUNNING, false, false );
+			wp_clear_scheduled_hook( RR_CRON_BULK_STARTOVER );
+			return;
+		}
+
+		$done    = (int) get_option( RR_SO_DONE, 0 );
+		$has_dfs = ! empty( get_option( RR_OPT_DFS_LOGIN ) ) && ! empty( get_option( RR_OPT_DFS_PASSWORD ) );
+
+		// Process 1 post per cron tick (summary + FAQ are heavy API calls).
+		$post_id = (int) array_shift( $queue );
+
+		if ( $post_id > 0 ) {
+			// Clear existing data.
+			delete_post_meta( $post_id, RR_META_SUMMARY );
+			delete_post_meta( $post_id, RR_META_HASH );
+			delete_post_meta( $post_id, RR_META_GENERATED );
+			delete_post_meta( $post_id, RR_META_FAQ );
+			delete_post_meta( $post_id, RR_META_FAQ_HASH );
+			delete_post_meta( $post_id, RR_META_FAQ_GENERATED );
+			delete_post_meta( $post_id, RR_META_FAQ_KEYWORD );
+
+			// Regenerate summary.
+			RR_Generator::force_generate( $post_id );
+
+			// Regenerate FAQ.
+			if ( $has_dfs ) {
+				RR_Faq::generate_faq( $post_id );
+			}
+
+			$done++;
+		}
+
+		update_option( RR_SO_QUEUE, $queue, false );
+		update_option( RR_SO_DONE,  $done,  false );
+
+		if ( empty( $queue ) ) {
+			update_option( RR_SO_RUNNING, false, false );
+			wp_clear_scheduled_hook( RR_CRON_BULK_STARTOVER );
+		}
+	}
+
+	/**
+	 * WP-Cron tick for FAQ bulk generation — processes 1 post per tick.
+	 */
+	public static function cron_faq_tick(): void {
+		if ( ! get_option( RR_FAQ_RUNNING ) ) {
+			wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
+			return;
+		}
+
+		$queue = (array) get_option( RR_FAQ_QUEUE, array() );
+		if ( empty( $queue ) ) {
+			update_option( RR_FAQ_RUNNING, false, false );
+			wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
+			return;
+		}
+
+		$done    = (int) get_option( RR_FAQ_DONE, 0 );
+		$post_id = (int) array_shift( $queue );
+
+		if ( $post_id > 0 ) {
+			$result = RR_Faq::generate_faq( $post_id );
+			$done++;
+
+			// Track failures.
+			if ( is_wp_error( $result ) ) {
+				$failed = (int) get_option( 'rr_faq_failed', 0 );
+				update_option( 'rr_faq_failed', $failed + 1, false );
+			}
+		}
+
+		update_option( RR_FAQ_QUEUE, $queue, false );
+		update_option( RR_FAQ_DONE,  $done,  false );
+
+		if ( empty( $queue ) ) {
+			update_option( RR_FAQ_RUNNING, false, false );
+			wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
+		}
+	}
+
+	/**
+	 * WP-Cron tick for summary bulk generation — processes 1 post per tick.
+	 */
+	public static function cron_summary_tick(): void {
+		if ( ! get_option( RR_BULK_RUNNING ) ) {
+			wp_clear_scheduled_hook( RR_CRON_BULK_SUMMARY );
+			return;
+		}
+
+		$queue = (array) get_option( RR_BULK_QUEUE, array() );
+		if ( empty( $queue ) ) {
+			update_option( RR_BULK_RUNNING, false, false );
+			wp_clear_scheduled_hook( RR_CRON_BULK_SUMMARY );
+			return;
+		}
+
+		$done    = (int) get_option( RR_BULK_DONE, 0 );
+		$batch   = min( self::BULK_BATCH, count( $queue ) );
+		$log     = array();
+
+		for ( $i = 0; $i < $batch; $i++ ) {
+			if ( empty( $queue ) ) break;
+			$post_id = (int) array_shift( $queue );
+
+			if ( $post_id > 0 ) {
+				$result = RR_Generator::force_generate( $post_id );
+				$done++;
+
+				if ( false === $result ) {
+					$failed = (int) get_option( 'rr_bulk_failed', 0 );
+					update_option( 'rr_bulk_failed', $failed + 1, false );
+				}
+			}
+		}
+
+		update_option( RR_BULK_QUEUE, $queue, false );
+		update_option( RR_BULK_DONE,  $done,  false );
+
+		if ( empty( $queue ) ) {
+			update_option( RR_BULK_RUNNING, false, false );
+			wp_clear_scheduled_hook( RR_CRON_BULK_SUMMARY );
+		}
 	}
 }

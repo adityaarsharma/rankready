@@ -136,6 +136,9 @@ foreach ( $meta_keys as $key ) {
 wp_clear_scheduled_hook( 'rr_async_generate' );
 wp_clear_scheduled_hook( 'rr_async_faq_generate' );
 wp_clear_scheduled_hook( 'rr_schema_scan' );
+wp_clear_scheduled_hook( 'rr_cron_bulk_startover' );
+wp_clear_scheduled_hook( 'rr_cron_bulk_faq' );
+wp_clear_scheduled_hook( 'rr_cron_bulk_summary' );
 
 // ── Flush rewrite rules to clean up llms.txt and .md endpoints ───────────────
 flush_rewrite_rules( false );

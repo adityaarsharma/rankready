@@ -292,6 +292,19 @@ class RR_Rest {
 			'callback'            => array( self::class, 'health_check' ),
 			'permission_callback' => array( self::class, 'is_admin_user' ),
 		) );
+
+		// ── Schema Scanner endpoints ─────────────────────────────────────────
+		register_rest_route( self::NS, '/schema/status', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( self::class, 'schema_status' ),
+			'permission_callback' => array( self::class, 'is_admin_user' ),
+		) );
+
+		register_rest_route( self::NS, '/schema/recommendation', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( self::class, 'schema_recommendation' ),
+			'permission_callback' => array( self::class, 'is_admin_user' ),
+		) );
 	}
 
 	// ── Permission callbacks ──────────────────────────────────────────────────
@@ -1742,5 +1755,35 @@ class RR_Rest {
 				'sanitize_callback' => 'sanitize_text_field',
 			),
 		);
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// SCHEMA SCANNER ENDPOINTS
+	// ══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Get schema scanner status — progress, scanned/total counts.
+	 */
+	public static function schema_status() {
+		$rec = RR_Block::get_server_recommendation();
+		return new WP_REST_Response( array(
+			'success'         => true,
+			'total_posts'     => $rec['total_posts'],
+			'scanned_posts'   => $rec['scanned_posts'],
+			'unscanned_posts' => $rec['unscanned_posts'],
+			'current_batch'   => $rec['current_batch'],
+			'est_minutes'     => $rec['est_minutes'],
+			'cron_next_run'   => $rec['cron_next_run'],
+		), 200 );
+	}
+
+	/**
+	 * Get server recommendation for batch size.
+	 */
+	public static function schema_recommendation() {
+		return new WP_REST_Response( array(
+			'success' => true,
+			'data'    => RR_Block::get_server_recommendation(),
+		), 200 );
 	}
 }

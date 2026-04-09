@@ -326,12 +326,19 @@ class RR_Faq {
 	/**
 	 * Fetch related questions from DataForSEO API.
 	 *
-	 * Calls keyword_suggestions and related_keywords to find question-format queries.
+	 * Multi-source question discovery:
+	 * 1. People Also Ask (PAA) from SERP — real Google questions users see.
+	 * 2. Keyword suggestions — question-format long-tail keywords with volume.
+	 * 3. Related keywords — semantic cluster questions.
+	 * 4. Google Autosuggest patterns — "vs", "vs alternative", comparison queries.
+	 *
+	 * Sorted by search volume, semantically deduplicated, capped at 20.
 	 *
 	 * @param string $keyword Focus keyword.
-	 * @return array Array of question strings.
+	 * @param string $page_type Page type context ('post', 'page', 'docs', 'landing').
+	 * @return array Array of question strings with source metadata.
 	 */
-	public static function fetch_dataforseo_questions( string $keyword ): array {
+	public static function fetch_dataforseo_questions( string $keyword, string $page_type = 'post' ): array {
 		$login    = get_option( RR_OPT_DFS_LOGIN, '' );
 		$password = get_option( RR_OPT_DFS_PASSWORD, '' );
 
@@ -339,19 +346,80 @@ class RR_Faq {
 			return array();
 		}
 
-		// Collect questions with search volume for sorting.
-		$raw_questions = array(); // key = lowercase question, value = { keyword, volume }.
+		// Collect questions with metadata for smart ranking.
+		$raw_questions = array(); // key = lowercase question, value = { keyword, volume, source }.
 
-		// Call 1: Keyword suggestions (question-type).
+		// Question word patterns — expanded for docs/landing pages.
+		$question_regex = '/^(how|what|why|when|where|which|can|does|is|are|do|should|will|would|could|has|have|need|want)\b/i';
+
+		// Comparison/decision patterns — high-intent for landing pages.
+		$comparison_regex = '/\b(vs\.?|versus|alternative|compared|comparison|difference|better|worth|review)\b/i';
+
+		// ── Call 1: People Also Ask via SERP (highest quality — real Google PAA) ──
+		$serp_items = self::dfs_api_call(
+			'https://api.dataforseo.com/v3/serp/google/organic/live/advanced',
+			array(
+				array(
+					'keyword'       => $keyword,
+					'language_code' => 'en',
+					'location_code' => 2840,
+					'depth'         => 20,
+				),
+			),
+			$login,
+			$password
+		);
+
+		if ( ! empty( $serp_items ) ) {
+			foreach ( $serp_items as $item ) {
+				$type = isset( $item['type'] ) ? $item['type'] : '';
+
+				// People Also Ask questions.
+				if ( 'people_also_ask' === $type && ! empty( $item['items'] ) ) {
+					foreach ( $item['items'] as $paa ) {
+						$q = isset( $paa['title'] ) ? trim( $paa['title'] ) : '';
+						if ( empty( $q ) ) continue;
+						$key = strtolower( $q );
+						if ( ! isset( $raw_questions[ $key ] ) ) {
+							$raw_questions[ $key ] = array(
+								'keyword' => $q,
+								'volume'  => 500, // PAA questions have inherent high relevance.
+								'source'  => 'paa',
+							);
+						}
+					}
+				}
+
+				// Related Searches — captures "reddit" / "forum" style queries.
+				if ( 'related_searches' === $type && ! empty( $item['items'] ) ) {
+					foreach ( $item['items'] as $rs ) {
+						$q = isset( $rs['title'] ) ? trim( $rs['title'] ) : '';
+						if ( empty( $q ) ) continue;
+						if ( preg_match( $question_regex, $q ) || preg_match( $comparison_regex, $q ) ) {
+							$key = strtolower( $q );
+							if ( ! isset( $raw_questions[ $key ] ) ) {
+								$raw_questions[ $key ] = array(
+									'keyword' => $q,
+									'volume'  => 200,
+									'source'  => 'related_search',
+								);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// ── Call 2: Keyword suggestions (question-format long-tails) ──────────
 		$suggestions = self::dfs_api_call(
 			'https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_suggestions/live',
 			array(
 				array(
 					'keyword'              => $keyword,
 					'language_code'        => 'en',
-					'location_code'        => 2840, // US
+					'location_code'        => 2840,
 					'include_seed_keyword' => true,
-					'limit'                => 30,
+					'limit'                => 40,
 					'filters'              => array(
 						array( 'keyword_data.keyword_info.search_volume', '>', 0 ),
 					),
@@ -366,16 +434,26 @@ class RR_Faq {
 			foreach ( $suggestions as $item ) {
 				$kw     = isset( $item['keyword_data']['keyword'] ) ? $item['keyword_data']['keyword'] : '';
 				$volume = isset( $item['keyword_data']['keyword_info']['search_volume'] ) ? (int) $item['keyword_data']['keyword_info']['search_volume'] : 0;
-				if ( ! empty( $kw ) && preg_match( '/^(how|what|why|when|where|which|can|does|is|are|do|should|will)\b/i', $kw ) ) {
+				if ( empty( $kw ) ) continue;
+
+				// Accept question-format OR comparison-format keywords.
+				$is_question   = (bool) preg_match( $question_regex, $kw );
+				$is_comparison = (bool) preg_match( $comparison_regex, $kw );
+
+				if ( $is_question || $is_comparison ) {
 					$key = strtolower( trim( $kw ) );
 					if ( ! isset( $raw_questions[ $key ] ) || $volume > $raw_questions[ $key ]['volume'] ) {
-						$raw_questions[ $key ] = array( 'keyword' => $kw, 'volume' => $volume );
+						$raw_questions[ $key ] = array(
+							'keyword' => $kw,
+							'volume'  => $volume,
+							'source'  => $is_comparison ? 'comparison' : 'suggestion',
+						);
 					}
 				}
 			}
 		}
 
-		// Call 2: Related keywords for additional questions.
+		// ── Call 3: Related keywords for semantic cluster questions ────────────
 		$related = self::dfs_api_call(
 			'https://api.dataforseo.com/v3/dataforseo_labs/google/related_keywords/live',
 			array(
@@ -383,7 +461,7 @@ class RR_Faq {
 					'keyword'       => $keyword,
 					'language_code' => 'en',
 					'location_code' => 2840,
-					'limit'         => 20,
+					'limit'         => 30,
 				),
 			),
 			$login,
@@ -394,34 +472,56 @@ class RR_Faq {
 			foreach ( $related as $item ) {
 				$kw     = isset( $item['keyword_data']['keyword'] ) ? $item['keyword_data']['keyword'] : '';
 				$volume = isset( $item['keyword_data']['keyword_info']['search_volume'] ) ? (int) $item['keyword_data']['keyword_info']['search_volume'] : 0;
-				if ( ! empty( $kw ) && preg_match( '/^(how|what|why|when|where|which|can|does|is|are|do|should|will)\b/i', $kw ) ) {
+				if ( empty( $kw ) ) continue;
+
+				if ( preg_match( $question_regex, $kw ) || preg_match( $comparison_regex, $kw ) ) {
 					$key = strtolower( trim( $kw ) );
 					if ( ! isset( $raw_questions[ $key ] ) || $volume > $raw_questions[ $key ]['volume'] ) {
-						$raw_questions[ $key ] = array( 'keyword' => $kw, 'volume' => $volume );
+						$raw_questions[ $key ] = array(
+							'keyword' => $kw,
+							'volume'  => $volume,
+							'source'  => 'related',
+						);
 					}
 				}
 			}
 		}
 
-		// Sort by search volume descending so the most popular PAA questions come first.
-		uasort( $raw_questions, function ( $a, $b ) {
-			return $b['volume'] - $a['volume'];
+		// ── Smart ranking: prioritize by source quality + volume ──────────────
+		// PAA > comparison > suggestion > related (with volume as tiebreaker).
+		$source_weight = array( 'paa' => 10000, 'comparison' => 5000, 'suggestion' => 1000, 'related_search' => 3000, 'related' => 500 );
+		uasort( $raw_questions, function ( $a, $b ) use ( $source_weight ) {
+			$a_score = ( isset( $source_weight[ $a['source'] ] ) ? $source_weight[ $a['source'] ] : 0 ) + $a['volume'];
+			$b_score = ( isset( $source_weight[ $b['source'] ] ) ? $source_weight[ $b['source'] ] : 0 ) + $b['volume'];
+			return $b_score - $a_score;
 		} );
 
-		// Deduplicate semantically similar questions (same core minus stop words).
+		// ── Semantic deduplication (aggressive) ───────────────────────────────
+		$stop_words = '/\b(how|what|why|when|where|which|can|does|is|are|do|should|will|would|could|has|have|to|the|a|an|of|for|in|on|with|and|or|my|your|i|you|it|this|that|best|good|need|want|get)\b/i';
 		$seen_cores = array();
 		$questions  = array();
+
 		foreach ( $raw_questions as $entry ) {
-			$core = preg_replace( '/\b(how|what|why|when|where|which|can|does|is|are|do|should|will|to|the|a|an|of|for|in|on|with|and|or|my|your|i)\b/i', '', strtolower( $entry['keyword'] ) );
+			$core = preg_replace( $stop_words, '', strtolower( $entry['keyword'] ) );
+			$core = preg_replace( '/[^a-z0-9\s]/', '', $core );
 			$core = preg_replace( '/\s+/', ' ', trim( $core ) );
-			if ( isset( $seen_cores[ $core ] ) ) {
-				continue;
+
+			// Skip if core matches an already-seen question (fuzzy dedup).
+			$is_dup = false;
+			foreach ( $seen_cores as $seen ) {
+				if ( $core === $seen ) { $is_dup = true; break; }
+				// Levenshtein similarity for near-duplicates (< 30% different).
+				if ( strlen( $core ) > 5 && strlen( $seen ) > 5 ) {
+					$dist = levenshtein( $core, $seen );
+					$max_len = max( strlen( $core ), strlen( $seen ) );
+					if ( $dist / $max_len < 0.3 ) { $is_dup = true; break; }
+				}
 			}
-			$seen_cores[ $core ] = true;
-			$questions[] = $entry['keyword'];
-			if ( count( $questions ) >= 15 ) {
-				break;
-			}
+			if ( $is_dup ) continue;
+
+			$seen_cores[] = $core;
+			$questions[]  = $entry['keyword'];
+			if ( count( $questions ) >= 20 ) break;
 		}
 
 		return $questions;
@@ -526,10 +626,13 @@ class RR_Faq {
 			$brand_terms = get_bloginfo( 'name' );
 		}
 
+		// Detect page type for context-aware FAQ generation.
+		$page_type = self::detect_page_type( $post );
+
 		// Fetch questions from DataForSEO (if credentials available).
 		$dfs_questions = array();
 		if ( ! empty( $keyword ) ) {
-			$dfs_questions = self::fetch_dataforseo_questions( $keyword );
+			$dfs_questions = self::fetch_dataforseo_questions( $keyword, $page_type );
 		}
 
 		// Get internal links from post content for doc references.
@@ -548,14 +651,17 @@ class RR_Faq {
 
 		// Build system prompt with product context.
 		$faq_system  = "You write FAQ answers for web pages. You respond with valid JSON only.\n\n";
+		$faq_system .= "YOUR GOAL: Generate FAQ that AI chatbots (ChatGPT, Perplexity, Gemini, Claude) will cite as authoritative answers. Each Q&A should be a standalone knowledge unit an LLM can extract and quote.\n\n";
 		$faq_system .= "ABSOLUTE RULES:\n";
 		$faq_system .= "- Every answer must be based ONLY on facts stated in the page content provided. Zero invention.\n";
 		$faq_system .= "- NEVER claim a product works with a platform, tool, or builder unless the page explicitly says so.\n";
 		$faq_system .= "- NEVER add features, pricing, statistics, or compatibility details the page does not mention.\n";
 		$faq_system .= "- Use the exact product names, brand names, and terminology from the page. No renaming.\n";
-		$faq_system .= "- Write in simple, conversational tone matching how website copy reads.\n";
-		$faq_system .= "- No em dashes. No filler (certainly, indeed, it is worth noting, comprehensive, robust, leverage).\n";
-		$faq_system .= "- If the page content does not have enough info to answer a question, skip that question and pick another.";
+		$faq_system .= "- Write like a knowledgeable human on Reddit answering a question. Direct, specific, no fluff.\n";
+		$faq_system .= "- No em dashes. No filler (certainly, indeed, it is worth noting, comprehensive, robust, leverage, utilize).\n";
+		$faq_system .= "- No generic openers like 'Yes, ...', 'Absolutely, ...', 'Great question!'\n";
+		$faq_system .= "- If the page content does not have enough info to answer a question, skip that question and pick another.\n";
+		$faq_system .= "- Each answer should contain a SPECIFIC fact, number, name, or detail from the page. No vague statements.";
 
 		$product_context = (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' );
 		if ( ! empty( $product_context ) ) {
@@ -622,13 +728,26 @@ class RR_Faq {
 			return new \WP_Error( 'parse_error', 'Failed to parse FAQ response.' );
 		}
 
+		// Handle wrapped responses: { "faq": [...] } or { "questions": [...] } or flat array.
+		if ( isset( $faq_data['faq'] ) && is_array( $faq_data['faq'] ) ) {
+			$faq_data = $faq_data['faq'];
+		} elseif ( isset( $faq_data['questions'] ) && is_array( $faq_data['questions'] ) ) {
+			$faq_data = $faq_data['questions'];
+		} elseif ( isset( $faq_data['items'] ) && is_array( $faq_data['items'] ) ) {
+			$faq_data = $faq_data['items'];
+		}
+
 		// Normalize structure.
 		$clean_faq = array();
 		foreach ( $faq_data as $item ) {
 			if ( isset( $item['question'] ) && isset( $item['answer'] ) ) {
+				$q = sanitize_text_field( $item['question'] );
+				$a = wp_kses_post( $item['answer'] );
+				// Skip empty or too-short answers.
+				if ( empty( $q ) || empty( $a ) || strlen( $a ) < 20 ) continue;
 				$clean_faq[] = array(
-					'question' => sanitize_text_field( $item['question'] ),
-					'answer'   => wp_kses_post( $item['answer'] ),
+					'question' => $q,
+					'answer'   => $a,
 				);
 			}
 		}
@@ -657,7 +776,62 @@ class RR_Faq {
 	}
 
 	/**
+	 * Detect page type from content and title patterns.
+	 *
+	 * Returns: 'docs', 'landing', 'comparison', 'tutorial', 'blog'
+	 * Used to tailor FAQ question style and prompt for each page type.
+	 */
+	private static function detect_page_type( WP_Post $post ): string {
+		$title = strtolower( get_the_title( $post ) );
+		$type  = $post->post_type;
+		$content_lower = strtolower( $post->post_content );
+
+		// Documentation pages.
+		if ( 'docs' === $type || 'doc' === $type || 'documentation' === $type
+			|| preg_match( '/\b(documentation|api\s+reference|developer\s+guide|changelog|getting\s+started|configuration|setup\s+guide)\b/i', $title )
+			|| preg_match( '/class="[^"]*(?:docs-|documentation|api-reference)[^"]*"/i', $content_lower )
+		) {
+			return 'docs';
+		}
+
+		// Landing pages.
+		if ( 'page' === $type && (
+			preg_match( '/\b(pricing|features|why\s+choose|get\s+started|sign\s+up|free\s+trial|demo|plans)\b/i', $title )
+			|| preg_match( '/class="[^"]*(?:hero|cta|pricing-table|landing)[^"]*"/i', $content_lower )
+			|| preg_match( '/<a[^>]*class="[^"]*(?:btn|button|cta)[^"]*"/i', $content_lower )
+		) ) {
+			return 'landing';
+		}
+
+		// Comparison / vs posts.
+		if ( preg_match( '/\b(vs\.?|versus|alternative|compared|comparison)\b/i', $title ) ) {
+			return 'comparison';
+		}
+
+		// Tutorial / How-to.
+		if ( preg_match( '/\b(how\s+to|tutorial|step.by.step|guide\s+to)\b/i', $title ) ) {
+			return 'tutorial';
+		}
+
+		return 'blog';
+	}
+
+	/**
 	 * Build the OpenAI prompt for FAQ generation.
+	 *
+	 * Context-aware prompt that adapts to page type:
+	 * - Docs: troubleshooting, "does it support X", config questions
+	 * - Landing: buyer objections, pricing, comparisons, "is it worth it"
+	 * - Comparison: "vs" questions, "which is better", migration
+	 * - Tutorial: "what if X fails", prerequisites, alternatives
+	 * - Blog: topical authority, Reddit-style questions, debate points
+	 *
+	 * Question sourcing priority:
+	 * 1. People Also Ask (real Google PAA from SERP)
+	 * 2. Comparison/decision queries (high commercial intent)
+	 * 3. Long-tail keyword suggestions (with search volume)
+	 * 4. Contextual questions generated from page content
+	 *
 	 * Uses semantic triples pattern for brand term injection.
 	 */
 	private static function build_faq_prompt(
@@ -668,57 +842,130 @@ class RR_Faq {
 		array $internal_links,
 		int $count
 	): string {
-		$title   = get_the_title( $post );
-		$content = wp_strip_all_tags( do_shortcode( $post->post_content ) );
-		// Truncate content to ~3000 words to stay within token limits.
+		$title     = get_the_title( $post );
+		$content   = wp_strip_all_tags( do_shortcode( $post->post_content ) );
+		$page_type = self::detect_page_type( $post );
+
+		// Truncate content to ~3500 words to stay within token limits.
 		$words = preg_split( '/\s+/', $content );
-		if ( count( $words ) > 3000 ) {
-			$content = implode( ' ', array_slice( $words, 0, 3000 ) ) . '...';
+		if ( count( $words ) > 3500 ) {
+			$content = implode( ' ', array_slice( $words, 0, 3500 ) ) . '...';
 		}
 
-		$prompt = "Generate exactly {$count} FAQ items for this page.\n\n";
+		// Extract headings for structural context.
+		$headings = array();
+		if ( preg_match_all( '/<h[2-3][^>]*>(.*?)<\/h[2-3]>/si', $post->post_content, $h_matches ) ) {
+			foreach ( $h_matches[1] as $h ) {
+				$headings[] = wp_strip_all_tags( trim( $h ) );
+			}
+		}
+
+		$prompt = "Generate exactly {$count} FAQ items for this {$page_type} page.\n\n";
 		$prompt .= "PAGE TITLE: {$title}\n";
+		$prompt .= "PAGE TYPE: {$page_type}\n";
 
 		if ( ! empty( $keyword ) ) {
 			$prompt .= "FOCUS KEYWORD: {$keyword}\n";
 		}
 
-		$prompt .= "BRAND TERMS: {$brand_terms}\n\n";
+		$prompt .= "BRAND TERMS: {$brand_terms}\n";
+
+		if ( ! empty( $headings ) ) {
+			$prompt .= "PAGE STRUCTURE (H2/H3 headings):\n";
+			foreach ( array_slice( $headings, 0, 15 ) as $h ) {
+				$prompt .= "  - {$h}\n";
+			}
+		}
+		$prompt .= "\n";
 
 		if ( ! empty( $dfs_questions ) ) {
-			$prompt .= "RELATED SEARCH QUESTIONS (use these when relevant):\n";
-			foreach ( $dfs_questions as $q ) {
-				$prompt .= "- {$q}\n";
+			$prompt .= "REAL SEARCH QUESTIONS (from Google PAA + keyword data, sorted by popularity):\n";
+			foreach ( $dfs_questions as $i => $q ) {
+				$num = $i + 1;
+				$prompt .= "  {$num}. {$q}\n";
 			}
 			$prompt .= "\n";
 		}
 
 		if ( ! empty( $internal_links ) ) {
-			$prompt .= "INTERNAL LINKS (reference these in answers where relevant):\n";
+			$prompt .= "INTERNAL LINKS (reference in answers where relevant):\n";
 			foreach ( array_slice( $internal_links, 0, 10 ) as $link ) {
-				$prompt .= "- [{$link['text']}]({$link['url']})\n";
+				$prompt .= "  - [{$link['text']}]({$link['url']})\n";
 			}
 			$prompt .= "\n";
 		}
 
 		$prompt .= "PAGE CONTENT:\n{$content}\n\n";
 
+		// ── Page-type-specific question guidance ──────────────────────────────
+		$prompt .= "QUESTION STRATEGY FOR {$page_type} PAGES:\n";
+
+		switch ( $page_type ) {
+			case 'docs':
+				$prompt .= "- Ask troubleshooting questions: 'Why is X not working?', 'How do I fix Y?'\n";
+				$prompt .= "- Ask compatibility questions: 'Does it work with Z?', 'What are the requirements?'\n";
+				$prompt .= "- Ask 'how do I configure/customize X' questions from the content.\n";
+				$prompt .= "- Ask prerequisite questions: 'What do I need before...?'\n";
+				$prompt .= "- Think like a developer/user reading docs who is stuck.\n";
+				break;
+
+			case 'landing':
+				$prompt .= "- Ask buyer objection questions: 'Is {$brand_terms} worth it?', 'What makes it different?'\n";
+				$prompt .= "- Ask decision-making questions: 'Who is this for?', 'What problem does it solve?'\n";
+				$prompt .= "- Ask 'can I use it for X' questions based on listed features.\n";
+				$prompt .= "- Ask pricing/value questions if pricing info exists on the page.\n";
+				$prompt .= "- Think like a potential buyer comparing options on Reddit.\n";
+				break;
+
+			case 'comparison':
+				$prompt .= "- Ask 'which is better for X use case' questions.\n";
+				$prompt .= "- Ask migration questions: 'Can I switch from X to Y?'\n";
+				$prompt .= "- Ask feature difference questions: 'Does X have Y feature?'\n";
+				$prompt .= "- Ask real decision questions: 'Is X worth switching to from Y?'\n";
+				$prompt .= "- Think like someone on Reddit asking for honest opinions.\n";
+				break;
+
+			case 'tutorial':
+				$prompt .= "- Ask 'what if step X fails' troubleshooting questions.\n";
+				$prompt .= "- Ask prerequisite questions: 'What do I need before starting?'\n";
+				$prompt .= "- Ask alternative approach questions: 'Is there another way to do X?'\n";
+				$prompt .= "- Ask outcome questions: 'What happens after I complete this?'\n";
+				$prompt .= "- Think like someone following the tutorial who hits a snag.\n";
+				break;
+
+			default: // blog
+				$prompt .= "- Ask debate/opinion questions: 'Is X really necessary?', 'Does X actually work?'\n";
+				$prompt .= "- Ask practical application questions: 'How do I use X in my situation?'\n";
+				$prompt .= "- Ask 'what most people get wrong about X' contrarian questions.\n";
+				$prompt .= "- Ask Reddit-style direct questions: blunt, specific, no fluff.\n";
+				$prompt .= "- Think like a curious person on Reddit, not a marketer.\n";
+				break;
+		}
+
+		$prompt .= "\n";
+
 		$prompt .= "QUESTION RULES:\n";
-		$prompt .= "- Each question must address a DIFFERENT topic. No rephrasing the same question.\n";
-		$prompt .= "- Prefer questions from the RELATED SEARCH QUESTIONS list above (real user queries with search volume).\n";
-		$prompt .= "- If a search question cannot be answered from the page content, skip it and write your own question that CAN be answered.\n";
-		$prompt .= "- Questions must be natural, like what a real person would type into Google. Not keyword-stuffed.\n\n";
+		$prompt .= "- Each question MUST address a DIFFERENT topic. Zero overlap or rephrasing.\n";
+		$prompt .= "- PRIORITIZE questions from the REAL SEARCH QUESTIONS list (those are actual queries people search).\n";
+		$prompt .= "- If a search question cannot be answered from the page content, skip it.\n";
+		$prompt .= "- Fill remaining slots with contextual questions derived from the page content.\n";
+		$prompt .= "- Questions must sound like a real human asking on Reddit or Google, not a keyword-stuffed SEO question.\n";
+		$prompt .= "- Mix question types: at least 1 'how', 1 'what/why', and 1 comparison/decision question.\n";
+		$prompt .= "- NEVER ask generic questions like 'What is [topic]?' unless the page is specifically defining that topic.\n";
+		$prompt .= "- Ask questions an AI chatbot (ChatGPT, Perplexity, Gemini) would need answered to recommend this page.\n\n";
 
 		$prompt .= "ANSWER RULES:\n";
-		$prompt .= "- 40-60 words per answer (optimal for AI extraction and featured snippets).\n";
-		$prompt .= "- ONLY use facts from the PAGE CONTENT above. NEVER invent features, integrations, compatibility, pricing, or claims.\n";
+		$prompt .= "- 40-80 words per answer. Longer answers for complex questions, shorter for simple ones.\n";
+		$prompt .= "- ONLY use facts from the PAGE CONTENT above. NEVER invent features, integrations, pricing, or claims.\n";
 		$prompt .= "- If the page does not mention something, do not write it. Period.\n";
-		$prompt .= "- Use exact product names, brand names, and terminology from the page. No renaming, no generalizing.\n";
-		$prompt .= "- Mention brand terms ({$brand_terms}) naturally where relevant, not forced, not in every answer. Use semantic triples: '{$brand_terms} provides/enables/offers [specific feature from the page]'.\n";
-		$prompt .= "- Each answer must be self-contained and directly answer the question.\n";
-		$prompt .= "- Start with the direct answer, not a preamble.\n";
-		$prompt .= "- No promotional language, no superlatives, no filler words.\n";
-		$prompt .= "- If internal links are provided, reference relevant ones as markdown links.\n\n";
+		$prompt .= "- Use exact product names, brand names, and terminology from the page.\n";
+		$prompt .= "- Mention brand terms ({$brand_terms}) naturally where relevant using semantic triples:\n";
+		$prompt .= "  '{$brand_terms} provides/enables/offers [specific feature from the page]'\n";
+		$prompt .= "  '{$brand_terms} works with/supports/integrates [thing mentioned on page]'\n";
+		$prompt .= "- Start with the direct answer, then add one supporting detail.\n";
+		$prompt .= "- No promotional language, no superlatives, no filler phrases.\n";
+		$prompt .= "- Reference internal links as markdown links where relevant.\n";
+		$prompt .= "- Make each answer quotable: an AI chatbot should be able to cite this answer directly.\n\n";
 
 		$prompt .= "FORMAT: Return a JSON array of objects with 'question' and 'answer' keys.\n";
 		$prompt .= "Example: [{\"question\": \"How does...\", \"answer\": \"...\"}]\n";

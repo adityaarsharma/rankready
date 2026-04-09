@@ -15,8 +15,13 @@ class RR_Block {
 		add_action( 'enqueue_block_editor_assets', array( self::class, 'enqueue_editor_assets' ) );
 		add_action( 'wp_enqueue_scripts',          array( self::class, 'enqueue_frontend_assets' ) );
 		add_action( 'wp_head',                     array( self::class, 'maybe_inject_schema' ), 1 );
-		add_action( 'wp_head',                     array( self::class, 'maybe_inject_howto_schema' ), 25 );
-		add_action( 'wp_head',                     array( self::class, 'maybe_inject_itemlist_schema' ), 26 );
+		add_action( 'wp_head',                     array( self::class, 'output_auto_schema' ), 25 );
+
+		// WP-Cron schema scanner.
+		add_action( RR_SCHEMA_CRON_HOOK,           array( self::class, 'cron_schema_scan' ) );
+
+		// Re-scan on post save (deferred to avoid blocking the editor).
+		add_action( 'save_post',                   array( self::class, 'invalidate_schema_cache' ), 20, 2 );
 		add_filter( 'the_content',                 array( self::class, 'maybe_auto_display' ), 99 );
 
 		// Merge AI-friendly schema into ALL major SEO plugins.
@@ -964,35 +969,167 @@ class RR_Block {
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// HOWTO SCHEMA — AUTO-DETECTION FROM EXISTING CONTENT
+	// SCHEMA AUTO-DETECTION — WP-CRON BASED
 	//
-	// Scans post content for step-by-step patterns:
-	// 1. Ordered lists (<ol><li>)
-	// 2. Headings with "Step N" patterns (Step 1:, Step 2:)
-	// 3. Numbered headings (1. Do this, 2. Do that)
+	// Detection runs in background via wp-cron.php (not on every page load).
+	// Results stored in post meta. wp_head just reads cached meta — zero regex.
 	//
-	// Extracts steps from existing content — never adds new content to the post.
-	// Skips if Rank Math HowTo block exists (they output their own schema).
+	// Flow:
+	// 1. WP-Cron fires every 5 min → cron_schema_scan()
+	// 2. Queries posts with stale/missing schema hash (batch size from options)
+	// 3. For each post: detect type → build schema → store in meta
+	// 4. wp_head → output_auto_schema() reads meta → outputs JSON-LD
+	// 5. save_post → invalidate_schema_cache() clears hash for re-scan
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Inject HowTo JSON-LD schema if post content contains step-by-step patterns.
+	 * Output auto-detected schema from post meta on frontend.
+	 * This is the only thing that runs on every page load — a simple meta read.
 	 */
-	public static function maybe_inject_howto_schema(): void {
-		if ( 'on' !== get_option( RR_OPT_SCHEMA_HOWTO, 'on' ) ) return;
+	public static function output_auto_schema(): void {
 		if ( ! is_singular() ) return;
-		if ( ! apply_filters( 'rankready_inject_howto_schema', true ) ) return;
 
 		$post = get_queried_object();
 		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) return;
+
+		$schema_type = (string) get_post_meta( $post->ID, RR_META_SCHEMA_TYPE, true );
+		if ( empty( $schema_type ) ) return;
+
+		// Check if the schema type is enabled.
+		if ( 'howto' === $schema_type && 'on' !== get_option( RR_OPT_SCHEMA_HOWTO, 'on' ) ) return;
+		if ( 'itemlist' === $schema_type && 'on' !== get_option( RR_OPT_SCHEMA_ITEMLIST, 'on' ) ) return;
+
+		// Apply developer filters.
+		if ( 'howto' === $schema_type && ! apply_filters( 'rankready_inject_howto_schema', true ) ) return;
+		if ( 'itemlist' === $schema_type && ! apply_filters( 'rankready_inject_itemlist_schema', true ) ) return;
+
+		$schema_data = get_post_meta( $post->ID, RR_META_SCHEMA_DATA, true );
+		if ( empty( $schema_data ) || ! is_array( $schema_data ) ) return;
+
+		// Allow developer customization.
+		if ( 'itemlist' === $schema_type ) {
+			$schema_data = apply_filters( 'rankready_itemlist_schema', $schema_data, $post );
+		}
+
+		echo '<script type="application/ld+json">'
+			. wp_json_encode( $schema_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT )
+			. '</script>' . "\n";
+	}
+
+	/**
+	 * Invalidate schema cache when a post is saved — forces re-scan on next cron run.
+	 */
+	public static function invalidate_schema_cache( int $post_id, \WP_Post $post ): void {
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) return;
+		if ( 'publish' !== $post->post_status ) return;
 		if ( ! is_post_type_viewable( $post->post_type ) ) return;
 
-		// Skip if Rank Math HowTo block exists — they handle their own schema.
-		if ( false !== strpos( $post->post_content, 'rank-math/howto-block' ) ) return;
-		if ( false !== strpos( $post->post_content, 'yoast/how-to-block' ) ) return;
-		if ( false !== strpos( $post->post_content, 'yoast-seo/how-to' ) ) return;
+		// Delete the hash so cron picks it up for re-scanning.
+		delete_post_meta( $post_id, RR_META_SCHEMA_HASH );
+	}
 
-		// Detect if this is a "how to" post by title or content patterns.
+	/**
+	 * WP-Cron callback — scans a batch of posts for HowTo/ItemList schema.
+	 * Runs every 5 minutes via wp-cron.php. Processes posts that have no
+	 * schema hash or whose content has changed since last scan.
+	 */
+	public static function cron_schema_scan(): void {
+		$batch_size = (int) get_option( RR_OPT_SCHEMA_BATCH_SIZE, 10 );
+		if ( $batch_size < 1 ) $batch_size = 1;
+		if ( $batch_size > 50 ) $batch_size = 50;
+
+		// Get viewable post types.
+		$post_types = get_post_types( array( 'public' => true ), 'names' );
+		unset( $post_types['attachment'] );
+		if ( empty( $post_types ) ) return;
+
+		global $wpdb;
+
+		// Find posts that need scanning:
+		// 1. No schema hash at all (never scanned)
+		// 2. Schema hash doesn't match current content hash (content changed)
+		$post_type_in = "'" . implode( "','", array_map( 'esc_sql', $post_types ) ) . "'";
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$post_ids = $wpdb->get_col( $wpdb->prepare(
+			"SELECT p.ID FROM {$wpdb->posts} p
+			 LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
+			 WHERE p.post_status = 'publish'
+			   AND p.post_type IN ({$post_type_in})
+			   AND (pm.meta_value IS NULL OR pm.meta_value = '')
+			 ORDER BY p.post_modified DESC
+			 LIMIT %d",
+			RR_META_SCHEMA_HASH,
+			$batch_size
+		) );
+
+		if ( empty( $post_ids ) ) return;
+
+		foreach ( $post_ids as $post_id ) {
+			$post_id = (int) $post_id;
+			self::scan_single_post( $post_id );
+		}
+	}
+
+	/**
+	 * Scan a single post for HowTo or ItemList schema and store results in meta.
+	 *
+	 * @param int $post_id The post ID to scan.
+	 * @return string The detected schema type ('howto', 'itemlist', or '').
+	 */
+	public static function scan_single_post( int $post_id ): string {
+		$post = get_post( $post_id );
+		if ( ! $post || 'publish' !== $post->post_status ) return '';
+
+		$title   = get_the_title( $post_id );
+		$content = $post->post_content;
+
+		// Generate content hash for change detection.
+		$hash = md5( $title . '|' . $content );
+
+		// Check if already scanned with same content.
+		$stored_hash = (string) get_post_meta( $post_id, RR_META_SCHEMA_HASH, true );
+		if ( $hash === $stored_hash ) {
+			return (string) get_post_meta( $post_id, RR_META_SCHEMA_TYPE, true );
+		}
+
+		$schema_type = '';
+		$schema_data = array();
+
+		// ── Try HowTo detection first ─────────────────────────────────────
+		if ( 'on' === get_option( RR_OPT_SCHEMA_HOWTO, 'on' ) ) {
+			$schema_data = self::detect_howto_schema( $post );
+			if ( ! empty( $schema_data ) ) {
+				$schema_type = 'howto';
+			}
+		}
+
+		// ── Try ItemList if not HowTo ─────────────────────────────────────
+		if ( empty( $schema_type ) && 'on' === get_option( RR_OPT_SCHEMA_ITEMLIST, 'on' ) ) {
+			$schema_data = self::detect_itemlist_schema( $post );
+			if ( ! empty( $schema_data ) ) {
+				$schema_type = 'itemlist';
+			}
+		}
+
+		// Store results (even empty — so we know it was scanned).
+		update_post_meta( $post_id, RR_META_SCHEMA_TYPE, $schema_type );
+		update_post_meta( $post_id, RR_META_SCHEMA_DATA, $schema_data );
+		update_post_meta( $post_id, RR_META_SCHEMA_HASH, $hash );
+
+		return $schema_type;
+	}
+
+	/**
+	 * Detect HowTo schema from post content.
+	 * Returns complete schema array or empty array if not a HowTo post.
+	 */
+	private static function detect_howto_schema( \WP_Post $post ): array {
+		// Skip if Rank Math/Yoast HowTo block exists.
+		if ( false !== strpos( $post->post_content, 'rank-math/howto-block' ) ) return array();
+		if ( false !== strpos( $post->post_content, 'yoast/how-to-block' ) ) return array();
+		if ( false !== strpos( $post->post_content, 'yoast-seo/how-to' ) ) return array();
+
 		$title = strtolower( get_the_title( $post->ID ) );
 		$has_howto_title = (
 			false !== strpos( $title, 'how to' ) ||
@@ -1002,29 +1139,23 @@ class RR_Block {
 			false !== strpos( $title, 'tutorial' ) ||
 			false !== strpos( $title, 'guide to' )
 		);
+		if ( ! $has_howto_title ) return array();
 
-		// Extract steps from content.
 		$steps = self::extract_howto_steps( $post->post_content );
+		if ( count( $steps ) < 2 ) return array();
 
-		// Need at least 2 steps AND a how-to title to generate schema.
-		if ( count( $steps ) < 2 || ! $has_howto_title ) return;
-
-		// Build HowTo JSON-LD.
+		// Build schema.
 		$schema_steps = array();
-		$position     = 1;
+		$position = 1;
 		foreach ( $steps as $step ) {
-			$step_schema = array(
+			$s = array(
 				'@type'    => 'HowToStep',
 				'position' => $position,
 				'name'     => $step['name'],
 			);
-			if ( ! empty( $step['text'] ) ) {
-				$step_schema['text'] = $step['text'];
-			}
-			if ( ! empty( $step['image'] ) ) {
-				$step_schema['image'] = $step['image'];
-			}
-			$schema_steps[] = $step_schema;
+			if ( ! empty( $step['text'] ) )  $s['text']  = $step['text'];
+			if ( ! empty( $step['image'] ) ) $s['image'] = $step['image'];
+			$schema_steps[] = $s;
 			$position++;
 		}
 
@@ -1035,7 +1166,7 @@ class RR_Block {
 			'step'     => $schema_steps,
 		);
 
-		// Add description from RankReady summary or post excerpt.
+		// Description from summary or excerpt.
 		$raw_summary = (string) get_post_meta( $post->ID, RR_META_SUMMARY, true );
 		if ( ! empty( $raw_summary ) ) {
 			$summary = RR_Generator::decode_summary( $raw_summary );
@@ -1048,179 +1179,28 @@ class RR_Block {
 			$schema['description'] = wp_strip_all_tags( $post->post_excerpt );
 		}
 
-		// Add featured image.
+		// Featured image.
 		if ( has_post_thumbnail( $post->ID ) ) {
 			$img = wp_get_attachment_image_src( get_post_thumbnail_id( $post->ID ), 'large' );
 			if ( $img ) {
 				$schema['image'] = array(
-					'@type'  => 'ImageObject',
-					'url'    => $img[0],
-					'width'  => $img[1],
-					'height' => $img[2],
+					'@type' => 'ImageObject', 'url' => $img[0],
+					'width' => $img[1], 'height' => $img[2],
 				);
 			}
 		}
 
-		echo '<script type="application/ld+json">'
-			. wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT )
-			. '</script>' . "\n";
+		return $schema;
 	}
 
 	/**
-	 * Extract step-by-step instructions from post content.
-	 *
-	 * Detection methods (in priority order):
-	 * 1. Headings with "Step N" pattern: <h2>Step 1: Do this</h2> followed by content
-	 * 2. Numbered headings: <h2>1. Do this</h2> or <h3>2) Do that</h3>
-	 * 3. Ordered list items: <ol><li>Do this</li></ol>
-	 *
-	 * @param string $content Post content (raw HTML).
-	 * @return array Array of steps with 'name', 'text', and optionally 'image'.
+	 * Detect ItemList schema from post content.
+	 * Returns complete schema array or empty array if not a listicle.
 	 */
-	private static function extract_howto_steps( string $content ): array {
-		$steps = array();
-
-		// ── Method 1: Headings with "Step N" patterns ─────────────────────
-		// Matches: "Step 1: Title", "Step 2 - Title", "Step 3. Title", "Step 4 Title"
-		if ( preg_match_all(
-			'/<h([2-4])[^>]*>\s*(?:Step\s+\d+\s*[:\-.\)]*\s*)(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-4][^>]*>\s*(?:Step\s+\d+|$)|$)/i',
-			$content,
-			$matches,
-			PREG_SET_ORDER
-		) && count( $matches ) >= 2 ) {
-			foreach ( $matches as $m ) {
-				$name = wp_strip_all_tags( trim( $m[2] ) );
-				$body = isset( $m[3] ) ? trim( $m[3] ) : '';
-				if ( empty( $name ) ) continue;
-
-				$step = array( 'name' => $name );
-				$step['text']  = self::extract_step_text( $body );
-				$step['image'] = self::extract_step_image( $body );
-				$steps[] = $step;
-			}
-			if ( count( $steps ) >= 2 ) return $steps;
-			$steps = array(); // Reset if not enough
-		}
-
-		// ── Method 2: Numbered headings ───────────────────────────────────
-		// Matches: "1. Do this", "2) Do that", "3 - Do something"
-		if ( preg_match_all(
-			'/<h([2-4])[^>]*>\s*(\d+)\s*[.\)\-:]+\s*(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-4][^>]*>\s*\d+\s*[.\)\-:]|$)/i',
-			$content,
-			$matches,
-			PREG_SET_ORDER
-		) && count( $matches ) >= 2 ) {
-			foreach ( $matches as $m ) {
-				$name = wp_strip_all_tags( trim( $m[3] ) );
-				$body = isset( $m[4] ) ? trim( $m[4] ) : '';
-				if ( empty( $name ) ) continue;
-
-				$step = array( 'name' => $name );
-				$step['text']  = self::extract_step_text( $body );
-				$step['image'] = self::extract_step_image( $body );
-				$steps[] = $step;
-			}
-			if ( count( $steps ) >= 2 ) return $steps;
-			$steps = array();
-		}
-
-		// ── Method 3: Ordered list items ──────────────────────────────────
-		// Extract <ol> blocks and their <li> items.
-		if ( preg_match_all( '/<ol[^>]*>([\s\S]*?)<\/ol>/i', $content, $ol_matches ) ) {
-			foreach ( $ol_matches[1] as $ol_content ) {
-				if ( preg_match_all( '/<li[^>]*>([\s\S]*?)<\/li>/i', $ol_content, $li_matches ) ) {
-					if ( count( $li_matches[1] ) < 2 ) continue;
-
-					$ol_steps = array();
-					foreach ( $li_matches[1] as $li ) {
-						$text = wp_strip_all_tags( trim( $li ) );
-						if ( empty( $text ) || strlen( $text ) < 5 ) continue;
-
-						// Split on first sentence for name vs text.
-						$first_period = strpos( $text, '. ' );
-						if ( false !== $first_period && $first_period < 100 ) {
-							$name = substr( $text, 0, $first_period );
-							$desc = substr( $text, $first_period + 2 );
-						} else {
-							$name = $text;
-							$desc = '';
-						}
-
-						$step = array( 'name' => $name );
-						if ( ! empty( $desc ) ) {
-							$step['text'] = $desc;
-						}
-						$step['image'] = self::extract_step_image( $li );
-						$ol_steps[] = $step;
-					}
-
-					// Use the longest ordered list found (most likely the actual steps).
-					if ( count( $ol_steps ) > count( $steps ) ) {
-						$steps = $ol_steps;
-					}
-				}
-			}
-		}
-
-		return $steps;
-	}
-
-	/**
-	 * Extract clean text from the body content between step headings.
-	 * Strips HTML, shortcodes, and trims to a reasonable length.
-	 */
-	private static function extract_step_text( string $body ): string {
-		if ( empty( $body ) ) return '';
-
-		// Remove nested headings (sub-steps might have h5/h6).
-		$body = preg_replace( '/<h[1-6][^>]*>.*?<\/h[1-6]>/is', '', $body );
-
-		// Strip HTML but keep text content.
-		$text = wp_strip_all_tags( $body );
-		$text = preg_replace( '/\s+/', ' ', trim( $text ) );
-
-		// Trim to first 500 chars to keep schema reasonable.
-		if ( strlen( $text ) > 500 ) {
-			$text = substr( $text, 0, 497 ) . '...';
-		}
-
-		return $text;
-	}
-
-	/**
-	 * Extract the first image URL from step body content.
-	 */
-	private static function extract_step_image( string $body ): string {
-		if ( empty( $body ) ) return '';
-		if ( preg_match( '/<img[^>]+src=["\']([^"\']+)["\']/', $body, $img_match ) ) {
-			return esc_url( $img_match[1] );
-		}
-		return '';
-	}
-
-	// ══════════════════════════════════════════════════════════════════════════
-	// ITEMLIST SCHEMA — AUTO-DETECTION FOR LISTICLE POSTS
-	//
-	// Scans post content for numbered list items (e.g., "5 Best Elementor Addons").
-	// Detects patterns: "N. Item Name" headings, "Top N", "Best N", "N Best".
-	// Extracts items from existing content — never adds new content to the post.
-	// Mutually exclusive with HowTo schema — a post gets one or the other.
-	// ══════════════════════════════════════════════════════════════════════════
-
-	/**
-	 * Inject ItemList JSON-LD schema if post content is a listicle.
-	 */
-	public static function maybe_inject_itemlist_schema(): void {
-		if ( 'on' !== get_option( RR_OPT_SCHEMA_ITEMLIST, 'on' ) ) return;
-		if ( ! is_singular() ) return;
-		if ( ! apply_filters( 'rankready_inject_itemlist_schema', true ) ) return;
-
-		$post = get_queried_object();
-		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) return;
-		if ( ! is_post_type_viewable( $post->post_type ) ) return;
-
-		// Skip if HowTo schema was already injected (mutually exclusive).
+	private static function detect_itemlist_schema( \WP_Post $post ): array {
 		$title_lower = strtolower( get_the_title( $post->ID ) );
+
+		// Skip if title matches HowTo patterns (mutually exclusive).
 		$is_howto = (
 			false !== strpos( $title_lower, 'how to' ) ||
 			false !== strpos( $title_lower, 'how-to' ) ||
@@ -1229,64 +1209,43 @@ class RR_Block {
 			false !== strpos( $title_lower, 'tutorial' ) ||
 			false !== strpos( $title_lower, 'guide to' )
 		);
-		if ( $is_howto ) return;
+		if ( $is_howto ) return array();
 
-		// Detect if this is a listicle by title pattern.
-		$has_listicle_title = (bool) preg_match(
+		// Detect listicle title.
+		$has_listicle = (bool) preg_match(
 			'/\b(?:best|top|ultimate|essential|must.have|popular|leading|greatest|finest)\s+\d+|\d+\s+(?:best|top|must.have|essential|popular|leading|greatest|finest)\b/i',
 			$title_lower
 		);
-		// Also match "N Things/Tools/Plugins/Addons/Ways/Tips/Resources/Options/Alternatives".
-		if ( ! $has_listicle_title ) {
-			$has_listicle_title = (bool) preg_match(
+		if ( ! $has_listicle ) {
+			$has_listicle = (bool) preg_match(
 				'/\b\d+\s+(?:things|tools|plugins|addons|add-ons|ways|tips|resources|options|alternatives|examples|features|reasons|tricks|methods|strategies|ideas|sites|themes|extensions|widgets|apps|services|solutions|products|picks)\b/i',
 				$title_lower
 			);
 		}
-		// Also match "Best X for Y" without a number.
-		if ( ! $has_listicle_title ) {
-			$has_listicle_title = (bool) preg_match(
+		if ( ! $has_listicle ) {
+			$has_listicle = (bool) preg_match(
 				'/^(?:the\s+)?(?:best|top|ultimate|essential)\s+\w+/i',
 				$title_lower
 			);
 		}
+		if ( ! $has_listicle ) return array();
 
-		if ( ! $has_listicle_title ) return;
-
-		// Extract list items from content.
 		$items = self::extract_listicle_items( $post->post_content );
+		if ( count( $items ) < 3 ) return array();
 
-		// Need at least 3 items for a valid listicle.
-		if ( count( $items ) < 3 ) return;
-
-		// Build ItemList JSON-LD.
+		// Build schema.
 		$list_items = array();
-		$position   = 1;
-
+		$position = 1;
 		foreach ( $items as $item ) {
-			$list_element = array(
-				'@type'    => 'ListItem',
-				'position' => $position,
-				'name'     => $item['name'],
-			);
-
-			if ( ! empty( $item['url'] ) ) {
-				$list_element['url'] = $item['url'];
-			}
-
-			if ( ! empty( $item['description'] ) ) {
-				$list_element['description'] = $item['description'];
-			}
-
-			if ( ! empty( $item['image'] ) ) {
-				$list_element['image'] = $item['image'];
-			}
-
-			$list_items[] = $list_element;
+			$el = array( '@type' => 'ListItem', 'position' => $position, 'name' => $item['name'] );
+			if ( ! empty( $item['url'] ) )         $el['url']         = $item['url'];
+			if ( ! empty( $item['description'] ) ) $el['description'] = $item['description'];
+			if ( ! empty( $item['image'] ) )       $el['image']       = $item['image'];
+			$list_items[] = $el;
 			$position++;
 		}
 
-		$schema = array(
+		return array(
 			'@context'        => 'https://schema.org',
 			'@type'           => 'ItemList',
 			'name'            => get_the_title( $post->ID ),
@@ -1295,132 +1254,204 @@ class RR_Block {
 			'numberOfItems'   => count( $list_items ),
 			'itemListElement' => $list_items,
 		);
-
-		$schema = apply_filters( 'rankready_itemlist_schema', $schema, $post );
-
-		echo '<script type="application/ld+json">'
-			. wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT )
-			. '</script>' . "\n";
 	}
 
 	/**
-	 * Extract listicle items from post content.
-	 *
-	 * Detection methods (in priority order):
-	 * 1. Numbered headings: <h2>1. Product Name</h2> or <h3>2. Tool Name</h3>
-	 * 2. Headings with numbering: <h2>Product Name</h2> in sequence (3+ consecutive h2/h3)
-	 *
-	 * @param string $content Post content (raw HTML).
-	 * @return array Array of items with 'name', optionally 'url', 'description', 'image'.
+	 * Get recommended batch size based on server resources.
+	 * Called from admin UI to suggest optimal settings.
 	 */
+	public static function get_server_recommendation(): array {
+		$memory_limit   = wp_convert_hr_to_bytes( ini_get( 'memory_limit' ) ?: '128M' );
+		$max_exec_time  = (int) ini_get( 'max_execution_time' ) ?: 30;
+		$php_version    = PHP_VERSION;
+
+		global $wpdb;
+		$total_posts = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type IN ('post','page')"
+		);
+		$unscanned = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$wpdb->posts} p
+			 LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
+			 WHERE p.post_status = 'publish'
+			   AND p.post_type IN ('post','page')
+			   AND (pm.meta_value IS NULL OR pm.meta_value = '')",
+			RR_META_SCHEMA_HASH
+		) );
+
+		// Recommendation logic.
+		$recommended_batch = 10; // Safe default.
+
+		if ( $memory_limit >= 512 * MB_IN_BYTES && $max_exec_time >= 60 ) {
+			$recommended_batch = 25; // High-resource VPS.
+		} elseif ( $memory_limit >= 256 * MB_IN_BYTES && $max_exec_time >= 30 ) {
+			$recommended_batch = 15; // Mid-range server.
+		} elseif ( $memory_limit < 128 * MB_IN_BYTES ) {
+			$recommended_batch = 5;  // Shared hosting.
+		}
+
+		// Estimate time to complete.
+		$batches_needed  = $unscanned > 0 ? ceil( $unscanned / $recommended_batch ) : 0;
+		$minutes_to_complete = $batches_needed * 5; // 5 min interval.
+
+		return array(
+			'memory_limit'        => size_format( $memory_limit ),
+			'max_execution_time'  => $max_exec_time . 's',
+			'php_version'         => $php_version,
+			'total_posts'         => $total_posts,
+			'unscanned_posts'     => $unscanned,
+			'scanned_posts'       => $total_posts - $unscanned,
+			'recommended_batch'   => $recommended_batch,
+			'current_batch'       => (int) get_option( RR_OPT_SCHEMA_BATCH_SIZE, 10 ),
+			'est_minutes'         => $minutes_to_complete,
+			'cron_next_run'       => wp_next_scheduled( RR_SCHEMA_CRON_HOOK )
+				? human_time_diff( time(), wp_next_scheduled( RR_SCHEMA_CRON_HOOK ) )
+				: __( 'Not scheduled', 'rankready' ),
+			'server_tier'         => $memory_limit >= 512 * MB_IN_BYTES ? 'high' : ( $memory_limit >= 256 * MB_IN_BYTES ? 'mid' : 'low' ),
+		);
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// EXTRACTION HELPERS (used by both detect_howto_schema and detect_itemlist_schema)
+	// ══════════════════════════════════════════════════════════════════════════
+
+	private static function extract_howto_steps( string $content ): array {
+		$steps = array();
+
+		// Method 1: "Step N" headings.
+		if ( preg_match_all(
+			'/<h([2-4])[^>]*>\s*(?:Step\s+\d+\s*[:\-.\)]*\s*)(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-4][^>]*>\s*(?:Step\s+\d+|$)|$)/i',
+			$content, $matches, PREG_SET_ORDER
+		) && count( $matches ) >= 2 ) {
+			foreach ( $matches as $m ) {
+				$name = wp_strip_all_tags( trim( $m[2] ) );
+				$body = isset( $m[3] ) ? trim( $m[3] ) : '';
+				if ( empty( $name ) ) continue;
+				$steps[] = array( 'name' => $name, 'text' => self::extract_step_text( $body ), 'image' => self::extract_step_image( $body ) );
+			}
+			if ( count( $steps ) >= 2 ) return $steps;
+			$steps = array();
+		}
+
+		// Method 2: Numbered headings.
+		if ( preg_match_all(
+			'/<h([2-4])[^>]*>\s*(\d+)\s*[.\)\-:]+\s*(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-4][^>]*>\s*\d+\s*[.\)\-:]|$)/i',
+			$content, $matches, PREG_SET_ORDER
+		) && count( $matches ) >= 2 ) {
+			foreach ( $matches as $m ) {
+				$name = wp_strip_all_tags( trim( $m[3] ) );
+				$body = isset( $m[4] ) ? trim( $m[4] ) : '';
+				if ( empty( $name ) ) continue;
+				$steps[] = array( 'name' => $name, 'text' => self::extract_step_text( $body ), 'image' => self::extract_step_image( $body ) );
+			}
+			if ( count( $steps ) >= 2 ) return $steps;
+			$steps = array();
+		}
+
+		// Method 3: Ordered lists.
+		if ( preg_match_all( '/<ol[^>]*>([\s\S]*?)<\/ol>/i', $content, $ol_matches ) ) {
+			foreach ( $ol_matches[1] as $ol_content ) {
+				if ( preg_match_all( '/<li[^>]*>([\s\S]*?)<\/li>/i', $ol_content, $li_matches ) ) {
+					if ( count( $li_matches[1] ) < 2 ) continue;
+					$ol_steps = array();
+					foreach ( $li_matches[1] as $li ) {
+						$text = wp_strip_all_tags( trim( $li ) );
+						if ( empty( $text ) || strlen( $text ) < 5 ) continue;
+						$first_period = strpos( $text, '. ' );
+						if ( false !== $first_period && $first_period < 100 ) {
+							$name = substr( $text, 0, $first_period );
+							$desc = substr( $text, $first_period + 2 );
+						} else {
+							$name = $text;
+							$desc = '';
+						}
+						$step = array( 'name' => $name, 'image' => self::extract_step_image( $li ) );
+						if ( ! empty( $desc ) ) $step['text'] = $desc;
+						$ol_steps[] = $step;
+					}
+					if ( count( $ol_steps ) > count( $steps ) ) $steps = $ol_steps;
+				}
+			}
+		}
+		return $steps;
+	}
+
 	private static function extract_listicle_items( string $content ): array {
 		$items = array();
 
-		// ── Method 1: Numbered headings ───────────────────────────────────
-		// Matches: "1. Product Name", "2) Tool Name", "3 - Plugin Name", "#1 Plugin Name"
+		// Method 1: Numbered headings.
 		if ( preg_match_all(
 			'/<h([2-3])[^>]*>\s*(?:#?\d+[\.\)\-:\s]+)\s*(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-3][^>]*>\s*(?:#?\d+[\.\)\-:\s])|$)/i',
-			$content,
-			$matches,
-			PREG_SET_ORDER
+			$content, $matches, PREG_SET_ORDER
 		) && count( $matches ) >= 3 ) {
 			foreach ( $matches as $m ) {
 				$name = wp_strip_all_tags( trim( $m[2] ) );
 				$body = isset( $m[3] ) ? trim( $m[3] ) : '';
 				if ( empty( $name ) ) continue;
-
-				// Clean up name — remove trailing punctuation and common suffixes.
 				$name = preg_replace( '/\s*[\-\–\—]\s*(?:Review|Overview|Pricing|Features).*$/i', '', $name );
 				$name = rtrim( $name, ' :-–—' );
-
-				$item = array( 'name' => $name );
-				$item['url']         = self::extract_item_url( $body, $name );
-				$item['description'] = self::extract_item_description( $body );
-				$item['image']       = self::extract_step_image( $body );
-				$items[] = $item;
+				$items[] = array(
+					'name' => $name, 'url' => self::extract_item_url( $body, $name ),
+					'description' => self::extract_item_description( $body ), 'image' => self::extract_step_image( $body ),
+				);
 			}
 			if ( count( $items ) >= 3 ) return $items;
 			$items = array();
 		}
 
-		// ── Method 2: Consecutive headings without numbering ──────────────
-		// Matches sequences of h2 or h3 headings followed by content blocks.
-		// Only triggers if 3+ headings at same level appear in sequence.
+		// Method 2: Consecutive headings.
 		if ( preg_match_all(
 			'/<h([2-3])[^>]*>\s*(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-3][^>]*>|$)/i',
-			$content,
-			$matches,
-			PREG_SET_ORDER
+			$content, $matches, PREG_SET_ORDER
 		) && count( $matches ) >= 3 ) {
-			// Filter out generic headings that aren't list items.
-			$skip_patterns = '/^(?:introduction|conclusion|summary|overview|what\s+is|why|how|faq|frequently|final\s+thoughts|wrap.up|table\s+of\s+contents|related|bonus|honorable|key\s+takeaways)/i';
-
+			$skip = '/^(?:introduction|conclusion|summary|overview|what\s+is|why|how|faq|frequently|final\s+thoughts|wrap.up|table\s+of\s+contents|related|bonus|honorable|key\s+takeaways)/i';
 			foreach ( $matches as $m ) {
 				$name = wp_strip_all_tags( trim( $m[2] ) );
 				$body = isset( $m[3] ) ? trim( $m[3] ) : '';
-				if ( empty( $name ) ) continue;
-
-				// Skip generic section headings.
-				if ( preg_match( $skip_patterns, $name ) ) continue;
-				// Skip very short headings (likely not product names).
-				if ( strlen( $name ) < 3 ) continue;
-				// Skip step-like headings (those belong to HowTo).
+				if ( empty( $name ) || strlen( $name ) < 3 ) continue;
+				if ( preg_match( $skip, $name ) ) continue;
 				if ( preg_match( '/^step\s+\d+/i', $name ) ) continue;
-
 				$name = rtrim( $name, ' :-–—' );
-
-				$item = array( 'name' => $name );
-				$item['url']         = self::extract_item_url( $body, $name );
-				$item['description'] = self::extract_item_description( $body );
-				$item['image']       = self::extract_step_image( $body );
-				$items[] = $item;
+				$items[] = array(
+					'name' => $name, 'url' => self::extract_item_url( $body, $name ),
+					'description' => self::extract_item_description( $body ), 'image' => self::extract_step_image( $body ),
+				);
 			}
 		}
-
 		return $items;
 	}
 
-	/**
-	 * Extract the most relevant URL from a listicle item body.
-	 * Prioritizes links that match the item name.
-	 */
-	private static function extract_item_url( string $body, string $name ): string {
+	private static function extract_step_text( string $body ): string {
 		if ( empty( $body ) ) return '';
+		$body = preg_replace( '/<h[1-6][^>]*>.*?<\/h[1-6]>/is', '', $body );
+		$text = wp_strip_all_tags( $body );
+		$text = preg_replace( '/\s+/', ' ', trim( $text ) );
+		if ( strlen( $text ) > 500 ) $text = substr( $text, 0, 497 ) . '...';
+		return $text;
+	}
 
-		// First try to find a link whose text matches the item name.
-		$name_escaped = preg_quote( $name, '/' );
-		if ( preg_match( '/<a[^>]+href=["\']([^"\']+)["\'][^>]*>.*?' . $name_escaped . '.*?<\/a>/is', $body, $m ) ) {
-			return esc_url( $m[1] );
-		}
-
-		// Otherwise take the first external link.
-		if ( preg_match( '/<a[^>]+href=["\'](https?:\/\/[^"\']+)["\']/', $body, $m ) ) {
-			return esc_url( $m[1] );
-		}
-
+	private static function extract_step_image( string $body ): string {
+		if ( empty( $body ) ) return '';
+		if ( preg_match( '/<img[^>]+src=["\']([^"\']+)["\']/', $body, $m ) ) return esc_url( $m[1] );
 		return '';
 	}
 
-	/**
-	 * Extract a short description from listicle item body content.
-	 */
+	private static function extract_item_url( string $body, string $name ): string {
+		if ( empty( $body ) ) return '';
+		$esc = preg_quote( $name, '/' );
+		if ( preg_match( '/<a[^>]+href=["\']([^"\']+)["\'][^>]*>.*?' . $esc . '.*?<\/a>/is', $body, $m ) ) return esc_url( $m[1] );
+		if ( preg_match( '/<a[^>]+href=["\'](https?:\/\/[^"\']+)["\']/', $body, $m ) ) return esc_url( $m[1] );
+		return '';
+	}
+
 	private static function extract_item_description( string $body ): string {
 		if ( empty( $body ) ) return '';
-
-		// Get first paragraph or first meaningful text.
 		if ( preg_match( '/<p[^>]*>([\s\S]*?)<\/p>/i', $body, $m ) ) {
 			$text = wp_strip_all_tags( $m[1] );
 		} else {
 			$text = wp_strip_all_tags( $body );
 		}
-
 		$text = preg_replace( '/\s+/', ' ', trim( $text ) );
-
-		// Trim to 200 chars.
-		if ( strlen( $text ) > 200 ) {
-			$text = substr( $text, 0, 197 ) . '...';
-		}
-
+		if ( strlen( $text ) > 200 ) $text = substr( $text, 0, 197 ) . '...';
 		return $text;
 	}
 }

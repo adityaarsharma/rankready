@@ -93,6 +93,12 @@ $options = array(
 	'rr_schema_howto',
 	'rr_schema_itemlist',
 	'rr_schema_speakable',
+	'rr_schema_batch_size',
+	// Schema scan bulk state.
+	'rr_schema_queue',
+	'rr_schema_done',
+	'rr_schema_total',
+	'rr_schema_running',
 );
 
 foreach ( $options as $option ) {
@@ -117,6 +123,9 @@ $meta_keys = array(
 	'_rr_faq_disable',
 	'_rr_faq_keyword',
 	'_rr_tokens_used',
+	'_rr_schema_type',
+	'_rr_schema_data',
+	'_rr_schema_hash',
 );
 
 foreach ( $meta_keys as $key ) {
@@ -126,6 +135,7 @@ foreach ( $meta_keys as $key ) {
 // ── Clear scheduled cron ──────────────────────────────────────────────────────
 wp_clear_scheduled_hook( 'rr_async_generate' );
 wp_clear_scheduled_hook( 'rr_async_faq_generate' );
+wp_clear_scheduled_hook( 'rr_schema_scan' );
 
 // ── Flush rewrite rules to clean up llms.txt and .md endpoints ───────────────
 flush_rewrite_rules( false );

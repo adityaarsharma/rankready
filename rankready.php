@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://posimyth.com/rankready/
  * Description:       AI summaries, Article JSON-LD schema with speakable, LLMs.txt generator, Markdown endpoints for LLM crawlers, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           1.3
+ * Version:           1.5
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH Innovations
@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.3' );
+	define( 'RR_VERSION',  '1.5' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -62,11 +62,26 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_OPT_MD_INCLUDE_META',   'rr_md_include_meta' );
 
 	// Option keys — Schema Automation.
-	define( 'RR_OPT_SCHEMA_ARTICLE',   'rr_schema_article' );
-	define( 'RR_OPT_SCHEMA_FAQ',       'rr_schema_faq' );
-	define( 'RR_OPT_SCHEMA_HOWTO',     'rr_schema_howto' );
-	define( 'RR_OPT_SCHEMA_ITEMLIST',  'rr_schema_itemlist' );
-	define( 'RR_OPT_SCHEMA_SPEAKABLE', 'rr_schema_speakable' );
+	define( 'RR_OPT_SCHEMA_ARTICLE',    'rr_schema_article' );
+	define( 'RR_OPT_SCHEMA_FAQ',        'rr_schema_faq' );
+	define( 'RR_OPT_SCHEMA_HOWTO',      'rr_schema_howto' );
+	define( 'RR_OPT_SCHEMA_ITEMLIST',   'rr_schema_itemlist' );
+	define( 'RR_OPT_SCHEMA_SPEAKABLE',  'rr_schema_speakable' );
+	define( 'RR_OPT_SCHEMA_BATCH_SIZE', 'rr_schema_batch_size' );
+
+	// Meta keys — Schema Automation (stored by WP-Cron scanner).
+	define( 'RR_META_SCHEMA_TYPE', '_rr_schema_type' );   // 'howto', 'itemlist', or ''
+	define( 'RR_META_SCHEMA_DATA', '_rr_schema_data' );   // Serialized schema array
+	define( 'RR_META_SCHEMA_HASH', '_rr_schema_hash' );   // md5(title+content) for change detection
+
+	// Cron — Schema scanner.
+	define( 'RR_SCHEMA_CRON_HOOK', 'rr_schema_scan' );
+
+	// Bulk state — Schema scan.
+	define( 'RR_SCHEMA_QUEUE',   'rr_schema_queue' );
+	define( 'RR_SCHEMA_DONE',    'rr_schema_done' );
+	define( 'RR_SCHEMA_TOTAL',   'rr_schema_total' );
+	define( 'RR_SCHEMA_RUNNING', 'rr_schema_running' );
 
 	// Option keys — FAQ.
 	define( 'RR_OPT_DFS_LOGIN',        'rr_dfs_login' );
@@ -196,6 +211,17 @@ add_action( 'plugins_loaded', function (): void {
 		}
 	}
 
+	// Register custom cron schedule for schema scanner.
+	add_filter( 'cron_schedules', function ( array $schedules ): array {
+		if ( ! isset( $schedules['rr_five_minutes'] ) ) {
+			$schedules['rr_five_minutes'] = array(
+				'interval' => 5 * MINUTE_IN_SECONDS,
+				'display'  => __( 'Every 5 Minutes (RankReady)', 'rankready' ),
+			);
+		}
+		return $schedules;
+	} );
+
 	RR_Admin::init();
 	RR_Generator::init();
 	RR_Block::init();
@@ -265,6 +291,11 @@ register_activation_hook( RR_FILE, function (): void {
 
 	// Sync to physical robots.txt if one exists.
 	RR_Llms_Txt::sync_physical_robots_txt();
+
+	// Schedule schema scanner cron if not already scheduled.
+	if ( ! wp_next_scheduled( RR_SCHEMA_CRON_HOOK ) ) {
+		wp_schedule_event( time(), 'rr_five_minutes', RR_SCHEMA_CRON_HOOK );
+	}
 } );
 
 register_deactivation_hook( RR_FILE, function (): void {
@@ -273,9 +304,11 @@ register_deactivation_hook( RR_FILE, function (): void {
 		wp_unschedule_event( $timestamp, RR_CRON_HOOK );
 	}
 	wp_clear_scheduled_hook( 'rr_async_faq_generate' );
+	wp_clear_scheduled_hook( RR_SCHEMA_CRON_HOOK );
 	update_option( RR_BULK_RUNNING, false );
 	update_option( RR_BAC_RUNNING, false );
 	update_option( RR_FAQ_RUNNING, false );
+	update_option( RR_SCHEMA_RUNNING, false );
 	delete_transient( RR_LLMS_CACHE_KEY );
 	delete_transient( RR_LLMS_FULL_CACHE_KEY );
 

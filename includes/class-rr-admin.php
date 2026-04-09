@@ -330,6 +330,12 @@ class RR_Admin {
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
 			'default'           => 'on',
 		) );
+
+		register_setting( self::SCHEMA_GROUP, RR_OPT_SCHEMA_BATCH_SIZE, array(
+			'type'              => 'integer',
+			'sanitize_callback' => 'absint',
+			'default'           => 10,
+		) );
 	}
 
 	// ── Sanitize callbacks ────────────────────────────────────────────────────
@@ -1038,6 +1044,72 @@ class RR_Admin {
 					&nbsp;&nbsp;|-- <?php esc_html_e( 'ItemList schema?', 'rankready' ); ?><br>
 					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?php esc_html_e( 'Only if title has "Best N/Top N/N Plugins" AND 3+ items AND NOT a HowTo post', 'rankready' ); ?>
 				</div>
+			</div>
+
+			<!-- Background Schema Scanner (WP-Cron) -->
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Background Schema Scanner', 'rankready' ); ?></h2>
+				<p class="rr-card-desc"><?php esc_html_e( 'HowTo and ItemList schema are detected via WP-Cron in the background. Zero performance impact on page loads. The scanner runs every 5 minutes and processes a batch of posts.', 'rankready' ); ?></p>
+
+				<?php $rec = RR_Block::get_server_recommendation(); ?>
+
+				<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+					<div style="background:#f0f6fc;padding:12px;border-radius:6px;text-align:center;">
+						<div style="font-size:24px;font-weight:700;color:#2271b1;"><?php echo esc_html( $rec['scanned_posts'] ); ?>/<?php echo esc_html( $rec['total_posts'] ); ?></div>
+						<div style="font-size:12px;color:#666;margin-top:4px;"><?php esc_html_e( 'Posts Scanned', 'rankready' ); ?></div>
+					</div>
+					<div style="background:#f0f6fc;padding:12px;border-radius:6px;text-align:center;">
+						<div style="font-size:24px;font-weight:700;color:#d63638;"><?php echo esc_html( $rec['unscanned_posts'] ); ?></div>
+						<div style="font-size:12px;color:#666;margin-top:4px;"><?php esc_html_e( 'Pending Scan', 'rankready' ); ?></div>
+					</div>
+					<div style="background:#f0f6fc;padding:12px;border-radius:6px;text-align:center;">
+						<div style="font-size:24px;font-weight:700;color:#00a32a;"><?php echo esc_html( $rec['cron_next_run'] ); ?></div>
+						<div style="font-size:12px;color:#666;margin-top:4px;"><?php esc_html_e( 'Next Cron Run', 'rankready' ); ?></div>
+					</div>
+					<?php if ( $rec['unscanned_posts'] > 0 ) : ?>
+					<div style="background:#fcf9e8;padding:12px;border-radius:6px;text-align:center;">
+						<div style="font-size:24px;font-weight:700;color:#dba617;">~<?php echo esc_html( $rec['est_minutes'] ); ?> <?php esc_html_e( 'min', 'rankready' ); ?></div>
+						<div style="font-size:12px;color:#666;margin-top:4px;"><?php esc_html_e( 'Est. Time Left', 'rankready' ); ?></div>
+					</div>
+					<?php endif; ?>
+				</div>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><label for="rr_schema_batch"><?php esc_html_e( 'Batch Size (per cron run)', 'rankready' ); ?></label></th>
+						<td>
+							<input type="number" id="rr_schema_batch"
+								   name="<?php echo esc_attr( RR_OPT_SCHEMA_BATCH_SIZE ); ?>"
+								   value="<?php echo esc_attr( (string) $rec['current_batch'] ); ?>"
+								   min="1" max="50" step="1" class="small-text" />
+							<span style="margin-left:8px;color:#2271b1;font-weight:500;">
+								<?php echo esc_html( sprintf( __( 'Recommended: %d', 'rankready' ), $rec['recommended_batch'] ) ); ?>
+							</span>
+							<p class="description" style="margin-top:8px;">
+								<?php esc_html_e( 'Number of posts scanned per WP-Cron tick (every 5 minutes). Higher = faster scan, more memory per tick.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+
+				<!-- Server Resource Info -->
+				<details style="margin-top:8px;">
+					<summary style="cursor:pointer;color:#2271b1;font-weight:500;"><?php esc_html_e( 'Your Server Resources', 'rankready' ); ?></summary>
+					<div style="margin-top:8px;padding:12px;background:#f9f9f9;border-radius:4px;">
+						<table style="width:100%;border-collapse:collapse;">
+							<tr><td style="padding:4px 12px 4px 0;color:#666;"><?php esc_html_e( 'PHP Version', 'rankready' ); ?></td><td style="padding:4px 0;font-weight:500;"><?php echo esc_html( $rec['php_version'] ); ?></td></tr>
+							<tr><td style="padding:4px 12px 4px 0;color:#666;"><?php esc_html_e( 'Memory Limit', 'rankready' ); ?></td><td style="padding:4px 0;font-weight:500;"><?php echo esc_html( $rec['memory_limit'] ); ?></td></tr>
+							<tr><td style="padding:4px 12px 4px 0;color:#666;"><?php esc_html_e( 'Max Execution Time', 'rankready' ); ?></td><td style="padding:4px 0;font-weight:500;"><?php echo esc_html( $rec['max_execution_time'] ); ?></td></tr>
+							<tr><td style="padding:4px 12px 4px 0;color:#666;"><?php esc_html_e( 'Server Tier', 'rankready' ); ?></td><td style="padding:4px 0;font-weight:500;"><?php
+								$tiers = array( 'high' => 'High-Resource VPS', 'mid' => 'Mid-Range Server', 'low' => 'Shared Hosting' );
+								echo esc_html( isset( $tiers[ $rec['server_tier'] ] ) ? $tiers[ $rec['server_tier'] ] : $rec['server_tier'] );
+							?></td></tr>
+						</table>
+						<p style="margin:8px 0 0;font-size:12px;color:#666;">
+							<?php esc_html_e( 'Shared hosting (< 128 MB): batch 5 | Mid-range (256 MB): batch 15 | VPS (512 MB+): batch 25', 'rankready' ); ?>
+						</p>
+					</div>
+				</details>
 			</div>
 
 			<?php submit_button(); ?>

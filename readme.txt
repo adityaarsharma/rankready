@@ -4,7 +4,7 @@ Tags: llm seo, ai summary, schema markup, llms.txt, eeat
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.3
+Stable tag: 1.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,13 +36,28 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 
 == Changelog ==
 
-= 1.3 =
+= 1.5 =
 * New: Schema Automation tab — enable/disable toggles for Article, FAQPage, HowTo, ItemList, and Speakable schema with SEO plugin compatibility guide
 * New: HowTo JSON-LD schema auto-detection — scans post content for step patterns (Step N headings, numbered headings, ordered lists) and injects HowTo schema automatically
 * New: HowTo schema skips injection when Rank Math or Yoast HowTo blocks already exist in post content
 * New: ItemList JSON-LD schema auto-detection — scans listicle posts ("Best N", "Top N", "N Best") and injects ItemList schema with item names, URLs, descriptions, and images
 * New: ItemList and HowTo are mutually exclusive — a post gets one or the other based on title patterns
 * New: Auto-detects active SEO plugin (Rank Math, Yoast, AIOSEO) and shows which schema types are handled by each
+* New: WP-Cron background schema scanner — HowTo/ItemList detection runs every 5 minutes via wp-cron.php, zero performance impact on page loads
+* New: Schema batch size control with dynamic server recommendation (shared hosting: 5, mid-range: 15, VPS: 25)
+* New: Schema scanner progress dashboard — scanned/pending counts, estimated time, next cron run
+* New: Server resource detection — reads PHP memory_limit, max_execution_time, PHP version for batch recommendations
+* New: Smart FAQ algorithm — People Also Ask (PAA) questions from Google SERP, comparison queries, Reddit-style questions
+* New: Page-type-aware FAQ — auto-detects docs, landing pages, comparisons, tutorials, and blog posts for tailored question styles
+* New: FAQ questions for docs pages — troubleshooting, compatibility, configuration questions
+* New: FAQ questions for landing pages — buyer objections, pricing, decision-making, "is it worth it" questions
+* New: FAQ questions for comparison pages — "which is better", migration, feature difference questions
+* New: Multi-source question discovery — PAA + keyword suggestions + related keywords + Google related searches
+* New: Levenshtein fuzzy deduplication — removes near-duplicate questions (< 30% string distance)
+* New: Smart question ranking — PAA weighted highest, then comparison queries, then keyword suggestions
+* New: LLM-optimized answers — each FAQ answer designed as standalone knowledge unit AI chatbots can cite
+* New: JSON response wrapper handling — auto-detects {faq:[...]}, {questions:[...]}, {items:[...]} response formats
+* New: Schema scan REST endpoints — /schema/status and /schema/recommendation for programmatic access
 * Fix: robots.txt file operations now use WP_Filesystem API instead of file_put_contents/file_get_contents (WordPress.org compliance)
 
 = 1.2 =

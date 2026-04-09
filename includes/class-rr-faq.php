@@ -355,79 +355,12 @@ class RR_Faq {
 		// Comparison/decision patterns — high-intent for landing pages.
 		$comparison_regex = '/\b(vs\.?|versus|alternative|compared|comparison|difference|better|worth|review)\b/i';
 
-		// ── Call 1: People Also Ask via SERP (highest quality — real Google PAA) ──
-		// Short timeout (15s) — this is supplementary. If it fails, we still have calls 2+3.
-		$serp_items = self::dfs_api_call(
-			'https://api.dataforseo.com/v3/serp/google/organic/live/advanced',
-			array(
-				array(
-					'keyword'       => $keyword,
-					'language_code' => 'en',
-					'location_code' => 2840,
-					'depth'         => 10,
-				),
-			),
-			$login,
-			$password,
-			15 // Short timeout — fail fast if slow.
-		);
+		// NOTE: SERP PAA call removed — DataForSEO SERP endpoint is too slow
+		// (15s+ timeouts with 0 bytes) and kills bulk operations on servers
+		// with 30s max_execution_time. keyword_suggestions + related_keywords
+		// already provide question-format queries with search volume data.
 
-		if ( ! empty( $serp_items ) ) {
-			foreach ( $serp_items as $item ) {
-				$type = isset( $item['type'] ) ? $item['type'] : '';
-
-				// People Also Ask questions — can be nested or flat.
-				if ( 'people_also_ask' === $type ) {
-					// Nested structure: { type: "people_also_ask", items: [{title: "Q?"}] }
-					if ( ! empty( $item['items'] ) ) {
-						foreach ( $item['items'] as $paa ) {
-							$q = isset( $paa['title'] ) ? trim( $paa['title'] ) : '';
-							if ( empty( $q ) ) continue;
-							$key = strtolower( $q );
-							if ( ! isset( $raw_questions[ $key ] ) ) {
-								$raw_questions[ $key ] = array(
-									'keyword' => $q,
-									'volume'  => 500,
-									'source'  => 'paa',
-								);
-							}
-						}
-					}
-					// Flat structure: { type: "people_also_ask", title: "Q?" }
-					if ( ! empty( $item['title'] ) ) {
-						$q   = trim( $item['title'] );
-						$key = strtolower( $q );
-						if ( ! isset( $raw_questions[ $key ] ) ) {
-							$raw_questions[ $key ] = array(
-								'keyword' => $q,
-								'volume'  => 500,
-								'source'  => 'paa',
-							);
-						}
-					}
-				}
-
-				// Related Searches — captures "reddit" / "forum" style queries.
-				if ( 'related_searches' === $type && ! empty( $item['items'] ) ) {
-					foreach ( $item['items'] as $rs ) {
-						$q = isset( $rs['title'] ) ? trim( $rs['title'] ) : '';
-						if ( empty( $q ) ) continue;
-						if ( preg_match( $question_regex, $q ) || preg_match( $comparison_regex, $q ) ) {
-							$key = strtolower( $q );
-							if ( ! isset( $raw_questions[ $key ] ) ) {
-								$raw_questions[ $key ] = array(
-									'keyword' => $q,
-									'volume'  => 200,
-									'source'  => 'related_search',
-								);
-							}
-						}
-					}
-				}
-			}
-		}
-
-		// ── Call 2: Keyword suggestions (question-format long-tails) ──────────
+		// ── Call 1: Keyword suggestions (question-format long-tails) ──────────
 		$suggestions = self::dfs_api_call(
 			'https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_suggestions/live',
 			array(

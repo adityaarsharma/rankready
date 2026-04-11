@@ -483,19 +483,44 @@ Downloadable builds are published to [**GitHub Releases**](https://github.com/po
 RankReady follows [Semantic Versioning](https://semver.org/). Version numbers live in three places and must stay in sync:
 
 1. `rankready.php` — `Version:` header + `RR_VERSION` constant
-2. `readme.txt` — `Stable tag:` line and `== Changelog ==` section (WordPress.org format)
-3. `CHANGELOG.md` — add a new section under `## [Unreleased]`, then cut a new version heading
+2. `readme.txt` — `Stable tag:` line
+3. `CHANGELOG.md` — add a new `## [X.Y.Z] - YYYY-MM-DD` section under `## [Unreleased]`
 
-After bumping, build the zip and publish to GitHub Releases with the built zip attached:
+### Automated release (recommended)
+
+A GitHub Actions workflow (`.github/workflows/release.yml`) watches for version tags and handles everything else automatically. The full release flow is:
 
 ```bash
-# From ~/Claude/rankready-v2/rankready
-git tag -a 1.5.4 -m "v1.5.4"
-git push origin 1.5.4
-gh release create 1.5.4 \
-  ~/Claude/RankReady/rankready-1.5.4.zip \
-  --title "v1.5.4 — Enterprise Headless" \
-  --notes-file <(awk '/^## \[1\.5\.4\]/,/^## \[1\.5\.3\]/' CHANGELOG.md | sed '$d')
+# 1. Bump version in the three files above, commit on the version branch
+git commit -am "chore: release 1.5.5"
+
+# 2. Tag and push — that's it
+git tag -a 1.5.5 -m "RankReady 1.5.5"
+git push origin 1.5 --follow-tags
+```
+
+The workflow will:
+1. Verify header Version, `RR_VERSION` constant, and readme.txt Stable tag all match the pushed tag (fails fast on mismatch)
+2. Extract the matching section from `CHANGELOG.md` as the release notes
+3. Build a clean `rankready-<version>.zip` (excludes `.git`, `.github`, dev configs)
+4. Create or update the GitHub Release with the zip attached
+
+Tag patterns that trigger it: `1.5.5`, `2.0.0`, `v1.5.5`, etc.
+
+### Manual release (fallback)
+
+If Actions is down or you need a one-off build, the old manual flow still works:
+
+```bash
+cd /tmp && rm -rf rr-zip && mkdir -p rr-zip
+cp -R ~/Claude/rankready-v2/rankready rr-zip/rankready
+cd rr-zip && zip -r ~/Claude/RankReady/rankready-1.5.5.zip rankready/ \
+  -x "*.DS_Store" "*/.git/*" "*/.github/*"
+
+gh release create 1.5.5 \
+  ~/Claude/RankReady/rankready-1.5.5.zip \
+  --title "RankReady 1.5.5" \
+  --notes-file <(awk '/^## \[1\.5\.5\]/,/^## \[/{if(/^## \[1\.5\.5\]/)p=1;else if(/^## \[/&&p)exit; if(p)print}' CHANGELOG.md)
 ```
 
 ---

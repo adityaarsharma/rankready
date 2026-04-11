@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CI**: `.github/workflows/release.yml` — auto-builds `rankready-<version>.zip` and publishes a GitHub Release with release notes pulled from `CHANGELOG.md` whenever a version tag is pushed. Verifies plugin header Version, `RR_VERSION` constant, and `readme.txt` Stable tag all match the tag before building.
+
 ## [1.5.4] - 2026-04-11
 
 ### Added — Enterprise Headless WordPress support

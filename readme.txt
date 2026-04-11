@@ -4,7 +4,7 @@ Tags: llm seo, ai summary, schema markup, llms.txt, eeat
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.5.1
+Stable tag: 1.5.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,23 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 1.5.3 =
+* Fix: FAQ bulk cron was getting stuck when a post threw a fatal error — queue persisted BEFORE generation so a failed post no longer blocks the entire queue
+* Fix: Summary bulk cron had the same stuck-queue bug — now dequeues before generating
+* Fix: Uncaught exceptions during FAQ/summary generation no longer kill the cron tick — wrapped in try/catch with error logging
+* New: Batch processing per cron tick (up to 5 FAQ posts or BULK_BATCH summaries) within a time budget based on max_execution_time
+* New: Failed post ID tracking (`rr_faq_failed_ids` option, last 100 failures) for debugging stuck queues
+* New: Cron watchdog heartbeat (`rr_faq_cron_last_tick`, `rr_bulk_cron_last_tick`) for stuck-state detection
+* New: Post-generation FAQ validation — rejects items with banned opener patterns (Yes/Sure/Of course), banned filler words (leverage/utilize/comprehensive), "follow the documentation" boilerplate, and one-sentence thin answers
+* Improvement: Stronger search intent grounding in FAQ prompt — forces 60% of questions from real DataForSEO search queries when available
+* Improvement: Brand-stuffing banned in FAQ questions — "How do I X in Elementor?" not "Can I use The Plus Addons to X?"
+* Improvement: Temperature lowered from 0.5 to 0.3 for stricter instruction compliance
+
+= 1.5.2 =
+* Fix: Markdown links in FAQ answers now render as clickable HTML links in Gutenberg block, Elementor widget, and auto-display
+* Fix: FAQ schema output now strips markdown link syntax cleanly instead of leaving raw brackets
+* Improvement: Banned "Yes, [Brand Name]..." opener pattern in FAQ answer generation
 
 = 1.5.1 =
 * Fix: FAQ generation failing with "No valid FAQ items" — OpenAI returns `faqs` wrapper key which was not handled

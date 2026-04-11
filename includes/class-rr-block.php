@@ -177,7 +177,7 @@ class RR_Block {
 
 			$out .= '<div class="rr-faq-item"' . $d_style_attr . '>';
 			$out .= '<h4 class="rr-faq-question"' . $q_style_attr . '>' . esc_html( $q ) . '</h4>';
-			$out .= '<p class="rr-faq-answer"' . $a_style_attr . '>' . wp_kses_post( $a ) . '</p>';
+			$out .= '<p class="rr-faq-answer"' . $a_style_attr . '>' . wp_kses_post( RR_Faq::convert_markdown_links( $a ) ) . '</p>';
 			$out .= '</div>';
 		}
 

@@ -272,7 +272,7 @@ class RR_Faq {
 				'name'           => $q,
 				'acceptedAnswer' => array(
 					'@type' => 'Answer',
-					'text'  => wp_strip_all_tags( $a ),
+					'text'  => wp_strip_all_tags( self::convert_markdown_links( $a ) ),
 				),
 			);
 		}
@@ -610,7 +610,12 @@ class RR_Faq {
 
 		// Build system prompt with product context.
 		$faq_system  = "You write FAQ answers for web pages. You respond with valid JSON only.\n\n";
-		$faq_system .= "YOUR GOAL: Generate FAQ that AI chatbots (ChatGPT, Perplexity, Gemini, Claude) will cite as authoritative answers. Each Q&A should be a standalone knowledge unit an LLM can extract and quote.\n\n";
+		$faq_system .= "YOUR GOAL: Generate FAQ optimized for LLM citation (ChatGPT, Perplexity, Gemini, Claude) AND Google Featured Snippets. Each Q&A must match a REAL search intent — something a person would actually type into Google, Reddit, or an AI chatbot.\n\n";
+		$faq_system .= "SEARCH INTENT REQUIREMENT:\n";
+		$faq_system .= "- Every question MUST pass this test: 'Would someone actually type this into Google or ask ChatGPT?'\n";
+		$faq_system .= "- If a question only makes sense AFTER reading the page (e.g. 'What happens if I click this toggle?'), it fails the test. Real users don't search for UI toggles.\n";
+		$faq_system .= "- Good search intent examples: troubleshooting errors, comparing tools, asking if X works with Y, asking about performance impact, asking about limitations.\n";
+		$faq_system .= "- Bad search intent examples: rephrasing page headings, asking about specific UI elements, asking obvious yes/no questions about the product's own features.\n\n";
 		$faq_system .= "ABSOLUTE RULES:\n";
 		$faq_system .= "- Every answer must be based ONLY on facts stated in the page content provided. Zero invention.\n";
 		$faq_system .= "- NEVER claim a product works with a platform, tool, or builder unless the page explicitly says so.\n";
@@ -618,7 +623,7 @@ class RR_Faq {
 		$faq_system .= "- Use the exact product names, brand names, and terminology from the page. No renaming.\n";
 		$faq_system .= "- Write like a knowledgeable human on Reddit answering a question. Direct, specific, no fluff.\n";
 		$faq_system .= "- No em dashes. No filler (certainly, indeed, it is worth noting, comprehensive, robust, leverage, utilize).\n";
-		$faq_system .= "- No generic openers like 'Yes, ...', 'Absolutely, ...', 'Great question!', 'To select...', 'After selecting...'\n";
+		$faq_system .= "- No generic openers like 'Yes, ...', 'Yes, [Brand Name]...', 'Absolutely, ...', 'Great question!', 'To select...', 'After selecting...', 'Sure, ...', 'Of course, ...'\n";
 		$faq_system .= "- If the page content does not have enough info to answer a question, SKIP IT and pick a different question. NEVER write an answer that says 'the page does not mention' or 'there is no information about' — just don't include that question at all.\n";
 		$faq_system .= "- NEVER write answers that just say 'follow the steps' or 'following the provided steps' or 'use the recommended approach'. That is zero-value content.\n";
 		$faq_system .= "- Each answer must TEACH something — add context, explain WHY, give a tip, mention a gotcha, or connect to a bigger picture. Don't just restate what the page says.\n";
@@ -671,7 +676,7 @@ class RR_Faq {
 					array( 'role' => 'user',   'content' => $prompt ),
 				),
 				'response_format' => array( 'type' => 'json_object' ),
-				'temperature'     => 0.5,
+				'temperature'     => 0.3,
 				'max_tokens'      => 2000,
 			) ),
 			'timeout' => 15,
@@ -745,6 +750,9 @@ class RR_Faq {
 				);
 			}
 		}
+
+		// Post-generation validation — reject items that violate banned patterns.
+		$clean_faq = self::validate_faq_items( $clean_faq );
 
 		if ( empty( $clean_faq ) ) {
 			return new \WP_Error( 'empty_faq', 'No valid FAQ items generated.' );
@@ -942,13 +950,18 @@ class RR_Faq {
 
 		$prompt .= "QUESTION RULES:\n";
 		$prompt .= "- Each question MUST address a DIFFERENT topic. Zero overlap or rephrasing.\n";
-		$prompt .= "- PRIORITIZE questions from the REAL SEARCH QUESTIONS list (those are actual queries people search).\n";
+
+		if ( ! empty( $dfs_questions ) ) {
+			$prompt .= "- USE the REAL SEARCH QUESTIONS above — these are actual Google queries with search volume. Adapt them to fit the page content. At least " . min( count( $dfs_questions ), (int) ceil( $count * 0.6 ) ) . " of your {$count} questions MUST be based on these.\n";
+		}
+
 		$prompt .= "- If a search question cannot be answered from the page content, skip it.\n";
-		$prompt .= "- Fill remaining slots with contextual questions derived from the page content.\n";
-		$prompt .= "- Questions must sound like a real human asking on Reddit or Google, not a keyword-stuffed SEO question.\n";
+		$prompt .= "- Fill remaining slots with questions a user would ACTUALLY type into Google or ask an AI chatbot.\n";
+		$prompt .= "- NEVER stuff brand names into questions. Write them how a real person would ask: 'How do I create a custom product loop with custom fields in Elementor?' NOT 'Can I use The Plus Addons for Elementor to create a custom product loop with custom fields?'\n";
 		$prompt .= "- REQUIRED MIX: at least 1 troubleshooting question, 1 use-case/compatibility question, and 1 'best practice' or decision question.\n";
 		$prompt .= "- NEVER ask generic questions like 'What is [topic]?' unless the page is specifically defining that topic.\n";
 		$prompt .= "- NEVER ask questions that just rephrase a heading, menu option, or step from the page.\n";
+		$prompt .= "- NEVER ask obvious questions where the answer is clear from the product name (e.g. 'Does [Elementor addon] work with page builders besides Elementor?' — obviously not).\n";
 		$prompt .= "- TEST: Before including a question, ask yourself 'Would a real person type this into Google?' If not, discard it.\n";
 		$prompt .= "- Ask questions an AI chatbot (ChatGPT, Perplexity, Gemini) would need answered to recommend this page.\n\n";
 
@@ -961,11 +974,12 @@ class RR_Faq {
 		$prompt .= "- Mention brand terms ({$brand_terms}) naturally where relevant using semantic triples:\n";
 		$prompt .= "  '{$brand_terms} provides/enables/offers [specific feature from the page]'\n";
 		$prompt .= "  '{$brand_terms} works with/supports/integrates [thing mentioned on page]'\n";
-		$prompt .= "- NEVER start with 'Yes, you can...', 'To do X, ...', 'After doing X, ...', 'You need to...', 'The page does not...'\n";
-		$prompt .= "- Start with the insight or the WHY, not the HOW. Example: 'The blend cursor relies on CSS mix-blend-mode, which means it works differently on elements with transparent backgrounds. Set the Circle Z-Index higher if...' instead of 'To add a blend cursor, go to Settings and select...'\n";
+		$prompt .= "- NEVER start answers with: 'Yes, ...', 'Yes, you can...', 'Yes, [any brand]...', 'No, ...', 'To do X, ...', 'After doing X, ...', 'You need to...', 'You can...', 'The page does not...', 'Sure, ...', 'Of course, ...', 'Absolutely, ...'\n";
+		$prompt .= "- NEVER write 'Make sure to follow the documentation' or 'refer to the documentation' or 'check the docs' — that's telling them to go read what they already read.\n";
+		$prompt .= "- Start with the insight, the WHY, or a specific fact. Example: 'CSS mix-blend-mode powers the blend cursor, which means transparent backgrounds behave differently. Bump the Circle Z-Index above your header if the effect disappears on scroll.' NOT 'Yes, you can add a blend cursor by going to Settings and selecting...'\n";
 		$prompt .= "- Add VALUE beyond what the page says: explain WHY a setting matters, WHEN to use it, WHAT happens if you don't, or a common GOTCHA.\n";
 		$prompt .= "- Write like a senior dev answering on Reddit: helpful, opinionated, specific, with real-world context.\n";
-		$prompt .= "- No promotional language, no superlatives, no filler phrases.\n";
+		$prompt .= "- No promotional language, no superlatives, no filler phrases. No 'leverage', 'utilize', 'comprehensive', 'robust', 'seamless'.\n";
 		$prompt .= "- Reference internal links as markdown links where relevant.\n";
 		$prompt .= "- Make each answer quotable: an AI chatbot should be able to cite this answer directly.\n\n";
 
@@ -1060,6 +1074,112 @@ class RR_Faq {
 	}
 
 	/**
+	 * Post-generation validation — reject FAQ items that violate banned patterns.
+	 *
+	 * Catches patterns that the LLM ignored despite prompt instructions.
+	 * This is the safety net that ensures quality regardless of model compliance.
+	 *
+	 * @param array $faq_items Array of {question, answer} items.
+	 * @return array Filtered array with bad items removed.
+	 */
+	private static function validate_faq_items( array $faq_items ): array {
+		// Banned question patterns (regex).
+		$banned_q_patterns = array(
+			'/^what happens (if|when|after) (i|you) (don\'?t|do not|complete|finish|click|enable|disable|select|choose)/i',
+			'/^what (do i|should i|will i) need (before|to get) (starting|started|begin)/i',
+			'/^what are the prerequisites/i',
+			'/^is there an alternative (way|method|approach)/i',
+			'/^how do i (select|click|choose|pick|enable|disable|toggle) /i',
+			'/^what happens after (completing|finishing|doing|following)/i',
+		);
+
+		// Banned answer opener patterns (first 50 chars).
+		$banned_a_openers = array(
+			'/^yes,?\s/i',
+			'/^absolutely[,!.\s]/i',
+			'/^great question/i',
+			'/^sure[,!.\s]/i',
+			'/^of course[,!.\s]/i',
+			'/^to (select|click|choose|enable|disable|do this|do that|get started)/i',
+			'/^after (selecting|clicking|choosing|enabling|completing)/i',
+			'/^you (need to|should|must|can) (first |start by |begin by )?/i',
+		);
+
+		// Banned answer content patterns (anywhere in answer).
+		$banned_a_content = array(
+			'/the page does not mention/i',
+			'/there is no information about/i',
+			'/follow the (steps|instructions|documentation|guide) (provided|outlined|above|below|on the page)/i',
+			'/following the (provided|outlined|recommended) (steps|approach|method)/i',
+			'/use the recommended approach/i',
+			'/\bleverage\b/i',
+			'/\butilize\b/i',
+			'/\bcomprehensive\b/i',
+			'/\brobust\b/i',
+			'/it is worth noting/i',
+			'/it\'?s important to note/i',
+		);
+
+		$validated = array();
+
+		foreach ( $faq_items as $item ) {
+			$q = isset( $item['question'] ) ? $item['question'] : '';
+			$a = isset( $item['answer'] ) ? $item['answer'] : '';
+
+			if ( empty( $q ) || empty( $a ) ) {
+				continue;
+			}
+
+			$rejected = false;
+
+			// Check question against banned patterns.
+			foreach ( $banned_q_patterns as $pattern ) {
+				if ( preg_match( $pattern, $q ) ) {
+					$rejected = true;
+					break;
+				}
+			}
+
+			if ( ! $rejected ) {
+				// Check answer opener (first 60 chars).
+				$a_start = substr( wp_strip_all_tags( $a ), 0, 60 );
+				foreach ( $banned_a_openers as $pattern ) {
+					if ( preg_match( $pattern, $a_start ) ) {
+						$rejected = true;
+						break;
+					}
+				}
+			}
+
+			if ( ! $rejected ) {
+				// Check full answer content.
+				$a_plain = wp_strip_all_tags( $a );
+				foreach ( $banned_a_content as $pattern ) {
+					if ( preg_match( $pattern, $a_plain ) ) {
+						$rejected = true;
+						break;
+					}
+				}
+			}
+
+			if ( ! $rejected ) {
+				// Reject one-sentence answers (no period except at end = single sentence).
+				$a_plain = trim( wp_strip_all_tags( $a ) );
+				$sentence_count = preg_match_all( '/[.!?]+/', $a_plain );
+				if ( $sentence_count <= 1 && strlen( $a_plain ) < 80 ) {
+					$rejected = true;
+				}
+			}
+
+			if ( ! $rejected ) {
+				$validated[] = $item;
+			}
+		}
+
+		return $validated;
+	}
+
+	/**
 	 * Convert markdown-style links to HTML anchor tags.
 	 *
 	 * Handles [anchor text](url) format from OpenAI responses.
@@ -1067,7 +1187,7 @@ class RR_Faq {
 	 * @param string $text Text with possible markdown links.
 	 * @return string Text with HTML anchor tags.
 	 */
-	private static function convert_markdown_links( string $text ): string {
+	public static function convert_markdown_links( string $text ): string {
 		return preg_replace_callback(
 			'/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/',
 			function ( $matches ) {

@@ -221,7 +221,7 @@ class RR_Elementor_Faq_Widget extends \Elementor\Widget_Base {
 
 			echo '<div class="rr-faq-item">';
 			echo '<h4 class="rr-faq-question">' . esc_html( $q ) . '</h4>';
-			echo '<p class="rr-faq-answer">' . wp_kses_post( $a ) . '</p>';
+			echo '<p class="rr-faq-answer">' . wp_kses_post( RR_Faq::convert_markdown_links( $a ) ) . '</p>';
 			echo '</div>';
 		}
 

@@ -1299,12 +1299,26 @@ class RR_Rest {
 					);
 				} else {
 					$tokens_before = (int) get_post_meta( $post_id, '_rr_tokens_used', true );
-					$result        = RR_Faq::generate_faq( $post_id );
+					try {
+						$result = RR_Faq::generate_faq( $post_id );
+					} catch ( \Throwable $e ) {
+						$result = new WP_Error( 'faq_exception', $e->getMessage() );
+						if ( class_exists( 'RR_Generator' ) && method_exists( 'RR_Generator', 'log_error' ) ) {
+							RR_Generator::log_error( 'FAQ/BulkProcess', $e->getMessage(), $post_id );
+						}
+					}
 					$tokens_after  = (int) get_post_meta( $post_id, '_rr_tokens_used', true );
 					$tokens_used   = $tokens_after - $tokens_before;
 
 					if ( is_wp_error( $result ) ) {
 						$failed++;
+						$failed_ids = (array) get_option( 'rr_faq_failed_ids', array() );
+						$failed_ids[] = $post_id;
+						if ( count( $failed_ids ) > 100 ) {
+							$failed_ids = array_slice( $failed_ids, -100 );
+						}
+						update_option( 'rr_faq_failed_ids', $failed_ids, false );
+
 						$processed[] = array(
 							'id'     => $post_id,
 							'title'  => $title,
@@ -1880,7 +1894,14 @@ class RR_Rest {
 	}
 
 	/**
-	 * WP-Cron tick for FAQ bulk generation — processes 1 post per tick.
+	 * WP-Cron tick for FAQ bulk generation.
+	 *
+	 * Safe batch processor with the following guarantees:
+	 * - Dequeues BEFORE calling generate_faq() — a fatal error or timeout cannot stick the queue.
+	 * - Wraps generate_faq() in try/catch to prevent uncaught exceptions from killing the tick.
+	 * - Processes multiple posts per tick within a time budget (fits 30s max_execution_time).
+	 * - Tracks failed post IDs in a separate list for debugging.
+	 * - Watchdog: records last-tick timestamp for stuck-state detection.
 	 */
 	public static function cron_faq_tick(): void {
 		if ( ! get_option( RR_FAQ_RUNNING ) ) {
@@ -1895,23 +1916,74 @@ class RR_Rest {
 			return;
 		}
 
+		// Watchdog heartbeat — used by admin UI to detect stuck state.
+		update_option( 'rr_faq_cron_last_tick', time(), false );
+
+		// Time budget — stop processing 5s before max_execution_time to allow clean finish.
+		$max_exec  = (int) ini_get( 'max_execution_time' );
+		if ( $max_exec <= 0 ) {
+			$max_exec = 30;
+		}
+		$deadline  = microtime( true ) + max( 10, $max_exec - 5 );
+		$max_batch = 5; // Hard cap per tick to avoid runaway.
+
 		$done    = (int) get_option( RR_FAQ_DONE, 0 );
-		$post_id = (int) array_shift( $queue );
+		$failed  = (int) get_option( 'rr_faq_failed', 0 );
+		$failed_ids = (array) get_option( 'rr_faq_failed_ids', array() );
 
-		if ( $post_id > 0 ) {
-			$result = RR_Faq::generate_faq( $post_id );
-			$done++;
+		$processed_count = 0;
 
-			// Track failures.
-			if ( is_wp_error( $result ) ) {
-				$failed = (int) get_option( 'rr_faq_failed', 0 );
-				update_option( 'rr_faq_failed', $failed + 1, false );
+		while ( ! empty( $queue ) && $processed_count < $max_batch && microtime( true ) < $deadline ) {
+			// CRITICAL: dequeue and persist BEFORE generation.
+			// If generate_faq() fatals, the post is already removed from the queue
+			// and will not be retried in an infinite loop.
+			$post_id = (int) array_shift( $queue );
+			update_option( RR_FAQ_QUEUE, $queue, false );
+
+			if ( $post_id <= 0 ) {
+				continue;
 			}
+
+			$post_exists = (bool) get_post( $post_id );
+			if ( ! $post_exists ) {
+				$done++;
+				$failed++;
+				$failed_ids[] = $post_id;
+				continue;
+			}
+
+			// Wrap in try/catch — a fatal Throwable (PHP 7+) is not caught,
+			// but Exception/Error are. We minimize surface by persisting dequeue first.
+			try {
+				$result = RR_Faq::generate_faq( $post_id );
+
+				if ( is_wp_error( $result ) ) {
+					$failed++;
+					$failed_ids[] = $post_id;
+				}
+			} catch ( \Throwable $e ) {
+				$failed++;
+				$failed_ids[] = $post_id;
+				if ( class_exists( 'RR_Generator' ) && method_exists( 'RR_Generator', 'log_error' ) ) {
+					RR_Generator::log_error( 'FAQ/Cron', $e->getMessage(), $post_id );
+				}
+			}
+
+			$done++;
+			$processed_count++;
+
+			// Persist progress after every post so a later fatal cannot roll back.
+			update_option( RR_FAQ_DONE, $done, false );
+			update_option( 'rr_faq_failed', $failed, false );
+
+			// Keep the failed_ids list bounded to last 100 entries.
+			if ( count( $failed_ids ) > 100 ) {
+				$failed_ids = array_slice( $failed_ids, -100 );
+			}
+			update_option( 'rr_faq_failed_ids', $failed_ids, false );
 		}
 
-		update_option( RR_FAQ_QUEUE, $queue, false );
-		update_option( RR_FAQ_DONE,  $done,  false );
-
+		// Final state.
 		if ( empty( $queue ) ) {
 			update_option( RR_FAQ_RUNNING, false, false );
 			wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
@@ -1919,7 +1991,10 @@ class RR_Rest {
 	}
 
 	/**
-	 * WP-Cron tick for summary bulk generation — processes 1 post per tick.
+	 * WP-Cron tick for summary bulk generation.
+	 *
+	 * Same safety guarantees as cron_faq_tick(): dequeue-before-generate, try/catch,
+	 * time budget, and per-post progress persistence.
 	 */
 	public static function cron_summary_tick(): void {
 		if ( ! get_option( RR_BULK_RUNNING ) ) {
@@ -1934,27 +2009,50 @@ class RR_Rest {
 			return;
 		}
 
-		$done    = (int) get_option( RR_BULK_DONE, 0 );
-		$batch   = min( self::BULK_BATCH, count( $queue ) );
-		$log     = array();
+		// Watchdog heartbeat.
+		update_option( 'rr_bulk_cron_last_tick', time(), false );
 
-		for ( $i = 0; $i < $batch; $i++ ) {
-			if ( empty( $queue ) ) break;
+		// Time budget — stop 5s before max_execution_time.
+		$max_exec = (int) ini_get( 'max_execution_time' );
+		if ( $max_exec <= 0 ) {
+			$max_exec = 30;
+		}
+		$deadline  = microtime( true ) + max( 10, $max_exec - 5 );
+		$max_batch = (int) self::BULK_BATCH;
+
+		$done   = (int) get_option( RR_BULK_DONE, 0 );
+		$failed = (int) get_option( 'rr_bulk_failed', 0 );
+
+		$processed_count = 0;
+
+		while ( ! empty( $queue ) && $processed_count < $max_batch && microtime( true ) < $deadline ) {
 			$post_id = (int) array_shift( $queue );
+			update_option( RR_BULK_QUEUE, $queue, false );
 
-			if ( $post_id > 0 ) {
-				$result = RR_Generator::force_generate( $post_id );
+			if ( $post_id <= 0 || ! get_post( $post_id ) ) {
 				$done++;
+				$failed++;
+				continue;
+			}
 
+			try {
+				$result = RR_Generator::force_generate( $post_id );
 				if ( false === $result ) {
-					$failed = (int) get_option( 'rr_bulk_failed', 0 );
-					update_option( 'rr_bulk_failed', $failed + 1, false );
+					$failed++;
+				}
+			} catch ( \Throwable $e ) {
+				$failed++;
+				if ( class_exists( 'RR_Generator' ) && method_exists( 'RR_Generator', 'log_error' ) ) {
+					RR_Generator::log_error( 'Summary/Cron', $e->getMessage(), $post_id );
 				}
 			}
-		}
 
-		update_option( RR_BULK_QUEUE, $queue, false );
-		update_option( RR_BULK_DONE,  $done,  false );
+			$done++;
+			$processed_count++;
+
+			update_option( RR_BULK_DONE, $done, false );
+			update_option( 'rr_bulk_failed', $failed, false );
+		}
 
 		if ( empty( $queue ) ) {
 			update_option( RR_BULK_RUNNING, false, false );

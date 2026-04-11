@@ -1,0 +1,147 @@
+name: Release RankReady
+
+# Triggers on any annotated or lightweight tag push that looks like a version.
+# Matches: 1.5.4, 1.6.0, 2.0.0, v1.5.4, 0.4.6, etc.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build plugin zip and publish GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "zip_name=rankready-$VERSION.zip" >> "$GITHUB_OUTPUT"
+          echo "Building RankReady $VERSION (tag: $TAG)"
+
+      - name: Verify plugin header version matches tag
+        run: |
+          HEADER_VERSION=$(grep -E "^\s*\*\s*Version:" rankready.php | head -n1 | awk -F: '{print $2}' | tr -d ' \r')
+          CONST_VERSION=$(grep -E "define\(\s*'RR_VERSION'" rankready.php | head -n1 | sed -E "s/.*'RR_VERSION'\s*,\s*'([^']+)'.*/\1/")
+          STABLE_TAG=$(grep -E "^Stable tag:" readme.txt | head -n1 | awk -F: '{print $2}' | tr -d ' \r')
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+
+          echo "Tag version:     $TAG_VERSION"
+          echo "Header Version:  $HEADER_VERSION"
+          echo "RR_VERSION:      $CONST_VERSION"
+          echo "Stable tag:      $STABLE_TAG"
+
+          FAIL=0
+          if [ "$HEADER_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Plugin header Version ($HEADER_VERSION) does not match tag ($TAG_VERSION)"
+            FAIL=1
+          fi
+          if [ "$CONST_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::RR_VERSION constant ($CONST_VERSION) does not match tag ($TAG_VERSION)"
+            FAIL=1
+          fi
+          if [ "$STABLE_TAG" != "$TAG_VERSION" ]; then
+            echo "::error::readme.txt Stable tag ($STABLE_TAG) does not match tag ($TAG_VERSION)"
+            FAIL=1
+          fi
+          if [ "$FAIL" = "1" ]; then
+            exit 1
+          fi
+
+      - name: Extract changelog section for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+
+          if [ -f CHANGELOG.md ]; then
+            awk -v ver="$VERSION" '
+              BEGIN { in_section = 0 }
+              /^## \[/ {
+                if (in_section) { exit }
+                if ($0 ~ "\\[" ver "\\]") { in_section = 1; next }
+              }
+              in_section { print }
+            ' CHANGELOG.md > "$NOTES_FILE"
+          fi
+
+          if [ ! -s "$NOTES_FILE" ]; then
+            echo "RankReady $VERSION" > "$NOTES_FILE"
+            echo "" >> "$NOTES_FILE"
+            echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details." >> "$NOTES_FILE"
+          fi
+
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "**Install**: download \`${{ steps.version.outputs.zip_name }}\` below and upload via WordPress → Plugins → Add New → Upload Plugin."
+          } >> "$NOTES_FILE"
+
+          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+          echo "=== Release notes preview ==="
+          cat "$NOTES_FILE"
+
+      - name: Stage plugin files into rankready/ directory
+        run: |
+          STAGE_DIR="$RUNNER_TEMP/stage"
+          mkdir -p "$STAGE_DIR/rankready"
+
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.gitignore' \
+            --exclude='.gitattributes' \
+            --exclude='.editorconfig' \
+            --exclude='.DS_Store' \
+            --exclude='node_modules' \
+            --exclude='vendor/bin' \
+            --exclude='*.zip' \
+            --exclude='tests' \
+            --exclude='.phpcs.xml' \
+            --exclude='phpcs.xml' \
+            --exclude='phpunit.xml' \
+            --exclude='composer.lock' \
+            --exclude='package-lock.json' \
+            ./ "$STAGE_DIR/rankready/"
+
+          echo "=== Staged contents ==="
+          ls -la "$STAGE_DIR/rankready"
+
+      - name: Build zip
+        id: zip
+        run: |
+          STAGE_DIR="$RUNNER_TEMP/stage"
+          ZIP_PATH="$RUNNER_TEMP/${{ steps.version.outputs.zip_name }}"
+          cd "$STAGE_DIR"
+          zip -rq "$ZIP_PATH" rankready
+          echo "zip_path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
+          echo "=== Zip info ==="
+          ls -lh "$ZIP_PATH"
+          unzip -l "$ZIP_PATH" | head -n 30
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: RankReady ${{ steps.version.outputs.version }}
+          body_path: ${{ steps.changelog.outputs.notes_file }}
+          draft: false
+          prerelease: false
+          files: ${{ steps.zip.outputs.zip_path }}
+          fail_on_unmatched_files: true

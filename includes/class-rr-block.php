@@ -775,15 +775,19 @@ class RR_Block {
 		}
 
 		// ── 2. hasPart — Key Takeaways as extractable WebPageElement ───
+		// Note: `isAccessibleForFree` is deliberately NOT emitted. Schema.org
+		// expects boolean, but Rank Math's schema normalizer coerces booleans
+		// to the string "1" during serialization, which fails strict validation.
+		// Omitting the property defaults to "freely accessible" per schema.org,
+		// which is exactly what we want.
 		if ( 'bullets' === $summary['type'] && is_array( $summary['data'] ) && ! empty( $summary['data'] ) ) {
 			$label = (string) get_option( RR_OPT_LABEL, 'Key Takeaways' );
 			$props['hasPart'] = array(
 				array(
-					'@type'               => 'WebPageElement',
-					'isAccessibleForFree' => true,
-					'cssSelector'         => '.rr-summary',
-					'name'                => $label,
-					'text'                => implode( '. ', $summary['data'] ) . '.',
+					'@type'       => 'WebPageElement',
+					'cssSelector' => '.rr-summary',
+					'name'        => $label,
+					'text'        => implode( '. ', $summary['data'] ) . '.',
 				),
 			);
 
@@ -800,11 +804,10 @@ class RR_Block {
 					}
 					if ( ! empty( $faq_text ) ) {
 						$props['hasPart'][] = array(
-							'@type'               => 'WebPageElement',
-							'isAccessibleForFree' => true,
-							'cssSelector'         => '.rr-faq-wrapper',
-							'name'                => 'Frequently Asked Questions',
-							'text'                => implode( ' ', $faq_text ),
+							'@type'       => 'WebPageElement',
+							'cssSelector' => '.rr-faq-wrapper',
+							'name'        => 'Frequently Asked Questions',
+							'text'        => implode( ' ', $faq_text ),
 						);
 					}
 				}

@@ -16,6 +16,7 @@ class RR_Admin {
 	private const FAQ_GROUP        = 'rr_faq_group';
 	private const SCHEMA_GROUP     = 'rr_schema_group';
 	private const HEADLESS_GROUP   = 'rr_headless_group';
+	private const AUTHOR_GROUP     = 'rr_author_group';
 	private const MENU_SLUG        = 'rankready';
 	private const NONCE_ACTION     = 'rr_test_connection';
 	private const NONCE_FIELD      = 'rr_test_nonce';
@@ -387,6 +388,62 @@ class RR_Admin {
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
 			'default'           => 'off',
 		) );
+
+		// ── Author Box settings ──────────────────────────────────────────
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_AUTO_DISPLAY, array(
+			'type'              => 'string',
+			'sanitize_callback' => function ( $v ) {
+				return in_array( $v, array( 'off', 'before', 'after', 'both' ), true ) ? $v : 'off';
+			},
+			'default'           => 'off',
+		) );
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_LAYOUT, array(
+			'type'              => 'string',
+			'sanitize_callback' => function ( $v ) {
+				return in_array( $v, array( 'card', 'compact', 'inline' ), true ) ? $v : 'card';
+			},
+			'default'           => 'card',
+		) );
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_HEADING, array(
+			'type'              => 'string',
+			'sanitize_callback' => 'sanitize_text_field',
+			'default'           => 'About the Author',
+		) );
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_HEADING_TAG, array(
+			'type'              => 'string',
+			'sanitize_callback' => function ( $v ) {
+				return in_array( $v, array( 'h2', 'h3', 'h4', 'h5', 'h6', 'p' ), true ) ? $v : 'h3';
+			},
+			'default'           => 'h3',
+		) );
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_SCHEMA_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_EDITORIAL_URL, array(
+			'type'              => 'string',
+			'sanitize_callback' => 'esc_url_raw',
+			'default'           => '',
+		) );
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_FACTCHECK_URL, array(
+			'type'              => 'string',
+			'sanitize_callback' => 'esc_url_raw',
+			'default'           => '',
+		) );
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_POST_TYPES, array(
+			'type'              => 'array',
+			'sanitize_callback' => function ( $v ) {
+				if ( ! is_array( $v ) ) return array( 'post' );
+				return array_values( array_filter( array_map( 'sanitize_key', $v ) ) );
+			},
+			'default'           => array( 'post' ),
+		) );
 	}
 
 	/**
@@ -581,6 +638,7 @@ class RR_Admin {
 			'api'      => __( 'API Keys', 'rankready' ),
 			'summary'  => __( 'AI Summary', 'rankready' ),
 			'faq'      => __( 'FAQ Generator', 'rankready' ),
+			'author'   => __( 'Author Box', 'rankready' ),
 			'schema'   => __( 'Schema Automation', 'rankready' ),
 			'llm'      => __( 'LLM Optimization', 'rankready' ),
 			'headless' => __( 'Headless', 'rankready' ),
@@ -627,6 +685,9 @@ class RR_Admin {
 						break;
 					case 'faq':
 						self::render_tab_faq();
+						break;
+					case 'author':
+						self::render_tab_author();
 						break;
 					case 'schema':
 						self::render_tab_schema();
@@ -932,6 +993,154 @@ class RR_Admin {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// TAB: Schema Automation
 	// ═══════════════════════════════════════════════════════════════════════════
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// TAB: Author Box
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	private static function render_tab_author(): void {
+		$enable        = (string) get_option( RR_OPT_AUTHOR_ENABLE, 'on' );
+		$auto_display  = (string) get_option( RR_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
+		$layout        = (string) get_option( RR_OPT_AUTHOR_LAYOUT, 'card' );
+		$heading       = (string) get_option( RR_OPT_AUTHOR_HEADING, 'About the Author' );
+		$heading_tag   = (string) get_option( RR_OPT_AUTHOR_HEADING_TAG, 'h3' );
+		$schema_enable = (string) get_option( RR_OPT_AUTHOR_SCHEMA_ENABLE, 'on' );
+		$editorial     = (string) get_option( RR_OPT_AUTHOR_EDITORIAL_URL, '' );
+		$factcheck     = (string) get_option( RR_OPT_AUTHOR_FACTCHECK_URL, '' );
+		$post_types    = (array) get_option( RR_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
+
+		$has_rankmath = defined( 'RANK_MATH_VERSION' );
+		$has_yoast    = defined( 'WPSEO_VERSION' );
+		$has_aioseo   = defined( 'AIOSEO_VERSION' );
+		$seo_plugin   = $has_rankmath ? 'Rank Math' : ( $has_yoast ? 'Yoast SEO' : ( $has_aioseo ? 'AIOSEO' : '' ) );
+
+		$all_post_types = get_post_types( array( 'public' => true ), 'objects' );
+		?>
+		<?php settings_errors(); ?>
+
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::AUTHOR_GROUP ); ?>
+
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Author Box — EEAT Signals for AI Citation', 'rankready' ); ?></h2>
+				<p class="rr-card-desc">
+					<?php esc_html_e( 'RankReady adds a full EEAT author profile section to every WordPress user. Every field maps to Schema.org Person data (sameAs, knowsAbout, hasCredential, memberOf, award, worksFor) so AI systems can verify authorship and cite your content. Fill author data in Users → Profile → "RankReady Author Box".', 'rankready' ); ?>
+				</p>
+				<?php if ( $seo_plugin ) : ?>
+					<div style="background:#f0f6fc;border-left:4px solid #2271b1;padding:12px 16px;margin-top:12px;">
+						<strong><?php echo esc_html( $seo_plugin ); ?></strong> <?php esc_html_e( 'is active. RankReady will not emit a duplicate Person node. Instead, it enhances the existing Person schema in', 'rankready' ); ?> <?php echo esc_html( $seo_plugin ); ?> <?php esc_html_e( 'with RankReady data via the plugin\'s filter hooks. Zero conflict.', 'rankready' ); ?>
+					</div>
+				<?php endif; ?>
+			</div>
+
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'General', 'rankready' ); ?></h2>
+				<table class="form-table rr-form-table">
+					<tr>
+						<th><?php esc_html_e( 'Enable Author Box', 'rankready' ); ?></th>
+						<td>
+							<label class="rr-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_AUTHOR_ENABLE ); ?>" value="on" <?php checked( $enable, 'on' ); ?> />
+								<span class="rr-toggle-label"><?php esc_html_e( 'Master toggle for the Author Box feature (block, Elementor widget, schema, auto-display).', 'rankready' ); ?></span>
+							</label>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="rr_author_auto_display"><?php esc_html_e( 'Auto-display', 'rankready' ); ?></label></th>
+						<td>
+							<select name="<?php echo esc_attr( RR_OPT_AUTHOR_AUTO_DISPLAY ); ?>" id="rr_author_auto_display">
+								<option value="off"    <?php selected( $auto_display, 'off' ); ?>><?php esc_html_e( 'Off — use block/widget only', 'rankready' ); ?></option>
+								<option value="before" <?php selected( $auto_display, 'before' ); ?>><?php esc_html_e( 'Before content', 'rankready' ); ?></option>
+								<option value="after"  <?php selected( $auto_display, 'after' ); ?>><?php esc_html_e( 'After content', 'rankready' ); ?></option>
+								<option value="both"   <?php selected( $auto_display, 'both' ); ?>><?php esc_html_e( 'Both (above and below)', 'rankready' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'Append the author box automatically on singular pages. Skipped when the Author Box block/Elementor widget is already in the content.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th><?php esc_html_e( 'Post Types', 'rankready' ); ?></th>
+						<td>
+							<?php foreach ( $all_post_types as $pt ) : ?>
+								<label style="display:block;margin-bottom:4px;">
+									<input type="checkbox" name="<?php echo esc_attr( RR_OPT_AUTHOR_POST_TYPES ); ?>[]" value="<?php echo esc_attr( $pt->name ); ?>" <?php checked( in_array( $pt->name, $post_types, true ) ); ?> />
+									<?php echo esc_html( $pt->labels->singular_name ); ?> <code><?php echo esc_html( $pt->name ); ?></code>
+								</label>
+							<?php endforeach; ?>
+							<p class="description"><?php esc_html_e( 'Post types where auto-display is allowed and the per-post "Author Trust" panel appears.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="rr_author_layout"><?php esc_html_e( 'Default Layout', 'rankready' ); ?></label></th>
+						<td>
+							<select name="<?php echo esc_attr( RR_OPT_AUTHOR_LAYOUT ); ?>" id="rr_author_layout">
+								<option value="card"    <?php selected( $layout, 'card' ); ?>><?php esc_html_e( 'Card (full end-of-article box)', 'rankready' ); ?></option>
+								<option value="compact" <?php selected( $layout, 'compact' ); ?>><?php esc_html_e( 'Compact (small, sidebar-friendly)', 'rankready' ); ?></option>
+								<option value="inline"  <?php selected( $layout, 'inline' ); ?>><?php esc_html_e( 'Inline byline (headline-style)', 'rankready' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'Default layout for auto-display and new blocks/widgets. Individual blocks/widgets can override this.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="rr_author_heading"><?php esc_html_e( 'Default Heading', 'rankready' ); ?></label></th>
+						<td>
+							<input type="text" name="<?php echo esc_attr( RR_OPT_AUTHOR_HEADING ); ?>" id="rr_author_heading" value="<?php echo esc_attr( $heading ); ?>" class="regular-text" />
+							<select name="<?php echo esc_attr( RR_OPT_AUTHOR_HEADING_TAG ); ?>">
+								<?php foreach ( array( 'h2', 'h3', 'h4', 'h5', 'h6', 'p' ) as $tag ) : ?>
+									<option value="<?php echo esc_attr( $tag ); ?>" <?php selected( $heading_tag, $tag ); ?>><?php echo esc_html( strtoupper( $tag ) ); ?></option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description"><?php esc_html_e( 'Heading text shown above the box in Card and Compact layouts. Individual blocks/widgets can override.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Schema', 'rankready' ); ?></h2>
+				<table class="form-table rr-form-table">
+					<tr>
+						<th><?php esc_html_e( 'Emit Person Schema', 'rankready' ); ?></th>
+						<td>
+							<label class="rr-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_AUTHOR_SCHEMA_ENABLE ); ?>" value="on" <?php checked( $schema_enable, 'on' ); ?> />
+								<span class="rr-toggle-label"><?php esc_html_e( 'Include RankReady Person data (sameAs, knowsAbout, credentials, memberOf, awards) in schema output.', 'rankready' ); ?></span>
+							</label>
+							<p class="description">
+								<?php esc_html_e( 'When no SEO plugin is active, RankReady emits a standalone Person node on author archives (via wp_head — no visible page changes) and inline in Article.author on posts. When an SEO plugin is active, RankReady merges its Person fields into the plugin\'s existing schema graph.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="rr_author_editorial_url"><?php esc_html_e( 'Editorial Policy URL', 'rankready' ); ?></label></th>
+						<td>
+							<input type="url" name="<?php echo esc_attr( RR_OPT_AUTHOR_EDITORIAL_URL ); ?>" id="rr_author_editorial_url" value="<?php echo esc_attr( $editorial ); ?>" class="regular-text" placeholder="https://" />
+							<p class="description"><?php esc_html_e( 'Site-wide editorial standards page. Emits as Person.publishingPrinciples on every author. Also shown as a footer link in the Card layout.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="rr_author_factcheck_url"><?php esc_html_e( 'Fact-Check Policy URL', 'rankready' ); ?></label></th>
+						<td>
+							<input type="url" name="<?php echo esc_attr( RR_OPT_AUTHOR_FACTCHECK_URL ); ?>" id="rr_author_factcheck_url" value="<?php echo esc_attr( $factcheck ); ?>" class="regular-text" placeholder="https://" />
+							<p class="description"><?php esc_html_e( 'Optional "How we fact-check" page URL. Shown as a footer link in the Card layout. Purely UI — not in schema.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'How to Use', 'rankready' ); ?></h2>
+				<ol style="margin-left:18px;">
+					<li><?php esc_html_e( 'Go to Users → your profile and fill in the "RankReady Author Box" section — every field is mapped to schema.', 'rankready' ); ?></li>
+					<li><?php esc_html_e( 'Add the "RankReady Author Box" Gutenberg block to posts, or use the Elementor widget, or enable auto-display above.', 'rankready' ); ?></li>
+					<li><?php esc_html_e( 'On each post, use the "Author Trust" sidebar panel to set Fact-Checked By, Reviewed By, and Last Reviewed date.', 'rankready' ); ?></li>
+					<li><?php esc_html_e( 'Verify schema output with Google\'s Rich Results Test — Person node appears in the graph.', 'rankready' ); ?></li>
+				</ol>
+			</div>
+
+			<?php submit_button(); ?>
+		</form>
+		<?php
+	}
 
 	private static function render_tab_schema(): void {
 		$article   = (string) get_option( RR_OPT_SCHEMA_ARTICLE, 'on' );

@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://posimyth.com/rankready/
- * Description:       AI summaries, Article JSON-LD schema with speakable, LLMs.txt generator, Markdown endpoints for LLM crawlers, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           1.5.4
+ * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
+ * Version:           1.7.0
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH Innovations
@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.5.4' );
+	define( 'RR_VERSION',  '1.7.0' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -98,6 +98,23 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_OPT_FAQ_POSITION',     'rr_faq_position' );
 	define( 'RR_OPT_FAQ_HEADING_TAG',  'rr_faq_heading_tag' );
 	define( 'RR_OPT_FAQ_SHOW_REVIEWED','rr_faq_show_reviewed' );
+
+	// Option keys — Author Box (EEAT).
+	define( 'RR_OPT_AUTHOR_ENABLE',         'rr_author_enable' );          // Master toggle for the feature.
+	define( 'RR_OPT_AUTHOR_AUTO_DISPLAY',   'rr_author_auto_display' );    // 'off' | 'before' | 'after' | 'both'
+	define( 'RR_OPT_AUTHOR_LAYOUT',         'rr_author_layout' );          // 'card' | 'compact' | 'inline'
+	define( 'RR_OPT_AUTHOR_HEADING',        'rr_author_heading' );         // Default heading text ("About the Author").
+	define( 'RR_OPT_AUTHOR_HEADING_TAG',    'rr_author_heading_tag' );     // Default heading tag.
+	define( 'RR_OPT_AUTHOR_SCHEMA_ENABLE',  'rr_author_schema_enable' );   // Emit Person schema (auto-skipped vs SEO plugins → merged instead).
+	define( 'RR_OPT_AUTHOR_EDITORIAL_URL',  'rr_author_editorial_url' );   // Site-wide publishingPrinciples URL.
+	define( 'RR_OPT_AUTHOR_FACTCHECK_URL',  'rr_author_factcheck_url' );   // "How we fact-check" URL (footer link).
+	define( 'RR_OPT_AUTHOR_POST_TYPES',     'rr_author_post_types' );      // Which post types auto-display the box on.
+
+	// Per-post meta keys — Author Trust panel.
+	define( 'RR_META_AUTHOR_FACT_CHECKED_BY', '_rr_author_fact_checked_by' );  // user_id of fact-checker
+	define( 'RR_META_AUTHOR_REVIEWED_BY',     '_rr_author_reviewed_by' );      // user_id of reviewer
+	define( 'RR_META_AUTHOR_LAST_REVIEWED',   '_rr_author_last_reviewed' );    // YYYY-MM-DD string
+	define( 'RR_META_AUTHOR_DISABLE',         '_rr_author_disable' );          // per-post opt-out
 
 	// Headless / Public API options.
 	define( 'RR_OPT_HEADLESS_ENABLE',          'rr_headless_enable' );            // Master toggle for public read-only API.
@@ -226,6 +243,66 @@ add_action( 'plugins_loaded', function (): void {
 		}
 	}
 
+	// ── Self-healing rewrite rules (1.7.0) ─────────────────────────────────────
+	// Problem: flush_rewrite_rules() only fires via update_option_ hooks, which
+	// only trigger when a value *changes*. If llms/md were already 'on' before
+	// save, the hook never fires and rules stay missing.
+	//
+	// Fix part 1: bust the "rules OK" transient on every settings save so the
+	// self-heal re-runs, even when the saved value is unchanged.
+	add_filter( 'pre_update_option_' . RR_OPT_LLMS_ENABLE,      function ( $v ) { delete_transient( 'rr_rewrite_ok' ); return $v; } );
+	add_filter( 'pre_update_option_' . RR_OPT_LLMS_FULL_ENABLE, function ( $v ) { delete_transient( 'rr_rewrite_ok' ); return $v; } );
+	add_filter( 'pre_update_option_' . RR_OPT_MD_ENABLE,        function ( $v ) { delete_transient( 'rr_rewrite_ok' ); return $v; } );
+
+	// Fix part 2: on admin page loads, detect missing rules and auto-flush.
+	// Transient throttles this to at most once per hour.
+	add_action( 'admin_init', function (): void {
+		if ( get_transient( 'rr_rewrite_ok' ) ) {
+			return;
+		}
+
+		$rules = (array) get_option( 'rewrite_rules', array() );
+		$needs = false;
+
+		// Check llms.txt — skip if another plugin is known to handle it.
+		if ( 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) && ! isset( $rules['^llms\.txt$'] ) ) {
+			$rm_handles    = defined( 'RANK_MATH_VERSION' )
+			                 && in_array( 'llms-txt', (array) get_option( 'rank_math_modules', array() ), true );
+			$yoast_handles = defined( 'WPSEO_VERSION' )
+			                 && ! empty( get_option( 'wpseo', array() )['enable_llms_txt'] );
+			if ( ! $rm_handles && ! $yoast_handles ) {
+				$needs = true;
+			}
+		}
+
+		// Check llms-full.txt — never handled by other plugins.
+		if ( ! $needs && 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) && ! isset( $rules['^llms-full\.txt$'] ) ) {
+			$needs = true;
+		}
+
+		// Check .md rewrite rule.
+		if ( ! $needs && 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+			$md_found = false;
+			foreach ( array_keys( $rules ) as $k ) {
+				if ( false !== strpos( $k, '\.md$' ) ) {
+					$md_found = true;
+					break;
+				}
+			}
+			if ( ! $md_found ) {
+				$needs = true;
+			}
+		}
+
+		if ( $needs ) {
+			RR_Llms_Txt::add_rewrite_rules();
+			RR_Markdown::add_rewrite_rules();
+			flush_rewrite_rules( false );
+		}
+
+		set_transient( 'rr_rewrite_ok', 1, HOUR_IN_SECONDS );
+	}, 20 );
+
 	// Register custom cron schedules.
 	add_filter( 'cron_schedules', function ( array $schedules ): array {
 		if ( ! isset( $schedules['rr_five_minutes'] ) ) {
@@ -251,6 +328,7 @@ add_action( 'plugins_loaded', function (): void {
 	RR_Markdown::init();
 	RR_Faq::init();
 	RR_Headless::init();
+	RR_Author_Box::init();
 
 	if ( did_action( 'elementor/loaded' ) ) {
 		add_action( 'elementor/widgets/register', function ( $widgets_manager ): void {
@@ -259,6 +337,9 @@ add_action( 'plugins_loaded', function (): void {
 
 			require_once RR_DIR . 'includes/class-rr-elementor-faq.php';
 			$widgets_manager->register( new RR_Elementor_Faq_Widget() );
+
+			require_once RR_DIR . 'includes/class-rr-elementor-author-box.php';
+			$widgets_manager->register( new RR_Elementor_Author_Box_Widget() );
 		} );
 
 		add_action( 'elementor/frontend/after_enqueue_styles', function (): void {
@@ -304,6 +385,28 @@ register_activation_hook( RR_FILE, function (): void {
 	}
 	if ( false === get_option( RR_OPT_FAQ_SHOW_REVIEWED ) ) {
 		update_option( RR_OPT_FAQ_SHOW_REVIEWED, 'on' );
+	}
+	// Author Box defaults.
+	if ( false === get_option( RR_OPT_AUTHOR_ENABLE ) ) {
+		update_option( RR_OPT_AUTHOR_ENABLE, 'on' );
+	}
+	if ( false === get_option( RR_OPT_AUTHOR_AUTO_DISPLAY ) ) {
+		update_option( RR_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
+	}
+	if ( false === get_option( RR_OPT_AUTHOR_LAYOUT ) ) {
+		update_option( RR_OPT_AUTHOR_LAYOUT, 'card' );
+	}
+	if ( false === get_option( RR_OPT_AUTHOR_HEADING ) ) {
+		update_option( RR_OPT_AUTHOR_HEADING, 'About the Author' );
+	}
+	if ( false === get_option( RR_OPT_AUTHOR_HEADING_TAG ) ) {
+		update_option( RR_OPT_AUTHOR_HEADING_TAG, 'h3' );
+	}
+	if ( false === get_option( RR_OPT_AUTHOR_SCHEMA_ENABLE ) ) {
+		update_option( RR_OPT_AUTHOR_SCHEMA_ENABLE, 'on' );
+	}
+	if ( false === get_option( RR_OPT_AUTHOR_POST_TYPES ) ) {
+		update_option( RR_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
 	}
 
 	// Register rewrite rules before flushing so they get written.

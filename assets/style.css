@@ -119,3 +119,302 @@
 	margin-top: 0;
 	margin-bottom: 0;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+/* ── Author Box ──────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.rr-author-box {
+	box-sizing: border-box;
+	margin: 2em 0;
+	background: var(--rr-ab-bg, transparent);
+	border: var(--rr-ab-border-width, 0) solid var(--rr-ab-border, transparent);
+	border-radius: var(--rr-ab-radius, 0);
+	padding: var(--rr-ab-padding, 0);
+}
+
+.rr-author-box * {
+	box-sizing: border-box;
+}
+
+.rr-ab-heading {
+	margin: 0 0 1em;
+	color: var(--rr-ab-heading-color, inherit);
+	font-size: var(--rr-ab-heading-size, inherit);
+	font-family: var(--rr-ab-heading-ff, inherit);
+	font-weight: var(--rr-ab-heading-fw, inherit);
+}
+
+.rr-ab-inner {
+	display: flex;
+	gap: 20px;
+	align-items: flex-start;
+}
+
+.rr-ab-headshot img {
+	display: block;
+	width: var(--rr-ab-img-size, 96px);
+	height: var(--rr-ab-img-size, 96px);
+	object-fit: cover;
+	border-radius: var(--rr-ab-img-radius, 50%);
+	flex-shrink: 0;
+}
+
+.rr-ab-body {
+	flex: 1;
+	min-width: 0;
+}
+
+.rr-ab-name-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 0 0 4px;
+}
+
+.rr-ab-name {
+	text-decoration: none;
+	color: var(--rr-ab-name-color, inherit);
+	font-size: var(--rr-ab-name-size, 1.15em);
+	font-family: var(--rr-ab-name-ff, inherit);
+	font-weight: var(--rr-ab-name-fw, 600);
+	line-height: 1.3;
+}
+
+.rr-ab-name:hover {
+	text-decoration: underline;
+}
+
+.rr-ab-suffix {
+	opacity: 0.7;
+	font-weight: 400;
+}
+
+.rr-ab-meta {
+	margin: 2px 0 6px;
+	font-size: var(--rr-ab-meta-size, 0.92em);
+	color: var(--rr-ab-meta-color, currentColor);
+	font-family: var(--rr-ab-meta-ff, inherit);
+	opacity: 0.82;
+	line-height: 1.5;
+}
+
+.rr-ab-meta a {
+	color: inherit;
+	text-decoration: none;
+	border-bottom: 1px dotted currentColor;
+}
+
+.rr-ab-sep {
+	opacity: 0.5;
+	padding: 0 4px;
+}
+
+.rr-ab-bio {
+	margin: 8px 0 10px;
+	font-size: var(--rr-ab-bio-size, 0.96em);
+	color: var(--rr-ab-bio-color, inherit);
+	font-family: var(--rr-ab-bio-ff, inherit);
+	line-height: var(--rr-ab-bio-lh, 1.6);
+}
+
+.rr-ab-expertise {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 10px 0;
+}
+
+.rr-ab-topic {
+	display: inline-block;
+	font-size: 0.78em;
+	padding: 3px 10px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.06);
+	color: inherit;
+	line-height: 1.5;
+}
+
+.rr-ab-credentials {
+	margin: 10px 0;
+	font-size: 0.88em;
+	line-height: 1.7;
+	opacity: 0.85;
+}
+
+.rr-ab-cred-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.rr-ab-cred-icon {
+	flex-shrink: 0;
+	opacity: 0.7;
+}
+
+.rr-ab-socials {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 12px 0 0;
+}
+
+.rr-ab-social {
+	display: inline-block;
+	padding: 4px 10px;
+	font-size: var(--rr-ab-social-size, 0.78em);
+	text-decoration: none;
+	color: var(--rr-ab-social-color, inherit);
+	border: 1px solid currentColor;
+	border-radius: 4px;
+	line-height: 1.5;
+	opacity: 0.85;
+	transition: opacity 0.15s;
+}
+
+.rr-ab-social:hover {
+	opacity: 1;
+	text-decoration: none;
+}
+
+.rr-ab-reviewed {
+	margin-top: 10px;
+	font-size: 0.82em;
+	opacity: 0.75;
+	line-height: 1.5;
+}
+
+.rr-ab-reviewed a {
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.rr-ab-policy {
+	margin-top: 12px;
+	padding-top: 10px;
+	border-top: 1px solid rgba(0, 0, 0, 0.08);
+	font-size: 0.8em;
+	opacity: 0.7;
+}
+
+.rr-ab-policy a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.rr-ab-policy a:hover {
+	text-decoration: underline;
+}
+
+/* ── Card layout (default) ──────────────────────────────────── */
+
+.rr-ab-card {
+	background: var(--rr-ab-bg, #f8f9fa);
+	border-radius: var(--rr-ab-radius, 10px);
+	padding: var(--rr-ab-padding, 24px);
+	border: 1px solid var(--rr-ab-border, rgba(0, 0, 0, 0.08));
+}
+
+/* ── Compact layout ─────────────────────────────────────────── */
+
+.rr-ab-compact {
+	padding: var(--rr-ab-padding, 12px);
+}
+
+.rr-ab-compact .rr-ab-inner {
+	gap: 14px;
+}
+
+.rr-ab-compact .rr-ab-headshot img {
+	width: var(--rr-ab-img-size, 64px);
+	height: var(--rr-ab-img-size, 64px);
+}
+
+.rr-ab-compact .rr-ab-heading {
+	font-size: 1em;
+	margin-bottom: 8px;
+}
+
+.rr-ab-compact .rr-ab-bio {
+	font-size: 0.88em;
+}
+
+/* ── Inline byline layout (Healthline-style) ───────────────── */
+
+.rr-ab-inline {
+	margin: 0.75em 0 1.5em;
+	padding: 0;
+	background: transparent;
+	border: none;
+}
+
+.rr-ab-inline .rr-ab-inner {
+	gap: 12px;
+	align-items: center;
+}
+
+.rr-ab-inline .rr-ab-headshot img {
+	width: var(--rr-ab-img-size, 40px);
+	height: var(--rr-ab-img-size, 40px);
+}
+
+.rr-ab-inline .rr-ab-body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.rr-ab-inline .rr-ab-name {
+	font-size: 0.95em;
+	font-weight: 600;
+}
+
+.rr-ab-inline .rr-ab-meta {
+	font-size: 0.8em;
+}
+
+.rr-ab-inline .rr-ab-bio,
+.rr-ab-inline .rr-ab-expertise,
+.rr-ab-inline .rr-ab-credentials,
+.rr-ab-inline .rr-ab-socials,
+.rr-ab-inline .rr-ab-policy {
+	display: none;
+}
+
+/* ── Editor placeholder notice ─────────────────────────────── */
+
+.rr-ab-editor {
+	outline: 1px dashed rgba(0, 115, 170, 0.35);
+	outline-offset: 4px;
+}
+
+.rr-ab-placeholder {
+	padding: 24px;
+	background: #f6f7f7;
+	border: 1px dashed #ccc;
+	color: #555;
+	font-style: italic;
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+	.rr-ab-card .rr-ab-inner {
+		flex-direction: column;
+		gap: 14px;
+	}
+	.rr-ab-card .rr-ab-headshot img {
+		width: 72px;
+		height: 72px;
+	}
+}
+
+/* ── Elementor container reset ────────────────────────────────── */
+
+.elementor-widget-container .rr-author-box {
+	margin-top: 0;
+	margin-bottom: 0;
+}

@@ -30,6 +30,54 @@
 		label: 'Key Takeaways', showLabel: true, headingTag: 'h4'
 	};
 
+	// ── Global fonts (theme.json → Nexter Theme / Nexter Blocks / Kadence / core) ─
+	function rrGlobalFontOptions() {
+		var opts = [ { label: '— Theme default —', value: '' } ];
+		try {
+			var settings = wp.data.select( 'core/block-editor' ).getSettings();
+			var tree = settings && settings.__experimentalFeatures && settings.__experimentalFeatures.typography && settings.__experimentalFeatures.typography.fontFamilies;
+			if ( tree ) {
+				[ [ 'theme', 'Theme' ], [ 'custom', 'Custom' ], [ 'default', 'Default' ] ].forEach( function ( src ) {
+					var list = tree[ src[0] ];
+					if ( Array.isArray( list ) ) {
+						list.forEach( function ( f ) {
+							if ( f && f.fontFamily ) {
+								opts.push( { label: src[1] + ' — ' + ( f.name || f.slug || f.fontFamily ), value: f.fontFamily } );
+							}
+						} );
+					}
+				} );
+			}
+			if ( opts.length === 1 && settings && Array.isArray( settings.fontFamilies ) ) {
+				settings.fontFamilies.forEach( function ( f ) {
+					if ( f && f.fontFamily ) opts.push( { label: f.name || f.fontFamily, value: f.fontFamily } );
+				} );
+			}
+		} catch ( e ) { /* noop */ }
+		return opts;
+	}
+
+	var rrWeightOptions = [
+		{ label: '— Inherit —', value: '' },
+		{ label: '100 Thin', value: '100' },
+		{ label: '200 Extra Light', value: '200' },
+		{ label: '300 Light', value: '300' },
+		{ label: '400 Normal', value: '400' },
+		{ label: '500 Medium', value: '500' },
+		{ label: '600 Semi Bold', value: '600' },
+		{ label: '700 Bold', value: '700' },
+		{ label: '800 Extra Bold', value: '800' },
+		{ label: '900 Black', value: '900' },
+	];
+
+	var rrTransformOptions = [
+		{ label: '— Inherit —', value: '' },
+		{ label: 'None', value: 'none' },
+		{ label: 'UPPERCASE', value: 'uppercase' },
+		{ label: 'lowercase', value: 'lowercase' },
+		{ label: 'Capitalize', value: 'capitalize' },
+	];
+
 	function decodeSummary( raw ) {
 		if ( ! raw ) return { type: 'empty', data: [] };
 		try {
@@ -61,25 +109,33 @@
 
 		attributes: {
 			// Content
-			label:             { type: 'string',  default: '' },
-			showLabel:         { type: 'boolean', default: true },
-			headingTag:        { type: 'string',  default: '' },
+			label:               { type: 'string',  default: '' },
+			showLabel:           { type: 'boolean', default: true },
+			headingTag:          { type: 'string',  default: '' },
 			// Box
-			boxBgColor:        { type: 'string',  default: '' },
-			boxBorderColor:    { type: 'string',  default: '' },
-			boxBorderWidth:    { type: 'number',  default: 3 },
-			boxBorderRadius:   { type: 'number',  default: 0 },
-			boxBorderPosition: { type: 'string',  default: 'left' },
-			boxPadding:        { type: 'number',  default: 0 },
+			boxBgColor:          { type: 'string',  default: '' },
+			boxBorderColor:      { type: 'string',  default: '' },
+			boxBorderWidth:      { type: 'number',  default: 3 },
+			boxBorderRadius:     { type: 'number',  default: 0 },
+			boxBorderPosition:   { type: 'string',  default: 'left' },
+			boxPadding:          { type: 'number',  default: 0 },
 			// Label
-			labelColor:        { type: 'string',  default: '' },
-			labelFontSize:     { type: 'number',  default: 0 },
+			labelColor:          { type: 'string',  default: '' },
+			labelFontSize:       { type: 'number',  default: 0 },
+			labelFontFamily:     { type: 'string',  default: '' },
+			labelFontWeight:     { type: 'string',  default: '' },
+			labelLineHeight:     { type: 'number',  default: 0 },
+			labelLetterSpacing:  { type: 'number',  default: 0 },
+			labelTextTransform:  { type: 'string',  default: '' },
 			// Bullets
-			bulletColor:       { type: 'string',  default: '' },
-			bulletFontSize:    { type: 'number',  default: 0 },
-			bulletLineHeight:  { type: 'number',  default: 0 },
-			bulletSpacing:     { type: 'number',  default: 0 },
-			bulletMarkerColor: { type: 'string',  default: '' },
+			bulletColor:         { type: 'string',  default: '' },
+			bulletFontSize:      { type: 'number',  default: 0 },
+			bulletFontFamily:    { type: 'string',  default: '' },
+			bulletFontWeight:    { type: 'string',  default: '' },
+			bulletLineHeight:    { type: 'number',  default: 0 },
+			bulletLetterSpacing: { type: 'number',  default: 0 },
+			bulletSpacing:       { type: 'number',  default: 0 },
+			bulletMarkerColor:   { type: 'string',  default: '' },
 		},
 
 		edit: function ( props ) {
@@ -180,14 +236,22 @@
 			if ( attrs.bulletMarkerColor ) boxStyle['--rr-marker-color'] = attrs.bulletMarkerColor;
 
 			var labelStyle = {};
-			if ( attrs.labelColor ) labelStyle.color = attrs.labelColor;
-			if ( attrs.labelFontSize ) labelStyle.fontSize = attrs.labelFontSize + 'px';
+			if ( attrs.labelColor )          labelStyle.color = attrs.labelColor;
+			if ( attrs.labelFontSize )       labelStyle.fontSize = attrs.labelFontSize + 'px';
+			if ( attrs.labelFontFamily )     labelStyle.fontFamily = attrs.labelFontFamily;
+			if ( attrs.labelFontWeight )     labelStyle.fontWeight = attrs.labelFontWeight;
+			if ( attrs.labelLineHeight )     labelStyle.lineHeight = attrs.labelLineHeight;
+			if ( attrs.labelLetterSpacing )  labelStyle.letterSpacing = attrs.labelLetterSpacing + 'px';
+			if ( attrs.labelTextTransform )  labelStyle.textTransform = attrs.labelTextTransform;
 
 			var bulletStyle = {};
-			if ( attrs.bulletColor ) bulletStyle.color = attrs.bulletColor;
-			if ( attrs.bulletFontSize ) bulletStyle.fontSize = attrs.bulletFontSize + 'px';
-			if ( attrs.bulletLineHeight ) bulletStyle.lineHeight = attrs.bulletLineHeight;
-			if ( attrs.bulletSpacing ) bulletStyle.marginBottom = attrs.bulletSpacing + 'px';
+			if ( attrs.bulletColor )          bulletStyle.color = attrs.bulletColor;
+			if ( attrs.bulletFontSize )       bulletStyle.fontSize = attrs.bulletFontSize + 'px';
+			if ( attrs.bulletFontFamily )     bulletStyle.fontFamily = attrs.bulletFontFamily;
+			if ( attrs.bulletFontWeight )     bulletStyle.fontWeight = attrs.bulletFontWeight;
+			if ( attrs.bulletLineHeight )     bulletStyle.lineHeight = attrs.bulletLineHeight;
+			if ( attrs.bulletLetterSpacing )  bulletStyle.letterSpacing = attrs.bulletLetterSpacing + 'px';
+			if ( attrs.bulletSpacing )        bulletStyle.marginBottom = attrs.bulletSpacing + 'px';
 
 			var blockProps = useBlockProps( { className: 'rr-summary rr-editor-preview', style: boxStyle } );
 
@@ -289,9 +353,27 @@
 						} )
 					),
 
-					// Panel: Label Style
+					// Panel: Label Style (full typography + global fonts)
 					effectiveShowLabel && el( PanelBody, { title: 'Label Style', initialOpen: false },
 						colorControl( 'Label Color', attrs.labelColor, function ( v ) { setAttrs( { labelColor: v } ); } ),
+
+						el( SelectControl, {
+							label: 'Font Family',
+							help: 'Pulls from your theme.json fonts (Nexter Theme, Nexter Blocks, Kadence, any block theme). Leave blank to inherit from theme.',
+							value: attrs.labelFontFamily || '',
+							options: rrGlobalFontOptions(),
+							onChange: function ( v ) { setAttrs( { labelFontFamily: v } ); },
+							__nextHasNoMarginBottom: true,
+						} ),
+
+						el( SelectControl, {
+							label: 'Font Weight',
+							help: 'Leave blank to inherit.',
+							value: attrs.labelFontWeight || '',
+							options: rrWeightOptions,
+							onChange: function ( v ) { setAttrs( { labelFontWeight: v } ); },
+							__nextHasNoMarginBottom: true,
+						} ),
 
 						el( RangeControl, {
 							label: 'Font Size (px)',
@@ -300,13 +382,56 @@
 							min: 0, max: 48, step: 1,
 							help: '0 = inherit from theme',
 							__nextHasNoMarginBottom: true,
+						} ),
+
+						el( RangeControl, {
+							label: 'Line Height',
+							value: attrs.labelLineHeight || 0,
+							onChange: function ( v ) { setAttrs( { labelLineHeight: v } ); },
+							min: 0, max: 3, step: 0.05,
+							help: '0 = inherit',
+							__nextHasNoMarginBottom: true,
+						} ),
+
+						el( RangeControl, {
+							label: 'Letter Spacing (px)',
+							value: attrs.labelLetterSpacing || 0,
+							onChange: function ( v ) { setAttrs( { labelLetterSpacing: v } ); },
+							min: -2, max: 10, step: 0.1,
+							help: '0 = inherit',
+							__nextHasNoMarginBottom: true,
+						} ),
+
+						el( SelectControl, {
+							label: 'Text Transform',
+							value: attrs.labelTextTransform || '',
+							options: rrTransformOptions,
+							onChange: function ( v ) { setAttrs( { labelTextTransform: v } ); },
+							__nextHasNoMarginBottom: true,
 						} )
 					),
 
-					// Panel: Bullets Style
+					// Panel: Bullets Style (full typography + global fonts)
 					el( PanelBody, { title: 'Bullets Style', initialOpen: false },
 						colorControl( 'Text Color', attrs.bulletColor, function ( v ) { setAttrs( { bulletColor: v } ); } ),
 						colorControl( 'Marker Color', attrs.bulletMarkerColor, function ( v ) { setAttrs( { bulletMarkerColor: v } ); } ),
+
+						el( SelectControl, {
+							label: 'Font Family',
+							help: 'Pulls from your theme.json fonts. Leave blank to inherit from theme.',
+							value: attrs.bulletFontFamily || '',
+							options: rrGlobalFontOptions(),
+							onChange: function ( v ) { setAttrs( { bulletFontFamily: v } ); },
+							__nextHasNoMarginBottom: true,
+						} ),
+
+						el( SelectControl, {
+							label: 'Font Weight',
+							value: attrs.bulletFontWeight || '',
+							options: rrWeightOptions,
+							onChange: function ( v ) { setAttrs( { bulletFontWeight: v } ); },
+							__nextHasNoMarginBottom: true,
+						} ),
 
 						el( RangeControl, {
 							label: 'Font Size (px)',
@@ -323,6 +448,14 @@
 							onChange: function ( v ) { setAttrs( { bulletLineHeight: v } ); },
 							min: 0, max: 3, step: 0.05,
 							help: '0 = inherit',
+							__nextHasNoMarginBottom: true,
+						} ),
+
+						el( RangeControl, {
+							label: 'Letter Spacing (px)',
+							value: attrs.bulletLetterSpacing || 0,
+							onChange: function ( v ) { setAttrs( { bulletLetterSpacing: v } ); },
+							min: -2, max: 10, step: 0.1,
 							__nextHasNoMarginBottom: true,
 						} ),
 

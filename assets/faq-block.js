@@ -35,6 +35,46 @@
 		);
 	}
 
+	// ── Global fonts (theme.json → Nexter Theme / Nexter Blocks / Kadence / core) ─
+	function rrGlobalFontOptions() {
+		var opts = [ { label: '— Theme default —', value: '' } ];
+		try {
+			var settings = wp.data.select( 'core/block-editor' ).getSettings();
+			var tree = settings && settings.__experimentalFeatures && settings.__experimentalFeatures.typography && settings.__experimentalFeatures.typography.fontFamilies;
+			if ( tree ) {
+				[ [ 'theme', 'Theme' ], [ 'custom', 'Custom' ], [ 'default', 'Default' ] ].forEach( function ( src ) {
+					var list = tree[ src[0] ];
+					if ( Array.isArray( list ) ) {
+						list.forEach( function ( f ) {
+							if ( f && f.fontFamily ) {
+								opts.push( { label: src[1] + ' — ' + ( f.name || f.slug || f.fontFamily ), value: f.fontFamily } );
+							}
+						} );
+					}
+				} );
+			}
+			if ( opts.length === 1 && settings && Array.isArray( settings.fontFamilies ) ) {
+				settings.fontFamilies.forEach( function ( f ) {
+					if ( f && f.fontFamily ) opts.push( { label: f.name || f.fontFamily, value: f.fontFamily } );
+				} );
+			}
+		} catch ( e ) { /* noop */ }
+		return opts;
+	}
+
+	var rrWeightOptions = [
+		{ label: '— Inherit —', value: '' },
+		{ label: '100 Thin', value: '100' },
+		{ label: '200 Extra Light', value: '200' },
+		{ label: '300 Light', value: '300' },
+		{ label: '400 Normal', value: '400' },
+		{ label: '500 Medium', value: '500' },
+		{ label: '600 Semi Bold', value: '600' },
+		{ label: '700 Bold', value: '700' },
+		{ label: '800 Extra Bold', value: '800' },
+		{ label: '900 Black', value: '900' },
+	];
+
 	registerBlockType( 'rankready/faq', {
 		title:       'FAQ (RankReady)',
 		icon:        'editor-help',
@@ -56,13 +96,19 @@
 			boxBorderRadius:   { type: 'number',  default: 0 },
 			boxPadding:        { type: 'number',  default: 0 },
 			// Question style
-			questionColor:     { type: 'string',  default: '' },
-			questionFontSize:  { type: 'number',  default: 0 },
+			questionColor:      { type: 'string',  default: '' },
+			questionFontSize:   { type: 'number',  default: 0 },
+			questionFontFamily: { type: 'string',  default: '' },
+			questionFontWeight: { type: 'string',  default: '' },
+			questionLineHeight: { type: 'number',  default: 0 },
 			// Answer style
-			answerColor:       { type: 'string',  default: '' },
-			answerFontSize:    { type: 'number',  default: 0 },
+			answerColor:        { type: 'string',  default: '' },
+			answerFontSize:     { type: 'number',  default: 0 },
+			answerFontFamily:   { type: 'string',  default: '' },
+			answerFontWeight:   { type: 'string',  default: '' },
+			answerLineHeight:   { type: 'number',  default: 0 },
 			// Divider
-			dividerColor:      { type: 'string',  default: '' },
+			dividerColor:       { type: 'string',  default: '' },
 		},
 
 		edit: function ( props ) {
@@ -143,12 +189,18 @@
 			if ( attrs.boxPadding ) boxStyle.padding = attrs.boxPadding + 'px';
 
 			var questionStyle = {};
-			if ( attrs.questionColor ) questionStyle.color = attrs.questionColor;
-			if ( attrs.questionFontSize ) questionStyle.fontSize = attrs.questionFontSize + 'px';
+			if ( attrs.questionColor )      questionStyle.color = attrs.questionColor;
+			if ( attrs.questionFontSize )   questionStyle.fontSize = attrs.questionFontSize + 'px';
+			if ( attrs.questionFontFamily ) questionStyle.fontFamily = attrs.questionFontFamily;
+			if ( attrs.questionFontWeight ) questionStyle.fontWeight = attrs.questionFontWeight;
+			if ( attrs.questionLineHeight ) questionStyle.lineHeight = attrs.questionLineHeight;
 
 			var answerStyle = {};
-			if ( attrs.answerColor ) answerStyle.color = attrs.answerColor;
-			if ( attrs.answerFontSize ) answerStyle.fontSize = attrs.answerFontSize + 'px';
+			if ( attrs.answerColor )      answerStyle.color = attrs.answerColor;
+			if ( attrs.answerFontSize )   answerStyle.fontSize = attrs.answerFontSize + 'px';
+			if ( attrs.answerFontFamily ) answerStyle.fontFamily = attrs.answerFontFamily;
+			if ( attrs.answerFontWeight ) answerStyle.fontWeight = attrs.answerFontWeight;
+			if ( attrs.answerLineHeight ) answerStyle.lineHeight = attrs.answerLineHeight;
 
 			var dividerStyle = {};
 			if ( attrs.dividerColor ) dividerStyle.borderBottomColor = attrs.dividerColor;
@@ -252,10 +304,24 @@
 						} )
 					),
 
-					// Panel: Question Style
+					// Panel: Question Style (full typography + global fonts)
 					el( PanelBody, { title: 'Question Style', initialOpen: false },
 						colorControl( 'Color', attrs.questionColor, function ( v ) { setAttrs( { questionColor: v } ); } ),
-
+						el( SelectControl, {
+							label: 'Font Family',
+							help: 'Pulls from your theme.json fonts (Nexter Theme, Nexter Blocks, Kadence, any block theme). Leave blank to inherit.',
+							value: attrs.questionFontFamily || '',
+							options: rrGlobalFontOptions(),
+							onChange: function ( v ) { setAttrs( { questionFontFamily: v } ); },
+							__nextHasNoMarginBottom: true,
+						} ),
+						el( SelectControl, {
+							label: 'Font Weight',
+							value: attrs.questionFontWeight || '',
+							options: rrWeightOptions,
+							onChange: function ( v ) { setAttrs( { questionFontWeight: v } ); },
+							__nextHasNoMarginBottom: true,
+						} ),
 						el( RangeControl, {
 							label: 'Font Size (px)',
 							value: attrs.questionFontSize || 0,
@@ -263,13 +329,35 @@
 							min: 0, max: 32, step: 1,
 							help: '0 = inherit',
 							__nextHasNoMarginBottom: true,
+						} ),
+						el( RangeControl, {
+							label: 'Line Height',
+							value: attrs.questionLineHeight || 0,
+							onChange: function ( v ) { setAttrs( { questionLineHeight: v } ); },
+							min: 0, max: 3, step: 0.05,
+							help: '0 = inherit',
+							__nextHasNoMarginBottom: true,
 						} )
 					),
 
-					// Panel: Answer Style
+					// Panel: Answer Style (full typography + global fonts)
 					el( PanelBody, { title: 'Answer Style', initialOpen: false },
 						colorControl( 'Color', attrs.answerColor, function ( v ) { setAttrs( { answerColor: v } ); } ),
-
+						el( SelectControl, {
+							label: 'Font Family',
+							help: 'Pulls from your theme.json fonts. Leave blank to inherit from theme.',
+							value: attrs.answerFontFamily || '',
+							options: rrGlobalFontOptions(),
+							onChange: function ( v ) { setAttrs( { answerFontFamily: v } ); },
+							__nextHasNoMarginBottom: true,
+						} ),
+						el( SelectControl, {
+							label: 'Font Weight',
+							value: attrs.answerFontWeight || '',
+							options: rrWeightOptions,
+							onChange: function ( v ) { setAttrs( { answerFontWeight: v } ); },
+							__nextHasNoMarginBottom: true,
+						} ),
 						el( RangeControl, {
 							label: 'Font Size (px)',
 							value: attrs.answerFontSize || 0,
@@ -278,7 +366,14 @@
 							help: '0 = inherit',
 							__nextHasNoMarginBottom: true,
 						} ),
-
+						el( RangeControl, {
+							label: 'Line Height',
+							value: attrs.answerLineHeight || 0,
+							onChange: function ( v ) { setAttrs( { answerLineHeight: v } ); },
+							min: 0, max: 3, step: 0.05,
+							help: '0 = inherit',
+							__nextHasNoMarginBottom: true,
+						} ),
 						colorControl( 'Divider Color', attrs.dividerColor, function ( v ) { setAttrs( { dividerColor: v } ); } )
 					)
 				),

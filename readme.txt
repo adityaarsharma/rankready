@@ -4,7 +4,7 @@ Tags: llm seo, ai summary, schema markup, llms.txt, eeat
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.5.4
+Stable tag: 1.7.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,29 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 1.7.0 =
+* New: RankReady Author Box — full EEAT author system with Gutenberg block, Elementor widget, and Person JSON-LD schema
+* New: 23 author profile fields added under Users → Profile → "RankReady Author Box" — every field maps directly to Schema.org Person
+* New: Schema.org Person emission with @id, jobTitle, worksFor (Organization), description, image (ImageObject), knowsAbout, sameAs, alumniOf, hasCredential (degree/certification), memberOf, award, contactPoint, publishingPrinciples, identifier (PropertyValue for ORCID + Wikidata)
+* New: Priority sameAs ordering — Wikidata → Wikipedia → ORCID → Google Scholar → LinkedIn → GitHub → YouTube → X → personal site
+* New: ORCID dual emission — sameAs URL + identifier PropertyValue for stronger entity disambiguation
+* New: Education, certifications, memberships, and awards as repeaters — each row emits its own schema node
+* New: Topics of Expertise field → Person.knowsAbout[] (the highest-signal field for AI topical clustering per 2026 citation research)
+* New: Started Year field auto-calculates verifiable years of experience (no fake counters)
+* New: 3 layouts — Card (end-of-article), Compact (sidebar), Inline byline (Healthline-style)
+* New: Per-post "Author Trust" fields — Fact-checked by, Reviewed by, Last reviewed date → Article.reviewedBy[] + lastReviewed
+* New: Site-wide Editorial Policy URL → Person.publishingPrinciples on every author
+* New: ProfilePage schema wrapper emitted via wp_head on author archive pages (no visible template override)
+* New: Schema merge into Rank Math, Yoast, AIOSEO, SEOPress, The SEO Framework, Slim SEO via each plugin's Person filter — zero duplicate schema when an SEO plugin is active
+* New: Gutenberg Author Box block with Content, Box Style, Heading, Name, Meta, Bio, Headshot, and Social panels
+* New: Elementor Author Box widget with full Group_Control_Typography on every text element (Elementor Global Fonts + Global Colors work natively)
+* New: Settings tab "Author Box" with master toggle, auto-display, default layout, post types, schema enable, editorial + fact-check policy URLs
+* New: Full typography parity across all Gutenberg blocks — font family, weight, line height, letter spacing, text transform added to Summary + FAQ blocks
+* New: Global font support in Gutenberg blocks — reads theme.json fontFamilies so Nexter Theme, Nexter Blocks, Kadence, Astra, and any block theme's global fonts appear automatically
+* Fix: Self-healing rewrite rules — llms.txt and .md endpoints now auto-recover if missing from DB without requiring manual Permalinks save (rolled in from 1.6.0)
+* Fix: Rewrite rules now re-flush on every settings save, even when toggle value is unchanged
+* Fix: Smart conflict detection — skips llms.txt self-heal when Rank Math or Yoast is already handling it
 
 = 1.5.4 =
 * New: Enterprise Headless WordPress support — public read-only REST API for Next.js, Nuxt, Astro, SvelteKit, Gatsby, Faust.js, Atlas

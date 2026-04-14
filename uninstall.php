@@ -99,6 +99,16 @@ $options = array(
 	'rr_schema_done',
 	'rr_schema_total',
 	'rr_schema_running',
+	// Author Box.
+	'rr_author_enable',
+	'rr_author_auto_display',
+	'rr_author_layout',
+	'rr_author_heading',
+	'rr_author_heading_tag',
+	'rr_author_schema_enable',
+	'rr_author_editorial_url',
+	'rr_author_factcheck_url',
+	'rr_author_post_types',
 );
 
 foreach ( $options as $option ) {
@@ -126,10 +136,46 @@ $meta_keys = array(
 	'_rr_schema_type',
 	'_rr_schema_data',
 	'_rr_schema_hash',
+	// Author Box per-post meta.
+	'_rr_author_fact_checked_by',
+	'_rr_author_reviewed_by',
+	'_rr_author_last_reviewed',
+	'_rr_author_disable',
 );
 
 foreach ( $meta_keys as $key ) {
 	$wpdb->delete( $wpdb->postmeta, array( 'meta_key' => $key ) ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+}
+
+// ── Delete user meta (Author Box profile fields) ─────────────────────────────
+$user_meta_keys = array(
+	'rr_author_job_title',
+	'rr_author_employer',
+	'rr_author_employer_url',
+	'rr_author_bio',
+	'rr_author_headshot',
+	'rr_author_headshot_alt',
+	'rr_author_started_year',
+	'rr_author_expertise',
+	'rr_author_credentials_suffix',
+	'rr_author_education',
+	'rr_author_certifications',
+	'rr_author_memberships',
+	'rr_author_awards',
+	'rr_author_wikidata',
+	'rr_author_wikipedia',
+	'rr_author_orcid',
+	'rr_author_scholar',
+	'rr_author_linkedin',
+	'rr_author_github',
+	'rr_author_youtube',
+	'rr_author_twitter',
+	'rr_author_website',
+	'rr_author_contact_url',
+);
+
+foreach ( $user_meta_keys as $key ) {
+	$wpdb->delete( $wpdb->usermeta, array( 'meta_key' => $key ) ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 }
 
 // ── Clear scheduled cron ──────────────────────────────────────────────────────

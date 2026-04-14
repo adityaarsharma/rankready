@@ -12,6 +12,7 @@ class RR_Block {
 	public static function init(): void {
 		add_action( 'init',                        array( self::class, 'register_block' ) );
 		add_action( 'init',                        array( self::class, 'register_faq_block' ) );
+		add_action( 'init',                        array( self::class, 'register_author_box_block' ) );
 		add_action( 'enqueue_block_editor_assets', array( self::class, 'enqueue_editor_assets' ) );
 		add_action( 'wp_enqueue_scripts',          array( self::class, 'enqueue_frontend_assets' ) );
 		add_action( 'wp_head',                     array( self::class, 'maybe_inject_schema' ), 1 );
@@ -55,13 +56,31 @@ class RR_Block {
 				// Label style
 				'labelColor'        => array( 'type' => 'string',  'default' => '' ),
 				'labelFontSize'     => array( 'type' => 'number',  'default' => 0 ),
+				'labelFontFamily'   => array( 'type' => 'string',  'default' => '' ),
+				'labelFontWeight'   => array( 'type' => 'string',  'default' => '' ),
+				'labelLineHeight'   => array( 'type' => 'number',  'default' => 0 ),
+				'labelLetterSpacing'=> array( 'type' => 'number',  'default' => 0 ),
+				'labelTextTransform'=> array( 'type' => 'string',  'default' => '' ),
 				// Bullet style
 				'bulletColor'       => array( 'type' => 'string',  'default' => '' ),
 				'bulletFontSize'    => array( 'type' => 'number',  'default' => 0 ),
+				'bulletFontFamily'  => array( 'type' => 'string',  'default' => '' ),
+				'bulletFontWeight'  => array( 'type' => 'string',  'default' => '' ),
 				'bulletLineHeight'  => array( 'type' => 'number',  'default' => 0 ),
+				'bulletLetterSpacing' => array( 'type' => 'number','default' => 0 ),
 				'bulletSpacing'     => array( 'type' => 'number',  'default' => 0 ),
 				'bulletMarkerColor' => array( 'type' => 'string',  'default' => '' ),
 			),
+		) );
+	}
+
+	// ── Author Box Block registration ────────────────────────────────────────
+
+	public static function register_author_box_block(): void {
+		register_block_type( 'rankready/author-box', array(
+			'api_version'     => 3,
+			'render_callback' => array( 'RR_Author_Box', 'render_block' ),
+			'attributes'      => RR_Author_Box::block_attributes(),
 		) );
 	}
 
@@ -73,25 +92,31 @@ class RR_Block {
 			'render_callback' => array( self::class, 'render_faq' ),
 			'attributes'      => array(
 				// Content
-				'showTitle'        => array( 'type' => 'boolean', 'default' => true ),
-				'titleText'        => array( 'type' => 'string',  'default' => 'Frequently Asked Questions' ),
-				'headingTag'       => array( 'type' => 'string',  'default' => 'h3' ),
-				'showReviewed'     => array( 'type' => 'boolean', 'default' => true ),
-				'keyword'          => array( 'type' => 'string',  'default' => '' ),
+				'showTitle'          => array( 'type' => 'boolean', 'default' => true ),
+				'titleText'          => array( 'type' => 'string',  'default' => 'Frequently Asked Questions' ),
+				'headingTag'         => array( 'type' => 'string',  'default' => 'h3' ),
+				'showReviewed'       => array( 'type' => 'boolean', 'default' => true ),
+				'keyword'            => array( 'type' => 'string',  'default' => '' ),
 				// Box style
-				'boxBgColor'       => array( 'type' => 'string',  'default' => '' ),
-				'boxBorderColor'   => array( 'type' => 'string',  'default' => '' ),
-				'boxBorderWidth'   => array( 'type' => 'number',  'default' => 0 ),
-				'boxBorderRadius'  => array( 'type' => 'number',  'default' => 0 ),
-				'boxPadding'       => array( 'type' => 'number',  'default' => 0 ),
+				'boxBgColor'         => array( 'type' => 'string',  'default' => '' ),
+				'boxBorderColor'     => array( 'type' => 'string',  'default' => '' ),
+				'boxBorderWidth'     => array( 'type' => 'number',  'default' => 0 ),
+				'boxBorderRadius'    => array( 'type' => 'number',  'default' => 0 ),
+				'boxPadding'         => array( 'type' => 'number',  'default' => 0 ),
 				// Question style
-				'questionColor'    => array( 'type' => 'string',  'default' => '' ),
-				'questionFontSize' => array( 'type' => 'number',  'default' => 0 ),
+				'questionColor'      => array( 'type' => 'string',  'default' => '' ),
+				'questionFontSize'   => array( 'type' => 'number',  'default' => 0 ),
+				'questionFontFamily' => array( 'type' => 'string',  'default' => '' ),
+				'questionFontWeight' => array( 'type' => 'string',  'default' => '' ),
+				'questionLineHeight' => array( 'type' => 'number',  'default' => 0 ),
 				// Answer style
-				'answerColor'      => array( 'type' => 'string',  'default' => '' ),
-				'answerFontSize'   => array( 'type' => 'number',  'default' => 0 ),
+				'answerColor'        => array( 'type' => 'string',  'default' => '' ),
+				'answerFontSize'     => array( 'type' => 'number',  'default' => 0 ),
+				'answerFontFamily'   => array( 'type' => 'string',  'default' => '' ),
+				'answerFontWeight'   => array( 'type' => 'string',  'default' => '' ),
+				'answerLineHeight'   => array( 'type' => 'number',  'default' => 0 ),
 				// Divider
-				'dividerColor'     => array( 'type' => 'string',  'default' => '' ),
+				'dividerColor'       => array( 'type' => 'string',  'default' => '' ),
 			),
 		) );
 	}
@@ -130,7 +155,7 @@ class RR_Block {
 		}
 		$box_style_attr = ! empty( $box_styles ) ? ' style="' . esc_attr( implode( ';', $box_styles ) ) . '"' : '';
 
-		// Question styles.
+		// Question styles (full typography).
 		$q_styles = array();
 		if ( ! empty( $attrs['questionColor'] ) ) {
 			$q_styles[] = 'color:' . self::sanitize_color( $attrs['questionColor'] );
@@ -138,15 +163,33 @@ class RR_Block {
 		if ( ! empty( $attrs['questionFontSize'] ) ) {
 			$q_styles[] = 'font-size:' . (int) $attrs['questionFontSize'] . 'px';
 		}
+		if ( ! empty( $attrs['questionFontFamily'] ) ) {
+			$q_styles[] = 'font-family:' . esc_attr( (string) $attrs['questionFontFamily'] );
+		}
+		if ( ! empty( $attrs['questionFontWeight'] ) ) {
+			$q_styles[] = 'font-weight:' . esc_attr( (string) $attrs['questionFontWeight'] );
+		}
+		if ( ! empty( $attrs['questionLineHeight'] ) ) {
+			$q_styles[] = 'line-height:' . number_format( (float) $attrs['questionLineHeight'], 2 );
+		}
 		$q_style_attr = ! empty( $q_styles ) ? ' style="' . esc_attr( implode( ';', $q_styles ) ) . '"' : '';
 
-		// Answer styles.
+		// Answer styles (full typography).
 		$a_styles = array();
 		if ( ! empty( $attrs['answerColor'] ) ) {
 			$a_styles[] = 'color:' . self::sanitize_color( $attrs['answerColor'] );
 		}
 		if ( ! empty( $attrs['answerFontSize'] ) ) {
 			$a_styles[] = 'font-size:' . (int) $attrs['answerFontSize'] . 'px';
+		}
+		if ( ! empty( $attrs['answerFontFamily'] ) ) {
+			$a_styles[] = 'font-family:' . esc_attr( (string) $attrs['answerFontFamily'] );
+		}
+		if ( ! empty( $attrs['answerFontWeight'] ) ) {
+			$a_styles[] = 'font-weight:' . esc_attr( (string) $attrs['answerFontWeight'] );
+		}
+		if ( ! empty( $attrs['answerLineHeight'] ) ) {
+			$a_styles[] = 'line-height:' . number_format( (float) $attrs['answerLineHeight'], 2 );
 		}
 		$a_style_attr = ! empty( $a_styles ) ? ' style="' . esc_attr( implode( ';', $a_styles ) ) . '"' : '';
 
@@ -271,7 +314,7 @@ class RR_Block {
 
 		$box_style_attr = ! empty( $box_styles ) ? ' style="' . esc_attr( implode( ';', $box_styles ) ) . '"' : '';
 
-		// Label inline styles
+		// Label inline styles (full typography).
 		$label_styles = array();
 		if ( ! empty( $attrs['labelColor'] ) ) {
 			$label_styles[] = 'color:' . self::sanitize_color( $attrs['labelColor'] );
@@ -279,9 +322,24 @@ class RR_Block {
 		if ( ! empty( $attrs['labelFontSize'] ) ) {
 			$label_styles[] = 'font-size:' . (int) $attrs['labelFontSize'] . 'px';
 		}
+		if ( ! empty( $attrs['labelFontFamily'] ) ) {
+			$label_styles[] = 'font-family:' . esc_attr( (string) $attrs['labelFontFamily'] );
+		}
+		if ( ! empty( $attrs['labelFontWeight'] ) ) {
+			$label_styles[] = 'font-weight:' . esc_attr( (string) $attrs['labelFontWeight'] );
+		}
+		if ( ! empty( $attrs['labelLineHeight'] ) ) {
+			$label_styles[] = 'line-height:' . number_format( (float) $attrs['labelLineHeight'], 2 );
+		}
+		if ( ! empty( $attrs['labelLetterSpacing'] ) ) {
+			$label_styles[] = 'letter-spacing:' . number_format( (float) $attrs['labelLetterSpacing'], 2 ) . 'px';
+		}
+		if ( ! empty( $attrs['labelTextTransform'] ) ) {
+			$label_styles[] = 'text-transform:' . esc_attr( (string) $attrs['labelTextTransform'] );
+		}
 		$label_style_attr = ! empty( $label_styles ) ? ' style="' . esc_attr( implode( ';', $label_styles ) ) . '"' : '';
 
-		// Bullet inline styles
+		// Bullet inline styles (full typography).
 		$bullet_styles = array();
 		if ( ! empty( $attrs['bulletColor'] ) ) {
 			$bullet_styles[] = 'color:' . self::sanitize_color( $attrs['bulletColor'] );
@@ -289,8 +347,17 @@ class RR_Block {
 		if ( ! empty( $attrs['bulletFontSize'] ) ) {
 			$bullet_styles[] = 'font-size:' . (int) $attrs['bulletFontSize'] . 'px';
 		}
+		if ( ! empty( $attrs['bulletFontFamily'] ) ) {
+			$bullet_styles[] = 'font-family:' . esc_attr( (string) $attrs['bulletFontFamily'] );
+		}
+		if ( ! empty( $attrs['bulletFontWeight'] ) ) {
+			$bullet_styles[] = 'font-weight:' . esc_attr( (string) $attrs['bulletFontWeight'] );
+		}
 		if ( ! empty( $attrs['bulletLineHeight'] ) ) {
 			$bullet_styles[] = 'line-height:' . number_format( (float) $attrs['bulletLineHeight'], 2 ) ;
+		}
+		if ( ! empty( $attrs['bulletLetterSpacing'] ) ) {
+			$bullet_styles[] = 'letter-spacing:' . number_format( (float) $attrs['bulletLetterSpacing'], 2 ) . 'px';
 		}
 		if ( ! empty( $attrs['bulletSpacing'] ) ) {
 			$bullet_styles[] = 'margin-bottom:' . (int) $attrs['bulletSpacing'] . 'px';
@@ -403,12 +470,34 @@ class RR_Block {
 			true
 		);
 
+		wp_enqueue_script(
+			'rr-author-box-block-editor',
+			RR_URL . 'assets/author-box-block.js',
+			$deps,
+			RR_VERSION,
+			true
+		);
+
+		// Light user list for the block author picker.
+		$users_data = array();
+		$users      = get_users( array(
+			'number'  => 100,
+			'fields'  => array( 'ID', 'display_name' ),
+			'orderby' => 'display_name',
+		) );
+		foreach ( $users as $u ) {
+			$users_data[] = array( 'id' => (int) $u->ID, 'name' => $u->display_name );
+		}
+
 		wp_localize_script( 'rr-block-editor', 'rrBlockData', array(
 			'defaults' => array(
-				'label'      => (string) get_option( RR_OPT_LABEL, 'Key Takeaways' ),
-				'showLabel'  => (bool) get_option( RR_OPT_SHOW_LABEL, '1' ),
-				'headingTag' => (string) get_option( RR_OPT_HEADING_TAG, 'h4' ),
+				'label'         => (string) get_option( RR_OPT_LABEL, 'Key Takeaways' ),
+				'showLabel'     => (bool) get_option( RR_OPT_SHOW_LABEL, '1' ),
+				'headingTag'    => (string) get_option( RR_OPT_HEADING_TAG, 'h4' ),
+				'authorHeading' => (string) get_option( RR_OPT_AUTHOR_HEADING, 'About the Author' ),
+				'authorTag'     => (string) get_option( RR_OPT_AUTHOR_HEADING_TAG, 'h3' ),
 			),
+			'users' => $users_data,
 		) );
 	}
 
@@ -424,12 +513,14 @@ class RR_Block {
 			return;
 		}
 
-		// Always load styles when summary or FAQ data exists.
+		// Always load styles when summary, FAQ, or author-box data may render.
 		// Display can come from: Gutenberg block, Elementor widget, theme builder widget, or auto-display.
-		$has_summary = ! empty( get_post_meta( $post_id, RR_META_SUMMARY, true ) );
-		$has_faq     = ! empty( get_post_meta( $post_id, RR_META_FAQ, true ) );
+		$has_summary    = ! empty( get_post_meta( $post_id, RR_META_SUMMARY, true ) );
+		$has_faq        = ! empty( get_post_meta( $post_id, RR_META_FAQ, true ) );
+		$has_author_box = has_block( 'rankready/author-box', $post_id )
+			|| 'off' !== (string) get_option( RR_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
 
-		if ( $has_summary || $has_faq ) {
+		if ( $has_summary || $has_faq || $has_author_box ) {
 			wp_enqueue_style( 'rankready-style', RR_URL . 'assets/style.css', array(), RR_VERSION );
 		}
 	}

@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-04-14
+
+### Fixed
+
+- **Smart-merge for Person schema** — RankReady's Author Box data now overwrites the SEO plugin's Person fields for `image`, `description`, `jobTitle`, `worksFor`, `knowsAbout`, and `contactPoint` instead of being silently skipped. Before 1.7.1, a Gravatar fallback emitted by Rank Math would win over an uploaded real headshot, and duplicate twitter.com / x.com entries from Yoast profile fields would persist. Now the user's explicit Author Box input always wins for these fields. Every other field stays additive (non-destructive).
+- **`sameAs` dedupe + normalization** — when merging the Person node, RankReady now:
+  - Collapses `twitter.com/handle` and `x.com/handle` to a single canonical `https://x.com/handle` entry (plus `mobile.twitter.com` and `mobile.x.com` variants).
+  - Strips `www.` prefixes and trailing slashes.
+  - Lowercases the host for comparison.
+  - Dedupes across RankReady + SEO plugin sources (not just the RankReady input).
+  - Re-sorts by EEAT priority: Wikidata → Wikipedia → ORCID → Google Scholar → LinkedIn → Muck Rack → GitHub → YouTube → X → everything else.
+- **`isAccessibleForFree: "1"` validator error** — property removed from `hasPart` WebPageElement nodes in `class-rr-block.php`. Schema.org expects a boolean, but Rank Math's schema normalizer coerces booleans to the string `"1"` during serialization, which fails strict validation. Omitting the property defaults to "freely accessible" per schema.org spec, which is the intended behavior anyway. No loss of information, fixes the validator error on every RankReady-powered page site-wide.
+- **Duplicate-install guard (1.6 → 1.7 scenario)** — if two RankReady folders end up in `/wp-content/plugins/` (e.g. one installed from a GitHub "Source code" zip named `RankReady-LLM-SEO-EEAT-AI-Optimization-1.5` and one from a release asset named `rankready`), the second-loaded copy now bails out cleanly with an admin notice instead of fataling the site with `Class "RR_Author_Box" not found`. Root cause on nexterwp.com was that the 1.5 copy loaded first, captured `RR_DIR` to its own directory, and the 1.7 copy's `plugins_loaded` hook then tried to autoload `RR_Author_Box` from the 1.5 path — which doesn't have that class. The guard runs at file load time, before any hooks or autoloaders are registered, so the second copy becomes a complete no-op regardless of folder name.
+- **First-copy duplicate scanner** — `admin_init` hook in the winning copy also scans `active_plugins` for multiple entries ending in `rankready.php` and displays a yellow warning notice listing every duplicate folder so admins can clean them up from the Plugins page.
+
+### Added
+
+- **Author Trust Panel is now opt-in** — new setting `rr_author_trust_enable` (off by default) gates the per-post Fact-Checked By, Reviewed By, and Last Reviewed fields. When off, the post meta keys are not registered at all, the fields do not appear in the block editor's document meta panel, and RankReady emits zero reviewer schema. For sites that do not have a formal medical / legal / journalistic review process, this removes the feature entirely. When on, the Healthline / WebMD `Article.reviewedBy[]` + `Article.lastReviewed` pattern is emitted as before.
+- **SEOPress Pro filter support** — added `seopress_pro_get_json_data_article` hook to the Author Box schema merge. The free `seopress_schemas_auto_article_json` filter was already wired; this adds the Pro equivalent for complete coverage.
+- **Admin: Author Trust Panel card** on the Author Box tab with the master toggle and a description explaining when to enable the feature.
+
+### Changed
+
+- **`merge_into_seopress` now uses `smart_merge_person`** instead of an inline additive loop, so SEOPress users get the same smart-merge + sameAs dedupe behavior as Rank Math / Yoast / AIOSEO / TSF / Slim SEO users. One consistent merge strategy across every supported SEO plugin.
+- **`RR_OPT_AUTHOR_SCHEMA_ENABLE` check added to `merge_into_seopress`** — previously only the `enhance_graph()` path checked the toggle; now SEOPress honors it too.
+- **New constant `RR_OPT_AUTHOR_TRUST_ENABLE`** defined in `rankready.php`.
+- **`uninstall.php`** cleans the new option.
+
+### SEO Plugin Compatibility Matrix (verified)
+
+| Plugin | Filter used | Smart merge | sameAs dedupe | SEOPress Pro support |
+|---|---|---|---|---|
+| Rank Math | `rank_math/json_ld` | ✅ | ✅ | n/a |
+| Yoast SEO | `wpseo_schema_graph` | ✅ | ✅ | n/a |
+| AIOSEO | `aioseo_schema_output` | ✅ | ✅ | n/a |
+| SEOPress (free) | `seopress_schemas_auto_article_json` | ✅ | ✅ | — |
+| SEOPress Pro | `seopress_pro_get_json_data_article` | ✅ | ✅ | ✅ (new in 1.7.1) |
+| The SEO Framework | `the_seo_framework_schema_graph_data` | ✅ | ✅ | n/a |
+| Slim SEO | `slim_seo_schema_graph` | ✅ | ✅ | n/a |
+
+Zero schema duplication. Zero override of SEO plugin data that the user hasn't explicitly set in RankReady.
+
+### Notes
+
+- Existing Rank Math / Yoast / AIOSEO schema caches should be flushed after upgrading so the new merged output replaces the old cached version. Rank Math: `wp rankmath cache flush` or Rank Math → Status → Clear Cache. Yoast: no action needed (recomputed on every request). AIOSEO: Tools → Database Tools → Flush Cache.
+
 ## [1.7.0] - 2026-04-14
 
 ### Added — RankReady Author Box (full EEAT author system)

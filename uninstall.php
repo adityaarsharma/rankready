@@ -109,6 +109,7 @@ $options = array(
 	'rr_author_editorial_url',
 	'rr_author_factcheck_url',
 	'rr_author_post_types',
+	'rr_author_trust_enable',
 );
 
 foreach ( $options as $option ) {

@@ -74,10 +74,12 @@ class RR_Author_Box {
 		add_action( 'wp_head', array( self::class, 'maybe_inject_archive_person' ), 2 );
 
 		// Merge into SEO plugin Article.author — upgrade the Person with sameAs / knowsAbout / credentials.
+		// Covers: Rank Math, Yoast SEO, AIOSEO, SEOPress (free + Pro), The SEO Framework, Slim SEO.
 		add_filter( 'rank_math/json_ld',                   array( self::class, 'merge_into_rankmath' ), 100, 2 );
 		add_filter( 'wpseo_schema_graph',                  array( self::class, 'merge_into_yoast' ),    100 );
 		add_filter( 'aioseo_schema_output',                array( self::class, 'merge_into_aioseo' ),   100 );
 		add_filter( 'seopress_schemas_auto_article_json',  array( self::class, 'merge_into_seopress' ), 100 );
+		add_filter( 'seopress_pro_get_json_data_article',  array( self::class, 'merge_into_seopress' ), 100 );
 		add_filter( 'the_seo_framework_schema_graph_data', array( self::class, 'merge_into_tsf' ),      100 );
 		add_filter( 'slim_seo_schema_graph',               array( self::class, 'merge_into_slim_seo' ), 100 );
 
@@ -127,6 +129,15 @@ class RR_Author_Box {
 	}
 
 	public static function register_post_meta(): void {
+		// Author Trust panel is opt-in. When disabled, the fact-checker / reviewer
+		// / last-reviewed meta keys are not registered at all — so they don't
+		// appear in the REST API, don't show up in the block editor's document
+		// meta panel, and never clutter the post editor for users who don't
+		// have a formal review process.
+		if ( 'on' !== get_option( RR_OPT_AUTHOR_TRUST_ENABLE, 'off' ) ) {
+			return;
+		}
+
 		$post_types = (array) get_option( RR_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
 
 		foreach ( $post_types as $pt ) {
@@ -780,7 +791,26 @@ class RR_Author_Box {
 
 	/**
 	 * Walk a schema graph and enhance any Person node whose url matches the
-	 * current post author. Does not overwrite existing keys — only adds.
+	 * current post author. Uses a SMART merge strategy (1.7.1+):
+	 *
+	 *   - For fields the user explicitly filled in the RankReady Author Box
+	 *     (image, description, jobTitle, worksFor, knowsAbout, contactPoint),
+	 *     RankReady's value OVERWRITES whatever the SEO plugin emitted. This
+	 *     fixes the long-standing bug where a Gravatar fallback from Rank Math
+	 *     would win over an uploaded real headshot, or where duplicate
+	 *     twitter.com / x.com entries from Yoast profile fields would persist.
+	 *
+	 *   - For sameAs, RankReady MERGES its list with whatever already exists,
+	 *     then dedupes + normalizes (twitter.com → x.com collapse, www. strip,
+	 *     trailing-slash strip) and re-orders by EEAT priority (Wikidata →
+	 *     Wikipedia → ORCID → Scholar → LinkedIn → GitHub → YouTube → X →
+	 *     personal site). This keeps any extra profile links the SEO plugin
+	 *     knows about while guaranteeing zero duplicates.
+	 *
+	 *   - For everything else (alumniOf, hasCredential, memberOf, award,
+	 *     identifier, publishingPrinciples, @id), RankReady adds the field
+	 *     only if the SEO plugin hasn't already set it. Additive, non-
+	 *     destructive, no-conflict.
 	 */
 	private static function enhance_graph( array &$graph, int $post_id ): void {
 		if ( 'on' !== get_option( RR_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ) return;
@@ -802,17 +832,135 @@ class RR_Author_Box {
 			$node_url = isset( $node['url'] ) ? $node['url'] : '';
 			if ( $node_url && $node_url !== $author_url ) continue;
 
-			foreach ( $person as $key => $value ) {
-				if ( '@type' === $key ) continue;
-				if ( ! isset( $node[ $key ] ) || ( is_array( $node[ $key ] ) && empty( $node[ $key ] ) ) ) {
-					$node[ $key ] = $value;
-				}
-			}
+			self::smart_merge_person( $node, $person );
 		}
 		unset( $node );
 
 		// Also add reviewedBy / lastReviewed to Article nodes.
 		self::inject_review_signals( $graph, $post_id );
+	}
+
+	/**
+	 * Smart merge: RankReady's Author Box data wins for the fields the user
+	 * explicitly filled in, sameAs is merged-and-deduped, everything else is
+	 * additive. See enhance_graph() docblock for the full rationale.
+	 *
+	 * @param array $node   The existing Person node from the SEO plugin graph (modified in place).
+	 * @param array $person The Person data built from RankReady's Author Box fields.
+	 */
+	private static function smart_merge_person( array &$node, array $person ): void {
+		// Fields where RankReady's value WINS when present. These are the
+		// Author Box fields the user explicitly filled in — they should never
+		// be overridden by SEO plugin defaults (Gravatar, WP bio, etc.).
+		$overwrite_keys = array(
+			'image',
+			'description',
+			'jobTitle',
+			'worksFor',
+			'knowsAbout',
+			'contactPoint',
+		);
+
+		foreach ( $person as $key => $value ) {
+			if ( '@type' === $key ) continue;
+
+			// sameAs: merge both arrays, dedupe, normalize, priority-sort.
+			if ( 'sameAs' === $key ) {
+				$existing = array();
+				if ( isset( $node['sameAs'] ) ) {
+					$existing = is_array( $node['sameAs'] ) ? $node['sameAs'] : array( $node['sameAs'] );
+				}
+				$merged = array_merge( $existing, (array) $value );
+				$node['sameAs'] = self::normalize_same_as( $merged );
+				continue;
+			}
+
+			// Fields where RankReady's value always wins.
+			if ( in_array( $key, $overwrite_keys, true ) ) {
+				$node[ $key ] = $value;
+				continue;
+			}
+
+			// Everything else: additive (alumniOf, hasCredential, memberOf,
+			// award, identifier, publishingPrinciples, @id, name, url).
+			if ( ! isset( $node[ $key ] ) || ( is_array( $node[ $key ] ) && empty( $node[ $key ] ) ) ) {
+				$node[ $key ] = $value;
+			}
+		}
+	}
+
+	/**
+	 * Dedupe + normalize + priority-sort a sameAs URL list.
+	 *
+	 *   - Collapses twitter.com and x.com for the same handle into one x.com URL
+	 *   - Strips "www." from the host
+	 *   - Strips trailing slash from the path
+	 *   - Lowercases the host for comparison
+	 *   - Orders by EEAT priority: Wikidata → Wikipedia → ORCID → Scholar →
+	 *     LinkedIn → Muck Rack → GitHub → YouTube → X → everything else
+	 *
+	 * @param array $urls Raw URL list (may contain duplicates and variants).
+	 * @return array Canonicalized, deduped, priority-sorted URL list.
+	 */
+	private static function normalize_same_as( array $urls ): array {
+		$seen   = array();
+		$output = array();
+
+		foreach ( $urls as $url ) {
+			$url = trim( (string) $url );
+			if ( '' === $url ) continue;
+
+			$parts = wp_parse_url( $url );
+			if ( empty( $parts['host'] ) ) continue;
+
+			$host = strtolower( $parts['host'] );
+			$host = preg_replace( '/^www\./', '', $host );
+			$path = isset( $parts['path'] ) ? rtrim( $parts['path'], '/' ) : '';
+			// Preserve query string — Google Scholar, Twitter search, etc. use it as the author identifier.
+			$query = isset( $parts['query'] ) ? '?' . $parts['query'] : '';
+
+			// Collapse twitter.com + x.com + mobile variants — same platform, same handle.
+			if ( in_array( $host, array( 'twitter.com', 'x.com', 'mobile.twitter.com', 'mobile.x.com' ), true ) ) {
+				$host = 'x.com';
+			}
+
+			$dedupe_key = $host . $path . $query;
+			if ( isset( $seen[ $dedupe_key ] ) ) continue;
+			$seen[ $dedupe_key ] = true;
+
+			// Canonical rebuild: always https, normalized host, path, preserved query.
+			$output[] = 'https://' . $host . $path . $query;
+		}
+
+		// Priority sort by domain. Lower rank = higher priority.
+		$priority_map = array(
+			'wikidata.org'         => 1,
+			'wikipedia.org'        => 2,
+			'orcid.org'            => 3,
+			'scholar.google.com'   => 4,
+			'scholar.google'       => 4,
+			'linkedin.com'         => 5,
+			'muckrack.com'         => 6,
+			'github.com'           => 7,
+			'youtube.com'          => 8,
+			'x.com'                => 9,
+		);
+
+		$rank = function ( $url ) use ( $priority_map ) {
+			foreach ( $priority_map as $domain => $r ) {
+				if ( false !== strpos( $url, $domain ) ) return $r;
+			}
+			return 999;
+		};
+
+		usort( $output, function ( $a, $b ) use ( $rank ) {
+			$ra = $rank( $a );
+			$rb = $rank( $b );
+			if ( $ra === $rb ) return strcmp( $a, $b );
+			return $ra - $rb;
+		} );
+
+		return $output;
 	}
 
 	private static function inject_review_signals( array &$graph, int $post_id ): void {
@@ -875,17 +1023,18 @@ class RR_Author_Box {
 	}
 	public static function merge_into_seopress( $schema ) {
 		if ( ! is_singular() || ! is_array( $schema ) ) return $schema;
+		if ( 'on' !== get_option( RR_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ) return $schema;
 		$post_id = get_queried_object_id();
 		if ( ! $post_id ) return $schema;
 
-		// SEOPress passes the Article schema directly.
+		// SEOPress (free + Pro) passes the Article schema directly with an
+		// inline `author` Person instead of a separate @graph node. Use the
+		// same smart-merge strategy as enhance_graph() so the headshot and
+		// sameAs dedupe work identically here.
 		if ( isset( $schema['author'] ) && is_array( $schema['author'] ) ) {
 			$person = self::build_person_schema( (int) get_post_field( 'post_author', $post_id ) );
 			if ( null !== $person ) {
-				foreach ( $person as $k => $v ) {
-					if ( '@type' === $k || isset( $schema['author'][ $k ] ) ) continue;
-					$schema['author'][ $k ] = $v;
-				}
+				self::smart_merge_person( $schema['author'], $person );
 			}
 		}
 		return $schema;

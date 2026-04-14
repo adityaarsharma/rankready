@@ -4,7 +4,7 @@ Tags: llm seo, ai summary, schema markup, llms.txt, eeat
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,16 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 1.7.1 =
+* Fix: Smart-merge for Person schema — RankReady Author Box data (headshot, bio, jobTitle, worksFor, knowsAbout, contactPoint) now correctly OVERWRITES the SEO plugin's default Person fields instead of being skipped. Previously a Gravatar fallback from Rank Math would win over an uploaded real headshot.
+* Fix: sameAs dedupe and normalization — twitter.com and x.com URLs for the same handle are now collapsed to one x.com entry, www. prefixes are stripped, trailing slashes are removed, and duplicates are merged across RankReady + SEO plugin sources.
+* Fix: sameAs priority sort — Wikidata, Wikipedia, ORCID, Google Scholar, LinkedIn, GitHub, YouTube, X, personal site — the order AI systems actually reward.
+* Fix: isAccessibleForFree: "1" validator error — property removed from hasPart WebPageElement nodes; omitting defaults to freely accessible per schema.org.
+* Fix: Duplicate-install guard — a second RankReady copy in the plugins folder (regardless of folder name: rankready, RankReady-LLM-SEO-EEAT-AI-Optimization-1.5, rankready-old) now bails out cleanly with an admin notice instead of fataling the site with a "Class RR_Author_Box not found" error.
+* New: Author Trust Panel is now opt-in (off by default) — the per-post Fact-Checked By, Reviewed By, and Last Reviewed fields are only registered when the toggle is enabled. Previously these fields appeared in the block editor even for users with no formal review process.
+* New: SEOPress Pro filter support — added seopress_pro_get_json_data_article hook for Author Box schema merge.
+* Changed: Full SEO plugin compatibility matrix verified — Rank Math, Yoast SEO, AIOSEO, SEOPress (free + Pro), The SEO Framework, Slim SEO all now use identical smart-merge behavior.
 
 = 1.7.0 =
 * New: RankReady Author Box — full EEAT author system with Gutenberg block, Elementor widget, and Person JSON-LD schema

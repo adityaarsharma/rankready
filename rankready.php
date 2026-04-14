@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://posimyth.com/rankready/
  * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           1.7.0
+ * Version:           1.7.1
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH Innovations
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.7.0' );
+	define( 'RR_VERSION',  '1.7.1' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -142,6 +142,7 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_OPT_AUTHOR_EDITORIAL_URL',  'rr_author_editorial_url' );   // Site-wide publishingPrinciples URL.
 	define( 'RR_OPT_AUTHOR_FACTCHECK_URL',  'rr_author_factcheck_url' );   // "How we fact-check" URL (footer link).
 	define( 'RR_OPT_AUTHOR_POST_TYPES',     'rr_author_post_types' );      // Which post types auto-display the box on.
+	define( 'RR_OPT_AUTHOR_TRUST_ENABLE',   'rr_author_trust_enable' );    // Opt-in for the per-post Fact-Checked/Reviewed/Last-Reviewed panel.
 
 	// Per-post meta keys — Author Trust panel.
 	define( 'RR_META_AUTHOR_FACT_CHECKED_BY', '_rr_author_fact_checked_by' );  // user_id of fact-checker

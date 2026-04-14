@@ -444,6 +444,11 @@ class RR_Admin {
 			},
 			'default'           => array( 'post' ),
 		) );
+		register_setting( self::AUTHOR_GROUP, RR_OPT_AUTHOR_TRUST_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'off',
+		) );
 	}
 
 	/**
@@ -1008,6 +1013,7 @@ class RR_Admin {
 		$editorial     = (string) get_option( RR_OPT_AUTHOR_EDITORIAL_URL, '' );
 		$factcheck     = (string) get_option( RR_OPT_AUTHOR_FACTCHECK_URL, '' );
 		$post_types    = (array) get_option( RR_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
+		$trust_enable  = (string) get_option( RR_OPT_AUTHOR_TRUST_ENABLE, 'off' );
 
 		$has_rankmath = defined( 'RANK_MATH_VERSION' );
 		$has_yoast    = defined( 'WPSEO_VERSION' );
@@ -1128,11 +1134,29 @@ class RR_Admin {
 			</div>
 
 			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Author Trust Panel (optional)', 'rankready' ); ?></h2>
+				<table class="form-table rr-form-table">
+					<tr>
+						<th><?php esc_html_e( 'Enable Trust Panel', 'rankready' ); ?></th>
+						<td>
+							<label class="rr-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_AUTHOR_TRUST_ENABLE ); ?>" value="on" <?php checked( $trust_enable, 'on' ); ?> />
+								<span class="rr-toggle-label"><?php esc_html_e( 'Add per-post "Fact-checked by", "Reviewed by", and "Last reviewed" fields to the post editor.', 'rankready' ); ?></span>
+							</label>
+							<p class="description">
+								<?php esc_html_e( 'Off by default. Only enable if you have a formal editorial process where a second person fact-checks or medically/legally reviews posts. When on, these fields emit as Article.reviewedBy[] and Article.lastReviewed — the Healthline / WebMD EEAT pattern. When off, the fields are not registered, do not appear in the block editor, and RankReady emits zero reviewer schema. Leave it off for regular blogs and documentation sites that do not need a separate reviewer.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'How to Use', 'rankready' ); ?></h2>
 				<ol style="margin-left:18px;">
 					<li><?php esc_html_e( 'Go to Users → your profile and fill in the "RankReady Author Box" section — every field is mapped to schema.', 'rankready' ); ?></li>
 					<li><?php esc_html_e( 'Add the "RankReady Author Box" Gutenberg block to posts, or use the Elementor widget, or enable auto-display above.', 'rankready' ); ?></li>
-					<li><?php esc_html_e( 'On each post, use the "Author Trust" sidebar panel to set Fact-Checked By, Reviewed By, and Last Reviewed date.', 'rankready' ); ?></li>
+					<li><?php esc_html_e( 'Optional: enable the "Author Trust Panel" above if you have a formal fact-checker / reviewer workflow.', 'rankready' ); ?></li>
 					<li><?php esc_html_e( 'Verify schema output with Google\'s Rich Results Test — Person node appears in the graph.', 'rankready' ); ?></li>
 				</ol>
 			</div>

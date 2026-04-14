@@ -16,6 +16,39 @@
 
 defined( 'ABSPATH' ) || exit;
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Duplicate-install guard — prevent fatals when two copies are active.
+// ─────────────────────────────────────────────────────────────────────────────
+// WordPress does not dedupe plugin installs by slug. If a site ends up with
+// two RankReady folders in /wp-content/plugins/ (e.g. one installed from a
+// GitHub "Source code" zip named "RankReady-LLM-SEO-EEAT-AI-Optimization-1.5"
+// and one from a release asset named "rankready"), WordPress will happily
+// try to activate both. The second copy used to fatal the entire site because
+// the autoloader captured RR_DIR from the first copy's location but the
+// second copy's classes were in a different directory. This guard makes the
+// second-loaded copy bail out cleanly with a dashboard notice instead.
+//
+// Regardless of folder name: the FIRST plugin file to define RR_VERSION wins.
+// Every subsequent copy becomes a no-op and surfaces a warning to admins.
+// ═════════════════════════════════════════════════════════════════════════════
+if ( defined( 'RR_VERSION' ) ) {
+	add_action( 'admin_notices', function (): void {
+		if ( ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+		echo '<div class="notice notice-error"><p>';
+		echo '<strong>RankReady:</strong> ';
+		echo esc_html( sprintf(
+			/* translators: 1: active version, 2: second plugin folder name */
+			__( 'Another copy of RankReady is already active (version %1$s). The duplicate copy in "%2$s" has been disabled automatically to prevent conflicts. Delete the older folder from Plugins → Installed Plugins or via SFTP.', 'rankready' ),
+			RR_VERSION,
+			basename( __DIR__ )
+		) );
+		echo '</p></div>';
+	} );
+	return; // Abort the rest of this file. No constants, no autoloader, no hooks.
+}
+
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_VERSION',  '1.7.0' );
@@ -181,6 +214,41 @@ spl_autoload_register( function ( string $class ): void {
 	if ( file_exists( $file ) ) {
 		require_once $file;
 	}
+} );
+
+// ── Duplicate-install scanner (belt + braces) ────────────────────────────────
+// The guard at the top of this file stops the second-loaded copy from running,
+// but the first-loaded copy has no way to know a duplicate exists until
+// something queries active_plugins. This hook scans active_plugins on every
+// admin page load and shows a warning to admins if more than one plugin file
+// ending in /rankready.php is active. The check is cheap — one array_filter
+// over a single option read — and only runs when is_admin() is true.
+add_action( 'admin_init', function (): void {
+	if ( ! current_user_can( 'activate_plugins' ) ) {
+		return;
+	}
+	$active = (array) get_option( 'active_plugins', array() );
+	$rr_entries = array_values( array_filter( $active, function ( $plugin_file ) {
+		return 'rankready.php' === basename( (string) $plugin_file );
+	} ) );
+	if ( count( $rr_entries ) <= 1 ) {
+		return;
+	}
+	add_action( 'admin_notices', function () use ( $rr_entries ): void {
+		if ( ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+		echo '<div class="notice notice-warning is-dismissible"><p>';
+		echo '<strong>RankReady:</strong> ';
+		echo esc_html__( 'Multiple RankReady plugin folders are active at the same time. Only one is running; the rest are disabled by the duplicate-install guard but are still consuming a slot in active_plugins. Deactivate the duplicates to silence this notice:', 'rankready' );
+		echo '</p><ul style="margin-left:20px;list-style:disc;">';
+		foreach ( $rr_entries as $entry ) {
+			echo '<li><code>' . esc_html( dirname( (string) $entry ) ) . '/</code></li>';
+		}
+		echo '</ul><p><a href="' . esc_url( admin_url( 'plugins.php' ) ) . '">';
+		echo esc_html__( 'Go to Plugins → Installed Plugins', 'rankready' );
+		echo '</a></p></div>';
+	} );
 } );
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────

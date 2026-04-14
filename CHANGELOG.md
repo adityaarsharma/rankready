@@ -7,9 +7,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [1.7.0] - 2026-04-14
 
-- **CI**: `.github/workflows/release.yml` — auto-builds `rankready-<version>.zip` and publishes a GitHub Release with release notes pulled from `CHANGELOG.md` whenever a version tag is pushed. Verifies plugin header Version, `RR_VERSION` constant, and `readme.txt` Stable tag all match the tag before building.
+### Added — RankReady Author Box (full EEAT author system)
+
+A complete EEAT author identity feature that maps 23 WordPress user profile fields directly to Schema.org Person data. Built on the 2026 AI citation research showing that authors with verifiable identity, structured credentials, and priority-ordered `sameAs` links get cited significantly more by Perplexity, ChatGPT, and Google AI Overviews.
+
+**Profile fields** (new section "RankReady Author Box" on `user-edit.php`, all registered with `show_in_rest => true`):
+
+- Identity & work: job title, employer, employer URL, bio, headshot, headshot alt → `jobTitle`, `worksFor` (Organization with `@type`, `name`, `url`), `description`, `image` (ImageObject)
+- Experience: started year (derives verifiable years of experience — no fake counters), topics of expertise (comma list) → `knowsAbout[]` (the highest-signal field for LLM topical clustering per research)
+- Credentials: post-nominal suffix (e.g. "MD, PhD"), education repeater (degree + institution + year), certifications repeater (name + issuer + year + URL), memberships repeater (org + URL), awards repeater (name + year) → `alumniOf[]` + `hasCredential[]` (credentialCategory: degree/certification), `memberOf[]`, `award[]`
+- Verified identity (priority `sameAs`): Wikidata QID, Wikipedia URL, ORCID iD, Google Scholar, LinkedIn — ordered first in `sameAs[]` as the canonical entity anchors LLMs reuse
+- Social (lower priority `sameAs`): GitHub, YouTube, X, personal site
+- Contact: contact form URL → `contactPoint` (`ContactPoint` with `contactType: "author"`) — no raw email (scrape risk cut deliberately)
+
+Every field has an inline description explaining what EEAT signal it emits. Repeaters are vanilla JS (no jQuery, no React build).
+
+**Priority-ordered `sameAs`**:
+
+```
+Wikidata → Wikipedia → ORCID → Google Scholar → LinkedIn → GitHub → YouTube → X → personal site
+```
+
+The first three are the canonical entity URIs LLMs and Google Knowledge Graph internally resolve against. The ordering is research-backed.
+
+**ORCID and Wikidata dual emission**: When ORCID is set, emits both the `orcid.org` URL in `sameAs` AND an `identifier` PropertyValue with `propertyID: "ORCID"`. Same treatment for Wikidata (`propertyID: "Wikidata"`). Two-channel emission improves disambiguation for academic and general-entity citation contexts.
+
+**Per-post "Author Trust" meta** (registered post meta, exposed in REST for the block editor sidebar):
+
+- `_rr_author_fact_checked_by` (int → user ID) → `Article.reviewedBy[]`
+- `_rr_author_reviewed_by` (int → user ID) → `Article.reviewedBy[]`
+- `_rr_author_last_reviewed` (YYYY-MM-DD) → `Article.lastReviewed`
+- `_rr_author_disable` (bool) → per-post opt-out from auto-display
+
+Both reviewer fields serialize into `reviewedBy[]` as full Person nodes, each carrying their own `sameAs` / credentials / memberships. The Author Box display also renders "Fact-checked by X · Reviewed by Y · Last reviewed [date]" inline (Healthline pattern).
+
+**Schema conflict-safety — zero duplicate Person nodes**:
+
+- When Rank Math, Yoast, AIOSEO, SEOPress, The SEO Framework, or Slim SEO is active, RankReady hooks into each plugin's schema graph filter at priority 100 and **enhances the existing Person node in place** with its own `sameAs`, `knowsAbout`, `alumniOf`, `hasCredential`, `memberOf`, `award`, `jobTitle`, `worksFor`, `contactPoint`, `publishingPrinciples`, `identifier`, `image`, `description`. Never overwrites existing keys. Filter hooks used: `rank_math/json_ld`, `wpseo_schema_graph`, `aioseo_schema_output`, `seopress_schemas_auto_article_json`, `the_seo_framework_schema_graph_data`, `slim_seo_schema_graph`.
+- When no SEO plugin is active, RankReady emits its own Person inline on `Article.author` on singular posts.
+- On `is_author()` archive pages, RankReady emits a `ProfilePage { mainEntity: Person }` JSON-LD node via `wp_head` only — **zero visible template override**. Works with any theme / any author archive template.
+
+**Three display layouts**:
+
+- **Card** — Full end-of-article box with 96px headshot, name + credentials suffix, job title + employer + years of experience, bio, topics of expertise pills, education + certifications rows, social icons, reviewed-by line, editorial policy + fact-check footer links
+- **Compact** — Sidebar-friendly: 64px headshot, condensed byline, bio, social icons
+- **Inline byline** — Healthline-style above-the-fold: 40px headshot, "By [Name]" + job title + reviewed-by line, no bio/credentials
+
+Every section (headshot, job title, employer, years of experience, bio, expertise tags, credentials, social icons, reviewed-by) has an individual toggle so the same data source can render as a minimal byline or a maximal card.
+
+**Gutenberg block** (`rankready/author-box`):
+
+- Vanilla `wp.element.createElement` (no JSX, no build step, IIFE pattern, `var` declarations)
+- Server-side rendered (`save: () => null`, PHP `render_callback` on `RR_Author_Box::render_block`)
+- 9 inspector panels: Content, Visible Fields, Box Style, Heading Style, Name Style, Meta Style, Bio Style, Headshot Style, Social Style
+- Author source selector: "Current post author" | "Specific author (user picker)"
+- Editor preview fetches user data via `wp.data.useSelect( s => s('core').getUser(id) )` — no custom REST endpoint needed
+- Block localizes with a light user list (`wp_localize_script` extends `rrBlockData.users`) so the specific-author dropdown works offline
+
+**Elementor widget** (`RR_Elementor_Author_Box_Widget`):
+
+- Full `Group_Control_Typography` on every text layer (Heading, Name, Meta, Bio, Social) — Elementor Global Fonts + Global Colors work automatically
+- `Group_Control_Border` + `Group_Control_Box_Shadow` on the box wrapper
+- Responsive dimensions controls for padding + image size
+- All visible-field toggles mirror the Gutenberg block
+- Registered conditionally via the existing `did_action('elementor/loaded')` guard alongside the Summary and FAQ widgets
+
+**Auto-display** — `the_content` filter with `off` | `before` | `after` | `both` positioning, per-post-type allowlist, per-post opt-out via `_rr_author_disable` meta, skipped automatically when the Gutenberg block is already in the content.
+
+**New Author Box settings tab** (`RankReady → Author Box`):
+
+- Master enable toggle
+- Auto-display position (off / before / after / both)
+- Post types allowlist
+- Default layout (card / compact / inline)
+- Default heading text + tag
+- Person schema enable toggle with live SEO plugin detection banner
+- Editorial Policy URL → `Person.publishingPrinciples` on every author
+- Fact-Check Policy URL → footer link in Card layout
+- Inline "How to Use" guide
+
+**Fields deliberately cut** (don't emit schema or add privacy risk): public email (scrape risk → `contactPoint` URL instead), pronouns / pronunciation (UI-only), office address, phone, birth date, family relationships, Instagram / Facebook / TikTok / Threads (consumer platforms that don't move LLM entity matching), Muck Rack (journalist-niche), Mastodon / Bluesky (too small), Department (`worksFor.department` rarely surfaces in AI citations). 23 schema-mapped fields total.
+
+### Added — Gutenberg typography parity with `theme.json` global fonts
+
+Full typography controls now available on the Summary, FAQ, and Author Box Gutenberg blocks — previously only Elementor widgets had this. Every text layer exposes:
+
+- **Font Family** dropdown — populated from `wp.data.select('core/block-editor').getSettings().__experimentalFeatures.typography.fontFamilies`, reading the Theme / Custom / Default groups. Any block theme that registers global fonts via `theme.json` shows up automatically: Nexter Theme, Nexter Blocks, Kadence, Astra, GeneratePress, Twenty Twenty-Four, Blocksy, Hello Elementor. Labels prefixed by source group (`"Theme — Inter"`, `"Custom — Space Grotesk"`). Legacy `editor-font-families` theme support is honored as a fallback.
+- **Font Weight** — 100 Thin through 900 Black
+- **Font Size (px)** — with `0 = inherit from theme` semantics
+- **Line Height** — with `0 = inherit`
+- **Letter Spacing (px)** — on Summary label and bullets
+- **Text Transform** — none / uppercase / lowercase / capitalize on Summary label
+
+Every new control carries an inline `help:` description. Server-side renderers (`build_summary_html()` and `render_faq()` in `class-rr-block.php`) emit inline `style="..."` attributes for every new typography property. Backwards compatible — unset values cascade to the theme.
+
+### Added — Self-healing rewrite rules (rolled in from 1.6.0)
+
+- `pre_update_option_` filters on `rr_llms_enable`, `rr_llms_full_enable`, `rr_md_enable` bust the `rr_rewrite_ok` transient on every settings save so the self-heal re-runs even when the saved toggle value is unchanged (the original `update_option` hooks only fire on value changes, so unchanged-save did not trigger the flush before).
+- `admin_init` self-heal: if the `rr_rewrite_ok` transient is missing, reads `get_option('rewrite_rules')` and checks for the `^llms\.txt$`, `^llms-full\.txt$`, and any `\.md$` rule. If a rule is missing and the corresponding toggle is `on`, re-registers the rules and calls `flush_rewrite_rules( false )`. Transient-throttled to once per hour to avoid flushing on every admin page load.
+- Smart conflict detection: the `/llms.txt` self-heal is skipped when Rank Math (`RANK_MATH_VERSION` + `llms-txt` module enabled) or Yoast (`WPSEO_VERSION` + `wpseo['enable_llms_txt']`) is already handling `/llms.txt` — prevents rule collision when another plugin owns the route.
+
+### Added — Other
+
+- New file `includes/class-rr-author-box.php` (63 KB) — profile fields UI, `build_person_schema()`, `render_html()`, `enhance_graph()` merge helpers, auto-display filter, archive Person emission, per-post and per-user `register_meta()`, repeater sanitization, block render callback, `block_attributes()` array
+- New file `includes/class-rr-elementor-author-box.php` — Elementor widget mirroring the Gutenberg block 1:1
+- New file `assets/author-box-block.js` — Gutenberg block source, vanilla `wp.element`, shared typography panel helper
+- 10 new option keys defined in `rankready.php`: `RR_OPT_AUTHOR_ENABLE`, `RR_OPT_AUTHOR_AUTO_DISPLAY`, `RR_OPT_AUTHOR_LAYOUT`, `RR_OPT_AUTHOR_HEADING`, `RR_OPT_AUTHOR_HEADING_TAG`, `RR_OPT_AUTHOR_SCHEMA_ENABLE`, `RR_OPT_AUTHOR_EDITORIAL_URL`, `RR_OPT_AUTHOR_FACTCHECK_URL`, `RR_OPT_AUTHOR_POST_TYPES`
+- 4 new post meta keys: `RR_META_AUTHOR_FACT_CHECKED_BY`, `RR_META_AUTHOR_REVIEWED_BY`, `RR_META_AUTHOR_LAST_REVIEWED`, `RR_META_AUTHOR_DISABLE`
+- 23 new user meta keys: `rr_author_*` (full list in `RR_Author_Box::META_KEYS`)
+- 260+ lines of new CSS in `assets/style.css` for the 3 author box layouts, CSS custom properties, mobile responsive breakpoint
+- Admin tab "Author Box" with 9 `register_setting()` calls in a new `rr_author_group` settings group
+- `uninstall.php` now cleans all 9 new options, 4 new post meta keys, and 23 new user meta keys
+
+### Changed
+
+- `rankready.php` — bumped `Version:` header and `RR_VERSION` constant from `1.5.4` to `1.7.0`, added 10 new constants, registered `RR_Author_Box::init()` in the bootstrap, registered `RR_Elementor_Author_Box_Widget` conditionally under the existing `did_action('elementor/loaded')` guard, added activation defaults for author box options
+- `includes/class-rr-block.php` — now registers 3 blocks (Summary, FAQ, Author Box), enqueues `author-box-block.js`, extends `rrBlockData` localization with user list + author box defaults, adds typography attributes (`labelFontFamily`, `labelFontWeight`, `labelLineHeight`, `labelLetterSpacing`, `labelTextTransform`, `bulletFontFamily`, `bulletFontWeight`, `bulletLetterSpacing`, `questionFontFamily`, `questionFontWeight`, `questionLineHeight`, `answerFontFamily`, `answerFontWeight`, `answerLineHeight`) to Summary and FAQ block registrations, emits the new typography properties as inline styles in the server renderers, extends `enqueue_frontend_assets()` to also load `style.css` when the Author Box block is present or auto-display is enabled
+- `includes/class-rr-admin.php` — added `'author' => __('Author Box', 'rankready')` tab between `'faq'` and `'schema'` in the tab registration, added `render_tab_author()` method (~100 lines) with settings form, added 9 `register_setting()` calls in the new `AUTHOR_GROUP = 'rr_author_group'` constant, added inline SEO-plugin detection banner
+- `assets/block.js` and `assets/faq-block.js` — added `rrGlobalFontOptions()` helper reading `theme.json` font families, added `rrWeightOptions` + `rrTransformOptions` arrays, extended `attributes` with the new typography keys, extended preview `style` builders with font-family/weight/line-height/letter-spacing/transform, replaced the old simple Label/Bullets/Question/Answer panels with full typography panels that include the Font Family SelectControl + Font Weight SelectControl + Line Height + Letter Spacing + Text Transform controls
+- `readme.txt` — `Stable tag: 1.7.0`, added full `= 1.7.0 =` changelog section
+- `README.md` — version badge bumped to 1.7.0, intro paragraph updated to lead with Author Box, comparison matrix gained EEAT Author Box + `sameAs` priority ordering + Gutenberg global fonts rows, new "11. EEAT Author Box" and "12. Gutenberg Typography Parity" feature sections, Display Options compatibility list updated, changelog pointers updated
+
+### Notes
+
+- All 14 plugin PHP files pass `php -l` (lint verified via `brew install php`)
+- All 3 JavaScript files pass `node --check`
+- Brace/paren balance preserved vs upstream 1.5.4 (the +7 `)` delta in `class-rr-block.php` is pre-existing in strings/comments, not introduced by this release)
+- Zip build: `~/Claude/RankReady/rankready-1.7.0.zip`, 155 KB, 28 files, no `.git`/`.github`/dev markdown
+- Rolls in the flush-permalinks fix that was originally tagged for 1.6.0 — 1.6.0 is effectively subsumed and never shipped as a standalone release
 
 ## [1.5.4] - 2026-04-11
 

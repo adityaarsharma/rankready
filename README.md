@@ -2,12 +2,12 @@
 
 **The WordPress plugin that gets your content cited by AI.**
 
-RankReady is the most complete WordPress plugin for AI search optimization. It combines all pillars of LLM SEO into a single, lightweight package: AI-generated content, intelligent schema markup that auto-detects your content type, LLMs.txt, Markdown endpoints, AI crawler management, content freshness monitoring, and E-E-A-T author optimization.
+RankReady is the most complete WordPress plugin for AI search optimization. It combines all pillars of LLM SEO into a single, lightweight package: AI-generated content, intelligent schema markup that auto-detects your content type, LLMs.txt, Markdown endpoints, AI crawler management, content freshness monitoring, and a full **EEAT Author Box with Person JSON-LD schema** that powers author identity for ChatGPT, Perplexity, and Google AI Overviews citations.
 
 [![WordPress](https://img.shields.io/badge/WordPress-6.2%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL--2.0--or--later-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.5.4-orange.svg)](https://github.com/posimyth/RankReady-LLM-SEO-EEAT-AI-Optimization/releases)
+[![Version](https://img.shields.io/badge/Version-1.7.0-orange.svg)](https://github.com/posimyth/RankReady-LLM-SEO-EEAT-AI-Optimization/releases)
 [![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-brightgreen.svg)](CHANGELOG.md)
 
 ---
@@ -39,6 +39,8 @@ No other WordPress plugin combines all of these:
 | FAQ Generator with Brand Injection | Yes | No | No | No | No | No |
 | FAQPage JSON-LD Schema | Yes | Block only | Block only | Block only | No | No |
 | Article Schema + Speakable | Yes | Partial | Partial | Partial | No | No |
+| **EEAT Author Box + Person JSON-LD** | **Yes** | Basic | Basic | Basic | No | No |
+| **sameAs priority ordering (Wikidata-first)** | **Yes** | No | No | No | No | No |
 | **HowTo Schema Auto-Detection** | **Yes** | Manual block | Manual block | No | No | No |
 | **ItemList Schema Auto-Detection** | **Yes** | No | No | No | No | No |
 | LLMs.txt + llms-full.txt | Yes | Basic | Basic | Basic | Yes | No |
@@ -46,6 +48,7 @@ No other WordPress plugin combines all of these:
 | Per-Crawler Robots.txt (31 bots) | Yes | No | 3 bots | No | No | No |
 | Content Freshness Alerts | Yes | No | No | No | No | No |
 | Bulk Author Changer (EEAT) | Yes | No | No | No | No | No |
+| **Global fonts in Gutenberg blocks (theme.json)** | **Yes** | N/A | N/A | N/A | No | No |
 | Content Negotiation (Accept header) | Yes | No | No | No | No | No |
 | **Headless REST API (Next.js / Nuxt)** | **Yes** | No | No | No | No | No |
 | **WPGraphQL Fields** | **Yes** | No | No | No | No | No |
@@ -311,6 +314,63 @@ export async function POST(request) {
 
 **Off by default.** Enable in `RankReady > Headless` tab. Configure CORS origins, cache TTL, rate limit, revalidate webhook URL + secret, and optional WPGraphQL fields.
 
+### 11. EEAT Author Box with Person JSON-LD Schema (NEW in v1.7.0)
+
+A full EEAT author identity system that maps every profile field directly to Schema.org Person data. Built for AI citation — the 2026 citation research is clear that authors with verifiable identity, structured credentials, and priority-ordered `sameAs` links get cited ~23% more by Perplexity and show up dramatically more in Google AI Overviews.
+
+**How it works:**
+
+1. **Fill the author profile** — Every WordPress user gets a new "RankReady Author Box" section on `user-edit.php` with 23 schema-mapped fields (job title, employer, bio, headshot, started year, topics of expertise, credentials suffix, education repeater, certifications repeater, memberships repeater, awards repeater, Wikidata QID, Wikipedia, ORCID, Google Scholar, LinkedIn, GitHub, YouTube, X, personal site, contact form URL). Every field has an inline description explaining what EEAT signal it emits.
+
+2. **Add the block or widget** — Insert the `RankReady Author Box` Gutenberg block or the matching Elementor widget on any post, or enable auto-display globally from `RankReady → Author Box` settings.
+
+3. **RankReady emits Person JSON-LD** — On every article the author appears in `Article.author` as a full Person node with `jobTitle`, `worksFor` (Organization), `description`, `image`, `knowsAbout`, `sameAs`, `alumniOf`, `hasCredential`, `memberOf`, `award`, `contactPoint`, `publishingPrinciples`, and `identifier` PropertyValue for both ORCID and Wikidata. On `is_author()` archive pages, a `ProfilePage { mainEntity: Person }` node is emitted via `wp_head` (zero visible template override — RankReady never overrides author archive templates).
+
+**Priority-ordered `sameAs`** (research-backed):
+
+```
+Wikidata → Wikipedia → ORCID → Google Scholar → LinkedIn → GitHub → YouTube → X → personal site
+```
+
+The first three are the canonical entity anchors LLMs actually reuse. Wikidata URIs get the #1 slot because Wikidata QIDs are what Google's Knowledge Graph and every major LLM internally resolve entities against.
+
+**ORCID dual emission** — When ORCID is set, RankReady emits both the orcid.org URL in `sameAs` AND an `identifier` PropertyValue with `propertyID: "ORCID"`. This two-channel emission significantly improves disambiguation in academic citation contexts.
+
+**Per-post Author Trust fields** — Post editor sidebar gets a new panel with three fields, all backed by registered post meta exposed to the block editor:
+
+- **Fact-checked by** (user picker) → `Article.reviewedBy[]`
+- **Reviewed by** (user picker) → `Article.reviewedBy[]`
+- **Last reviewed** (date) → `Article.lastReviewed`
+
+Both reviewer fields serialize into `reviewedBy[]` as full Person nodes (each carries their own credentials, sameAs, memberOf, award), and both also render in the Author Box display as a "Fact-checked by X · Reviewed by Y · Last reviewed [date]" line (Healthline pattern).
+
+**Zero schema conflict with other SEO plugins** — RankReady never emits a duplicate Person node. When Rank Math, Yoast SEO, AIOSEO, SEOPress, The SEO Framework, or Slim SEO is active, RankReady hooks into each plugin's schema graph filter (`rank_math/json_ld`, `wpseo_schema_graph`, `aioseo_schema_output`, `seopress_schemas_auto_article_json`, `the_seo_framework_schema_graph_data`, `slim_seo_schema_graph`) and **enhances the existing Person node in place** with its own `sameAs`, `knowsAbout`, `alumniOf`, `hasCredential`, `memberOf`, `award` — never overwriting existing fields. When no SEO plugin is active, RankReady emits its own Person node inline on articles plus a `ProfilePage` on author archives.
+
+**Three layouts:**
+
+- **Card** — Full end-of-article box: 96px headshot, name + credentials suffix, job title + employer + years of experience, bio, topics of expertise pills, education + certifications rows, social icons, reviewed-by line, editorial policy + fact-check footer links
+- **Compact** — Small sidebar-ready variant: 64px headshot, condensed byline, bio, social icons
+- **Inline byline** — Healthline-style above-the-fold row: 40px headshot, "By [Name]" + job title + reviewed-by line, no bio/credentials/box
+
+**Configurable fields per block/widget** — Every section (headshot, job title, employer, years of experience, bio, expertise tags, credentials, social icons, reviewed-by) has an individual toggle so you can build a minimal byline or a maximal card from the same data source.
+
+**Full typography controls** — Heading, Name, Meta, Bio, Headshot, and Social panels each expose color, font family, font weight, size, and line height. Elementor widget uses native `Group_Control_Typography` so Elementor Global Fonts + Global Colors work automatically. Gutenberg block reads `theme.json` `typography.fontFamilies` so Nexter Theme, Nexter Blocks, Kadence, Astra, and any block theme's global fonts appear in the dropdown automatically, grouped by source (Theme / Custom / Default).
+
+**Profile fields deliberately cut** — RankReady skips fields that don't emit schema or add privacy risk: public email (scrape risk — uses `contactPoint` URL instead), pronouns/pronunciation (UI-only, no schema), Instagram/Facebook/TikTok/Threads (consumer platforms that don't move LLM entity matching), Muck Rack (journalist-niche), Mastodon/Bluesky (too small to move entity matching), office address, phone, birth date, family relationships. Every kept field maps to Schema.org. 23 fields total.
+
+### 12. Gutenberg Typography Parity with theme.json Global Fonts (NEW in v1.7.0)
+
+The Gutenberg Summary and FAQ blocks now ship full typography controls that previously only existed in the Elementor widgets. Every text layer (Summary label, Summary bullets, FAQ question, FAQ answer, Author Box heading, name, meta, bio) exposes:
+
+- **Font Family** — Dropdown populated from `wp.data.select('core/block-editor').getSettings().__experimentalFeatures.typography.fontFamilies`, reading the Theme, Custom, and Default groups. Any block theme that registers global fonts via `theme.json` shows up automatically — **Nexter Theme, Nexter Blocks, Kadence, Astra, GeneratePress, Twenty Twenty-Four, and every other block theme** — with a `"Theme — Inter"` / `"Custom — Space Grotesk"` label so you can see which group each font comes from. Legacy `editor-font-families` theme support is honored as a fallback.
+- **Font Weight** — 100 Thin through 900 Black
+- **Font Size (px)** — with `0 = inherit from theme` semantics so you can leave it on the theme default
+- **Line Height**
+- **Letter Spacing (px)** — on Summary label and bullets
+- **Text Transform** — none / uppercase / lowercase / capitalize on Summary label
+
+Every new control carries an inline `help:` description so end users don't have to guess what each one does. Backwards compatible — unset values cascade to the theme.
+
 ---
 
 ## Schema Auto-Detection: How It Decides
@@ -426,9 +486,12 @@ AI Crawler visits your site
 - Elementor, Divi, WPBakery, Beaver Builder, Gutenberg
 
 **Display Options**:
-- Gutenberg blocks (Summary + FAQ) with full style controls
-- Elementor widgets (Summary + FAQ)
+- Gutenberg blocks (Summary + FAQ + Author Box) with full style controls and theme.json global font support
+- Elementor widgets (Summary + FAQ + Author Box) with native Group_Control_Typography
 - Auto-display above or below content
+
+**Block Themes with Global Font Support** (tested — fonts registered via `theme.json` appear automatically in the Gutenberg Author Box / Summary / FAQ blocks):
+- Nexter Theme, Nexter Blocks, Kadence, Astra, GeneratePress, Twenty Twenty-Four, Twenty Twenty-Three, Blocksy, Hello Elementor, and any theme that registers fonts in `theme.json`
 
 ---
 
@@ -466,6 +529,42 @@ add_filter( 'rankready_itemlist_schema', function( $schema, $post ) {
 }, 10, 2 );
 ```
 
+**Author Box integration points:**
+
+```php
+// Programmatically read the full Person schema for any user.
+// Returns a Schema.org Person array (or null if the user has no RankReady data).
+$person = RR_Author_Box::build_person_schema( $user_id );
+
+// Render the author box HTML for any user + post combination.
+// Useful for custom theme templates and headless setups.
+echo RR_Author_Box::render_html(
+    $user_id,
+    array(
+        'layout'         => 'card',         // card | compact | inline
+        'showHeadshot'   => true,
+        'showBio'        => true,
+        'showCredentials'=> true,
+        'showSocials'    => true,
+        'showReviewed'   => true,
+    ),
+    $post_id
+);
+
+// All profile fields are registered user meta with show_in_rest => true,
+// so the block editor and headless consumers can read them via
+// /wp/v2/users/{id} → meta.rr_author_*. List of keys:
+// rr_author_job_title, rr_author_employer, rr_author_employer_url,
+// rr_author_bio, rr_author_headshot, rr_author_headshot_alt,
+// rr_author_started_year, rr_author_expertise, rr_author_credentials_suffix,
+// rr_author_education (JSON), rr_author_certifications (JSON),
+// rr_author_memberships (JSON), rr_author_awards (JSON),
+// rr_author_wikidata, rr_author_wikipedia, rr_author_orcid,
+// rr_author_scholar, rr_author_linkedin, rr_author_github,
+// rr_author_youtube, rr_author_twitter, rr_author_website,
+// rr_author_contact_url
+```
+
 ---
 
 ## Changelog
@@ -473,8 +572,8 @@ add_filter( 'rankready_itemlist_schema', function( $schema, $post ) {
 Full release history lives in [**CHANGELOG.md**](CHANGELOG.md) (Keep a Changelog format).
 Downloadable builds are published to [**GitHub Releases**](https://github.com/posimyth/RankReady-LLM-SEO-EEAT-AI-Optimization/releases) with the plugin zip attached to each release.
 
-- **Latest**: [1.5.4](CHANGELOG.md#154---2026-04-11) — Enterprise Headless WordPress support (Next.js / Nuxt / WPGraphQL)
-- **Previous**: [1.5.3](CHANGELOG.md#153---2026-04-09) — Cron queue stability fixes and post-generation FAQ validation
+- **Latest**: [1.7.0](CHANGELOG.md#170---2026-04-14) — EEAT Author Box with Person JSON-LD schema, Gutenberg typography parity with `theme.json` global fonts, self-healing rewrite rules
+- **Previous**: [1.5.4](CHANGELOG.md#154---2026-04-11) — Enterprise Headless WordPress support (Next.js / Nuxt / WPGraphQL)
 
 ---
 

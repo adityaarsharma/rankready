@@ -4,7 +4,7 @@ Tags: llm seo, ai summary, schema markup, llms.txt, eeat
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.7.1
+Stable tag: 1.7.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,9 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 1.7.2 =
+* New: Auto-Generate FAQ on Publish — new toggle in the FAQ Settings tab (off by default) that mirrors the existing Auto-Generate Key Takeaways behavior. When enabled, FAQs are generated in the background on publish/update via wp-cron, gated by content hash + per-post disable + the existing FAQ post type allow-list. Existing FAQs are always kept.
 
 = 1.7.1 =
 * Fix: Smart-merge for Person schema — RankReady Author Box data (headshot, bio, jobTitle, worksFor, knowsAbout, contactPoint) now correctly OVERWRITES the SEO plugin's default Person fields instead of being skipped. Previously a Gravatar fallback from Rank Math would win over an uploaded real headshot.

@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://posimyth.com/rankready/
  * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           1.7.1
+ * Version:           1.7.2
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH Innovations
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.7.1' );
+	define( 'RR_VERSION',  '1.7.2' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -131,6 +131,7 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_OPT_FAQ_POSITION',     'rr_faq_position' );
 	define( 'RR_OPT_FAQ_HEADING_TAG',  'rr_faq_heading_tag' );
 	define( 'RR_OPT_FAQ_SHOW_REVIEWED','rr_faq_show_reviewed' );
+	define( 'RR_OPT_FAQ_AUTO_GENERATE','rr_faq_auto_generate' );
 
 	// Option keys — Author Box (EEAT).
 	define( 'RR_OPT_AUTHOR_ENABLE',         'rr_author_enable' );          // Master toggle for the feature.
@@ -454,6 +455,9 @@ register_activation_hook( RR_FILE, function (): void {
 	}
 	if ( false === get_option( RR_OPT_FAQ_SHOW_REVIEWED ) ) {
 		update_option( RR_OPT_FAQ_SHOW_REVIEWED, 'on' );
+	}
+	if ( false === get_option( RR_OPT_FAQ_AUTO_GENERATE ) ) {
+		update_option( RR_OPT_FAQ_AUTO_GENERATE, 'off' );
 	}
 	// Author Box defaults.
 	if ( false === get_option( RR_OPT_AUTHOR_ENABLE ) ) {

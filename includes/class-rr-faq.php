@@ -26,7 +26,10 @@ class RR_Faq {
 		// Inject FAQPage schema into wp_head.
 		add_action( 'wp_head', array( self::class, 'inject_faq_schema' ), 20 );
 
-		// FAQ cron runner (used by bulk and manual triggers only — no auto-generate on publish).
+		// Auto-generate on publish/update (gated by RR_OPT_FAQ_AUTO_GENERATE option).
+		add_action( 'wp_after_insert_post', array( self::class, 'schedule_faq_generation' ), 20, 4 );
+
+		// FAQ cron runner (used by auto-generate, bulk, and manual triggers).
 		add_action( 'rr_async_faq_generate', array( self::class, 'run_faq_generation' ) );
 	}
 
@@ -35,7 +38,12 @@ class RR_Faq {
 	public static function schedule_faq_generation( $post_id, $post, $update, $post_before ): void {
 		$post_id = (int) $post_id;
 
-		if ( 'publish' !== $post->post_status ) {
+		// Auto-generate toggle: if off, only generate via manual/bulk actions.
+		if ( 'on' !== get_option( RR_OPT_FAQ_AUTO_GENERATE, 'off' ) ) {
+			return;
+		}
+
+		if ( ! $post || 'publish' !== $post->post_status ) {
 			return;
 		}
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
@@ -56,6 +64,12 @@ class RR_Faq {
 		// Only run for public post types.
 		$public_types = get_post_types( array( 'public' => true ), 'names' );
 		if ( ! isset( $public_types[ $post->post_type ] ) || 'attachment' === $post->post_type ) {
+			return;
+		}
+
+		// Only run for FAQ-enabled post types from settings.
+		$enabled_types = (array) get_option( RR_OPT_FAQ_POST_TYPES, array( 'post' ) );
+		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
 			return;
 		}
 

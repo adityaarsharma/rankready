@@ -301,6 +301,12 @@ class RR_Admin {
 			'default'           => 'on',
 		) );
 
+		register_setting( self::FAQ_GROUP, RR_OPT_FAQ_AUTO_GENERATE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'off',
+		) );
+
 		// ═══ Schema Automation Tab ═══════════════════════════════════════════
 
 		register_setting( self::SCHEMA_GROUP, RR_OPT_SCHEMA_ARTICLE, array(
@@ -1823,6 +1829,18 @@ class RR_Admin {
 							          placeholder="<?php esc_attr_e( 'e.g. The Plus Addons, Elementor, NexterWP, UiChemy (one per line or comma-separated)', 'rankready' ); ?>"
 							><?php echo esc_textarea( (string) get_option( RR_OPT_FAQ_BRAND_TERMS, '' ) ); ?></textarea>
 							<p class="description"><?php esc_html_e( 'Brand/product names to inject as semantic triples in FAQ answers. This builds brand-entity association for LLMs (+642% AI citation lift).', 'rankready' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Auto-Generate on Publish', 'rankready' ); ?></th>
+						<td>
+							<?php $faq_auto_gen = (string) get_option( RR_OPT_FAQ_AUTO_GENERATE, 'off' ); ?>
+							<label>
+								<input type="hidden" name="<?php echo esc_attr( RR_OPT_FAQ_AUTO_GENERATE ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_FAQ_AUTO_GENERATE ); ?>" value="on" <?php checked( $faq_auto_gen, 'on' ); ?> />
+								<?php esc_html_e( 'Automatically generate FAQs when a post is published or updated', 'rankready' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Off by default. When off, FAQs are only generated via the Gutenberg block, Elementor widget, or Bulk Generate. Existing FAQs are always kept. Each generation uses DataForSEO + OpenAI credits.', 'rankready' ); ?></p>
 						</td>
 					</tr>
 				</table>

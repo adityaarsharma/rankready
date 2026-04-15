@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-04-15
+
+### Added
+
+- **Auto-Generate FAQ on Publish** — new toggle in the FAQ Settings tab (off by default) that mirrors the existing "Auto-Generate Key Takeaways" behavior. When enabled, FAQs are generated in the background on publish/update via wp-cron, gated by:
+  - The new `rr_faq_auto_generate` option (default `off`).
+  - Content + keyword + count hash (`_rr_faq_hash`) — no API call when nothing changed.
+  - Per-post disable (`_rr_faq_disable`).
+  - The existing `rr_faq_post_types` allow-list (auto-generation respects the post type setting, not just `public => true`).
+  - Both API keys present (OpenAI + DataForSEO).
+  - Standard guards: not autosave, not revision, not Gutenberg autosave REST route, not the FAQ generator's own re-entrant `wp_update_post` call.
+  - Existing FAQs are always kept; the toggle never deletes data.
+- Hooks `RR_Faq::schedule_faq_generation` into `wp_after_insert_post` (priority 20, 4 args). The method already existed but was never wired into a hook in 1.7.1 — only manual/bulk paths called the FAQ pipeline.
+
 ## [1.7.1] - 2026-04-14
 
 ### Fixed

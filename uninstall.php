@@ -62,6 +62,7 @@ $options = array(
 	'rr_faq_position',
 	'rr_faq_heading_tag',
 	'rr_faq_show_reviewed',
+	'rr_faq_auto_generate',
 	// Bulk FAQ state.
 	'rr_faq_queue',
 	'rr_faq_done',

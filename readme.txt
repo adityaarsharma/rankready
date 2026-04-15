@@ -4,7 +4,7 @@ Tags: llm seo, ai seo, llms.txt, schema markup, eeat, ai overviews, chatgpt, per
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.5.2
+Stable tag: 0.5.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,11 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 0.5.3 =
+* Critical fix: v0.5.2 triggered a fatal error on activation ("Call to undefined method setCheckPeriod()") because the Plugin Update Checker v5.6 API does not expose that as a setter — it's a constructor argument. 0.5.3 passes the check period (24h) as the 4th positional argument to `PucFactory::buildUpdateChecker()` instead. Plugin now activates cleanly.
+* New: Folder name enforcement. RankReady is business-critical so the plugin folder must always be named `rankready`, never `rankready-main` or `rankready-v0.5.3` or similar. Two guards enforce this: (1) an `upgrader_source_selection` filter that detects any RankReady zip being installed and force-renames the extracted folder to `rankready/` before WP moves it into place; (2) an `admin_init` auto-migration that renames the folder in place on the next admin page load if this install is in a wrong folder, updating `active_plugins` + `active_sitewide_plugins` to match, flashing a success notice, and redirecting. Settings survive since they live in `wp_options`/`wp_postmeta`. Falls back to a warning notice if rename fails due to file permissions.
+* Pre-release audit: v0.5.3 is the first release run through the new pre-release gauntlet — PHP lint across all files, SQL injection audit (all dynamic queries use `$wpdb->prepare()` with positional placeholders), REST permission_callback audit (all sensitive endpoints check capabilities, no `__return_true`), public API rate limiting with `hash_equals()` secret comparison. No critical or high security/performance/DB issues found in the existing codebase.
 
 = 0.5.2 =
 * Fix: Bulk Author Changer was missing custom post types — only `post`, `page`, `attachment`, and a few Elementor CPTs were showing up. Root cause: the picker filtered by `public => true` which excludes the very common pattern of CPTs registered as `public => false, show_ui => true` (LearnDash, WooCommerce, custom internal types). Now uses a broader filter that catches both public and admin-visible CPTs, with a hard exclude list for system types (attachment, nav_menu_item, wp_block, wp_template/part, wp_navigation, revision, customize_changeset, etc).

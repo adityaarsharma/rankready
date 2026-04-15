@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://github.com/adityaarsharma/rankready
  * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           0.5.2
+ * Version:           0.5.3
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH Innovations
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '0.5.2' );
+	define( 'RR_VERSION',  '0.5.3' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -282,20 +282,172 @@ if ( file_exists( RR_DIR . 'vendor/plugin-update-checker/plugin-update-checker.p
 		$rr_update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
 			'https://github.com/adityaarsharma/rankready/',
 			RR_FILE,
-			'rankready'
+			'rankready',
+			24 // $checkPeriod: hours between update checks. Gentler on GitHub's
+			   // unauthenticated rate limit (60/hr) than the 12h default.
 		);
 
 		// Pull update zip from the GitHub Release asset (rankready-X.Y.Z.zip),
 		// not the auto-generated "Source code" zip — the asset has the correct
 		// folder structure (`rankready/rankready.php` at zip root).
 		$rr_update_checker->getVcsApi()->enableReleaseAssets();
-
-		// Check daily. Default is 12h; daily is gentler on GitHub's rate limit
-		// for sites that haven't authenticated (60/hr unauthenticated → plenty
-		// for one daily check across thousands of installs).
-		$rr_update_checker->setCheckPeriod( 24 );
 	}
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Folder name enforcement — canonical install folder is always 'rankready'.
+// ─────────────────────────────────────────────────────────────────────────────
+// Problem: users sometimes install RankReady from the wrong source:
+//   - GitHub "Code → Download ZIP"              -> rankready-main/
+//   - GitHub "Source code (zip)" on release     -> rankready-0.5.3/
+//   - Old posimyth release source archives      -> RankReady-LLM-SEO-EEAT-AI-Optimization-1.7.x/
+// Only the rankready-X.Y.Z.zip release asset ships the canonical 'rankready/'
+// folder structure. Without enforcement, PUC's built-in rename keeps the
+// wrong folder name alive across every future upgrade.
+//
+// Two guards:
+//   1. upgrader_source_selection filter — intercepts every plugin install/
+//      update, detects a RankReady zip by reading its plugin header, and
+//      force-renames the extracted temp folder to 'rankready' before WP
+//      moves it into /wp-content/plugins/.
+//   2. admin_init auto-migration — if this plugin is currently installed in
+//      a non-canonical folder, rename the folder in place on the next admin
+//      page load, update active_plugins (+ active_sitewide_plugins on
+//      multisite) to match, and redirect. Settings survive (they live in
+//      wp_options/wp_postmeta, not the plugin folder).
+// ═════════════════════════════════════════════════════════════════════════════
+
+add_filter( 'upgrader_source_selection', function ( $source, $remote_source, $upgrader, $hook_extra ) {
+	if ( ! is_object( $upgrader ) || ! is_a( $upgrader, 'Plugin_Upgrader' ) ) {
+		return $source;
+	}
+
+	$source = trailingslashit( $source );
+	$main   = $source . 'rankready.php';
+
+	if ( ! is_readable( $main ) ) {
+		return $source;
+	}
+
+	if ( ! function_exists( 'get_plugin_data' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+	}
+	$data = get_plugin_data( $main, false, false );
+	if ( empty( $data['Name'] ) || false === stripos( $data['Name'], 'RankReady' ) ) {
+		return $source;
+	}
+
+	$current = basename( untrailingslashit( $source ) );
+	if ( 'rankready' === $current ) {
+		return $source;
+	}
+
+	$new_source = trailingslashit( $remote_source ) . 'rankready/';
+
+	if ( file_exists( $new_source ) ) {
+		global $wp_filesystem;
+		if ( $wp_filesystem ) {
+			$wp_filesystem->delete( $new_source, true );
+		}
+	}
+
+	if ( ! @rename( untrailingslashit( $source ), untrailingslashit( $new_source ) ) ) {
+		return $source;
+	}
+
+	return $new_source;
+}, 1, 4 );
+
+add_action( 'admin_init', function (): void {
+	if ( wp_doing_ajax() || wp_doing_cron() ) {
+		return;
+	}
+	if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+		return;
+	}
+	if ( ! current_user_can( 'activate_plugins' ) ) {
+		return;
+	}
+
+	$current = basename( __DIR__ );
+	if ( 'rankready' === $current ) {
+		return;
+	}
+
+	static $attempted = false;
+	if ( $attempted ) {
+		return;
+	}
+	$attempted = true;
+
+	$target = dirname( __DIR__ ) . DIRECTORY_SEPARATOR . 'rankready';
+
+	// Duplicate install — leave the duplicate-install guard at top of file to handle.
+	if ( file_exists( $target ) ) {
+		return;
+	}
+
+	if ( ! @rename( __DIR__, $target ) ) {
+		set_transient( 'rr_folder_migration_failed', $current, HOUR_IN_SECONDS );
+		return;
+	}
+
+	$old_basename = $current . '/rankready.php';
+	$new_basename = 'rankready/rankready.php';
+
+	$active = (array) get_option( 'active_plugins', array() );
+	foreach ( $active as $i => $p ) {
+		if ( $p === $old_basename ) {
+			$active[ $i ] = $new_basename;
+		}
+	}
+	update_option( 'active_plugins', $active );
+
+	if ( is_multisite() ) {
+		$network = (array) get_site_option( 'active_sitewide_plugins', array() );
+		if ( isset( $network[ $old_basename ] ) ) {
+			$network[ $new_basename ] = $network[ $old_basename ];
+			unset( $network[ $old_basename ] );
+			update_site_option( 'active_sitewide_plugins', $network );
+		}
+	}
+
+	set_transient( 'rr_folder_migrated_from', $current, HOUR_IN_SECONDS );
+
+	wp_safe_redirect( admin_url( 'plugins.php' ) );
+	exit;
+} );
+
+add_action( 'admin_notices', function (): void {
+	if ( ! current_user_can( 'activate_plugins' ) ) {
+		return;
+	}
+
+	$migrated = get_transient( 'rr_folder_migrated_from' );
+	if ( $migrated ) {
+		delete_transient( 'rr_folder_migrated_from' );
+		echo '<div class="notice notice-success is-dismissible"><p>';
+		printf(
+			/* translators: %s: old folder name */
+			esc_html__( 'RankReady: plugin folder auto-migrated from "%s" to the canonical "rankready" folder. All settings preserved.', 'rankready' ),
+			esc_html( $migrated )
+		);
+		echo '</p></div>';
+	}
+
+	$failed = get_transient( 'rr_folder_migration_failed' );
+	if ( $failed ) {
+		delete_transient( 'rr_folder_migration_failed' );
+		echo '<div class="notice notice-warning is-dismissible"><p>';
+		printf(
+			/* translators: 1: current folder name, 2: current folder name */
+			esc_html__( 'RankReady: plugin is installed in "%1$s" instead of the canonical "rankready" folder. Auto-migration failed (file permissions). Rename the folder via SFTP: "%2$s" → "rankready", then reactivate if needed. Settings are preserved either way.', 'rankready' ),
+			esc_html( $failed ),
+			esc_html( $failed )
+		);
+		echo '</p></div>';
+	}
+} );
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 add_action( 'plugins_loaded', function (): void {

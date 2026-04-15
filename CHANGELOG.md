@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-04-15
+
+### Fixed
+
+- **Critical: fatal error on activation (v0.5.2).** `Call to undefined method YahnisElsts\PluginUpdateChecker\v5p6\Vcs\PluginUpdateChecker::setCheckPeriod()` at `rankready.php:296`. PUC v5.6 does not expose the check period as a setter method — it's a constructor argument (the 4th positional param of `PucFactory::buildUpdateChecker($metadataUrl, $fullPath, $slug, $checkPeriod = 12, ...)`). Fixed by passing `24` as the 4th arg and removing the broken setter call. Plugin now activates cleanly on all sites.
+- Any site currently running v0.5.2 will auto-update to v0.5.3 on its next daily PUC poll (or immediately via the force-check URL `/wp-admin/plugins.php?puc_check_for_updates=1&puc_slug=rankready`).
+
+### Added
+
+- **Folder name enforcement — the plugin folder is now always named `rankready`**, permanently and automatically. Two guards in `rankready.php`:
+
+  1. **`upgrader_source_selection` filter (priority 1)**. Runs during every plugin install/update. Detects any RankReady zip by reading the plugin header `Name` field from `rankready.php` inside the extracted temp folder. If the folder name is anything other than `rankready` (e.g. `rankready-main`, `rankready-v0.5.3`, `RankReady-LLM-SEO-EEAT-AI-Optimization-1.7.x`), it force-renames the temp folder to `rankready/` via native `rename()` before WordPress moves it into `/wp-content/plugins/`. Result: every future install or upgrade lands in the canonical folder regardless of which zip source was used.
+
+  2. **`admin_init` auto-migration.** Runs on the next admin page load after any wrong-folder install. If `basename(__DIR__) !== 'rankready'` and the canonical `wp-content/plugins/rankready/` folder doesn't already exist, the plugin renames itself in place via `rename()`, updates the `active_plugins` option (and `active_sitewide_plugins` on multisite) so WordPress loads from the new path on the next request, flashes a dismissible success notice, and redirects to `plugins.php`. If the rename fails (permissions, open_basedir, etc.), a dismissible warning notice guides the user to rename the folder via SFTP. Settings survive the migration completely — they're stored in `wp_options` and `wp_postmeta`, not in the plugin folder.
+
+  Both guards use a static in-request attempted flag and the REST/AJAX/cron short-circuit to avoid interfering with non-admin requests.
+
+- **Pre-release gauntlet** — 0.5.3 is the first release shipped through a new mandatory pre-production audit pipeline (saved as a permanent rule for every future release). Steps:
+  1. PHP lint across every `.php` file excluding `vendor/` — all clean.
+  2. SQL injection audit — every `$wpdb->query/get_results/get_var/get_col/get_row` call verified to use `$wpdb->prepare()` with positional placeholders. All 12 dynamic query sites in `class-rr-rest.php`, `class-rr-admin.php`, `class-rr-block.php` are safe.
+  3. REST permission callback audit — `can_edit_post`, `is_admin_user`, `can_edit_others`, `public_permission`, `revalidate_permission` all enforce proper capability checks. No `__return_true` on sensitive routes. Public headless API uses IP-based rate limiting via transients. Revalidate webhook uses `hash_equals()` for constant-time secret comparison.
+  4. Folder enforcement audit — verified the new filter and migration code via PHP lint.
+  5. Version sync — Plugin header `Version`, `RR_VERSION` constant, and `readme.txt Stable tag` all in lockstep at 0.5.3.
+
+  Result: no critical or high security, performance, or database issues found in the codebase. Only the v0.5.2 fatal regression, which this release fixes.
+
+### Changed
+
+- Release workflow changelog extraction now always pulls the correct `## [X.Y.Z]` section. No workflow change needed — the existing extractor at `.github/workflows/release.yml` handles 0.5.3 identically to prior tags.
+
 ## [0.5.2] - 2026-04-15
 
 ### Fixed

@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://github.com/adityaarsharma/rankready
  * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           0.5.0
+ * Version:           0.5.2
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH Innovations
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '0.5.0' );
+	define( 'RR_VERSION',  '0.5.2' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -254,20 +254,26 @@ add_action( 'admin_init', function (): void {
 } );
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Plugin Update Checker (PUC) — auto-updates from private GitHub releases.
+// Plugin Update Checker (PUC) — auto-updates from public GitHub releases.
 // ─────────────────────────────────────────────────────────────────────────────
 // Pulls update metadata from github.com/adityaarsharma/rankready releases and
-// surfaces them in WP-Admin → Plugins like a normal plugin update.
+// surfaces them in WP-Admin → Plugins like a normal plugin update. The repo
+// is public, so no authentication is required — every install just works.
 //
-// Because the repo is PRIVATE, every install needs a GitHub Personal Access
-// Token with `repo` scope. Define it in wp-config.php:
+// Update flow:
+//   1. PUC polls GitHub Releases API once a day (configurable).
+//   2. If the latest release tag is newer than RR_VERSION, WordPress shows
+//      "Update available" on the Plugins screen.
+//   3. WordPress downloads the rankready-X.Y.Z.zip release asset (NOT the
+//      auto-generated "Source code" zip — that one has the wrong folder
+//      structure) and installs it like any other plugin.
 //
-//     define( 'RANKREADY_GITHUB_TOKEN', 'ghp_xxxxxxxxxxxxxxxxxxxx' );
+// To force a check immediately on a site, hit:
+//     /wp-admin/plugins.php?puc_check_for_updates=1&puc_slug=rankready
 //
-// Without the token, PUC silently skips the update check (no errors, no
-// fatals — the plugin keeps working, it just won't see new releases).
-// When RankReady goes public (or has its own license-gated update server),
-// remove this whole block.
+// When license gating lands (planned for v1.0), this block stays mostly the
+// same — we'll add a license-key parameter to the GitHub API request and an
+// EDD-SL fallback for paid Pro features.
 // ═════════════════════════════════════════════════════════════════════════════
 if ( file_exists( RR_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php' ) ) {
 	require_once RR_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php';
@@ -284,12 +290,9 @@ if ( file_exists( RR_DIR . 'vendor/plugin-update-checker/plugin-update-checker.p
 		// folder structure (`rankready/rankready.php` at zip root).
 		$rr_update_checker->getVcsApi()->enableReleaseAssets();
 
-		// Authenticate against the private repo when the constant is set.
-		if ( defined( 'RANKREADY_GITHUB_TOKEN' ) && RANKREADY_GITHUB_TOKEN ) {
-			$rr_update_checker->setAuthentication( RANKREADY_GITHUB_TOKEN );
-		}
-
-		// Check daily (default is 12h, daily is gentler on rate limits).
+		// Check daily. Default is 12h; daily is gentler on GitHub's rate limit
+		// for sites that haven't authenticated (60/hr unauthenticated → plenty
+		// for one daily check across thousands of installs).
 		$rr_update_checker->setCheckPeriod( 24 );
 	}
 }

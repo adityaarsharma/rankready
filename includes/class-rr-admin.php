@@ -2794,27 +2794,104 @@ class RR_Admin {
 		);
 	}
 
+	/**
+	 * Hard-exclude list shared by all post-type pickers in the plugin.
+	 *
+	 * These are built-in / system CPTs that should never appear in user-facing
+	 * tabs (FAQ, Summary, Bulk Author Changer, etc.) regardless of their
+	 * public / show_ui flags.
+	 */
+	private static function get_excluded_post_types(): array {
+		return array(
+			'attachment',           // Media — never used as content
+			'nav_menu_item',        // Menu items
+			'wp_block',             // Reusable blocks
+			'wp_template',          // FSE templates
+			'wp_template_part',     // FSE template parts
+			'wp_navigation',        // FSE navigation
+			'wp_global_styles',     // FSE global styles
+			'revision',             // Post revisions
+			'custom_css',           // Customizer CSS
+			'customize_changeset',  // Customizer changesets
+			'oembed_cache',         // oEmbed cache
+			'user_request',         // Privacy requests
+		);
+	}
+
+	/**
+	 * Return all post types that should appear in user-facing pickers.
+	 *
+	 * Catches both `public => true` CPTs (front-end visible) AND private CPTs
+	 * with `show_ui => true` (admin-visible only — common pattern for plugin
+	 * CPTs like LearnDash quizzes, WooCommerce orders, custom internal types).
+	 *
+	 * Result format: `[ 'slug' => 'Label (slug)' ]`, sorted alphabetically by
+	 * label so plugin CPTs don't get buried after `post`/`page`.
+	 */
 	public static function get_allowed_post_types(): array {
-		$types  = get_post_types( array( 'public' => true ), 'objects' );
-		$result = array();
+		$excluded = self::get_excluded_post_types();
+		$result   = array();
+
+		// Pull every registered post type and keep the ones with admin UI.
+		// `_builtin => false` is NOT used here — we want `post` and `page` too.
+		$types = get_post_types( array(), 'objects' );
 		foreach ( $types as $slug => $obj ) {
-			if ( 'attachment' === $slug ) {
+			if ( in_array( $slug, $excluded, true ) ) {
+				continue;
+			}
+			// Must be visible somewhere — either public or admin-visible.
+			if ( empty( $obj->public ) && empty( $obj->show_ui ) ) {
+				continue;
+			}
+			$label             = $obj->labels->singular_name . ' (' . $slug . ')';
+			$result[ $slug ]   = $label;
+		}
+
+		// Stable alphabetical sort by label so plugin CPTs surface
+		// alongside post/page instead of getting buried at the bottom.
+		asort( $result, SORT_NATURAL | SORT_FLAG_CASE );
+
+		/**
+		 * Filter the post-type list shown in RankReady tabs.
+		 *
+		 * @param array<string,string> $result slug => "Label (slug)"
+		 */
+		return apply_filters( 'rankready_allowed_post_types', $result );
+	}
+
+	/**
+	 * Return all post types eligible for the Bulk Author Changer.
+	 *
+	 * Same broad detection as get_allowed_post_types() but additionally
+	 * requires the type to support the `author` feature — without that,
+	 * wp_update_post() can't reassign authors on it.
+	 */
+	public static function get_author_post_types(): array {
+		$excluded = self::get_excluded_post_types();
+		$result   = array();
+
+		$types = get_post_types( array(), 'objects' );
+		foreach ( $types as $slug => $obj ) {
+			if ( in_array( $slug, $excluded, true ) ) {
+				continue;
+			}
+			if ( empty( $obj->public ) && empty( $obj->show_ui ) ) {
+				continue;
+			}
+			if ( ! post_type_supports( $slug, 'author' ) ) {
 				continue;
 			}
 			$result[ $slug ] = $obj->labels->singular_name . ' (' . $slug . ')';
 		}
-		return $result;
-	}
 
-	public static function get_author_post_types(): array {
-		$types  = get_post_types( array( 'public' => true ), 'objects' );
-		$result = array();
-		foreach ( $types as $slug => $obj ) {
-			if ( post_type_supports( $slug, 'author' ) ) {
-				$result[ $slug ] = $obj->labels->singular_name . ' (' . $slug . ')';
-			}
-		}
-		return $result;
+		asort( $result, SORT_NATURAL | SORT_FLAG_CASE );
+
+		/**
+		 * Filter the post-type list shown in the Bulk Author Changer.
+		 *
+		 * @param array<string,string> $result slug => "Label (slug)"
+		 */
+		return apply_filters( 'rankready_author_post_types', $result );
 	}
 
 	public static function get_authors(): array {

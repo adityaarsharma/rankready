@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-04-15
+
+### Added
+
+- **"Delete all data on uninstall" setting** in the Tools tab, under a new "Data Retention" card. OFF by default. When the user deletes the plugin from the Plugins page, `uninstall.php` now checks this opt-in flag and returns early if OFF — preserving every rr_* option, every _rr_* post meta key, every rr_author_* user meta field on every user, and every rr_* transient. Reinstalling RankReady on the same site brings everything back automatically. When ON, the full cleanup runs as it did before.
+- New constant `RR_OPT_DELETE_ON_UNINSTALL` (`rr_delete_on_uninstall`) registered against `rr_settings_group` with `sanitize_on_off` callback. The opt-in option itself is always deleted in `uninstall.php` (before the early-return check) so a fresh install starts clean.
+- Explicit UI copy on the Data Retention card clarifies that **deactivation never deletes anything** — RankReady only unschedules cron jobs, clears transient caches, and resets running flags on deactivation. Uninstall is the only code path that can delete data, and only when the user explicitly opted in.
+- Regenerated `languages/rankready.pot` (582 translatable strings) using WP-CLI `wp i18n make-pot` — includes all new strings from 0.5.3 folder migration and 0.5.4 Data Retention card.
+
+### Fixed
+
+- **Security: missing `wp_unslash()` + `sanitize_text_field()` on `$_SERVER` IP header reads** in `class-rr-headless.php::get_real_ip()`. Previously cast each header directly to string. The method is only used to build rate-limit transient keys (`md5( $ip )`), so actual exploit risk was minimal, but WordPress coding standards require unslashing and sanitization on every `$_SERVER` read. Fix: every candidate header (`HTTP_CF_CONNECTING_IP`, `HTTP_X_FORWARDED_FOR`, `HTTP_X_REAL_IP`, `REMOTE_ADDR`) is now unslashed, sanitized, collected into a candidate array, then validated with `filter_var( FILTER_VALIDATE_IP )`. The first valid IP wins; if none validate, the method returns `'0.0.0.0'` so transient keys stay clean.
+- **`class-rr-block.php` bulk schema query** now builds its `IN()` clause via `array_fill( 0, count( $post_types ), '%s' )` + `$wpdb->prepare()` trailing args, matching the canonical WP pattern used in `class-rr-rest.php`. The previous `esc_sql()` + manual quoting approach was safe but non-canonical and tripped phpcs `WordPress.DB.PreparedSQL.InterpolatedNotPrepared`.
+
+### Changed
+
+- Added `phpcs:disable` / `phpcs:enable` block comments around the three variable-length `IN()` clauses in `class-rr-rest.php` (stale posts query, health-check total query, health-check summary query, health-check FAQ query) and one in `class-rr-block.php`. The sniff can't statically verify that `{$placeholders}` contains only `%s` tokens from `array_fill`, so the suppression is correct and documented inline. Every block has an explanatory comment above it.
+- Added a `phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized` comment on the `wp_unslash( $_POST[ $key ] )` line inside `RR_Author_Box::save_profile_fields()`. The sniff is a false positive: nonce + capability checks run above, and each META_KEY is dispatched to a type-specific sanitizer (`sanitize_repeater_json`, `sanitize_textarea`, `esc_url_raw`, or `sanitize_text_field`) in the if/elseif chain immediately below. Suppression is documented inline.
+
+### Pre-release gauntlet — first full run
+
+- **PHP lint** (native `php -l`): 0 errors across 15 plugin files (excluding `vendor/`).
+- **WordPress Coding Standards** (phpcs 3.13.5 + wpcs 3.1 + PHPCSExtra 1.2 + PHPCSUtils 1.0): 0 errors on the security sniff subset (`WordPress.Security.NonceVerification`, `WordPress.Security.ValidatedSanitizedInput`, `WordPress.Security.EscapeOutput`, `WordPress.Security.PluginMenuSlug`, `WordPress.Security.SafeRedirect`, `WordPress.DB.PreparedSQL`, `WordPress.DB.PreparedSQLPlaceholders`, `WordPress.DB.DirectDatabaseQuery`). Full `WordPress` standard still reports ~2100 style nitpicks (Yoda conditions, inline comments, spacing) — those are stylistic and deferred to a dedicated cleanup pass, not blocking for release.
+- **i18n `.pot` generation** via WP-CLI `wp i18n make-pot`: 582 translatable strings, saved to `languages/rankready.pot`.
+- **Version sync**: plugin header `Version: 0.5.4`, `RR_VERSION` constant `'0.5.4'`, `readme.txt Stable tag: 0.5.4` — all in lockstep.
+- **Manual Grep audit** (agent-based audit deferred due to conversation-context limits — will resume next release): SQL injection, REST permission callbacks, capability checks, nonce verification, output escaping, file operations, rate limiting, timing attacks. No critical or high findings beyond what was fixed in this release.
+
 ## [0.5.3] - 2026-04-15
 
 ### Fixed

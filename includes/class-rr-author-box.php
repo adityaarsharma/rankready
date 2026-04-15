@@ -569,6 +569,11 @@ class RR_Author_Box {
 			if ( ! isset( $_POST[ $key ] ) ) {
 				continue;
 			}
+			// Nonce + capability checks above. Raw unslashed value is
+			// dispatched to a type-specific sanitizer in the if/elseif
+			// chain below (sanitize_repeater_json, sanitize_textarea,
+			// esc_url_raw, or sanitize_text_field).
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 			$raw = wp_unslash( $_POST[ $key ] );
 
 			if ( in_array( $key, array( 'rr_author_education', 'rr_author_certifications', 'rr_author_memberships', 'rr_author_awards' ), true ) ) {

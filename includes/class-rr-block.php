@@ -1142,20 +1142,23 @@ class RR_Block {
 		// Find posts that need scanning:
 		// 1. No schema hash at all (never scanned)
 		// 2. Schema hash doesn't match current content hash (content changed)
-		$post_type_in = "'" . implode( "','", array_map( 'esc_sql', $post_types ) ) . "'";
+		// Build "%s,%s,..." placeholder list for the IN() clause. Only
+		// placeholder tokens — never user input. Actual post type slugs
+		// are passed to prepare() as trailing args.
+		$type_placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$post_ids = $wpdb->get_col( $wpdb->prepare(
 			"SELECT p.ID FROM {$wpdb->posts} p
 			 LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
 			 WHERE p.post_status = 'publish'
-			   AND p.post_type IN ({$post_type_in})
+			   AND p.post_type IN ({$type_placeholders})
 			   AND (pm.meta_value IS NULL OR pm.meta_value = '')
 			 ORDER BY p.post_modified DESC
 			 LIMIT %d",
-			RR_META_SCHEMA_HASH,
-			$batch_size
+			array_merge( array( RR_META_SCHEMA_HASH ), $post_types, array( $batch_size ) )
 		) );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( empty( $post_ids ) ) return;
 

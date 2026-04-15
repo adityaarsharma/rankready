@@ -117,6 +117,12 @@ class RR_Admin {
 			'default'           => 'off',
 		) );
 
+		register_setting( self::SETTINGS_GROUP, RR_OPT_DELETE_ON_UNINSTALL, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'off',
+		) );
+
 		register_setting( self::SETTINGS_GROUP, RR_OPT_AUTO_DISPLAY, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_auto_display' ),
@@ -2525,6 +2531,54 @@ class RR_Admin {
 					<tbody id="rr-errors-tbody"></tbody>
 				</table>
 			</div>
+		</div>
+
+		<!-- Data Retention -->
+		<div class="rr-card">
+			<h2 class="rr-card-title"><?php esc_html_e( 'Data Retention', 'rankready' ); ?></h2>
+			<p class="rr-card-desc">
+				<?php esc_html_e( 'Control what happens to your RankReady data when the plugin is deactivated or deleted.', 'rankready' ); ?>
+			</p>
+
+			<form method="post" action="options.php" novalidate="novalidate">
+				<?php settings_fields( self::SETTINGS_GROUP ); ?>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'On Deactivate', 'rankready' ); ?></th>
+						<td>
+							<p style="margin:0;">
+								<span class="dashicons dashicons-shield" style="color:#46b450;"></span>
+								<strong><?php esc_html_e( 'Nothing is deleted on deactivation.', 'rankready' ); ?></strong>
+							</p>
+							<p class="description" style="margin-top:6px;">
+								<?php esc_html_e( 'Deactivating RankReady only pauses its hooks and clears scheduled cron jobs. All settings, API keys, AI summaries, FAQ data, Author Box profiles, freshness history, and post meta stay exactly where they are. You can reactivate any time and pick up where you left off.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'On Uninstall', 'rankready' ); ?></th>
+						<td>
+							<?php $delete_on_uninstall = (string) get_option( RR_OPT_DELETE_ON_UNINSTALL, 'off' ); ?>
+							<label>
+								<input type="hidden" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="on" <?php checked( $delete_on_uninstall, 'on' ); ?> />
+								<?php esc_html_e( 'Delete all RankReady data when the plugin is uninstalled', 'rankready' ); ?>
+							</label>
+							<p class="description" style="margin-top:6px;">
+								<?php esc_html_e( 'OFF by default. Uninstalling (Plugins → Delete) preserves all your data — API keys, settings, every AI Summary, every FAQ, every Author Box profile, all post meta. If you ever reinstall RankReady, everything comes back automatically.', 'rankready' ); ?>
+							</p>
+							<p class="description" style="margin-top:6px;color:#d63638;">
+								<strong><?php esc_html_e( 'Warning:', 'rankready' ); ?></strong>
+								<?php esc_html_e( 'When ON, uninstall will permanently remove every RankReady option, post meta key, user meta key (including the full Author Box profile on every user), and transient. This cannot be undone and is not what most sites want. Leave OFF unless you specifically need a clean slate.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+
+				<?php submit_button( __( 'Save Data Retention Settings', 'rankready' ) ); ?>
+			</form>
 		</div>
 		<?php
 	}

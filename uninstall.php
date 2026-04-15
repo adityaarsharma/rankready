@@ -1,11 +1,29 @@
 <?php
 /**
- * Uninstall — clean up all plugin data.
+ * Uninstall — optionally clean up all plugin data.
+ *
+ * Preserves all user data by default. If the admin opted in via
+ * Settings → Tools → "Delete all data on uninstall", every RankReady
+ * option, post meta, user meta, and transient is removed.
+ *
+ * This file only runs on a full plugin "Delete" from the Plugins page,
+ * never on deactivation. Deactivation preserves everything.
  *
  * @package RankReady
  */
 
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
+
+// ── Honor the opt-in ─────────────────────────────────────────────────────────
+// Bail out early and preserve ALL user data unless the admin explicitly
+// enabled "Delete all data on uninstall" in the plugin settings. The option
+// itself is always cleaned up so the next install starts clean.
+$should_delete_all = 'on' === get_option( 'rr_delete_on_uninstall', 'off' );
+delete_option( 'rr_delete_on_uninstall' );
+
+if ( ! $should_delete_all ) {
+	return;
+}
 
 // ── Delete options ────────────────────────────────────────────────────────────
 $options = array(

@@ -4,7 +4,7 @@ Tags: llm seo, ai seo, llms.txt, schema markup, eeat, ai overviews, chatgpt, per
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.5.3
+Stable tag: 0.5.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,11 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 0.5.4 =
+* New: "Delete all data on uninstall" toggle in Tools tab. OFF by default — uninstalling the plugin now preserves all your settings, API keys, AI summaries, FAQ data, Author Box profiles, and post meta. Deactivation has never deleted anything and still doesn't. When the toggle is ON, uninstalling wipes every RankReady option, post meta, user meta, and transient. Two-line guard at the top of uninstall.php reads the opt-in flag and early-returns when OFF.
+* Security: fixed missing wp_unslash + sanitize_text_field on $_SERVER IP header reads in the headless REST API (class-rr-headless.php get_real_ip). Added filter_var(FILTER_VALIDATE_IP) validation so invalid headers fall through to REMOTE_ADDR and rate-limit transient keys are never polluted by garbage values. Low actual risk but required by WordPress coding standards.
+* Pre-release gauntlet: first release to run the full pipeline. PHP lint: 0 errors across 15 plugin files. WordPress Coding Standards (phpcs 3.13.5 + wpcs 3.1): 0 security sniff errors (WordPress.Security.* + WordPress.DB.PreparedSQL + WordPress.DB.DirectDatabaseQuery) after fixes. WP-CLI i18n make-pot regenerated languages/rankready.pot with 582 translatable strings. All three version refs (plugin header / RR_VERSION / Stable tag) in sync at 0.5.4.
 
 = 0.5.3 =
 * Critical fix: v0.5.2 triggered a fatal error on activation ("Call to undefined method setCheckPeriod()") because the Plugin Update Checker v5.6 API does not expose that as a setter — it's a constructor argument. 0.5.3 passes the check period (24h) as the 4th positional argument to `PucFactory::buildUpdateChecker()` instead. Plugin now activates cleanly.

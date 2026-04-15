@@ -1538,10 +1538,14 @@ class RR_Rest {
 			);
 		}
 
-		// Summary stats.
+		// Summary stats. $type_placeholders contains only "%s,%s,%s" tokens
+		// generated from array_fill — never user input. Actual slugs are
+		// passed as prepare() args. Safe IN() clause pattern.
 		global $wpdb;
 		$type_placeholders = implode( ',', array_fill( 0, count( $all_types ), '%s' ) );
-		$total_published   = (int) $wpdb->get_var( $wpdb->prepare(
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$total_published = (int) $wpdb->get_var( $wpdb->prepare(
 			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type IN ({$type_placeholders}) AND post_status = %s",
 			array_merge( $all_types, array( 'publish' ) )
 		) );
@@ -1549,6 +1553,7 @@ class RR_Rest {
 			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type IN ({$type_placeholders}) AND post_status = %s AND post_modified < %s",
 			array_merge( $all_types, array( 'publish', $cutoff_date ) )
 		) );
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		return new WP_REST_Response( array(
 			'stale'   => $stale,
@@ -1642,8 +1647,11 @@ class RR_Rest {
 		$public_types = array_diff( $public_types, array( 'attachment' ) );
 
 		if ( ! empty( $public_types ) ) {
+			// $placeholders contains only "%s,%s,%s" tokens from array_fill,
+			// never user input. Safe IN() clause pattern.
 			$placeholders = implode( ',', array_fill( 0, count( $public_types ), '%s' ) );
 
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$total_posts = (int) $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type IN ({$placeholders})",
@@ -1668,6 +1676,7 @@ class RR_Rest {
 					...array_merge( $public_types, array( RR_META_FAQ ) )
 				)
 			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		} else {
 			$total_posts  = 0;
 			$with_summary = 0;

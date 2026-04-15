@@ -945,19 +945,40 @@ class RR_Headless {
 
 	/**
 	 * Get the real client IP, honoring Cloudflare + reverse proxy headers.
+	 *
+	 * Every $_SERVER header is unslashed, sanitized, and validated via
+	 * filter_var( FILTER_VALIDATE_IP ) before use. Invalid inputs fall
+	 * through to REMOTE_ADDR. Final fallback is 0.0.0.0 so rate-limit
+	 * keys are never empty and never polluted by garbage header values.
 	 */
 	private static function get_real_ip(): string {
+		$candidates = array();
+
 		if ( ! empty( $_SERVER['HTTP_CF_CONNECTING_IP'] ) ) {
-			return (string) $_SERVER['HTTP_CF_CONNECTING_IP'];
+			$candidates[] = sanitize_text_field( wp_unslash( $_SERVER['HTTP_CF_CONNECTING_IP'] ) );
 		}
+
 		if ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
-			$ips = explode( ',', (string) $_SERVER['HTTP_X_FORWARDED_FOR'] );
-			return trim( (string) $ips[0] );
+			$xff          = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
+			$ips          = explode( ',', $xff );
+			$candidates[] = trim( (string) $ips[0] );
 		}
+
 		if ( ! empty( $_SERVER['HTTP_X_REAL_IP'] ) ) {
-			return (string) $_SERVER['HTTP_X_REAL_IP'];
+			$candidates[] = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_REAL_IP'] ) );
 		}
-		return isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '0.0.0.0';
+
+		if ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
+			$candidates[] = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
+		}
+
+		foreach ( $candidates as $candidate ) {
+			if ( filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+				return $candidate;
+			}
+		}
+
+		return '0.0.0.0';
 	}
 
 	/**

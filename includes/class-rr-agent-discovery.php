@@ -65,6 +65,7 @@ class RR_Agent_Discovery {
 	}
 
 	public static function flush_rules(): void {
+		self::add_rewrite_rules(); // register rules based on just-saved option values before flushing.
 		flush_rewrite_rules( false );
 	}
 

@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://github.com/adityaarsharma/rankready
  * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           0.6.4
+ * Version:           0.6.5
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '0.6.4' );
+	define( 'RR_VERSION',  '0.6.5' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -703,6 +703,17 @@ register_activation_hook( RR_FILE, function (): void {
 	// Schedule schema scanner cron if not already scheduled.
 	if ( ! wp_next_scheduled( RR_SCHEMA_CRON_HOOK ) ) {
 		wp_schedule_event( time(), 'rr_five_minutes', RR_SCHEMA_CRON_HOOK );
+	}
+} );
+
+// Re-sync robots.txt and rewrite rules when the plugin is updated (activation hook
+// doesn't fire on silent updates — version mismatch triggers it instead).
+add_action( 'admin_init', function (): void {
+	$stored = get_option( 'rr_installed_version', '' );
+	if ( version_compare( $stored, RR_VERSION, '<' ) ) {
+		update_option( 'rr_installed_version', RR_VERSION );
+		RR_Llms_Txt::sync_physical_robots_txt();
+		RR_Agent_Discovery::flush_rules();
 	}
 } );
 

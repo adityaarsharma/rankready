@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-04-21
+
+### Fixed
+- robots.txt: Blocked-bot entries now each carry their own `Disallow: /` rule — previously the ban section had no Disallow directive and was silently ignored by crawlers.
+- robots.txt: AI crawler block now explicitly allows `/llms.txt`, `/llms-full.txt`, and `/*.md$` so LLM bots can always reach AI-specific endpoints even on sites with restrictive global rules.
+- `sync_physical_robots_txt()`: Added post-update auto-sync via `admin_init` version check — plugin upgrades now re-sync the physical robots.txt on the first admin page load without requiring a manual settings save.
+- `/.well-known/` rewrite rules: `flush_rules()` now calls `add_rewrite_rules()` before flushing so newly enabled Agent Skills and API Catalog routes are written in the same request that saves the toggle.
+
 ## [0.6.4] - 2026-04-20
 
 ### Added

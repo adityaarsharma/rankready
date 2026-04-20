@@ -4,7 +4,7 @@ Tags: llm seo, ai seo, llms.txt, schema markup, eeat, ai overviews, chatgpt, per
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.4
+Stable tag: 0.6.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,12 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 0.6.5 =
+* Fix: Blocked-bot entries in robots.txt now each carry their own Disallow: / rule — the ban section was previously silently ignored by crawlers.
+* Fix: AI crawler block now explicitly allows /llms.txt, /llms-full.txt, and /*.md$ so LLM bots always reach AI-specific endpoints.
+* Fix: Plugin upgrades now auto-sync the physical robots.txt on the first admin page load (admin_init version check), no manual settings save required.
+* Fix: /.well-known/ rewrite rules flush correctly in the same request that saves the Agent Skills / API Catalog toggle.
 
 = 0.6.4 =
 * New: Content Signals — adds ai-train, search, ai-input directives to robots.txt (contentsignals.org). Each signal configurable allow/deny. Auto-syncs to physical robots.txt.

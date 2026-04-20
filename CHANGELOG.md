@@ -7,12 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.8.0] - 2026-04-20
-
-### Changed
-
-- **Version bump above 1.7.x** — version number corrected so PUC auto-updates work on all sites running v1.7.x. All plugin identifiers (name, folder, slug, main file) remain identical for seamless update detection.
-
 ## [0.6.2] - 2026-04-20
 
 ### Changed

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4.5] - 2026-04-21
+
+### Fixed
+- Content Signals format: isitagentready.com expects a single `Content-Signal: ai-train=yes, search=yes, ai-input=yes` directive, not separate `ai-train: allow` lines. Updated `generate_robots_block()` to output the correct format. Internal option values (`allow`/`deny`) unchanged — only the robots.txt output format changed.
+
 ## [0.6.4.4] - 2026-04-21
 
 ### Fixed

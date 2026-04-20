@@ -187,17 +187,16 @@ class RR_Llms_Txt {
 			}
 		}
 
-		// Content Signals — top-level robots.txt directives (contentsignals.org).
-		// These declare AI usage preferences outside any User-agent block.
+		// Content Signals — single Content-Signal directive (contentsignals.org).
+		// Format per isitagentready.com check: Content-Signal: ai-train=yes, search=yes, ai-input=yes
+		// Options stored as allow/deny internally; mapped to yes/no for output.
 		if ( $signals_on ) {
-			$ai_train = sanitize_text_field( (string) get_option( RR_OPT_CONTENT_SIGNALS_AI_TRAIN, 'allow' ) );
-			$search   = sanitize_text_field( (string) get_option( RR_OPT_CONTENT_SIGNALS_SEARCH, 'allow' ) );
-			$ai_input = sanitize_text_field( (string) get_option( RR_OPT_CONTENT_SIGNALS_AI_INPUT, 'allow' ) );
+			$ai_train = 'allow' === get_option( RR_OPT_CONTENT_SIGNALS_AI_TRAIN, 'allow' ) ? 'yes' : 'no';
+			$search   = 'allow' === get_option( RR_OPT_CONTENT_SIGNALS_SEARCH, 'allow' ) ? 'yes' : 'no';
+			$ai_input = 'allow' === get_option( RR_OPT_CONTENT_SIGNALS_AI_INPUT, 'allow' ) ? 'yes' : 'no';
 
 			$block .= "# Content Signals (contentsignals.org)\n";
-			$block .= "ai-train: {$ai_train}\n";
-			$block .= "search: {$search}\n";
-			$block .= "ai-input: {$ai_input}\n";
+			$block .= "Content-Signal: ai-train={$ai_train}, search={$search}, ai-input={$ai_input}\n";
 			$block .= "\n";
 		}
 

@@ -7,7 +7,7 @@ RankReady is the most complete WordPress plugin for AI search optimization. It c
 [![WordPress](https://img.shields.io/badge/WordPress-6.2%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL--2.0--or--later-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.6.0-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
+[![Version](https://img.shields.io/badge/Version-0.6.1-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
 [![Auto-Updates](https://img.shields.io/badge/auto--updates-via%20GitHub%20releases-success.svg)](#auto-updates)
 [![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-brightgreen.svg)](CHANGELOG.md)
 
@@ -304,7 +304,7 @@ Both reviewer fields serialize into `reviewedBy[]` as full Person nodes (each ca
 
 The Gutenberg Summary, FAQ, and Author Box blocks ship full typography controls that previously only existed in the Elementor widgets. Every text layer (Summary label, Summary bullets, FAQ question, FAQ answer, Author Box heading, name, meta, bio) exposes:
 
-- **Font Family** — Dropdown populated from `wp.data.select('core/block-editor').getSettings().__experimentalFeatures.typography.fontFamilies`, reading the Theme, Custom, and Default groups. Any block theme that registers global fonts via `theme.json` shows up automatically — **Nexter Theme, Nexter Blocks, Kadence, Astra, GeneratePress, Twenty Twenty-Four, and every other block theme** — with a `"Theme — Inter"` / `"Custom — Space Grotesk"` label so you can see which group each font comes from.
+- **Font Family** — Dropdown populated from `wp.data.select('core/block-editor').getSettings().__experimentalFeatures.typography.fontFamilies`, reading the Theme, Custom, and Default groups. Any block theme that registers global fonts via `theme.json` shows up automatically — **Kadence, Astra, GeneratePress, Twenty Twenty-Four, and every other block theme** — with a `"Theme — Inter"` / `"Custom — Space Grotesk"` label so you can see which group each font comes from.
 - **Font Weight** — 100 Thin through 900 Black
 - **Font Size (px)** — with `0 = inherit from theme` semantics so you can leave it on the theme default
 - **Line Height**
@@ -476,7 +476,7 @@ After install, future updates appear inline in WP Admin → Plugins like any plu
 - Auto-display above or below content
 
 **Block Themes with Global Font Support** (tested — fonts registered via `theme.json` appear automatically in the Gutenberg Author Box / Summary / FAQ blocks):
-- Nexter Theme, Nexter Blocks, Kadence, Astra, GeneratePress, Twenty Twenty-Four, Twenty Twenty-Three, Blocksy, Hello Elementor, and any theme that registers fonts in `theme.json`
+- Kadence, Astra, GeneratePress, Twenty Twenty-Four, Twenty Twenty-Three, Blocksy, Hello Elementor, and any theme that registers fonts in `theme.json`
 
 ---
 

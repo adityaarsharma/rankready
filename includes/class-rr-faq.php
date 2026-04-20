@@ -971,7 +971,7 @@ class RR_Faq {
 
 		$prompt .= "- If a search question cannot be answered from the page content, skip it.\n";
 		$prompt .= "- Fill remaining slots with questions a user would ACTUALLY type into Google or ask an AI chatbot.\n";
-		$prompt .= "- NEVER stuff brand names into questions. Write them how a real person would ask: 'How do I create a custom product loop with custom fields in Elementor?' NOT 'Can I use The Plus Addons for Elementor to create a custom product loop with custom fields?'\n";
+		$prompt .= "- NEVER stuff brand names into questions. Write them how a real person would ask: 'How do I add a contact form to a WordPress page?' NOT 'Can I use [Plugin Name] to add a contact form to a WordPress page?'\n";
 		$prompt .= "- REQUIRED MIX: at least 1 troubleshooting question, 1 use-case/compatibility question, and 1 'best practice' or decision question.\n";
 		$prompt .= "- NEVER ask generic questions like 'What is [topic]?' unless the page is specifically defining that topic.\n";
 		$prompt .= "- NEVER ask questions that just rephrase a heading, menu option, or step from the page.\n";

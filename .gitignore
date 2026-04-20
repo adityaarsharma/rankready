@@ -5,3 +5,4 @@ node_modules/
 .vscode/
 *.log
 .phpunit.result.cache
+.wp-env.json

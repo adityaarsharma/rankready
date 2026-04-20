@@ -760,6 +760,30 @@ class RR_Admin {
 
 		?>
 
+		<!-- What Does This Plugin Do -->
+		<div class="rr-card" style="margin-bottom:24px;padding:20px 24px;">
+			<h2 style="margin:0 0 6px;font-size:15px;font-weight:600;"><?php esc_html_e( 'What does RankReady do?', 'rankready' ); ?></h2>
+			<p style="margin:0 0 16px;color:#646970;font-size:13px;line-height:1.6;"><?php esc_html_e( 'RankReady helps your WordPress content get cited by AI tools like ChatGPT, Perplexity, and Google AI Overviews. It handles the full picture: AI-generated summaries and FAQs, the right schema markup injected automatically based on your content type, a proper author identity that AI can verify, and direct access for AI crawlers via LLMs.txt and Markdown endpoints.', 'rankready' ); ?></p>
+			<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+				<div style="background:#f6f7f7;border-radius:6px;padding:12px 14px;">
+					<strong style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#1d2327;"><?php esc_html_e( 'Content AI', 'rankready' ); ?></strong>
+					<p style="margin:4px 0 0;font-size:12px;color:#646970;line-height:1.5;"><?php esc_html_e( 'Generates AI summaries (key takeaways) and FAQs from your post content using OpenAI. FAQPage schema ships with every FAQ so it counts toward AI Overview eligibility.', 'rankready' ); ?></p>
+				</div>
+				<div style="background:#f6f7f7;border-radius:6px;padding:12px 14px;">
+					<strong style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#1d2327;"><?php esc_html_e( 'Authority', 'rankready' ); ?></strong>
+					<p style="margin:4px 0 0;font-size:12px;color:#646970;line-height:1.5;"><?php esc_html_e( 'Builds a full EEAT author identity with Person JSON-LD schema — credentials, Wikidata, ORCID, and social links. AI models use this to verify who wrote the content.', 'rankready' ); ?></p>
+				</div>
+				<div style="background:#f6f7f7;border-radius:6px;padding:12px 14px;">
+					<strong style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#1d2327;"><?php esc_html_e( 'Schema', 'rankready' ); ?></strong>
+					<p style="margin:4px 0 0;font-size:12px;color:#646970;line-height:1.5;"><?php esc_html_e( 'Auto-detects your content type and injects the right schema — HowTo for tutorials, ItemList for listicles, FAQPage for Q&A posts. No manual blocks needed.', 'rankready' ); ?></p>
+				</div>
+				<div style="background:#f6f7f7;border-radius:6px;padding:12px 14px;">
+					<strong style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#1d2327;"><?php esc_html_e( 'AI Crawlers', 'rankready' ); ?></strong>
+					<p style="margin:4px 0 0;font-size:12px;color:#646970;line-height:1.5;"><?php esc_html_e( 'Serves LLMs.txt, per-post Markdown endpoints, and per-crawler robots.txt controls for 31 AI bots. Gives crawlers a clean, structured way to read your site.', 'rankready' ); ?></p>
+				</div>
+			</div>
+		</div>
+
 		<!-- Stats row -->
 		<div class="rr-stats-row" style="margin-bottom:24px;">
 			<div class="rr-stat">
@@ -1021,7 +1045,7 @@ class RR_Admin {
 						<td>
 							<textarea name="<?php echo esc_attr( RR_OPT_PRODUCT_CONTEXT ); ?>" id="rr_product_context"
 									  rows="6" class="large-text"
-									  placeholder="<?php esc_attr_e( 'Example: The Plus Addons for Elementor is a WordPress plugin that adds 120+ widgets to the Elementor page builder. It does NOT work with Gutenberg, Beaver Builder, or any other builder. Our brand name is POSIMYTH. Website: theplusaddons.com', 'rankready' ); ?>"
+									  placeholder="<?php esc_attr_e( 'Example: Acme SEO Plugin is a WordPress plugin that helps site owners improve their search rankings. It does NOT work with page builders other than Gutenberg. Our brand name is Acme. Website: acmeplugin.com', 'rankready' ); ?>"
 							><?php echo esc_textarea( (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' ) ); ?></textarea>
 							<p class="description"><?php esc_html_e( 'Tell the AI what your product is, what it does, what it does NOT do, brand names, and any facts it must get right. Used in both Summary and FAQ generation.', 'rankready' ); ?></p>
 						</td>
@@ -2066,7 +2090,7 @@ class RR_Admin {
 						<td>
 							<textarea id="rr_faq_brand_terms" name="<?php echo esc_attr( RR_OPT_FAQ_BRAND_TERMS ); ?>"
 							          rows="3" class="large-text"
-							          placeholder="<?php esc_attr_e( 'e.g. The Plus Addons, Elementor, NexterWP, UiChemy (one per line or comma-separated)', 'rankready' ); ?>"
+							          placeholder="<?php esc_attr_e( 'e.g. Acme Plugin, Your Brand Name, Your Product Name (one per line or comma-separated)', 'rankready' ); ?>"
 							><?php echo esc_textarea( (string) get_option( RR_OPT_FAQ_BRAND_TERMS, '' ) ); ?></textarea>
 							<p class="description"><?php esc_html_e( 'Brand/product names to inject as semantic triples in FAQ answers. This builds brand-entity association for LLMs (+642% AI citation lift).', 'rankready' ); ?></p>
 						</td>
@@ -2897,10 +2921,10 @@ class RR_Admin {
 			<p style="margin:0;font-size:13px;color:#646970;">
 				<?php
 				printf(
-					/* translators: %s: POSIMYTH link */
+					/* translators: %s: author link */
 					esc_html__( 'RankReady v%1$s by %2$s', 'rankready' ),
 					esc_html( RR_VERSION ),
-					'<a href="https://posimyth.com" target="_blank">POSIMYTH Innovations</a>'
+					'<a href="https://github.com/adityaarsharma/rankready" target="_blank">Aditya Sharma</a>'
 				);
 				?>
 			</p>

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-04-20
+
+### Added
+
+- **Dashboard "What does RankReady do?" panel** — new intro section on the dashboard with a plain-English explanation of the plugin and a 4-card breakdown of Content AI, Authority, Schema, and AI Crawlers. Makes the plugin immediately understandable on first install.
+
+### Changed
+
+- **Brand-agnostic placeholder text** — Product/Brand Info and Brand Terms fields now use generic examples instead of POSIMYTH product names, so any user understands what to enter.
+- **FAQ prompt example** — internal prompt example updated from POSIMYTH-specific product to a generic WordPress example.
+- **Admin footer** — "by POSIMYTH Innovations" replaced with "by Aditya Sharma" linking to the GitHub repo.
+- **LLMs.txt generator footer** — URL updated from old domain to the public GitHub repo.
+- **README** — Installation tab names updated to match v0.6 structure; Nexter-specific font theme examples replaced with generic block themes.
+
 ## [0.6.0] - 2026-04-20
 
 ### Added

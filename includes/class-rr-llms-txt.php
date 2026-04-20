@@ -42,6 +42,10 @@ class RR_Llms_Txt {
 		// Add llms.txt reference to robots.txt so AI crawlers discover it.
 		add_filter( 'robots_txt', array( self::class, 'add_to_robots_txt' ), 100, 2 );
 
+		// Emit Link: headers and <link> tags for AI discovery on every front-end page.
+		add_action( 'send_headers', array( self::class, 'add_discovery_link_headers' ) );
+		add_action( 'wp_head',      array( self::class, 'add_discovery_link_tags' ) );
+
 		// Sync to physical robots.txt when settings change.
 		add_action( 'update_option_' . RR_OPT_ROBOTS_ENABLE,             array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RR_OPT_ROBOTS_CRAWLERS,           array( self::class, 'sync_physical_robots_txt' ) );
@@ -89,6 +93,49 @@ class RR_Llms_Txt {
 		}
 
 		return $output . $block;
+	}
+
+	/**
+	 * Emit Link: HTTP response headers for AI agent discovery on all front-end pages.
+	 *
+	 * These are checked by isitagentready.com and similar agent-readiness scanners
+	 * to verify the site exposes its LLM-readable endpoints via standard headers.
+	 */
+	public static function add_discovery_link_headers(): void {
+		if ( is_admin() || defined( 'REST_REQUEST' ) ) {
+			return;
+		}
+
+		if ( 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+			header( 'Link: <' . esc_url( home_url( '/llms.txt' ) ) . '>; rel="llms-txt"', false );
+		}
+
+		if ( 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
+			header( 'Link: <' . esc_url( home_url( '/llms-full.txt' ) ) . '>; rel="llms-full-txt"', false );
+		}
+
+		if ( 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+			header( 'Link: <' . esc_url( home_url( '/' ) ) . '>; rel="alternate"; type="text/markdown"', false );
+		}
+
+		$sitemap_url = get_option( 'permalink_structure' ) ? home_url( '/sitemap_index.xml' ) : home_url( '/?sitemap=1' );
+		header( 'Link: <' . esc_url( $sitemap_url ) . '>; rel="sitemap"; type="application/xml"', false );
+	}
+
+	/**
+	 * Emit <link> tags in <head> for AI agent discovery.
+	 *
+	 * Mirrors the Link: headers as HTML meta-equivalents so HTML parsers
+	 * (and tools that don't inspect response headers) can also discover endpoints.
+	 */
+	public static function add_discovery_link_tags(): void {
+		if ( 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+			echo '<link rel="llms-txt" type="text/plain" href="' . esc_url( home_url( '/llms.txt' ) ) . '" />' . "\n";
+		}
+
+		if ( 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
+			echo '<link rel="llms-full-txt" type="text/plain" href="' . esc_url( home_url( '/llms-full.txt' ) ) . '" />' . "\n";
+		}
 	}
 
 	/**

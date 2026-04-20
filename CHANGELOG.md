@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4.2] - 2026-04-21
+
+### Added
+- **Discovery Link headers**: Every front-end page now emits `Link:` HTTP response headers for `llms.txt`, `llms-full.txt`, markdown endpoint, and sitemap — checked by isitagentready.com and AI agent scanners.
+- **Discovery `<link>` tags**: Matching `<link rel="llms-txt">` and `<link rel="llms-full-txt">` tags added to `<head>` for HTML-level AI endpoint discovery.
+
 ## [0.6.4.1] - 2026-04-21
 
 ### Fixed

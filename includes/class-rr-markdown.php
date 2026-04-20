@@ -68,6 +68,7 @@ class RR_Markdown {
 
 	public static function register_query_vars( array $vars ): array {
 		$vars[] = 'rr_md_path';
+		$vars[] = 'rr_md_homepage';
 		return $vars;
 	}
 
@@ -81,6 +82,9 @@ class RR_Markdown {
 		// IMPORTANT: Exclude wp-admin, wp-content, wp-includes, wp-json paths
 		// to prevent hijacking real .md files or admin/API routes.
 		// Only match front-end content paths.
+		// Homepage markdown: /index.md serves the site overview.
+		add_rewrite_rule( '^index\.md$', 'index.php?rr_md_homepage=1', 'top' );
+
 		add_rewrite_rule(
 			'^(?!wp-admin|wp-content|wp-includes|wp-json)(.+)\.md$',
 			'index.php?rr_md_path=$matches[1]',
@@ -95,6 +99,16 @@ class RR_Markdown {
 	// ── Handle .md URL request ───────────────────────────────────────────────
 
 	public static function handle_request(): void {
+		// Homepage: /index.md
+		if ( get_query_var( 'rr_md_homepage' ) ) {
+			if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+				status_header( 404 );
+				exit;
+			}
+			// Reuse the same serve_homepage_markdown method used for Accept header negotiation.
+			self::serve_homepage_markdown();
+		}
+
 		$md_path = get_query_var( 'rr_md_path', '' );
 
 		if ( empty( $md_path ) ) {

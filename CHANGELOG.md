@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-04-20
+
+### Changed
+
+- **Settings consolidation** — reduced save buttons from 9 to 5 (one per tab). DataForSEO credentials merged into the Settings tab form alongside OpenAI. Data Retention toggle moved to Settings tab. Content AI tab (Summary + FAQ) now has a single "Save Content AI Settings" button. Authority tab (Author Box + Schema) now has a single "Save Authority Settings" button.
+- **Removed sentinel hacks** — `__UNCHANGED__` hidden fields that preserved API keys across cross-tab saves are gone. Each tab now owns exactly the options it displays.
+
 ## [0.6.1] - 2026-04-20
 
 ### Added

@@ -11,12 +11,15 @@ defined( 'ABSPATH' ) || exit;
 
 class RR_Admin {
 
-	private const SETTINGS_GROUP   = 'rr_settings_group';
-	private const LLMS_GROUP       = 'rr_llms_group';
-	private const FAQ_GROUP        = 'rr_faq_group';
-	private const SCHEMA_GROUP     = 'rr_schema_group';
-	private const HEADLESS_GROUP   = 'rr_headless_group';
-	private const AUTHOR_GROUP     = 'rr_author_group';
+	private const SETTINGS_GROUP   = 'rr_settings_group';  // Settings tab
+	private const CONTENT_GROUP    = 'rr_content_group';   // Content AI tab
+	private const AUTHORITY_GROUP  = 'rr_authority_group'; // Authority tab (author + schema)
+	private const LLMS_GROUP       = 'rr_llms_group';      // AI Crawlers tab
+	private const HEADLESS_GROUP   = 'rr_headless_group';  // Advanced tab
+	// Legacy aliases kept for any saved nonces in flight during upgrade.
+	private const FAQ_GROUP        = 'rr_content_group';
+	private const SCHEMA_GROUP     = 'rr_authority_group';
+	private const AUTHOR_GROUP     = 'rr_authority_group';
 	private const MENU_SLUG        = 'rankready';
 	private const NONCE_ACTION     = 'rr_test_connection';
 	private const NONCE_FIELD      = 'rr_test_nonce';
@@ -251,19 +254,20 @@ class RR_Admin {
 			'default'           => '1',
 		) );
 
-		// ═══ FAQ Tab ═════════════════════════════════════════════════════
-
-		register_setting( self::FAQ_GROUP, RR_OPT_DFS_LOGIN, array(
+		// ── DataForSEO credentials (Settings tab, same save as OpenAI) ──────
+		register_setting( self::SETTINGS_GROUP, RR_OPT_DFS_LOGIN, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_dfs_login' ),
 			'default'           => '',
 		) );
 
-		register_setting( self::FAQ_GROUP, RR_OPT_DFS_PASSWORD, array(
+		register_setting( self::SETTINGS_GROUP, RR_OPT_DFS_PASSWORD, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_dfs_password' ),
 			'default'           => '',
 		) );
+
+		// ═══ FAQ Tab (Content AI) ═════════════════════════════════════════════
 
 		register_setting( self::FAQ_GROUP, RR_OPT_FAQ_POST_TYPES, array(
 			'type'              => 'array',
@@ -901,25 +905,32 @@ class RR_Admin {
 
 	private static function render_tab_content_ai(): void {
 		?>
-		<div class="rr-section-header">
-			<span class="dashicons dashicons-editor-quote rr-section-icon"></span>
-			<div>
-				<h2 class="rr-section-title"><?php esc_html_e( 'AI Summary', 'rankready' ); ?></h2>
-				<p class="rr-section-desc"><?php esc_html_e( 'Generate key takeaways from post content via OpenAI. Display via block, widget, or auto-inject.', 'rankready' ); ?></p>
-			</div>
-		</div>
-		<?php self::render_tab_summary(); ?>
+		<?php settings_errors(); ?>
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::CONTENT_GROUP ); ?>
 
-		<div class="rr-section-divider"></div>
-
-		<div class="rr-section-header">
-			<span class="dashicons dashicons-editor-help rr-section-icon"></span>
-			<div>
-				<h2 class="rr-section-title"><?php esc_html_e( 'FAQ Generator', 'rankready' ); ?></h2>
-				<p class="rr-section-desc"><?php esc_html_e( 'Generate FAQPage schema and an expandable FAQ section using DataForSEO question discovery + OpenAI answers.', 'rankready' ); ?></p>
+			<div class="rr-section-header">
+				<span class="dashicons dashicons-editor-quote rr-section-icon"></span>
+				<div>
+					<h2 class="rr-section-title"><?php esc_html_e( 'AI Summary', 'rankready' ); ?></h2>
+					<p class="rr-section-desc"><?php esc_html_e( 'Generate key takeaways from post content via OpenAI. Display via block, widget, or auto-inject.', 'rankready' ); ?></p>
+				</div>
 			</div>
-		</div>
-		<?php self::render_tab_faq(); ?>
+			<?php self::render_tab_summary(); ?>
+
+			<div class="rr-section-divider"></div>
+
+			<div class="rr-section-header">
+				<span class="dashicons dashicons-editor-help rr-section-icon"></span>
+				<div>
+					<h2 class="rr-section-title"><?php esc_html_e( 'FAQ Generator', 'rankready' ); ?></h2>
+					<p class="rr-section-desc"><?php esc_html_e( 'Generate FAQPage schema and an expandable FAQ section using DataForSEO question discovery + OpenAI answers.', 'rankready' ); ?></p>
+				</div>
+			</div>
+			<?php self::render_tab_faq(); ?>
+
+			<?php submit_button( __( 'Save Content AI Settings', 'rankready' ) ); ?>
+		</form>
 		<?php
 	}
 
@@ -929,25 +940,32 @@ class RR_Admin {
 
 	private static function render_tab_authority(): void {
 		?>
-		<div class="rr-section-header">
-			<span class="dashicons dashicons-admin-users rr-section-icon"></span>
-			<div>
-				<h2 class="rr-section-title"><?php esc_html_e( 'Author Box', 'rankready' ); ?></h2>
-				<p class="rr-section-desc"><?php esc_html_e( 'EEAT-optimized author bio with Person JSON-LD schema. Smart-merges with Rank Math, Yoast, and other SEO plugins.', 'rankready' ); ?></p>
-			</div>
-		</div>
-		<?php self::render_tab_author(); ?>
+		<?php settings_errors(); ?>
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::AUTHORITY_GROUP ); ?>
 
-		<div class="rr-section-divider"></div>
-
-		<div class="rr-section-header">
-			<span class="dashicons dashicons-code-standards rr-section-icon"></span>
-			<div>
-				<h2 class="rr-section-title"><?php esc_html_e( 'Schema Automation', 'rankready' ); ?></h2>
-				<p class="rr-section-desc"><?php esc_html_e( 'FAQPage, HowTo, ItemList, and Article JSON-LD — auto-detected from your content structure.', 'rankready' ); ?></p>
+			<div class="rr-section-header">
+				<span class="dashicons dashicons-admin-users rr-section-icon"></span>
+				<div>
+					<h2 class="rr-section-title"><?php esc_html_e( 'Author Box', 'rankready' ); ?></h2>
+					<p class="rr-section-desc"><?php esc_html_e( 'EEAT-optimized author bio with Person JSON-LD schema. Smart-merges with Rank Math, Yoast, and other SEO plugins.', 'rankready' ); ?></p>
+				</div>
 			</div>
-		</div>
-		<?php self::render_tab_schema(); ?>
+			<?php self::render_tab_author(); ?>
+
+			<div class="rr-section-divider"></div>
+
+			<div class="rr-section-header">
+				<span class="dashicons dashicons-code-standards rr-section-icon"></span>
+				<div>
+					<h2 class="rr-section-title"><?php esc_html_e( 'Schema Automation', 'rankready' ); ?></h2>
+					<p class="rr-section-desc"><?php esc_html_e( 'FAQPage, HowTo, ItemList, and Article JSON-LD — auto-detected from your content structure.', 'rankready' ); ?></p>
+				</div>
+			</div>
+			<?php self::render_tab_schema(); ?>
+
+			<?php submit_button( __( 'Save Authority Settings', 'rankready' ) ); ?>
+		</form>
 		<?php
 	}
 
@@ -1053,14 +1071,7 @@ class RR_Admin {
 				</table>
 			</div>
 
-			<!-- Hidden fields for product context when saving from other tabs -->
-			<?php submit_button( __( 'Save API Settings', 'rankready' ) ); ?>
-		</form>
-
-		<!-- DataForSEO (separate form, FAQ group) -->
-		<form method="post" action="options.php" novalidate="novalidate">
-			<?php settings_fields( self::FAQ_GROUP ); ?>
-
+			<!-- DataForSEO -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'DataForSEO', 'rankready' ); ?></h2>
 				<p class="rr-card-desc"><?php esc_html_e( 'Powers FAQ question discovery via keyword suggestions and related keywords. Sign up at dataforseo.com.', 'rankready' ); ?></p>
@@ -1095,7 +1106,47 @@ class RR_Admin {
 				</table>
 			</div>
 
-			<?php submit_button( __( 'Save DataForSEO Settings', 'rankready' ) ); ?>
+			<!-- Data Retention -->
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Data Retention', 'rankready' ); ?></h2>
+				<p class="rr-card-desc">
+					<?php esc_html_e( 'Control what happens to your RankReady data when the plugin is deleted.', 'rankready' ); ?>
+				</p>
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'On Deactivate', 'rankready' ); ?></th>
+						<td>
+							<p style="margin:0;">
+								<span class="dashicons dashicons-shield" style="color:#46b450;"></span>
+								<strong><?php esc_html_e( 'Nothing is deleted on deactivation.', 'rankready' ); ?></strong>
+							</p>
+							<p class="description" style="margin-top:6px;">
+								<?php esc_html_e( 'Deactivating RankReady only pauses its hooks and clears scheduled cron jobs. All settings, API keys, AI summaries, FAQ data, Author Box profiles, freshness history, and post meta stay exactly where they are. You can reactivate any time and pick up where you left off.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'On Uninstall (Delete)', 'rankready' ); ?></th>
+						<td>
+							<?php $delete_on_uninstall = (string) get_option( RR_OPT_DELETE_ON_UNINSTALL, 'off' ); ?>
+							<label>
+								<input type="hidden" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="on" <?php checked( $delete_on_uninstall, 'on' ); ?> />
+								<?php esc_html_e( 'Delete all RankReady data when the plugin is uninstalled', 'rankready' ); ?>
+							</label>
+							<p class="description" style="margin-top:6px;">
+								<?php esc_html_e( 'OFF by default. Uninstalling preserves all your data — API keys, settings, every AI Summary, every FAQ, every Author Box profile, all post meta. Reinstalling RankReady brings everything back automatically.', 'rankready' ); ?>
+							</p>
+							<p class="description" style="margin-top:6px;color:#d63638;">
+								<strong><?php esc_html_e( 'Warning:', 'rankready' ); ?></strong>
+								<?php esc_html_e( 'When ON, uninstall permanently removes every RankReady option, post meta, and user meta. Cannot be undone. Leave OFF unless you need a completely clean slate.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<?php submit_button( __( 'Save Settings', 'rankready' ) ); ?>
 		</form>
 
 		<!-- Connection Status -->
@@ -1125,16 +1176,6 @@ class RR_Admin {
 
 	private static function render_tab_summary(): void {
 		?>
-		<?php settings_errors(); ?>
-
-		<form method="post" action="options.php" novalidate="novalidate">
-			<?php settings_fields( self::SETTINGS_GROUP ); ?>
-
-			<!-- Preserve API key, model, and product context when saving from this tab -->
-			<input type="hidden" name="<?php echo esc_attr( RR_OPT_KEY ); ?>" value="__UNCHANGED__" />
-			<input type="hidden" name="<?php echo esc_attr( RR_OPT_MODEL ); ?>" value="<?php echo esc_attr( (string) get_option( RR_OPT_MODEL, 'gpt-4o-mini' ) ); ?>" />
-			<input type="hidden" name="<?php echo esc_attr( RR_OPT_PRODUCT_CONTEXT ); ?>" value="<?php echo esc_attr( (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' ) ); ?>" />
-
 			<!-- Post Types & Prompt -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'Summary Generation', 'rankready' ); ?></h2>
@@ -1260,8 +1301,6 @@ class RR_Admin {
 				</details>
 			</div>
 
-			<?php submit_button( __( 'Save Summary Settings', 'rankready' ) ); ?>
-		</form>
 		<?php
 	}
 
@@ -1292,11 +1331,6 @@ class RR_Admin {
 
 		$all_post_types = get_post_types( array( 'public' => true ), 'objects' );
 		?>
-		<?php settings_errors(); ?>
-
-		<form method="post" action="options.php" novalidate="novalidate">
-			<?php settings_fields( self::AUTHOR_GROUP ); ?>
-
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'Author Box — EEAT Signals for AI Citation', 'rankready' ); ?></h2>
 				<p class="rr-card-desc">
@@ -1431,8 +1465,6 @@ class RR_Admin {
 				</ol>
 			</div>
 
-			<?php submit_button(); ?>
-		</form>
 		<?php
 	}
 
@@ -1452,11 +1484,6 @@ class RR_Admin {
 		elseif ( $has_yoast ) $seo_plugin = 'Yoast SEO';
 		elseif ( $has_aioseo ) $seo_plugin = 'AIOSEO';
 		?>
-		<?php settings_errors(); ?>
-
-		<form method="post" action="options.php" novalidate="novalidate">
-			<?php settings_fields( self::SCHEMA_GROUP ); ?>
-
 			<!-- SEO Plugin Detection -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'SEO Plugin Compatibility', 'rankready' ); ?></h2>
@@ -1705,8 +1732,6 @@ class RR_Admin {
 				</details>
 			</div>
 
-			<?php submit_button(); ?>
-		</form>
 		<?php
 	}
 
@@ -2046,15 +2071,6 @@ class RR_Admin {
 
 	private static function render_tab_faq(): void {
 		?>
-		<?php settings_errors(); ?>
-
-		<form method="post" action="options.php" novalidate="novalidate">
-			<?php settings_fields( self::FAQ_GROUP ); ?>
-
-			<!-- Preserve DFS credentials when saving from this tab (sentinel values prevent leaking secrets) -->
-			<input type="hidden" name="<?php echo esc_attr( RR_OPT_DFS_LOGIN ); ?>" value="__UNCHANGED__" />
-			<input type="hidden" name="<?php echo esc_attr( RR_OPT_DFS_PASSWORD ); ?>" value="__UNCHANGED__" />
-
 			<!-- FAQ Settings -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'FAQ Settings', 'rankready' ); ?></h2>
@@ -2167,9 +2183,6 @@ class RR_Admin {
 					</tr>
 				</table>
 			</div>
-
-			<?php submit_button( __( 'Save FAQ Settings', 'rankready' ) ); ?>
-		</form>
 
 		<!-- Posts with FAQ Generated -->
 		<div class="rr-card" style="margin-top:20px;">
@@ -2791,52 +2804,17 @@ class RR_Admin {
 			</div>
 		</div>
 
-		<!-- Data Retention -->
+		<!-- Data Retention info (settings are on the Settings tab) -->
 		<div class="rr-card">
 			<h2 class="rr-card-title"><?php esc_html_e( 'Data Retention', 'rankready' ); ?></h2>
 			<p class="rr-card-desc">
-				<?php esc_html_e( 'Control what happens to your RankReady data when the plugin is deactivated or deleted.', 'rankready' ); ?>
+				<?php esc_html_e( 'Data retention settings (including the "Delete all data on uninstall" toggle) are on the Settings tab.', 'rankready' ); ?>
 			</p>
-
-			<form method="post" action="options.php" novalidate="novalidate">
-				<?php settings_fields( self::SETTINGS_GROUP ); ?>
-
-				<table class="form-table rr-form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'On Deactivate', 'rankready' ); ?></th>
-						<td>
-							<p style="margin:0;">
-								<span class="dashicons dashicons-shield" style="color:#46b450;"></span>
-								<strong><?php esc_html_e( 'Nothing is deleted on deactivation.', 'rankready' ); ?></strong>
-							</p>
-							<p class="description" style="margin-top:6px;">
-								<?php esc_html_e( 'Deactivating RankReady only pauses its hooks and clears scheduled cron jobs. All settings, API keys, AI summaries, FAQ data, Author Box profiles, freshness history, and post meta stay exactly where they are. You can reactivate any time and pick up where you left off.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
-
-					<tr>
-						<th scope="row"><?php esc_html_e( 'On Uninstall', 'rankready' ); ?></th>
-						<td>
-							<?php $delete_on_uninstall = (string) get_option( RR_OPT_DELETE_ON_UNINSTALL, 'off' ); ?>
-							<label>
-								<input type="hidden" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="off" />
-								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="on" <?php checked( $delete_on_uninstall, 'on' ); ?> />
-								<?php esc_html_e( 'Delete all RankReady data when the plugin is uninstalled', 'rankready' ); ?>
-							</label>
-							<p class="description" style="margin-top:6px;">
-								<?php esc_html_e( 'OFF by default. Uninstalling (Plugins → Delete) preserves all your data — API keys, settings, every AI Summary, every FAQ, every Author Box profile, all post meta. If you ever reinstall RankReady, everything comes back automatically.', 'rankready' ); ?>
-							</p>
-							<p class="description" style="margin-top:6px;color:#d63638;">
-								<strong><?php esc_html_e( 'Warning:', 'rankready' ); ?></strong>
-								<?php esc_html_e( 'When ON, uninstall will permanently remove every RankReady option, post meta key, user meta key (including the full Author Box profile on every user), and transient. This cannot be undone and is not what most sites want. Leave OFF unless you specifically need a clean slate.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
-				</table>
-
-				<?php submit_button( __( 'Save Data Retention Settings', 'rankready' ) ); ?>
-			</form>
+			<p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="button button-secondary">
+					<?php esc_html_e( 'Go to Settings', 'rankready' ); ?>
+				</a>
+			</p>
 		</div>
 		<?php
 	}

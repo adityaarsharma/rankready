@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4.4] - 2026-04-21
+
+### Fixed
+- Revert `/index.md` homepage rewrite (added in 0.6.4.3): there is no spec-defined `.md` URL for the homepage in the llmstxt.org proposal or any related RFC. Homepage markdown is served exclusively via `Accept: text/markdown` content negotiation (RFC 9110), which is the correct and only standardized approach.
+- Remove `$schema` field from `/.well-known/agent-skills/index.json`: the referenced URL (`agentskills.io/schema/v1/index.schema.json`) returns 404 — no public schema exists for this format. Sending a pointer to a non-existent schema is incorrect.
+
 ## [0.6.4.3] - 2026-04-21
 
 ### Fixed
-- Markdown homepage: `/index.md` now serves the site overview markdown — previously only `Accept: text/markdown` negotiation worked, there was no URL-based homepage endpoint.
+- Added `/index.md` homepage markdown endpoint (reverted in 0.6.4.4 — non-standard, no spec basis).
 
 ## [0.6.4.2] - 2026-04-21
 

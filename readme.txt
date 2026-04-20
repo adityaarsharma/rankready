@@ -4,7 +4,7 @@ Tags: llm seo, ai seo, llms.txt, schema markup, eeat, ai overviews, chatgpt, per
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.4.3
+Stable tag: 0.6.4.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,8 +36,12 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 
 == Changelog ==
 
+= 0.6.4.4 =
+* Fix: Revert /index.md rewrite — there is no spec-defined .md URL for the homepage. Homepage markdown is served only via Accept: text/markdown content negotiation (RFC 9110), which is the correct approach per the llmstxt.org proposal.
+* Fix: Remove $schema field from /.well-known/agent-skills/index.json that referenced agentskills.io/schema/v1/index.schema.json — that URL returns 404. No public schema exists for this format.
+
 = 0.6.4.3 =
-* Fix: /index.md now serves the homepage site overview markdown. Previously only Accept: text/markdown negotiation worked; there was no URL-based homepage endpoint.
+* New: /index.md homepage endpoint (reverted in 0.6.4.4 — non-standard).
 
 = 0.6.4.2 =
 * New: Discovery Link headers — every page now sends Link: HTTP headers for llms.txt, llms-full.txt, markdown endpoint, and sitemap for AI agent scanners.

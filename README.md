@@ -7,7 +7,7 @@ RankReady is the most complete WordPress plugin for AI search optimization. It c
 [![WordPress](https://img.shields.io/badge/WordPress-6.2%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL--2.0--or--later-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.6.1-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
+[![Version](https://img.shields.io/badge/Version-0.6.4.4-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
 [![Auto-Updates](https://img.shields.io/badge/auto--updates-via%20GitHub%20releases-success.svg)](#auto-updates)
 [![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-brightgreen.svg)](CHANGELOG.md)
 
@@ -49,6 +49,10 @@ No other WordPress plugin combines all of these:
 | LLMs.txt + llms-full.txt | Yes | Basic | Basic | Basic | Yes | No |
 | Markdown Endpoints (.md) | Yes | No | No | No | No | No |
 | Per-Crawler Robots.txt (31 bots) | Yes | No | 3 bots | No | No | No |
+| **Content Signals (ai-train / search / ai-input)** | **Yes** | No | No | No | No | No |
+| **Agent Skills Discovery (/.well-known/)** | **Yes** | No | No | No | No | No |
+| **API Catalog (RFC 9727)** | **Yes** | No | No | No | No | No |
+| **Discovery Link headers (RFC 8288)** | **Yes** | No | No | No | No | No |
 | Content Freshness Alerts | Yes | No | No | No | No | No |
 | Bulk Author Changer (EEAT) | Yes | No | No | No | No | No |
 | **Global fonts in Gutenberg blocks (theme.json)** | **Yes** | N/A | N/A | N/A | No | No |
@@ -378,6 +382,31 @@ AI Crawler visits your site
           |-- Link HTTP header to .md version
           |-- Accept: text/markdown negotiation
 ```
+
+---
+
+## AI Standards Implemented (v0.6.4)
+
+RankReady implements the following AI/LLM web standards. Each entry includes the spec status so you know exactly what is standardized versus community convention.
+
+| Standard | Endpoint / Mechanism | Spec Status |
+|----------|---------------------|-------------|
+| **LLMs.txt** | `/llms.txt`, `/llms-full.txt` | Community proposal (llmstxt.org — not an IETF RFC) |
+| **Markdown content negotiation** | `Accept: text/markdown` → `Content-Type: text/markdown` + `Vary: Accept` | RFC 9110 §12 (fully standardized) |
+| **Markdown URL endpoints** | `/post-slug.md` → clean markdown | llmstxt.org convention (not a formal standard) |
+| **Content Signals** | `ai-train`, `search`, `ai-input` in robots.txt | IETF Internet Draft (contentsignals.org — not yet RFC) |
+| **AI Crawler robots.txt** | Per-bot Allow/Disallow via RFC 9309 | RFC 9309 (fully standardized) |
+| **Agent Skills** | `/.well-known/agent-skills/index.json` | Draft — no ratified spec. Format based on isitagentready.com expectations. |
+| **API Catalog** | `/.well-known/api-catalog` (`application/linkset+json`) | RFC 9727 + RFC 9264 (fully standardized) |
+| **Discovery Link headers** | `Link: </llms.txt>; rel="llms-txt"` etc. | RFC 8288 (standardized). `rel="llms-txt"`, `rel="llms-full-txt"`, `rel="sitemap"` are NOT IANA-registered — community conventions. |
+| **Article + Speakable JSON-LD** | `<script type="application/ld+json">` | schema.org/Article + SpeakableSpecification (Google-supported) |
+| **FAQPage JSON-LD** | `<script type="application/ld+json">` | schema.org/FAQPage (Google rich results) |
+
+**Honest assessment**: The maximum achievable score on isitagentready.com for a content site is ~55-60/100. The remaining checks require live MCP servers, OAuth infrastructure, or payment endpoints that don't apply to WordPress content sites.
+
+**Cloudflare WAF note**: `/.well-known/agent-skills/index.json` and `/.well-known/api-catalog` return 403 on sites behind Cloudflare proxy without a WAF bypass rule for `/.well-known/*`. This is a Cloudflare configuration issue, not a plugin bug.
+
+See [`AI-Standards-Whitepaper.md`](../AI-Standards-Whitepaper.md) for full spec citations, correct implementation notes, and known limitations.
 
 ---
 

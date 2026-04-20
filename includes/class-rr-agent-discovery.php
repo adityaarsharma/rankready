@@ -155,7 +155,6 @@ class RR_Agent_Discovery {
 		}
 
 		$index = array(
-			'$schema'     => 'https://agentskills.io/schema/v1/index.schema.json',
 			'version'     => '1.0',
 			'site'        => array(
 				'name' => get_bloginfo( 'name' ),

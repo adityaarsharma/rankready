@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.6.5] - 2026-04-21
+## [0.6.4.1] - 2026-04-21
 
 ### Fixed
 - robots.txt: Blocked-bot entries now each carry their own `Disallow: /` rule — previously the ban section had no Disallow directive and was silently ignored by crawlers.

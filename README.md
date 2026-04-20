@@ -7,11 +7,11 @@ RankReady is the most complete WordPress plugin for AI search optimization. It c
 [![WordPress](https://img.shields.io/badge/WordPress-6.2%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL--2.0--or--later-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.5.1-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
+[![Version](https://img.shields.io/badge/Version-0.6.0-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
 [![Auto-Updates](https://img.shields.io/badge/auto--updates-via%20GitHub%20releases-success.svg)](#auto-updates)
 [![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-brightgreen.svg)](CHANGELOG.md)
 
-> **Status: v0.5 — early dev release.** RankReady is being rolled out from this repo as a free, public, GPL-2.0 plugin. Pro features (license-gated) land in v1.0. Auto-updates flow through GitHub releases on every install — no token, no config, no setup.
+> **Status: v0.6 — public beta.** RankReady is free and open-source (GPL-2.0). Download the latest release zip below. Pro features (license-gated) arrive in v1.0. Auto-updates flow from GitHub releases to every install — no token, no config, no setup.
 
 ---
 

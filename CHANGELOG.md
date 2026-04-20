@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-20
+
+### Added
+
+- **Dashboard overview tab** — new first screen showing live stats (posts with AI Summary, posts with FAQ, auto-generate status) and feature status cards with one-click links to each section. API key warning banner shown when OpenAI key is missing.
+- **Dashicon tab icons** — each tab now shows a contextual dashicon for faster visual scanning.
+- **Section headers** — merged tabs have clear visual section headers (icon + title + description) before each form block, making the structure immediately readable.
+
+### Changed
+
+- **Dashboard is now the default tab** — users land on an overview instead of the API key form.
+- **9 tabs consolidated to 6:** Dashboard · Content AI · Authority · AI Crawlers · Settings · Advanced. Old tab slugs (`api`, `summary`, `faq`, `author`, `schema`, `llm`, `headless`, `tools`, `info`) are silently redirected so bookmarks and existing links continue to work.
+- **"API Keys" renamed to "Settings"** — clearer label for a general configuration tab.
+- **AI Summary + FAQ Generator merged into "Content AI"** — one tab, two clearly-separated sections. Reduces navigation overhead for the most common workflow.
+- **Author Box + Schema Automation merged into "Authority"** — both deal with EEAT trust signals.
+- **Headless + Tools + Info merged into "Advanced"** — power-user and diagnostic features grouped away from daily-use settings.
+- **"Display Options" in AI Summary tab is now collapsible** — Label Text, Show Label, and Label HTML Tag are tucked into a `<details>` section so the primary controls (Post Types, Custom Prompt, Auto-Generate) stay prominent.
+
+### UI Polish (make-interfaces-feel-better principles)
+
+- Cards use `box-shadow` instead of `border` for softer visual depth (shadows instead of borders principle).
+- Card border-radius increased from 4px to 8px; nested info/stat cards use 6px for concentric radius.
+- Tab links show hover color transition (`.15s ease`) and active icon at full opacity.
+- Tab content area animates in on switch (`rr-fade-up` — 180ms fade + 5px translateY).
+- `text-wrap: balance` applied to card titles, section titles, and the page title.
+- `font-variant-numeric: tabular-nums` on stat numbers so counts don't shift width as they update.
+- `-webkit-font-smoothing: antialiased` on the entire admin page.
+- `<details>/<summary>` pattern for the "Display Options" collapsible — CSS animated arrow, no JS required.
+
 ## [0.5.4] - 2026-04-15
 
 ### Added

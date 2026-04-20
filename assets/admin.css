@@ -7,6 +7,8 @@
 
 .rr-wrap {
 	max-width: 900px;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 /* ── Header ────────────────────────────────────────────────────────────────── */
@@ -24,6 +26,7 @@
 	font-weight: 400;
 	margin: 0;
 	color: #1d2327;
+	text-wrap: balance;
 }
 
 .rr-title-icon {
@@ -57,30 +60,53 @@
 .rr-tabs .nav-tab {
 	font-size: 13px;
 	padding: 8px 16px;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	transition: color .15s ease, background-color .15s ease;
 }
 
-.rr-tabs .nav-tab-active {
-	background: #fff;
-	border-bottom-color: #fff;
+.rr-tabs .nav-tab:hover:not(.nav-tab-active) {
+	color: #2271b1;
+	background: #f0f6fc;
+}
+
+.rr-tabs .nav-tab .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	line-height: 1;
+	opacity: .75;
+}
+
+.rr-tabs .nav-tab-active .dashicons {
+	opacity: 1;
 }
 
 .rr-tab-content {
 	padding-top: 20px;
+	animation: rr-fade-up .18s ease both;
+}
+
+@keyframes rr-fade-up {
+	from { opacity: 0; transform: translateY(5px); }
+	to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Cards ─────────────────────────────────────────────────────────────────── */
 
 .rr-card {
 	background: #fff;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
+	border: none;
+	border-radius: 8px;
+	box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
 	padding: 20px 24px;
 	margin-bottom: 20px;
 }
 
 .rr-card--subtle {
 	background: #f9f9f9;
-	border-color: #e0e0e0;
+	box-shadow: 0 1px 2px rgba(0,0,0,.05);
 }
 
 .rr-card-title {
@@ -89,12 +115,54 @@
 	margin: 0 0 4px;
 	color: #1d2327;
 	padding: 0;
+	text-wrap: balance;
 }
 
 .rr-card-desc {
 	color: #646970;
 	font-size: 13px;
 	margin: 0 0 16px;
+}
+
+/* ── Collapsible details ───────────────────────────────────────────────────── */
+
+.rr-details {
+	margin-top: 4px;
+}
+
+.rr-details summary {
+	font-size: 12px;
+	font-weight: 600;
+	color: #646970;
+	cursor: pointer;
+	user-select: none;
+	padding: 6px 0;
+	letter-spacing: .02em;
+	text-transform: uppercase;
+	list-style: none;
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.rr-details summary::before {
+	content: '\25B6';
+	font-size: 9px;
+	display: inline-block;
+	transition: transform .15s ease;
+	color: #a7aaad;
+}
+
+.rr-details[open] summary::before {
+	transform: rotate(90deg);
+}
+
+.rr-details summary::-webkit-details-marker {
+	display: none;
+}
+
+.rr-details .rr-form-table {
+	margin-top: 4px;
 }
 
 /* ── Form table overrides ──────────────────────────────────────────────────── */
@@ -252,8 +320,9 @@
 
 .rr-info-item {
 	background: #f9f9f9;
-	border: 1px solid #e8e8e8;
-	border-radius: 4px;
+	border: none;
+	border-radius: 6px;
+	box-shadow: 0 1px 2px rgba(0,0,0,.06);
 	padding: 16px;
 }
 
@@ -288,8 +357,9 @@
 	text-align: center;
 	padding: 16px 12px;
 	background: #f9f9f9;
-	border: 1px solid #e8e8e8;
-	border-radius: 4px;
+	border: none;
+	border-radius: 6px;
+	box-shadow: 0 1px 2px rgba(0,0,0,.06);
 }
 
 .rr-stat-number {
@@ -298,6 +368,7 @@
 	font-weight: 600;
 	color: #1d2327;
 	line-height: 1.2;
+	font-variant-numeric: tabular-nums;
 }
 
 .rr-stat-label {
@@ -305,6 +376,88 @@
 	font-size: 12px;
 	color: #646970;
 	margin-top: 4px;
+}
+
+/* ── Section dividers (inside merged tabs) ────────────────────────────────── */
+
+.rr-section-divider {
+	border: none;
+	border-top: 1px solid #f0f0f1;
+	margin: 32px 0;
+}
+
+.rr-section-header {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.rr-section-icon {
+	font-size: 22px;
+	width: 22px;
+	height: 22px;
+	color: #2271b1;
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+.rr-section-title {
+	font-size: 17px;
+	font-weight: 600;
+	margin: 0 0 2px;
+	color: #1d2327;
+	text-wrap: balance;
+}
+
+.rr-section-desc {
+	font-size: 13px;
+	color: #646970;
+	margin: 0;
+}
+
+/* ── Dashboard feature cards ────────────────────────────────────────────────── */
+
+.rr-dash-feature {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.rr-dash-feature .rr-info-icon {
+	font-size: 22px;
+	width: 22px;
+	height: 22px;
+	margin-bottom: 4px;
+}
+
+.rr-dash-feature h3 {
+	font-size: 14px;
+	font-weight: 600;
+	margin: 0;
+	color: #1d2327;
+}
+
+.rr-dash-feature p {
+	font-size: 12px;
+	color: #646970;
+	margin: 0;
+	line-height: 1.5;
+	flex: 1;
+}
+
+.rr-dash-link {
+	font-size: 12px;
+	font-weight: 500;
+	text-decoration: none;
+	color: #2271b1;
+	margin-top: 6px;
+	transition: color .15s ease;
+}
+
+.rr-dash-link:hover {
+	color: #135e96;
+	text-decoration: underline;
 }
 
 /* ── Select width fix ──────────────────────────────────────────────────────── */

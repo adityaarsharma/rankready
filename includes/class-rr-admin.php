@@ -650,26 +650,36 @@ class RR_Admin {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'rankready' ) );
 		}
 
-		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'api';
-		$tabs       = array(
-			'api'      => __( 'API Keys', 'rankready' ),
-			'summary'  => __( 'AI Summary', 'rankready' ),
-			'faq'      => __( 'FAQ Generator', 'rankready' ),
-			'author'   => __( 'Author Box', 'rankready' ),
-			'schema'   => __( 'Schema Automation', 'rankready' ),
-			'llm'      => __( 'LLM Optimization', 'rankready' ),
-			'headless' => __( 'Headless', 'rankready' ),
-			'tools'    => __( 'Tools', 'rankready' ),
-			'info'     => __( 'Info', 'rankready' ),
-		);
+		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'dashboard';
 
-		// Backward compat: old "settings" tab → "api".
-		if ( 'settings' === $active_tab ) {
-			$active_tab = 'api';
+		// Redirect old tab slugs to new merged tabs (backward compat for bookmarks / links).
+		$legacy_map = array(
+			'settings' => 'settings',
+			'api'      => 'settings',
+			'summary'  => 'content',
+			'faq'      => 'content',
+			'author'   => 'authority',
+			'schema'   => 'authority',
+			'llm'      => 'crawlers',
+			'headless' => 'advanced',
+			'tools'    => 'advanced',
+			'info'     => 'advanced',
+		);
+		if ( isset( $legacy_map[ $active_tab ] ) ) {
+			$active_tab = $legacy_map[ $active_tab ];
 		}
 
+		$tabs = array(
+			'dashboard' => array( 'label' => __( 'Dashboard', 'rankready' ),   'icon' => 'dashicons-dashboard' ),
+			'content'   => array( 'label' => __( 'Content AI', 'rankready' ),  'icon' => 'dashicons-welcome-write-blog' ),
+			'authority' => array( 'label' => __( 'Authority', 'rankready' ),   'icon' => 'dashicons-admin-users' ),
+			'crawlers'  => array( 'label' => __( 'AI Crawlers', 'rankready' ), 'icon' => 'dashicons-chart-area' ),
+			'settings'  => array( 'label' => __( 'Settings', 'rankready' ),    'icon' => 'dashicons-admin-generic' ),
+			'advanced'  => array( 'label' => __( 'Advanced', 'rankready' ),    'icon' => 'dashicons-admin-tools' ),
+		);
+
 		if ( ! array_key_exists( $active_tab, $tabs ) ) {
-			$active_tab = 'api';
+			$active_tab = 'dashboard';
 		}
 		?>
 		<div class="wrap rr-wrap">
@@ -683,10 +693,11 @@ class RR_Admin {
 			</div>
 
 			<nav class="nav-tab-wrapper rr-tabs">
-				<?php foreach ( $tabs as $slug => $label ) : ?>
+				<?php foreach ( $tabs as $slug => $tab ) : ?>
 					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=' . $slug ) ); ?>"
 					   class="nav-tab <?php echo $active_tab === $slug ? 'nav-tab-active' : ''; ?>">
-						<?php echo esc_html( $label ); ?>
+						<span class="dashicons <?php echo esc_attr( $tab['icon'] ); ?>"></span>
+						<?php echo esc_html( $tab['label'] ); ?>
 					</a>
 				<?php endforeach; ?>
 			</nav>
@@ -694,37 +705,257 @@ class RR_Admin {
 			<div class="rr-tab-content">
 				<?php
 				switch ( $active_tab ) {
-					case 'api':
-						self::render_tab_api();
+					case 'dashboard':
+						self::render_tab_dashboard();
 						break;
-					case 'summary':
-						self::render_tab_summary();
+					case 'content':
+						self::render_tab_content_ai();
 						break;
-					case 'faq':
-						self::render_tab_faq();
+					case 'authority':
+						self::render_tab_authority();
 						break;
-					case 'author':
-						self::render_tab_author();
-						break;
-					case 'schema':
-						self::render_tab_schema();
-						break;
-					case 'llm':
+					case 'crawlers':
 						self::render_tab_llm();
 						break;
-					case 'headless':
-						self::render_tab_headless();
+					case 'settings':
+						self::render_tab_api();
 						break;
-					case 'tools':
-						self::render_tab_tools();
-						break;
-					case 'info':
-						self::render_tab_info();
+					case 'advanced':
+						self::render_tab_advanced();
 						break;
 				}
 				?>
 			</div>
 		</div>
+		<?php
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// TAB: Dashboard — at-a-glance overview
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	private static function render_tab_dashboard(): void {
+		global $wpdb;
+
+		$summary_count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
+				RR_META_SUMMARY
+			)
+		);
+
+		$faq_count = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
+				RR_META_FAQ
+			)
+		);
+
+		$llms_on      = 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' );
+		$author_on    = 'on' === get_option( RR_OPT_AUTHOR_ENABLE, 'on' );
+		$robots_on    = (bool) get_option( RR_OPT_ROBOTS_ENABLE, false );
+		$md_on        = 'on' === get_option( RR_OPT_MD_ENABLE, 'off' );
+		$auto_summary = 'on' === get_option( RR_OPT_AUTO_GENERATE, 'off' );
+		$auto_faq     = 'on' === get_option( RR_OPT_FAQ_AUTO_GENERATE, 'off' );
+
+		?>
+
+		<!-- Stats row -->
+		<div class="rr-stats-row" style="margin-bottom:24px;">
+			<div class="rr-stat">
+				<span class="rr-stat-number"><?php echo esc_html( number_format_i18n( $summary_count ) ); ?></span>
+				<span class="rr-stat-label"><?php esc_html_e( 'Posts with Summary', 'rankready' ); ?></span>
+			</div>
+			<div class="rr-stat">
+				<span class="rr-stat-number"><?php echo esc_html( number_format_i18n( $faq_count ) ); ?></span>
+				<span class="rr-stat-label"><?php esc_html_e( 'Posts with FAQ', 'rankready' ); ?></span>
+			</div>
+			<div class="rr-stat">
+				<span class="rr-stat-number" style="font-size:20px;">
+					<?php if ( $auto_summary ) : ?>
+						<span style="color:#00a32a;">&#10003;</span>
+					<?php else : ?>
+						<span style="color:#a7aaad;"><?php esc_html_e( 'Off', 'rankready' ); ?></span>
+					<?php endif; ?>
+				</span>
+				<span class="rr-stat-label"><?php esc_html_e( 'Auto-Generate Summary', 'rankready' ); ?></span>
+			</div>
+			<div class="rr-stat">
+				<span class="rr-stat-number" style="font-size:20px;">
+					<?php if ( $auto_faq ) : ?>
+						<span style="color:#00a32a;">&#10003;</span>
+					<?php else : ?>
+						<span style="color:#a7aaad;"><?php esc_html_e( 'Off', 'rankready' ); ?></span>
+					<?php endif; ?>
+				</span>
+				<span class="rr-stat-label"><?php esc_html_e( 'Auto-Generate FAQ', 'rankready' ); ?></span>
+			</div>
+		</div>
+
+		<!-- Feature status grid -->
+		<div class="rr-info-grid" style="margin-bottom:24px;">
+
+			<div class="rr-info-item rr-dash-feature">
+				<span class="rr-info-icon dashicons dashicons-welcome-write-blog"></span>
+				<h3><?php esc_html_e( 'Content AI', 'rankready' ); ?></h3>
+				<p><?php
+					// translators: %1$d = summary count, %2$d = FAQ count.
+					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $summary_count and $faq_count are cast to (int) above; integers are inherently safe.
+					printf( esc_html__( '%1$d summaries · %2$d FAQ sets generated.', 'rankready' ), $summary_count, $faq_count );
+				?></p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=content' ) ); ?>" class="rr-dash-link"><?php esc_html_e( 'Configure', 'rankready' ); ?> &rarr;</a>
+			</div>
+
+			<div class="rr-info-item rr-dash-feature">
+				<span class="rr-info-icon dashicons dashicons-admin-users"></span>
+				<h3><?php esc_html_e( 'Authority', 'rankready' ); ?></h3>
+				<p><?php
+					if ( $author_on ) {
+						esc_html_e( 'Author Box with EEAT Person schema is active.', 'rankready' );
+					} else {
+						esc_html_e( 'Author Box is disabled.', 'rankready' );
+					}
+				?></p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=authority' ) ); ?>" class="rr-dash-link"><?php esc_html_e( 'Configure', 'rankready' ); ?> &rarr;</a>
+			</div>
+
+			<div class="rr-info-item rr-dash-feature">
+				<span class="rr-info-icon dashicons dashicons-chart-area"></span>
+				<h3><?php esc_html_e( 'AI Crawlers', 'rankready' ); ?></h3>
+				<p><?php
+					$parts = array();
+					if ( $llms_on )   $parts[] = esc_html__( 'LLMs.txt on', 'rankready' );
+					if ( $md_on )     $parts[] = esc_html__( 'Markdown on', 'rankready' );
+					if ( $robots_on ) $parts[] = esc_html__( 'Robots on', 'rankready' );
+					echo $parts ? esc_html( implode( ' · ', $parts ) ) : esc_html__( 'No crawler features active.', 'rankready' );
+				?></p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=crawlers' ) ); ?>" class="rr-dash-link"><?php esc_html_e( 'Configure', 'rankready' ); ?> &rarr;</a>
+			</div>
+
+			<div class="rr-info-item rr-dash-feature">
+				<span class="rr-info-icon dashicons dashicons-admin-generic"></span>
+				<h3><?php esc_html_e( 'Settings', 'rankready' ); ?></h3>
+				<p><?php
+					if ( ! empty( get_option( RR_OPT_KEY, '' ) ) ) {
+						esc_html_e( 'OpenAI key configured.', 'rankready' );
+					} else {
+						esc_html_e( 'OpenAI key not set — AI features unavailable.', 'rankready' );
+					}
+				?></p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="rr-dash-link"><?php esc_html_e( 'Configure', 'rankready' ); ?> &rarr;</a>
+			</div>
+
+			<div class="rr-info-item rr-dash-feature">
+				<span class="rr-info-icon dashicons dashicons-admin-tools"></span>
+				<h3><?php esc_html_e( 'Advanced', 'rankready' ); ?></h3>
+				<p><?php esc_html_e( 'Headless API, bulk tools, health check, and usage tracking.', 'rankready' ); ?></p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=advanced' ) ); ?>" class="rr-dash-link"><?php esc_html_e( 'Open', 'rankready' ); ?> &rarr;</a>
+			</div>
+
+			<div class="rr-info-item rr-dash-feature">
+				<span class="rr-info-icon dashicons dashicons-external"></span>
+				<h3><?php esc_html_e( 'Plugin Info', 'rankready' ); ?></h3>
+				<p>v<?php echo esc_html( RR_VERSION ); ?> &middot; GPL-2.0 &middot; <a href="https://github.com/adityaarsharma/rankready" target="_blank">GitHub</a></p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&puc_check_for_updates=1&puc_slug=rankready' ) ); ?>" class="rr-dash-link"><?php esc_html_e( 'Check for updates', 'rankready' ); ?></a>
+			</div>
+
+		</div>
+
+		<?php if ( empty( get_option( RR_OPT_KEY, '' ) ) ) : ?>
+		<div class="rr-notice rr-notice--warn">
+			<?php esc_html_e( 'No OpenAI API key set. AI Summary and FAQ Generator are inactive until you add a key in Settings.', 'rankready' ); ?>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" style="margin-left:8px;"><?php esc_html_e( 'Go to Settings', 'rankready' ); ?></a>
+		</div>
+		<?php endif; ?>
+
+		<?php
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// TAB: Content AI — AI Summary + FAQ Generator merged
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	private static function render_tab_content_ai(): void {
+		?>
+		<div class="rr-section-header">
+			<span class="dashicons dashicons-editor-quote rr-section-icon"></span>
+			<div>
+				<h2 class="rr-section-title"><?php esc_html_e( 'AI Summary', 'rankready' ); ?></h2>
+				<p class="rr-section-desc"><?php esc_html_e( 'Generate key takeaways from post content via OpenAI. Display via block, widget, or auto-inject.', 'rankready' ); ?></p>
+			</div>
+		</div>
+		<?php self::render_tab_summary(); ?>
+
+		<div class="rr-section-divider"></div>
+
+		<div class="rr-section-header">
+			<span class="dashicons dashicons-editor-help rr-section-icon"></span>
+			<div>
+				<h2 class="rr-section-title"><?php esc_html_e( 'FAQ Generator', 'rankready' ); ?></h2>
+				<p class="rr-section-desc"><?php esc_html_e( 'Generate FAQPage schema and an expandable FAQ section using DataForSEO question discovery + OpenAI answers.', 'rankready' ); ?></p>
+			</div>
+		</div>
+		<?php self::render_tab_faq(); ?>
+		<?php
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// TAB: Authority — Author Box + Schema Automation merged
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	private static function render_tab_authority(): void {
+		?>
+		<div class="rr-section-header">
+			<span class="dashicons dashicons-admin-users rr-section-icon"></span>
+			<div>
+				<h2 class="rr-section-title"><?php esc_html_e( 'Author Box', 'rankready' ); ?></h2>
+				<p class="rr-section-desc"><?php esc_html_e( 'EEAT-optimized author bio with Person JSON-LD schema. Smart-merges with Rank Math, Yoast, and other SEO plugins.', 'rankready' ); ?></p>
+			</div>
+		</div>
+		<?php self::render_tab_author(); ?>
+
+		<div class="rr-section-divider"></div>
+
+		<div class="rr-section-header">
+			<span class="dashicons dashicons-code-standards rr-section-icon"></span>
+			<div>
+				<h2 class="rr-section-title"><?php esc_html_e( 'Schema Automation', 'rankready' ); ?></h2>
+				<p class="rr-section-desc"><?php esc_html_e( 'FAQPage, HowTo, ItemList, and Article JSON-LD — auto-detected from your content structure.', 'rankready' ); ?></p>
+			</div>
+		</div>
+		<?php self::render_tab_schema(); ?>
+		<?php
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// TAB: Advanced — Headless + Tools + Info merged
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	private static function render_tab_advanced(): void {
+		?>
+		<div class="rr-section-header">
+			<span class="dashicons dashicons-rest-api rr-section-icon"></span>
+			<div>
+				<h2 class="rr-section-title"><?php esc_html_e( 'Headless / Public API', 'rankready' ); ?></h2>
+				<p class="rr-section-desc"><?php esc_html_e( 'REST endpoints, CORS, rate limiting, and on-demand revalidation for Next.js, Nuxt, and Astro sites.', 'rankready' ); ?></p>
+			</div>
+		</div>
+		<?php self::render_tab_headless(); ?>
+
+		<div class="rr-section-divider"></div>
+
+		<div class="rr-section-header">
+			<span class="dashicons dashicons-admin-tools rr-section-icon"></span>
+			<div>
+				<h2 class="rr-section-title"><?php esc_html_e( 'Tools', 'rankready' ); ?></h2>
+				<p class="rr-section-desc"><?php esc_html_e( 'Bulk generate, health check, freshness alerts, API usage, and data retention.', 'rankready' ); ?></p>
+			</div>
+		</div>
+		<?php self::render_tab_tools(); ?>
+
+		<div class="rr-section-divider"></div>
+
+		<?php self::render_tab_info(); ?>
 		<?php
 	}
 
@@ -961,45 +1192,48 @@ class RR_Admin {
 				</table>
 			</div>
 
-			<!-- Block & Widget Defaults -->
+			<!-- Block & Widget Defaults (collapsible) -->
 			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Block & Widget Defaults', 'rankready' ); ?></h2>
-				<p class="rr-card-desc"><?php esc_html_e( 'Defaults for Gutenberg blocks, Elementor widgets, and auto-displayed summaries.', 'rankready' ); ?></p>
+				<details class="rr-details">
+					<summary><?php esc_html_e( 'Display Options', 'rankready' ); ?></summary>
 
-				<table class="form-table rr-form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Show Label', 'rankready' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_SHOW_LABEL ); ?>" value="1"
-									   <?php checked( get_option( RR_OPT_SHOW_LABEL, '1' ), '1' ); ?> />
-								<?php esc_html_e( 'Show the label heading above the summary bullets', 'rankready' ); ?>
-							</label>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label><?php esc_html_e( 'Label Text', 'rankready' ); ?></label></th>
-						<td>
-							<input type="text" name="<?php echo esc_attr( RR_OPT_LABEL ); ?>"
-								   value="<?php echo esc_attr( (string) get_option( RR_OPT_LABEL, 'Key Takeaways' ) ); ?>"
-								   class="regular-text" />
-							<p class="description"><?php esc_html_e( 'e.g. "Key Takeaways", "Article Summary", "TL;DR"', 'rankready' ); ?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label><?php esc_html_e( 'Label HTML Tag', 'rankready' ); ?></label></th>
-						<td>
-							<?php $current_tag = (string) get_option( RR_OPT_HEADING_TAG, 'h4' ); ?>
-							<select name="<?php echo esc_attr( RR_OPT_HEADING_TAG ); ?>">
-								<?php foreach ( array( 'h2' => 'H2', 'h3' => 'H3', 'h4' => 'H4', 'h5' => 'H5', 'h6' => 'H6', 'p' => 'P' ) as $tag => $label ) : ?>
-									<option value="<?php echo esc_attr( $tag ); ?>" <?php selected( $current_tag, $tag ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-						</td>
-					</tr>
-				</table>
+					<p class="description" style="margin:6px 0 12px;"><?php esc_html_e( 'Label and heading tag defaults for blocks, widgets, and auto-display.', 'rankready' ); ?></p>
+
+					<table class="form-table rr-form-table">
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Show Label', 'rankready' ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RR_OPT_SHOW_LABEL ); ?>" value="1"
+										   <?php checked( get_option( RR_OPT_SHOW_LABEL, '1' ), '1' ); ?> />
+									<?php esc_html_e( 'Show the label heading above the summary bullets', 'rankready' ); ?>
+								</label>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label><?php esc_html_e( 'Label Text', 'rankready' ); ?></label></th>
+							<td>
+								<input type="text" name="<?php echo esc_attr( RR_OPT_LABEL ); ?>"
+									   value="<?php echo esc_attr( (string) get_option( RR_OPT_LABEL, 'Key Takeaways' ) ); ?>"
+									   class="regular-text" />
+								<p class="description"><?php esc_html_e( 'e.g. "Key Takeaways", "Article Summary", "TL;DR"', 'rankready' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label><?php esc_html_e( 'Label HTML Tag', 'rankready' ); ?></label></th>
+							<td>
+								<?php $current_tag = (string) get_option( RR_OPT_HEADING_TAG, 'h4' ); ?>
+								<select name="<?php echo esc_attr( RR_OPT_HEADING_TAG ); ?>">
+									<?php foreach ( array( 'h2' => 'H2', 'h3' => 'H3', 'h4' => 'H4', 'h5' => 'H5', 'h6' => 'H6', 'p' => 'P' ) as $tag => $label ) : ?>
+										<option value="<?php echo esc_attr( $tag ); ?>" <?php selected( $current_tag, $tag ); ?>>
+											<?php echo esc_html( $label ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</td>
+						</tr>
+					</table>
+				</details>
 			</div>
 
 			<?php submit_button( __( 'Save Summary Settings', 'rankready' ) ); ?>

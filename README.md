@@ -425,12 +425,11 @@ PUC is bundled inside `vendor/plugin-update-checker/` and wired in `rankready.ph
 2. **Plugins → Add New → Upload Plugin** in WordPress admin
 3. Activate and go to **RankReady** in the admin menu
 4. Configure:
-   - **API Keys tab**: OpenAI key + DataForSEO credentials
-   - **AI Summary tab**: Post types, prompts, auto-generate settings
-   - **FAQ Generator tab**: FAQ count, brand terms, display settings
-   - **LLM Optimization tab**: LLMs.txt, Markdown, Crawler Access
-   - **Author Box tab**: EEAT profile fields, layouts, typography
-   - **Tools tab**: Bulk operations, freshness alerts, health check
+   - **Settings tab**: OpenAI key + DataForSEO credentials
+   - **Content AI tab**: AI Summary and FAQ Generator — post types, prompts, brand terms, auto-generate toggles
+   - **Authority tab**: Author Box EEAT profile fields, layouts, typography
+   - **AI Crawlers tab**: LLMs.txt, Markdown endpoints, per-bot robots.txt controls
+   - **Advanced tab**: Bulk operations, freshness alerts, health check, headless API
 
 After install, future updates appear inline in WP Admin → Plugins like any plugin from wordpress.org. Click "update now" and it installs the latest GitHub release zip automatically.
 

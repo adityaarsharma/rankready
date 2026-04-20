@@ -639,7 +639,8 @@ class RR_Llms_Txt {
 		$html = preg_replace( '/<(strong|b)>(.*?)<\/\1>/si', '**$2**', $html );
 		$html = preg_replace( '/<(em|i)>(.*?)<\/\1>/si', '*$2*', $html );
 
-		// Links.
+		// Links — strip anchor-only hrefs (#section) since they're meaningless outside the page.
+		$html = preg_replace( '/<a\s[^>]*href=["\']#[^"\']*["\'][^>]*>(.*?)<\/a>/si', '$1', $html );
 		$html = preg_replace( '/<a\s[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)<\/a>/si', '[$2]($1)', $html );
 
 		// Images — extract src and alt only.
@@ -871,7 +872,10 @@ class RR_Llms_Txt {
 	private static function clean_text( string $text ): string {
 		$text = wp_strip_all_tags( $text );
 		$text = html_entity_decode( $text, ENT_QUOTES, 'UTF-8' );
-		$text = preg_replace( '/\s+/', ' ', $text );
+		// Collapse runs of spaces/tabs within each line, but preserve newlines.
+		$text = preg_replace( '/[^\S\n]+/', ' ', $text );
+		// Collapse 3+ consecutive newlines to 2.
+		$text = preg_replace( '/\n{3,}/', "\n\n", $text );
 		return trim( $text );
 	}
 

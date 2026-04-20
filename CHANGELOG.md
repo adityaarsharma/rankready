@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-04-20
+
+### Fixed
+
+- **llms.txt About field formatting** — `clean_text()` was collapsing all whitespace including newlines into a single space, so multi-line About text (with markdown headings like `## What It Does`) rendered as one long paragraph. Now preserves line breaks; only collapses horizontal whitespace within lines.
+- **llms-full.txt anchor links** — anchor-only links (`href="#section"`) in page content were converting to broken `[text](#section)` markdown entries that are meaningless outside the page. Now stripped to plain text.
+
 ## [0.6.2] - 2026-04-20
 
 ### Changed

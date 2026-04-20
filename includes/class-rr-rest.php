@@ -1686,17 +1686,38 @@ class RR_Rest {
 		$summary_pct = $total_posts > 0 ? round( ( $with_summary / $total_posts ) * 100 ) : 0;
 		$faq_pct     = $total_posts > 0 ? round( ( $with_faq / $total_posts ) * 100 ) : 0;
 
-		$checks[] = array(
-			'label'  => 'Key Takeaways Coverage',
-			'status' => $summary_pct >= 80 ? 'pass' : ( $summary_pct >= 30 ? 'warn' : 'fail' ),
-			'detail' => $with_summary . ' / ' . $total_posts . ' posts (' . $summary_pct . '%)',
-		);
+		$auto_summary_on = 'on' === get_option( RR_OPT_AUTO_GENERATE, 'off' );
+		$auto_faq_on     = 'on' === get_option( RR_OPT_FAQ_AUTO_GENERATE, 'off' );
 
-		$checks[] = array(
-			'label'  => 'FAQ Coverage',
-			'status' => $faq_pct >= 80 ? 'pass' : ( $faq_pct >= 30 ? 'warn' : ( $dfs_ok ? 'fail' : 'info' ) ),
-			'detail' => $with_faq . ' / ' . $total_posts . ' posts (' . $faq_pct . '%)',
-		);
+		// Only penalize coverage when the feature is intentionally enabled.
+		// If auto-generate is off, report as info so it doesn't drag down the health score.
+		if ( $auto_summary_on || $with_summary > 0 ) {
+			$checks[] = array(
+				'label'  => 'Key Takeaways Coverage',
+				'status' => $summary_pct >= 80 ? 'pass' : ( $summary_pct >= 30 ? 'warn' : 'fail' ),
+				'detail' => $with_summary . ' / ' . $total_posts . ' posts (' . $summary_pct . '%)',
+			);
+		} else {
+			$checks[] = array(
+				'label'  => 'Key Takeaways Coverage',
+				'status' => 'info',
+				'detail' => 'Auto-generate is off — generate summaries manually or enable auto-generate on publish.',
+			);
+		}
+
+		if ( $auto_faq_on || $with_faq > 0 ) {
+			$checks[] = array(
+				'label'  => 'FAQ Coverage',
+				'status' => $faq_pct >= 80 ? 'pass' : ( $faq_pct >= 30 ? 'warn' : ( $dfs_ok ? 'fail' : 'info' ) ),
+				'detail' => $with_faq . ' / ' . $total_posts . ' posts (' . $faq_pct . '%)',
+			);
+		} else {
+			$checks[] = array(
+				'label'  => 'FAQ Coverage',
+				'status' => 'info',
+				'detail' => 'FAQ auto-generate is off — generate FAQs manually or enable auto-generate on publish.',
+			);
+		}
 
 		// 9. Auto-display settings.
 		$summary_display = 'on' === get_option( RR_OPT_AUTO_DISPLAY, 'off' );
@@ -1726,8 +1747,26 @@ class RR_Rest {
 				}
 			}
 		}
-		if ( $md_on || $llms_on ) {
-			$rewrite_ok = ( ! $md_on || $has_md_rule ) && ( ! $llms_on || $has_llms_rule );
+		$agent_skills_on  = 'on' === get_option( RR_OPT_AGENT_SKILLS_ENABLE, 'off' );
+		$api_catalog_on   = 'on' === get_option( RR_OPT_API_CATALOG_ENABLE, 'off' );
+		$has_agent_rule   = false;
+		$has_catalog_rule = false;
+		if ( is_array( $rules ) ) {
+			foreach ( $rules as $pattern => $query ) {
+				if ( false !== strpos( $query, 'rr_agent_skills' ) ) {
+					$has_agent_rule = true;
+				}
+				if ( false !== strpos( $query, 'rr_api_catalog' ) ) {
+					$has_catalog_rule = true;
+				}
+			}
+		}
+
+		if ( $md_on || $llms_on || $agent_skills_on || $api_catalog_on ) {
+			$rewrite_ok = ( ! $md_on || $has_md_rule )
+				&& ( ! $llms_on || $has_llms_rule )
+				&& ( ! $agent_skills_on || $has_agent_rule )
+				&& ( ! $api_catalog_on || $has_catalog_rule );
 			$checks[] = array(
 				'label'  => 'Rewrite Rules',
 				'status' => $rewrite_ok ? 'pass' : 'fail',

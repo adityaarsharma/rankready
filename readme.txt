@@ -4,7 +4,7 @@ Tags: llm seo, ai seo, llms.txt, schema markup, eeat, ai overviews, chatgpt, per
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.3
+Stable tag: 0.6.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,13 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 0.6.4 =
+* New: Content Signals — adds ai-train, search, ai-input directives to robots.txt (contentsignals.org). Each signal configurable allow/deny. Auto-syncs to physical robots.txt.
+* New: Agent Skills index — serves /.well-known/agent-skills/index.json (Cloudflare Agent Skills RFC) listing the site's AI-accessible capabilities based on enabled features.
+* New: API Catalog — serves /.well-known/api-catalog (RFC 9727) as application/linkset+json describing the site's public APIs.
+* Fix: Markdown content negotiation now handles homepage (static front page + blog roll) — Accept: text/markdown returns a markdown site overview. Fixes isitagentready.com Content check.
+* Fix: Vary: Accept header added to all front-end HTML responses when markdown endpoints are on, so caches store markdown and HTML versions separately.
 
 = 0.5.4 =
 * New: "Delete all data on uninstall" toggle in Tools tab. OFF by default — uninstalling the plugin now preserves all your settings, API keys, AI summaries, FAQ data, Author Box profiles, and post meta. Deactivation has never deleted anything and still doesn't. When the toggle is ON, uninstalling wipes every RankReady option, post meta, user meta, and transient. Two-line guard at the top of uninstall.php reads the opt-in flag and early-returns when OFF.

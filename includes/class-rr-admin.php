@@ -254,6 +254,44 @@ class RR_Admin {
 			'default'           => '1',
 		) );
 
+		// Content Signals.
+		register_setting( self::LLMS_GROUP, RR_OPT_CONTENT_SIGNALS_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'off',
+		) );
+
+		register_setting( self::LLMS_GROUP, RR_OPT_CONTENT_SIGNALS_AI_TRAIN, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_content_signal' ),
+			'default'           => 'allow',
+		) );
+
+		register_setting( self::LLMS_GROUP, RR_OPT_CONTENT_SIGNALS_SEARCH, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_content_signal' ),
+			'default'           => 'allow',
+		) );
+
+		register_setting( self::LLMS_GROUP, RR_OPT_CONTENT_SIGNALS_AI_INPUT, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_content_signal' ),
+			'default'           => 'allow',
+		) );
+
+		// Agent Discovery.
+		register_setting( self::LLMS_GROUP, RR_OPT_AGENT_SKILLS_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'off',
+		) );
+
+		register_setting( self::LLMS_GROUP, RR_OPT_API_CATALOG_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'off',
+		) );
+
 		// ── DataForSEO credentials (Settings tab, same save as OpenAI) ──────
 		register_setting( self::SETTINGS_GROUP, RR_OPT_DFS_LOGIN, array(
 			'type'              => 'string',
@@ -585,6 +623,10 @@ class RR_Admin {
 
 	public static function sanitize_on_off( $value ): string {
 		return in_array( $value, array( 'on', 'off' ), true ) ? $value : 'off';
+	}
+
+	public static function sanitize_content_signal( $value ): string {
+		return in_array( $value, array( 'allow', 'deny' ), true ) ? $value : 'allow';
 	}
 
 	public static function sanitize_crawler_list( $value ): array {
@@ -2044,6 +2086,112 @@ class RR_Admin {
 						</tr>
 					</table>
 				</div>
+			</div>
+
+			<!-- Content Signals -->
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Content Signals', 'rankready' ); ?></h2>
+				<p class="rr-card-desc">
+					<?php esc_html_e( 'Declare AI usage preferences in robots.txt via the Content Signals standard (contentsignals.org). Tells AI systems whether your content may be used for training, search, or AI-generated responses.', 'rankready' ); ?>
+				</p>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable Content Signals', 'rankready' ); ?></th>
+						<td>
+							<?php $signals_enable = (string) get_option( RR_OPT_CONTENT_SIGNALS_ENABLE, 'off' ); ?>
+							<label class="rr-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_CONTENT_SIGNALS_ENABLE ); ?>"
+									   value="on" <?php checked( $signals_enable, 'on' ); ?>
+									   data-toggle-target="rr-content-signals-fields" />
+								<span class="rr-toggle-label"><?php esc_html_e( 'Add Content Signals directives to robots.txt', 'rankready' ); ?></span>
+							</label>
+						</td>
+					</tr>
+				</table>
+
+				<div id="rr-content-signals-fields" class="rr-conditional-fields" <?php echo 'on' !== $signals_enable ? 'style="display:none;"' : ''; ?>>
+					<table class="form-table rr-form-table">
+						<?php
+						$signal_options = array(
+							RR_OPT_CONTENT_SIGNALS_AI_TRAIN => array(
+								'label' => __( 'ai-train', 'rankready' ),
+								'desc'  => __( 'May AI systems use this content to train models?', 'rankready' ),
+							),
+							RR_OPT_CONTENT_SIGNALS_SEARCH   => array(
+								'label' => __( 'search', 'rankready' ),
+								'desc'  => __( 'May AI systems use this content in search results?', 'rankready' ),
+							),
+							RR_OPT_CONTENT_SIGNALS_AI_INPUT => array(
+								'label' => __( 'ai-input', 'rankready' ),
+								'desc'  => __( 'May AI systems use this content as RAG/context input?', 'rankready' ),
+							),
+						);
+						foreach ( $signal_options as $opt_key => $info ) :
+							$val = (string) get_option( $opt_key, 'allow' );
+							?>
+							<tr>
+								<th scope="row"><code><?php echo esc_html( $info['label'] ); ?></code></th>
+								<td>
+									<select name="<?php echo esc_attr( $opt_key ); ?>">
+										<option value="allow" <?php selected( $val, 'allow' ); ?>><?php esc_html_e( 'allow', 'rankready' ); ?></option>
+										<option value="deny"  <?php selected( $val, 'deny' ); ?>><?php esc_html_e( 'deny', 'rankready' ); ?></option>
+									</select>
+									<p class="description"><?php echo esc_html( $info['desc'] ); ?></p>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					</table>
+				</div>
+			</div>
+
+			<!-- Agent-Ready Discovery -->
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Agent-Ready Discovery', 'rankready' ); ?></h2>
+				<p class="rr-card-desc">
+					<?php esc_html_e( 'Serve /.well-known/ discovery endpoints that let AI agents understand what capabilities your site exposes.', 'rankready' ); ?>
+				</p>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Agent Skills Index', 'rankready' ); ?></th>
+						<td>
+							<?php $agent_skills_on = (string) get_option( RR_OPT_AGENT_SKILLS_ENABLE, 'off' ); ?>
+							<label class="rr-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_AGENT_SKILLS_ENABLE ); ?>"
+									   value="on" <?php checked( $agent_skills_on, 'on' ); ?> />
+								<span class="rr-toggle-label"><?php esc_html_e( 'Serve /.well-known/agent-skills/index.json', 'rankready' ); ?></span>
+							</label>
+							<?php if ( 'on' === $agent_skills_on ) : ?>
+								<p class="description" style="margin-top:6px;">
+									<a href="<?php echo esc_url( home_url( '/.well-known/agent-skills/index.json' ) ); ?>" target="_blank">
+										<code><?php echo esc_html( home_url( '/.well-known/agent-skills/index.json' ) ); ?></code>
+									</a>
+								</p>
+							<?php endif; ?>
+							<p class="description"><?php esc_html_e( 'Lists your site\'s AI-accessible capabilities (llms.txt, markdown endpoints, sitemap). Format: Cloudflare Agent Skills Discovery RFC.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'API Catalog', 'rankready' ); ?></th>
+						<td>
+							<?php $api_catalog_on = (string) get_option( RR_OPT_API_CATALOG_ENABLE, 'off' ); ?>
+							<label class="rr-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_API_CATALOG_ENABLE ); ?>"
+									   value="on" <?php checked( $api_catalog_on, 'on' ); ?> />
+								<span class="rr-toggle-label"><?php esc_html_e( 'Serve /.well-known/api-catalog (RFC 9727)', 'rankready' ); ?></span>
+							</label>
+							<?php if ( 'on' === $api_catalog_on ) : ?>
+								<p class="description" style="margin-top:6px;">
+									<a href="<?php echo esc_url( home_url( '/.well-known/api-catalog' ) ); ?>" target="_blank">
+										<code><?php echo esc_html( home_url( '/.well-known/api-catalog' ) ); ?></code>
+									</a>
+								</p>
+							<?php endif; ?>
+							<p class="description"><?php esc_html_e( 'RFC 9727 linkset describing your public APIs (WP REST API, llms.txt, markdown stream). Content-Type: application/linkset+json.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+				</table>
 			</div>
 
 			<?php submit_button( __( 'Save LLM Settings', 'rankready' ) ); ?>

@@ -43,11 +43,15 @@ class RR_Llms_Txt {
 		add_filter( 'robots_txt', array( self::class, 'add_to_robots_txt' ), 100, 2 );
 
 		// Sync to physical robots.txt when settings change.
-		add_action( 'update_option_' . RR_OPT_ROBOTS_ENABLE,   array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_ROBOTS_CRAWLERS, array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_LLMS_ENABLE,     array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_LLMS_FULL_ENABLE,array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_MD_ENABLE,       array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RR_OPT_ROBOTS_ENABLE,             array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RR_OPT_ROBOTS_CRAWLERS,           array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RR_OPT_LLMS_ENABLE,               array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RR_OPT_LLMS_FULL_ENABLE,          array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RR_OPT_MD_ENABLE,                 array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RR_OPT_CONTENT_SIGNALS_ENABLE,   array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RR_OPT_CONTENT_SIGNALS_AI_TRAIN, array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RR_OPT_CONTENT_SIGNALS_SEARCH,   array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RR_OPT_CONTENT_SIGNALS_AI_INPUT, array( self::class, 'sync_physical_robots_txt' ) );
 	}
 
 	/**
@@ -93,12 +97,13 @@ class RR_Llms_Txt {
 	 * Used both by the `robots_txt` filter (virtual) and physical file sync.
 	 */
 	public static function generate_robots_block(): string {
-		$llms_on   = 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' );
-		$full_on   = 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' );
-		$md_on     = 'on' === get_option( RR_OPT_MD_ENABLE, 'off' );
-		$robots_on = 'on' === get_option( RR_OPT_ROBOTS_ENABLE, 'on' );
+		$llms_on    = 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' );
+		$full_on    = 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' );
+		$md_on      = 'on' === get_option( RR_OPT_MD_ENABLE, 'off' );
+		$robots_on  = 'on' === get_option( RR_OPT_ROBOTS_ENABLE, 'on' );
+		$signals_on = 'on' === get_option( RR_OPT_CONTENT_SIGNALS_ENABLE, 'off' );
 
-		if ( ! $llms_on && ! $md_on && ! $robots_on ) {
+		if ( ! $llms_on && ! $md_on && ! $robots_on && ! $signals_on ) {
 			return '';
 		}
 
@@ -133,6 +138,20 @@ class RR_Llms_Txt {
 				}
 				$block .= "\n";
 			}
+		}
+
+		// Content Signals — top-level robots.txt directives (contentsignals.org).
+		// These declare AI usage preferences outside any User-agent block.
+		if ( $signals_on ) {
+			$ai_train = sanitize_text_field( (string) get_option( RR_OPT_CONTENT_SIGNALS_AI_TRAIN, 'allow' ) );
+			$search   = sanitize_text_field( (string) get_option( RR_OPT_CONTENT_SIGNALS_SEARCH, 'allow' ) );
+			$ai_input = sanitize_text_field( (string) get_option( RR_OPT_CONTENT_SIGNALS_AI_INPUT, 'allow' ) );
+
+			$block .= "# Content Signals (contentsignals.org)\n";
+			$block .= "ai-train: {$ai_train}\n";
+			$block .= "search: {$search}\n";
+			$block .= "ai-input: {$ai_input}\n";
+			$block .= "\n";
 		}
 
 		return $block;

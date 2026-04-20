@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-04-20
+
+### Added
+- **Content Signals**: New robots.txt directives (`ai-train`, `search`, `ai-input`) following the contentsignals.org standard. Each signal is individually configurable (allow/deny) from the LLM Optimization tab. Syncs to physical robots.txt automatically on save.
+- **Agent Skills index**: Serves `/.well-known/agent-skills/index.json` (Cloudflare Agent Skills Discovery RFC) listing the site's AI-accessible capabilities — llms.txt, markdown endpoints, sitemap, robots.txt — auto-built from enabled RankReady features.
+- **API Catalog**: Serves `/.well-known/api-catalog` (RFC 9727) as an `application/linkset+json` document describing the site's public APIs (WP REST API, llms.txt, markdown stream).
+- **Markdown homepage content negotiation**: `Accept: text/markdown` requests to the homepage (static front page or blog roll) now return a markdown site overview listing recent posts. Fixes the Cloudflare isitagentready.com "Markdown Negotiation" check.
+- **Vary: Accept header**: Added to all front-end HTML responses when markdown endpoints are enabled, so CDN/reverse-proxy caches store markdown and HTML versions separately.
+
 ## [0.6.3] - 2026-04-20
 
 ### Fixed

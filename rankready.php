@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://github.com/adityaarsharma/rankready
  * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           0.6.3
+ * Version:           0.6.4
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH Innovations
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '0.6.3' );
+	define( 'RR_VERSION',  '0.6.4' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -88,6 +88,16 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	// Option keys — LLM Crawler robots.txt controls.
 	define( 'RR_OPT_ROBOTS_ENABLE',   'rr_robots_enable' );
 	define( 'RR_OPT_ROBOTS_CRAWLERS', 'rr_robots_crawlers' );
+
+	// Option keys — Content Signals (contentsignals.org).
+	define( 'RR_OPT_CONTENT_SIGNALS_ENABLE',   'rr_content_signals_enable' );
+	define( 'RR_OPT_CONTENT_SIGNALS_AI_TRAIN', 'rr_content_signals_ai_train' );
+	define( 'RR_OPT_CONTENT_SIGNALS_SEARCH',   'rr_content_signals_search' );
+	define( 'RR_OPT_CONTENT_SIGNALS_AI_INPUT', 'rr_content_signals_ai_input' );
+
+	// Option keys — Agent Discovery (/.well-known/ endpoints).
+	define( 'RR_OPT_AGENT_SKILLS_ENABLE', 'rr_agent_skills_enable' );
+	define( 'RR_OPT_API_CATALOG_ENABLE',  'rr_api_catalog_enable' );
 
 	// Option keys — Markdown.
 	define( 'RR_OPT_MD_ENABLE',         'rr_md_enable' );
@@ -595,6 +605,7 @@ add_action( 'plugins_loaded', function (): void {
 	RR_Rest::init();
 	RR_Llms_Txt::init();
 	RR_Markdown::init();
+	RR_Agent_Discovery::init();
 	RR_Faq::init();
 	RR_Headless::init();
 	RR_Author_Box::init();

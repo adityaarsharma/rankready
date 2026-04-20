@@ -34,6 +34,9 @@ class RR_Markdown {
 		// Content negotiation: serve markdown when Accept: text/markdown is sent.
 		add_action( 'template_redirect', array( self::class, 'handle_accept_header' ), 5 );
 
+		// Emit Vary: Accept on all HTML pages so caches store markdown and HTML separately.
+		add_action( 'send_headers', array( self::class, 'add_vary_header' ) );
+
 		// Add Link header on HTML pages pointing to .md version.
 		add_action( 'wp_head',           array( self::class, 'add_md_link_tag' ) );
 		add_action( 'send_headers',      array( self::class, 'add_md_link_header' ) );
@@ -142,14 +145,20 @@ class RR_Markdown {
 			return;
 		}
 
-		// Only on singular post/page views.
-		if ( ! is_singular() ) {
+		// Check Accept header for text/markdown first — avoid any work on normal requests.
+		$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) : '';
+		if ( false === stripos( $accept, 'text/markdown' ) ) {
 			return;
 		}
 
-		// Check Accept header for text/markdown.
-		$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) : '';
-		if ( false === stripos( $accept, 'text/markdown' ) ) {
+		// Homepage (static front page OR blog posts index): generate a site overview.
+		if ( is_front_page() || is_home() ) {
+			self::serve_homepage_markdown();
+			return;
+		}
+
+		// Singular post/page views.
+		if ( ! is_singular() ) {
 			return;
 		}
 
@@ -170,6 +179,75 @@ class RR_Markdown {
 			set_transient( $cache_key, $markdown, 5 * MINUTE_IN_SECONDS );
 		}
 		self::serve_markdown( $markdown, get_permalink( $post ) );
+	}
+
+	/**
+	 * Serve a markdown overview of the site for homepage requests with Accept: text/markdown.
+	 *
+	 * Generates a clean markdown document describing the site and listing recent posts.
+	 * Cached for 1 hour and bust on post publish/update.
+	 */
+	private static function serve_homepage_markdown(): void {
+		$cache_key = 'rr_md_homepage_' . get_option( 'permalink_structure', '' );
+		$markdown  = get_transient( $cache_key );
+
+		if ( false === $markdown ) {
+			$site_name = get_bloginfo( 'name' );
+			$tagline   = get_bloginfo( 'description' );
+			$home_url  = home_url( '/' );
+
+			$lines   = array();
+			$lines[] = '# ' . $site_name;
+			if ( ! empty( $tagline ) ) {
+				$lines[] = '';
+				$lines[] = '> ' . $tagline;
+			}
+			$lines[] = '';
+			$lines[] = 'Source: ' . $home_url;
+			$lines[] = '';
+
+			// Link to llms.txt if enabled.
+			if ( 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+				$lines[] = 'Full site index: [llms.txt](' . home_url( '/llms.txt' ) . ')';
+				$lines[] = '';
+			}
+
+			// Recent posts.
+			$posts = get_posts( array(
+				'numberposts'      => 10,
+				'post_status'      => 'publish',
+				'suppress_filters' => false,
+			) );
+
+			if ( ! empty( $posts ) ) {
+				$lines[] = '## Recent Posts';
+				$lines[] = '';
+				foreach ( $posts as $post ) {
+					$lines[] = '- [' . esc_html( get_the_title( $post ) ) . '](' . get_permalink( $post ) . ')';
+				}
+				$lines[] = '';
+			}
+
+			$markdown = implode( "\n", $lines );
+			set_transient( $cache_key, $markdown, HOUR_IN_SECONDS );
+		}
+
+		self::serve_markdown( $markdown, home_url( '/' ) );
+	}
+
+	// ── Vary: Accept header ───────────────────────────────────────────────────
+	// Tells downstream caches (CDN, reverse proxy) to store separate versions
+	// based on the Accept header, enabling correct content negotiation.
+
+	public static function add_vary_header(): void {
+		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+			return;
+		}
+		// Only add Vary on cacheable front-end responses, not admin/REST.
+		if ( is_admin() || defined( 'REST_REQUEST' ) ) {
+			return;
+		}
+		header( 'Vary: Accept', false );
 	}
 
 	// ── Link tag + header to .md version ─────────────────────────────────────

@@ -1,12 +1,14 @@
 name: Release RankReady
 
 # Triggers on any annotated or lightweight tag push that looks like a version.
-# Matches: 1.5.4, 1.6.0, 2.0.0, v1.5.4, 0.4.6, etc.
+# Matches: 1.5.4, 1.6.0, 0.6.4.1, v1.5.4, v0.6.4.1, etc.
 on:
   push:
     tags:
+      - '[0-9]+.[0-9]+.[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+'
 

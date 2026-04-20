@@ -6,7 +6,7 @@
  * Version:           0.6.4
  * Requires at least: 6.2
  * Requires PHP:      7.4
- * Author:            POSIMYTH Innovations
+ * Author:            POSIMYTH & Aditya Sharma
  * Author URI:        https://posimyth.com
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html

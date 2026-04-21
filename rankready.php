@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://github.com/adityaarsharma/rankready
  * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           0.6.5.1
+ * Version:           0.6.5.2
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '0.6.5.1' );
+	define( 'RR_VERSION',  '0.6.5.2' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -479,10 +479,14 @@ add_action( 'plugins_loaded', function (): void {
 	$stored_version = get_option( 'rr_installed_version', '' );
 	if ( $stored_version !== RR_VERSION ) {
 		update_option( 'rr_installed_version', RR_VERSION );
-		RR_Llms_Txt::add_rewrite_rules();
-		RR_Markdown::add_rewrite_rules();
-		// Defer flush to 'init' so all plugins/themes have registered their rules.
-		add_action( 'init', 'flush_rewrite_rules', 99 );
+		// Defer rewrite rule registration + flush to 'init' — $wp_rewrite is not
+		// ready at plugins_loaded and calling add_rewrite_rule() before init causes
+		// a fatal "Call to a member function add_rule() on null".
+		add_action( 'init', function () {
+			RR_Llms_Txt::add_rewrite_rules();
+			RR_Markdown::add_rewrite_rules();
+			flush_rewrite_rules( false );
+		}, 99 );
 		RR_Llms_Txt::sync_physical_robots_txt();
 
 		// Migrate data from old AI Post Summary plugin (_aps_ meta) if present.

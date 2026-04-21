@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5.2] - 2026-04-21
+
+### Fixed
+- Fatal error on plugin update: `add_rewrite_rules()` was called inside a `plugins_loaded` closure where `$wp_rewrite` is not yet initialised, causing "Call to a member function add_rule() on null". Deferred the call to `init` (priority 99) so rewrite rules are registered and flushed after WordPress core is fully ready. Orbit test added to verify no fatal fires when the stored version differs from RR_VERSION.
+
+### Tests (Orbit)
+- Added 9 new Playwright checks covering the full isitagentready.com / acceptmarkdown.com suite: markdown Accept-header negotiation (content-type + Vary + x-markdown-source), .md URL content-type, 406 for unsupported Accept, llms-full.txt 200, robots.txt Content-Signal directive, Agent Skills JSON structure, API Catalog 200, llms.txt Link discovery headers, and no-fatal-on-version-bump.
+
 ## [0.6.5.1] - 2026-04-21
 
 ### Fixed

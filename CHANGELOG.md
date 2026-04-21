@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5.4] - 2026-04-21
+
+### Fixed
+- Homepage markdown negotiation broken behind Cloudflare APO: `CDN-Cache-Control: no-store` was not enough because APO ignores it and serves the cached HTML to every request including `Accept: text/markdown`. Added `cf-edge-cache: no-cache` (the APO-specific bypass directive) plus `Edge-Control: no-store` (Akamai) to the homepage `send_headers` response. No Cloudflare dashboard config required — PHP sets these headers and APO stops caching the homepage on first response.
+
+## [0.6.5.3] - 2026-04-21
+
+### Removed
+- Agent Skills (`.well-known/agent-skills/`) and API Catalog (`.well-known/api-catalog`) endpoints deleted entirely. These were blocked by Cloudflare on content sites and serve no purpose for standard WordPress installations. Removed `class-rr-agent-discovery.php`, `RR_OPT_AGENT_SKILLS_ENABLE`, `RR_OPT_API_CATALOG_ENABLE` constants, the UI card in the Advanced tab, and all health-check references.
+
 ## [0.6.5.2] - 2026-04-21
 
 ### Fixed

@@ -315,18 +315,31 @@ class RR_Markdown {
 		}
 		header( 'Vary: Accept', false );
 
-		// Homepage only: bypass all cache layers so Accept: text/markdown requests
-		// always reach PHP for content negotiation. Each header targets a different layer:
-		//   CDN-Cache-Control : Cloudflare (overrides APO for this response)
-		//   Surrogate-Control : Varnish, Fastly, Akamai, generic reverse proxies
-		//   Cache-Control     : nginx FastCGI cache (when configured to respect it),
-		//                       WP Rocket / W3 Total Cache page caches
-		// Browser caching is unaffected — Cache-Control is only read by intermediate
-		// caches here because browsers do not cache 200 responses with no-store for
-		// GET requests that carry a Vary: Accept response header anyway.
+		// Homepage only: bypass every cache layer so Accept: text/markdown requests
+		// always reach PHP for content negotiation.
+		//
+		// Why the homepage is special: CDNs (especially Cloudflare APO) cache the
+		// root URL aggressively and do not vary their cache by Accept header. Without
+		// these directives the CDN serves the same cached HTML to every request,
+		// including AI crawlers sending Accept: text/markdown, and PHP never runs.
+		//
+		// Header coverage:
+		//   cf-edge-cache     : Cloudflare APO — the canonical APO bypass directive.
+		//                       CDN-Cache-Control alone is NOT enough; APO ignores it.
+		//                       cf-edge-cache: no-cache is the only header APO respects
+		//                       to prevent caching without touching the CF dashboard.
+		//   CDN-Cache-Control : Cloudflare non-APO, generic CDN proxy layer.
+		//   Surrogate-Control : Varnish, Fastly, Akamai, generic reverse proxies.
+		//   Edge-Control      : Akamai-specific no-store directive.
+		//   Cache-Control     : nginx FastCGI cache, WP Rocket, W3TC, LiteSpeed page caches.
+		//
+		// Browser caching is unaffected — browsers do not cache responses with
+		// no-store regardless of GET vs POST.
 		if ( is_front_page() || is_home() ) {
+			header( 'cf-edge-cache: no-cache' );
 			header( 'CDN-Cache-Control: no-store' );
 			header( 'Surrogate-Control: no-store' );
+			header( 'Edge-Control: no-store' );
 			header( 'Cache-Control: no-store' );
 			// Signal to WP Rocket, W3TC, LiteSpeed Cache, and similar page caching plugins.
 			if ( ! defined( 'DONOTCACHEPAGE' ) ) {

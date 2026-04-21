@@ -108,6 +108,9 @@ class RR_Markdown {
 			exit;
 		}
 
+		// Log AI bot hit for .md URL endpoint.
+		RR_Crawler_Log::log( 'markdown' );
+
 		// Resolve the path to a post.
 		$post = self::resolve_post_from_path( $md_path );
 
@@ -187,6 +190,7 @@ class RR_Markdown {
 
 		// Homepage (static front page OR blog posts index): generate a site overview.
 		if ( is_front_page() || is_home() ) {
+			RR_Crawler_Log::log( 'home_md' );
 			self::serve_homepage_markdown();
 			return;
 		}

@@ -1773,6 +1773,122 @@ class RR_Admin {
 		?>
 		<?php settings_errors(); ?>
 
+		<!-- ── AI Crawler Access Log ─────────────────────────────────────── -->
+		<?php
+		$bot_stats    = RR_Crawler_Log::get_bot_stats( 30 );
+		$recent_hits  = RR_Crawler_Log::get_recent_hits( 30 );
+		$total_30d    = RR_Crawler_Log::get_total( 30 );
+		$total_7d     = RR_Crawler_Log::get_total( 7 );
+		$top_urls     = RR_Crawler_Log::get_top_urls( 30, 5 );
+		$ep_labels    = RR_Crawler_Log::ENDPOINT_LABELS;
+		?>
+		<div class="rr-card" style="margin-bottom:24px;">
+			<h2 class="rr-card-title"><?php esc_html_e( 'AI Crawler Access Log', 'rankready' ); ?></h2>
+			<p class="rr-card-desc"><?php esc_html_e( 'Tracks which AI bots are reading your llms.txt, Markdown endpoints, and homepage markdown. Only known AI crawlers are logged — regular visitors are ignored. 90-day retention.', 'rankready' ); ?></p>
+
+			<!-- Summary row -->
+			<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;">
+				<div style="background:#f0f6fc;border:1px solid #c3d4e4;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;">
+					<div style="font-size:28px;font-weight:700;color:#0a3862;line-height:1;"><?php echo esc_html( number_format( $total_30d ) ); ?></div>
+					<div style="font-size:11px;color:#646970;margin-top:4px;"><?php esc_html_e( 'Hits last 30 days', 'rankready' ); ?></div>
+				</div>
+				<div style="background:#f0f6fc;border:1px solid #c3d4e4;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;">
+					<div style="font-size:28px;font-weight:700;color:#0a3862;line-height:1;"><?php echo esc_html( number_format( $total_7d ) ); ?></div>
+					<div style="font-size:11px;color:#646970;margin-top:4px;"><?php esc_html_e( 'Hits last 7 days', 'rankready' ); ?></div>
+				</div>
+				<div style="background:#f0f6fc;border:1px solid #c3d4e4;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;">
+					<div style="font-size:28px;font-weight:700;color:#0a3862;line-height:1;"><?php echo esc_html( count( $bot_stats ) ); ?></div>
+					<div style="font-size:11px;color:#646970;margin-top:4px;"><?php esc_html_e( 'Unique bots (30d)', 'rankready' ); ?></div>
+				</div>
+			</div>
+
+			<?php if ( empty( $bot_stats ) ) : ?>
+				<p style="color:#646970;font-style:italic;"><?php esc_html_e( 'No AI crawler visits recorded yet. Hits will appear here once a known bot accesses your llms.txt, Markdown, or homepage endpoints.', 'rankready' ); ?></p>
+			<?php else : ?>
+
+				<!-- Per-bot breakdown -->
+				<h3 style="margin:0 0 8px;font-size:13px;font-weight:600;color:#1d2327;"><?php esc_html_e( 'Visits by Bot — Last 30 Days', 'rankready' ); ?></h3>
+				<table class="wp-list-table widefat fixed striped" style="margin-bottom:20px;">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Bot', 'rankready' ); ?></th>
+							<th style="width:80px;text-align:center;"><?php esc_html_e( 'Total', 'rankready' ); ?></th>
+							<th style="width:90px;text-align:center;"><?php esc_html_e( 'llms.txt', 'rankready' ); ?></th>
+							<th style="width:100px;text-align:center;"><?php esc_html_e( 'llms-full', 'rankready' ); ?></th>
+							<th style="width:90px;text-align:center;"><?php esc_html_e( '.md URLs', 'rankready' ); ?></th>
+							<th style="width:100px;text-align:center;"><?php esc_html_e( 'Home .md', 'rankready' ); ?></th>
+							<th style="width:130px;"><?php esc_html_e( 'Last Seen', 'rankready' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $bot_stats as $row ) : ?>
+						<tr>
+							<td><strong><?php echo esc_html( $row['bot_name'] ); ?></strong></td>
+							<td style="text-align:center;font-weight:600;"><?php echo esc_html( number_format( (int) $row['total'] ) ); ?></td>
+							<td style="text-align:center;"><?php echo esc_html( (int) $row['llms_txt'] ?: '—' ); ?></td>
+							<td style="text-align:center;"><?php echo esc_html( (int) $row['llms_full'] ?: '—' ); ?></td>
+							<td style="text-align:center;"><?php echo esc_html( (int) $row['markdown'] ?: '—' ); ?></td>
+							<td style="text-align:center;"><?php echo esc_html( (int) $row['home_md'] ?: '—' ); ?></td>
+							<td style="color:#646970;font-size:12px;"><?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $row['last_seen'] ) ) ); ?></td>
+						</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+
+				<!-- Top URLs -->
+				<?php if ( ! empty( $top_urls ) ) : ?>
+				<h3 style="margin:0 0 8px;font-size:13px;font-weight:600;color:#1d2327;"><?php esc_html_e( 'Most-Read URLs — Last 30 Days', 'rankready' ); ?></h3>
+				<table class="wp-list-table widefat fixed striped" style="margin-bottom:20px;">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'URL', 'rankready' ); ?></th>
+							<th style="width:110px;"><?php esc_html_e( 'Endpoint', 'rankready' ); ?></th>
+							<th style="width:80px;text-align:center;"><?php esc_html_e( 'Hits', 'rankready' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $top_urls as $row ) : ?>
+						<tr>
+							<td><code style="font-size:11px;"><?php echo esc_html( $row['url_path'] ); ?></code></td>
+							<td><?php echo esc_html( $ep_labels[ $row['endpoint'] ] ?? $row['endpoint'] ); ?></td>
+							<td style="text-align:center;font-weight:600;"><?php echo esc_html( number_format( (int) $row['total'] ) ); ?></td>
+						</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				<?php endif; ?>
+
+				<!-- Recent hits live log -->
+				<?php if ( ! empty( $recent_hits ) ) : ?>
+				<details>
+					<summary style="cursor:pointer;font-size:13px;font-weight:600;color:#1d2327;margin-bottom:8px;"><?php esc_html_e( 'Recent Hits (last 30 entries)', 'rankready' ); ?></summary>
+					<table class="wp-list-table widefat fixed striped" style="margin-top:8px;">
+						<thead>
+							<tr>
+								<th style="width:145px;"><?php esc_html_e( 'Time', 'rankready' ); ?></th>
+								<th><?php esc_html_e( 'Bot', 'rankready' ); ?></th>
+								<th style="width:100px;"><?php esc_html_e( 'Endpoint', 'rankready' ); ?></th>
+								<th><?php esc_html_e( 'URL', 'rankready' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach ( $recent_hits as $hit ) : ?>
+							<tr>
+								<td style="font-size:11px;color:#646970;"><?php echo esc_html( wp_date( 'Y-m-d H:i', strtotime( $hit['logged_at'] ) ) ); ?></td>
+								<td style="font-size:12px;"><?php echo esc_html( $hit['bot_name'] ); ?></td>
+								<td style="font-size:12px;"><?php echo esc_html( $ep_labels[ $hit['endpoint'] ] ?? $hit['endpoint'] ); ?></td>
+								<td><code style="font-size:11px;"><?php echo esc_html( $hit['url_path'] ); ?></code></td>
+							</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				</details>
+				<?php endif; ?>
+
+			<?php endif; ?>
+		</div>
+		<!-- ── /AI Crawler Access Log ─────────────────────────────────────── -->
+
 		<form method="post" action="options.php" novalidate="novalidate">
 			<?php settings_fields( self::LLMS_GROUP ); ?>
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6.0] - 2026-04-21
+
+### Added
+- `class-rr-crawler-log.php` — AI crawler access log. Detects 25 known AI/LLM bots by User-Agent (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, CCBot, Bytespider, Cohere, AI2Bot, YouBot, DuckAssistBot, Diffbot, Applebot, Meta, Magpie, Amazonbot, and more). Logs hits to a custom `wp_rr_crawler_log` DB table on every request to llms.txt, llms-full.txt, .md URL, and homepage Accept:text/markdown. Records auto-pruned after 90 days via daily WP-Cron.
+- AI Crawlers tab: new "AI Crawler Access Log" panel showing total hits (7d / 30d), unique bots, per-bot breakdown table (with per-endpoint column counts), top 5 most-read URLs, and a collapsible live-hit log (last 30 entries). Zero config — logs start on install.
+- `RR_Crawler_Log::detect_active()` returns human-readable list of active cache plugins for health-check dashboard.
+
 ## [0.6.5.5] - 2026-04-21
 
 ### Added

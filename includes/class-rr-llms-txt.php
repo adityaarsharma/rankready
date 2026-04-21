@@ -348,10 +348,12 @@ class RR_Llms_Txt {
 
 	public static function handle_request(): void {
 		if ( get_query_var( 'rr_llms_txt' ) ) {
+			RR_Crawler_Log::log( 'llms_txt' );
 			self::serve_llms_txt( false );
 		}
 
 		if ( get_query_var( 'rr_llms_full_txt' ) ) {
+			RR_Crawler_Log::log( 'llms_full' );
 			self::serve_llms_txt( true );
 		}
 	}

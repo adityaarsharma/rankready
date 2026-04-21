@@ -139,17 +139,51 @@ class RR_Markdown {
 	// ── Accept header content negotiation ────────────────────────────────────
 	// Like Next.js: when a request sends Accept: text/markdown on a normal
 	// post URL, serve the markdown version directly.
+	//
+	// Implements RFC 9110 §12 content negotiation:
+	//   - Parses q-values so text/html;q=1.0 beats text/markdown;q=0.5
+	//   - Returns 406 when Accept excludes every type we can produce
 
 	public static function handle_accept_header(): void {
 		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
 			return;
 		}
 
-		// Check Accept header for text/markdown first — avoid any work on normal requests.
 		$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) : '';
-		if ( false === stripos( $accept, 'text/markdown' ) ) {
+
+		if ( empty( $accept ) ) {
 			return;
 		}
+
+		$types = self::parse_accept_types( $accept );
+
+		$q_markdown = self::get_type_q( $types, 'text/markdown' );
+		$q_html     = self::get_type_q( $types, 'text/html' );
+		$q_any      = self::get_type_q( $types, '*/*' );
+		$q_text     = self::get_type_q( $types, 'text/*' );
+
+		// Effective HTML q-value — wildcards count for HTML too.
+		$q_html_eff = max( $q_html, $q_any, $q_text );
+
+		if ( $q_markdown <= 0.0 ) {
+			// text/markdown not in Accept or explicitly excluded (q=0).
+			// If the client also can't accept HTML, nothing we serve will satisfy it.
+			if ( $q_html_eff <= 0.0 ) {
+				status_header( 406 );
+				header( 'Content-Type: text/plain; charset=utf-8' );
+				header( 'Vary: Accept' );
+				echo '406 Not Acceptable'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				exit;
+			}
+			return;
+		}
+
+		// If HTML is strictly more preferred than markdown, let WordPress serve HTML normally.
+		if ( $q_html > $q_markdown ) {
+			return;
+		}
+
+		// text/markdown is preferred (or tied). Serve it.
 
 		// Homepage (static front page OR blog posts index): generate a site overview.
 		if ( is_front_page() || is_home() ) {
@@ -179,6 +213,39 @@ class RR_Markdown {
 			set_transient( $cache_key, $markdown, 5 * MINUTE_IN_SECONDS );
 		}
 		self::serve_markdown( $markdown, get_permalink( $post ) );
+	}
+
+	/**
+	 * Parse an Accept header string into [ 'type/subtype' => q_value ] map.
+	 */
+	private static function parse_accept_types( string $accept ): array {
+		$types = array();
+		foreach ( explode( ',', $accept ) as $part ) {
+			$part = trim( $part );
+			if ( empty( $part ) ) {
+				continue;
+			}
+			$segments = explode( ';', $part );
+			$type     = strtolower( trim( $segments[0] ) );
+			$q        = 1.0;
+			foreach ( array_slice( $segments, 1 ) as $param ) {
+				$param = trim( $param );
+				if ( 0 === strncasecmp( $param, 'q=', 2 ) ) {
+					$q = (float) substr( $param, 2 );
+					break;
+				}
+			}
+			$types[ $type ] = $q;
+		}
+		return $types;
+	}
+
+	/**
+	 * Get the q-value for a media type from a parsed Accept types map.
+	 * Returns 0.0 when the type is absent.
+	 */
+	private static function get_type_q( array $types, string $type ): float {
+		return isset( $types[ $type ] ) ? (float) $types[ $type ] : 0.0;
 	}
 
 	/**
@@ -248,14 +315,23 @@ class RR_Markdown {
 		}
 		header( 'Vary: Accept', false );
 
-		// Homepage only: tell Cloudflare (and any CDN) not to cache this response.
-		// Cloudflare APO ignores Vary: Accept, so without this it serves cached HTML
-		// to agents sending Accept: text/markdown. CDN-Cache-Control: no-store is
-		// Cloudflare-specific and does not affect browser caching.
-		// After one cache purge this makes every homepage request reach PHP so
-		// content negotiation works without any Cloudflare Cache Rule.
+		// Homepage only: bypass all cache layers so Accept: text/markdown requests
+		// always reach PHP for content negotiation. Each header targets a different layer:
+		//   CDN-Cache-Control : Cloudflare (overrides APO for this response)
+		//   Surrogate-Control : Varnish, Fastly, Akamai, generic reverse proxies
+		//   Cache-Control     : nginx FastCGI cache (when configured to respect it),
+		//                       WP Rocket / W3 Total Cache page caches
+		// Browser caching is unaffected — Cache-Control is only read by intermediate
+		// caches here because browsers do not cache 200 responses with no-store for
+		// GET requests that carry a Vary: Accept response header anyway.
 		if ( is_front_page() || is_home() ) {
 			header( 'CDN-Cache-Control: no-store' );
+			header( 'Surrogate-Control: no-store' );
+			header( 'Cache-Control: no-store' );
+			// Signal to WP Rocket, W3TC, LiteSpeed Cache, and similar page caching plugins.
+			if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+				define( 'DONOTCACHEPAGE', true );
+			}
 		}
 	}
 

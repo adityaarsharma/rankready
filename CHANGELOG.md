@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4.7] - 2026-04-21
+
+### Fixed
+- Accept header q-value parsing: RFC 9110-compliant negotiation now correctly honors quality values. When a client sends `Accept: text/html;q=0.9, text/markdown;q=0.5`, WordPress HTML is served because HTML has the higher q-value. Previously, markdown was served whenever `text/markdown` appeared anywhere in the Accept string regardless of q-values.
+- 406 Not Acceptable: when the Accept header contains only types the server cannot produce (e.g. `Accept: application/json` only), the plugin now returns a 406 response with `Vary: Accept`. Passes acceptmarkdown.com check 3.
+- Multi-layer cache bypass for homepage markdown negotiation expanded: added `Surrogate-Control: no-store` (Varnish, Fastly, Akamai) and `Cache-Control: no-store` (nginx FastCGI, WP Rocket, W3TC) alongside the existing `CDN-Cache-Control: no-store` for Cloudflare APO.
+
 ## [0.6.4.6] - 2026-04-21
 
 ### Fixed

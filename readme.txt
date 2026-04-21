@@ -4,7 +4,7 @@ Tags: llm seo, ai seo, llms.txt, schema markup, eeat, ai overviews, chatgpt, per
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.4.6
+Stable tag: 0.6.4.7
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,10 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 0.6.4.7 =
+* Fix: Accept header content negotiation now parses q-values correctly per RFC 9110 — if a client sends Accept: text/html;q=0.9, text/markdown;q=0.5, WordPress HTML is served (higher q wins). Previously markdown was always served whenever text/markdown appeared anywhere in the Accept string.
+* Fix: Returns 406 Not Acceptable when the Accept header contains only types the server cannot produce (e.g. application/json only) — satisfies acceptmarkdown.com check 3.
 
 = 0.6.4.6 =
 * Fix: Markdown negotiation now works on Cloudflare APO sites without any Cache Rules. Homepage HTML responses send CDN-Cache-Control: no-store so Cloudflare never caches the homepage — every Accept: text/markdown request reaches PHP and gets the correct text/markdown response. One cache purge after updating is all that is needed.

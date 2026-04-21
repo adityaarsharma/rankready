@@ -280,18 +280,6 @@ class RR_Admin {
 			'default'           => 'allow',
 		) );
 
-		// Agent Discovery.
-		register_setting( self::LLMS_GROUP, RR_OPT_AGENT_SKILLS_ENABLE, array(
-			'type'              => 'string',
-			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
-			'default'           => 'off',
-		) );
-
-		register_setting( self::LLMS_GROUP, RR_OPT_API_CATALOG_ENABLE, array(
-			'type'              => 'string',
-			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
-			'default'           => 'off',
-		) );
 
 		// ── DataForSEO credentials (Settings tab, same save as OpenAI) ──────
 		register_setting( self::SETTINGS_GROUP, RR_OPT_DFS_LOGIN, array(
@@ -2146,54 +2134,6 @@ class RR_Admin {
 				</div>
 			</div>
 
-			<!-- Agent-Ready Discovery -->
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Agent-Ready Discovery', 'rankready' ); ?></h2>
-				<p class="rr-card-desc">
-					<?php esc_html_e( 'Serve /.well-known/ discovery endpoints that let AI agents understand what capabilities your site exposes.', 'rankready' ); ?>
-				</p>
-
-				<table class="form-table rr-form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Agent Skills Index', 'rankready' ); ?></th>
-						<td>
-							<?php $agent_skills_on = (string) get_option( RR_OPT_AGENT_SKILLS_ENABLE, 'off' ); ?>
-							<label class="rr-toggle">
-								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_AGENT_SKILLS_ENABLE ); ?>"
-									   value="on" <?php checked( $agent_skills_on, 'on' ); ?> />
-								<span class="rr-toggle-label"><?php esc_html_e( 'Serve /.well-known/agent-skills/index.json', 'rankready' ); ?></span>
-							</label>
-							<?php if ( 'on' === $agent_skills_on ) : ?>
-								<p class="description" style="margin-top:6px;">
-									<a href="<?php echo esc_url( home_url( '/.well-known/agent-skills/index.json' ) ); ?>" target="_blank">
-										<code><?php echo esc_html( home_url( '/.well-known/agent-skills/index.json' ) ); ?></code>
-									</a>
-								</p>
-							<?php endif; ?>
-							<p class="description"><?php esc_html_e( 'Lists your site\'s AI-accessible capabilities (llms.txt, markdown endpoints, sitemap). Format: Cloudflare Agent Skills Discovery RFC.', 'rankready' ); ?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'API Catalog', 'rankready' ); ?></th>
-						<td>
-							<?php $api_catalog_on = (string) get_option( RR_OPT_API_CATALOG_ENABLE, 'off' ); ?>
-							<label class="rr-toggle">
-								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_API_CATALOG_ENABLE ); ?>"
-									   value="on" <?php checked( $api_catalog_on, 'on' ); ?> />
-								<span class="rr-toggle-label"><?php esc_html_e( 'Serve /.well-known/api-catalog (RFC 9727)', 'rankready' ); ?></span>
-							</label>
-							<?php if ( 'on' === $api_catalog_on ) : ?>
-								<p class="description" style="margin-top:6px;">
-									<a href="<?php echo esc_url( home_url( '/.well-known/api-catalog' ) ); ?>" target="_blank">
-										<code><?php echo esc_html( home_url( '/.well-known/api-catalog' ) ); ?></code>
-									</a>
-								</p>
-							<?php endif; ?>
-							<p class="description"><?php esc_html_e( 'RFC 9727 linkset describing your public APIs (WP REST API, llms.txt, markdown stream). Content-Type: application/linkset+json.', 'rankready' ); ?></p>
-						</td>
-					</tr>
-				</table>
-			</div>
 
 			<?php submit_button( __( 'Save LLM Settings', 'rankready' ) ); ?>
 		</form>

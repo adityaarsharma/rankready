@@ -1747,26 +1747,9 @@ class RR_Rest {
 				}
 			}
 		}
-		$agent_skills_on  = 'on' === get_option( RR_OPT_AGENT_SKILLS_ENABLE, 'off' );
-		$api_catalog_on   = 'on' === get_option( RR_OPT_API_CATALOG_ENABLE, 'off' );
-		$has_agent_rule   = false;
-		$has_catalog_rule = false;
-		if ( is_array( $rules ) ) {
-			foreach ( $rules as $pattern => $query ) {
-				if ( false !== strpos( $query, 'rr_agent_skills' ) ) {
-					$has_agent_rule = true;
-				}
-				if ( false !== strpos( $query, 'rr_api_catalog' ) ) {
-					$has_catalog_rule = true;
-				}
-			}
-		}
-
-		if ( $md_on || $llms_on || $agent_skills_on || $api_catalog_on ) {
+		if ( $md_on || $llms_on ) {
 			$rewrite_ok = ( ! $md_on || $has_md_rule )
-				&& ( ! $llms_on || $has_llms_rule )
-				&& ( ! $agent_skills_on || $has_agent_rule )
-				&& ( ! $api_catalog_on || $has_catalog_rule );
+				&& ( ! $llms_on || $has_llms_rule );
 			$checks[] = array(
 				'label'  => 'Rewrite Rules',
 				'status' => $rewrite_ok ? 'pass' : 'fail',

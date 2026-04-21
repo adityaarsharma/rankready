@@ -41,9 +41,6 @@ class RR_Markdown {
 		add_action( 'wp_head',           array( self::class, 'add_md_link_tag' ) );
 		add_action( 'send_headers',      array( self::class, 'add_md_link_header' ) );
 
-		// Add visible "View as Markdown" link after content (like EDD).
-		add_filter( 'the_content',       array( self::class, 'append_md_link' ), 100 );
-
 		// Prevent WordPress from adding trailing slash to .md URLs.
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_md_trailing_slash' ), 10, 2 );
 
@@ -369,45 +366,6 @@ class RR_Markdown {
 
 		$md_url = self::get_md_url( $post );
 		header( 'Link: <' . esc_url( $md_url ) . '>; rel="alternate"; type="text/markdown"', false );
-	}
-
-	// ── Visible "View as Markdown" link after content ───────────────────────
-	// Like EDD's "LLM? View in Markdown" — helps humans and crawlers discover .md.
-
-	public static function append_md_link( string $content ): string {
-		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
-			return $content;
-		}
-
-		if ( ! is_singular() || ! is_main_query() || ! in_the_loop() ) {
-			return $content;
-		}
-
-		$post = get_post();
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
-			return $content;
-		}
-
-		$enabled_types = (array) get_option( RR_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
-		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
-			return $content;
-		}
-
-		// Allow disabling via filter.
-		if ( ! apply_filters( 'rankready_show_md_link', true, $post ) ) {
-			return $content;
-		}
-
-		$md_url = self::get_md_url( $post );
-
-		$link_html = '<p class="rr-md-link" style="margin-top:2em;padding-top:1em;border-top:1px solid #e5e7eb;font-size:0.85em;color:#6b7280;">'
-			. '<span style="margin-right:0.3em;">&#129302;</span> '
-			. '<a href="' . esc_url( $md_url ) . '" style="color:#6b7280;text-decoration:underline;" rel="alternate">'
-			. esc_html__( 'View as Markdown', 'rankready' )
-			. '</a>'
-			. '</p>';
-
-		return $content . $link_html;
 	}
 
 	// ── Serve markdown response ──────────────────────────────────────────────

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5.0] - 2026-04-21
+
+### Added
+- Admin notice when plain permalinks (?p=123) are active: warns on the RankReady settings page that llms.txt, llms-full.txt, and per-post .md endpoints will return 404 until pretty permalinks are enabled, with a direct link to Settings → Permalinks. Orbit QA (Playwright smoke test) confirmed all 12 tests pass after enabling pretty permalinks.
+
 ## [0.6.4.7] - 2026-04-21
 
 ### Fixed

@@ -28,6 +28,7 @@ class RR_Admin {
 		add_action( 'admin_menu',            array( self::class, 'register_menu' ) );
 		add_action( 'admin_init',            array( self::class, 'register_settings' ) );
 		add_action( 'admin_notices',         array( self::class, 'connection_notice' ) );
+		add_action( 'admin_notices',         array( self::class, 'permalink_notice' ) );
 		add_action( 'admin_enqueue_scripts', array( self::class, 'enqueue_admin_assets' ) );
 		add_filter( 'plugin_action_links_' . RR_BASENAME, array( self::class, 'action_links' ) );
 		add_action( 'add_meta_boxes',        array( self::class, 'register_meta_box' ) );
@@ -3142,6 +3143,32 @@ class RR_Admin {
 			self::NONCE_FIELD => wp_create_nonce( self::NONCE_ACTION ),
 			'rr_action'      => 'test',
 		), admin_url( 'admin.php' ) );
+	}
+
+	/**
+	 * Warn when plain permalinks are active.
+	 *
+	 * RankReady's virtual endpoints (llms.txt, llms-full.txt, *.md) rely on
+	 * WordPress rewrite rules which only work with pretty permalinks. When the
+	 * site uses the default ?p=123 structure, those endpoints return 404 and
+	 * LLM crawlers cannot access the content.
+	 */
+	public static function permalink_notice(): void {
+		$screen = get_current_screen();
+		if ( ! $screen || 'toplevel_page_' . self::MENU_SLUG !== $screen->id ) {
+			return;
+		}
+		if ( get_option( 'permalink_structure' ) ) {
+			return; // Pretty permalinks are active — all good.
+		}
+		$permalink_url = admin_url( 'options-permalink.php' );
+		echo '<div class="notice notice-warning is-dismissible"><p>'
+			. '<strong>' . esc_html__( 'RankReady: Pretty Permalinks required', 'rankready' ) . '</strong> — '
+			. esc_html__( 'Your site is using plain permalinks (?p=123). RankReady\'s LLM endpoints (llms.txt, llms-full.txt, and per-post .md files) will return 404 until you enable pretty permalinks.', 'rankready' )
+			. ' <a href="' . esc_url( $permalink_url ) . '">'
+			. esc_html__( 'Fix it in Settings → Permalinks →', 'rankready' )
+			. '</a>'
+			. '</p></div>';
 	}
 
 	public static function connection_notice(): void {

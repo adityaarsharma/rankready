@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
  * Plugin URI:        https://github.com/adityaarsharma/rankready
  * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           0.6.4.7
+ * Version:           0.6.5.0
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            POSIMYTH & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '0.6.4.7' );
+	define( 'RR_VERSION',  '0.6.5.0' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );

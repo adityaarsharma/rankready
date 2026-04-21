@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5.5] - 2026-04-21
+
+### Added
+- `class-rr-cache.php` — centralized cache layer utility class (`RR_Cache`) covering every known CDN and WordPress page-cache layer: Cloudflare APO (`cf-edge-cache`), Cloudflare non-APO (`CDN-Cache-Control`), Varnish/Fastly (`Surrogate-Control`), Akamai (`Edge-Control`), nginx FastCGI (`X-Accel-Expires: 0`), HTTP standard (`Cache-Control: no-store, Pragma`), WP Rocket / W3TC / LiteSpeed / WP Super Cache / WP Fastest Cache / Breeze / SG Optimizer / Hummingbird / Comet Cache / Cache Enabler / Swift Performance / Pantheon (`DONOTCACHEPAGE`, `LSCWP_NO_CACHE`, `DONOTCACHEOBJECT`, `DONOTCACHEDB` constants + purge actions).
+- `RR_Cache::no_cache_headers()` — sets all CDN + page-cache bypass headers in one call.
+- `RR_Cache::purge_url( $url )` — purges a single URL from all active cache layers.
+- `RR_Cache::purge_all()` — nuclear full-site cache clear for activate/settings-save.
+- `RR_Cache::detect_active()` — returns active cache plugins for health-check dashboard.
+- Orbit `cache.spec.js` — 28 Playwright tests covering homepage bypass headers per layer, markdown negotiation, .md URL headers, llms.txt cacheability, robots.txt content, PHP constant safety (no "Cannot redeclare"), sequential request correctness, and RFC 9110 q-value negotiation.
+
+### Changed
+- `serve_markdown()` in `class-rr-markdown.php` now calls `RR_Cache::no_cache_headers()` — adds cf-edge-cache, Surrogate-Control, Edge-Control, X-Accel-Expires, DONOTCACHEPAGE, LSCWP_NO_CACHE to every markdown response.
+- `add_vary_header()` homepage block replaced with single `RR_Cache::no_cache_headers()` call.
+- `purge_robots_cache()` in `class-rr-llms-txt.php` delegates to `RR_Cache::purge_url()` — now covers Hummingbird, Cache Enabler, Comet Cache, Swift Performance, Autoptimize, Pantheon in addition to previous list.
+
 ## [0.6.5.4] - 2026-04-21
 
 ### Fixed

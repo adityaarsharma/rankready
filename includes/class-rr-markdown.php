@@ -315,36 +315,11 @@ class RR_Markdown {
 		}
 		header( 'Vary: Accept', false );
 
-		// Homepage only: bypass every cache layer so Accept: text/markdown requests
-		// always reach PHP for content negotiation.
-		//
-		// Why the homepage is special: CDNs (especially Cloudflare APO) cache the
-		// root URL aggressively and do not vary their cache by Accept header. Without
-		// these directives the CDN serves the same cached HTML to every request,
-		// including AI crawlers sending Accept: text/markdown, and PHP never runs.
-		//
-		// Header coverage:
-		//   cf-edge-cache     : Cloudflare APO — the canonical APO bypass directive.
-		//                       CDN-Cache-Control alone is NOT enough; APO ignores it.
-		//                       cf-edge-cache: no-cache is the only header APO respects
-		//                       to prevent caching without touching the CF dashboard.
-		//   CDN-Cache-Control : Cloudflare non-APO, generic CDN proxy layer.
-		//   Surrogate-Control : Varnish, Fastly, Akamai, generic reverse proxies.
-		//   Edge-Control      : Akamai-specific no-store directive.
-		//   Cache-Control     : nginx FastCGI cache, WP Rocket, W3TC, LiteSpeed page caches.
-		//
-		// Browser caching is unaffected — browsers do not cache responses with
-		// no-store regardless of GET vs POST.
+		// Homepage only: fire the full cache-bypass stack so every CDN and page-cache
+		// plugin stops serving a stale HTML response when Accept: text/markdown arrives.
+		// See RR_Cache::no_cache_headers() for the complete layer-by-layer breakdown.
 		if ( is_front_page() || is_home() ) {
-			header( 'cf-edge-cache: no-cache' );
-			header( 'CDN-Cache-Control: no-store' );
-			header( 'Surrogate-Control: no-store' );
-			header( 'Edge-Control: no-store' );
-			header( 'Cache-Control: no-store' );
-			// Signal to WP Rocket, W3TC, LiteSpeed Cache, and similar page caching plugins.
-			if ( ! defined( 'DONOTCACHEPAGE' ) ) {
-				define( 'DONOTCACHEPAGE', true );
-			}
+			RR_Cache::no_cache_headers();
 		}
 	}
 
@@ -431,14 +406,16 @@ class RR_Markdown {
 	// ── Serve markdown response ──────────────────────────────────────────────
 
 	private static function serve_markdown( string $markdown, string $canonical_url ): void {
+		// Block every cache layer from storing this response. Markdown and HTML
+		// are different representations of the same URL — a cache hit would
+		// serve the wrong content-type to the next client.
+		RR_Cache::no_cache_headers();
+
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/markdown; charset=utf-8' );
-		// no-store prevents CDN/proxy caches from serving a stale markdown response to HTML clients.
-		header( 'Cache-Control: no-store' );
-		header( 'CDN-Cache-Control: no-store' );
+		header( 'Vary: Accept' );
 		header( 'x-markdown-source: accept' );
 		header( 'Link: <' . esc_url( $canonical_url ) . '>; rel="canonical"', false );
-		header( 'Vary: Accept' );
 
 		echo $markdown; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		exit;

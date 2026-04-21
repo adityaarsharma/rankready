@@ -7,11 +7,26 @@ RankReady is the most complete WordPress plugin for AI search optimization. It c
 [![WordPress](https://img.shields.io/badge/WordPress-6.2%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL--2.0--or--later-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.6.4.6-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
+[![Version](https://img.shields.io/badge/Version-0.6.4.7-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
+[![Agent-Ready Score](https://img.shields.io/badge/isitagentready.com-100%2F100%20Level%205-brightgreen.svg)](https://isitagentready.com)
+[![Markdown Ready](https://img.shields.io/badge/acceptmarkdown.com-passing-brightgreen.svg)](https://acceptmarkdown.com)
 [![Auto-Updates](https://img.shields.io/badge/auto--updates-via%20GitHub%20releases-success.svg)](#auto-updates)
 [![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-brightgreen.svg)](CHANGELOG.md)
 
 > **Status: v0.6 — public beta.** RankReady is free and open-source (GPL-2.0). Download the latest release zip below. Pro features (license-gated) arrive in v1.0. Auto-updates flow from GitHub releases to every install — no token, no config, no setup.
+
+---
+
+## Test Your Site
+
+RankReady is built to score 100/100 on both AI readiness checkers. Test your own site after installing:
+
+| Checker | What it tests | Test your site |
+|---------|--------------|----------------|
+| **isitagentready.com** | robots.txt, sitemap, llms.txt, markdown negotiation, AI bot rules, content signals | [isitagentready.com](https://isitagentready.com) |
+| **acceptmarkdown.com** | Accept: text/markdown negotiation, Vary: Accept, 406 responses, q-value parsing | [acceptmarkdown.com](https://acceptmarkdown.com) |
+
+Both checkers run free, no account needed. Enter your URL and run. RankReady handles everything both tools check — no manual configuration required once the LLM Optimization tab is enabled.
 
 ---
 

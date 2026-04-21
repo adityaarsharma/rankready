@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5.1] - 2026-04-21
+
+### Fixed
+- Auto-purge robots.txt from all common page caches after every sync: WP Rocket (`rocket_clean_files`), LiteSpeed Cache (`litespeed_purge_url`), W3 Total Cache (`w3tc_flush_url`), WP Super Cache (`wp_cache_clear_cache`), official Cloudflare WP plugin (`cloudflare_purge_by_url`), Nginx Helper (`rt_nginx_helper_purge_url`), SG Optimizer (`sg_cachepress_purge_cache`), Breeze/Cloudways (`breeze_clear_all_cache`), and WP Fastest Cache. No configuration needed — hooks fire silently when those plugins are not active.
+
 ## [0.6.5.0] - 2026-04-21
 
 ### Added

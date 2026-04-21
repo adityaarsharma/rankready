@@ -257,6 +257,55 @@ class RR_Llms_Txt {
 		}
 
 		$wp_filesystem->put_contents( $file, $contents, FS_CHMOD_FILE );
+
+		// Purge robots.txt from all common page caches so changes are live immediately.
+		self::purge_robots_cache();
+	}
+
+	/**
+	 * Purge robots.txt from known page-cache and CDN plugins.
+	 *
+	 * Fires hooks that WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache,
+	 * and the official Cloudflare plugin all respond to — no user configuration needed.
+	 * Harmless no-ops when those plugins are not active.
+	 */
+	public static function purge_robots_cache(): void {
+		$robots_url = home_url( '/robots.txt' );
+
+		// WP Rocket
+		if ( function_exists( 'rocket_clean_files' ) ) {
+			rocket_clean_files( [ $robots_url ] );
+		}
+
+		// LiteSpeed Cache
+		do_action( 'litespeed_purge_url', $robots_url );
+
+		// W3 Total Cache
+		do_action( 'w3tc_flush_url', $robots_url );
+
+		// WP Super Cache
+		if ( function_exists( 'wp_cache_clear_cache' ) ) {
+			wp_cache_clear_cache();
+		}
+
+		// Cloudflare official WP plugin
+		do_action( 'cloudflare_purge_by_url', [ $robots_url ] );
+
+		// Nginx Helper / FastCGI Cache (Nginx + Redis)
+		do_action( 'rt_nginx_helper_purge_url', $robots_url );
+
+		// SG Optimizer (SiteGround)
+		if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
+			sg_cachepress_purge_cache();
+		}
+
+		// Breeze (Cloudways)
+		do_action( 'breeze_clear_all_cache' );
+
+		// WP Fastest Cache
+		if ( class_exists( 'WpFastestCache' ) && method_exists( 'WpFastestCache', 'deleteCache' ) ) {
+			( new \WpFastestCache() )->deleteCache( true );
+		}
 	}
 
 	// ── Rewrite rules ─────────────────────────────────────────────────────────

@@ -4,8 +4,13 @@
  * resolves each hit to a WordPress post/CPT, and surfaces organized stats
  * in the AI Crawlers admin tab.
  *
- * DB schema v2 adds post_id, post_type, post_title so every hit is linked
- * to the actual piece of content a bot read — not just an endpoint type.
+ * DB schema v3 removes the user_agent column (redundant — bot_name captures
+ * the identity in human-readable form) and enforces a hard row cap (50 000)
+ * plus a 30-day retention window so the table never clutters the database.
+ *
+ * Migration path:
+ *   v1 → v2: dbDelta adds post_id, post_type, post_title.
+ *   v2 → v3: dbDelta is a no-op (no new columns); ALTER TABLE drops user_agent.
  *
  * @package RankReady
  */
@@ -15,8 +20,9 @@ defined( 'ABSPATH' ) || exit;
 class RR_Crawler_Log {
 
 	const DB_VERSION_KEY = 'rr_crawler_log_db_version';
-	const DB_VERSION     = 2;
-	const RETENTION_DAYS = 90;
+	const DB_VERSION     = 3;
+	const RETENTION_DAYS = 30;   // rows older than 30 days are pruned daily
+	const MAX_ROWS       = 50000; // hard cap — oldest rows deleted when exceeded
 
 	// ── Known bots (most-specific first) ─────────────────────────────────
 
@@ -58,9 +64,18 @@ class RR_Crawler_Log {
 	// ── Bootstrap ─────────────────────────────────────────────────────────
 
 	public static function init(): void {
-		if ( (int) get_option( self::DB_VERSION_KEY, 0 ) < self::DB_VERSION ) {
+		$stored = (int) get_option( self::DB_VERSION_KEY, 0 );
+
+		if ( $stored < self::DB_VERSION ) {
 			self::create_table();
+
+			// v2 → v3: drop the redundant user_agent column if it still exists.
+			// dbDelta cannot remove columns, so we use ALTER TABLE explicitly.
+			if ( $stored < 3 ) {
+				self::drop_user_agent_column();
+			}
 		}
+
 		if ( ! wp_next_scheduled( 'rr_crawler_log_prune' ) ) {
 			wp_schedule_event( time(), 'daily', 'rr_crawler_log_prune' );
 		}
@@ -74,12 +89,12 @@ class RR_Crawler_Log {
 		$table   = $wpdb->prefix . 'rr_crawler_log';
 		$charset = $wpdb->get_charset_collate();
 
-		// dbDelta adds missing columns — safe to run on existing v1 tables.
+		// user_agent is intentionally absent (removed in v3 — redundant storage).
+		// dbDelta is idempotent: safe to run on fresh installs and existing tables.
 		$sql = "CREATE TABLE {$table} (
 			id         bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			logged_at  datetime     NOT NULL,
 			bot_name   varchar(120) NOT NULL DEFAULT '',
-			user_agent varchar(500) NOT NULL DEFAULT '',
 			url_path   varchar(500) NOT NULL DEFAULT '',
 			endpoint   varchar(20)  NOT NULL DEFAULT '',
 			post_id    bigint(20) unsigned NOT NULL DEFAULT 0,
@@ -95,6 +110,21 @@ class RR_Crawler_Log {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 		update_option( self::DB_VERSION_KEY, self::DB_VERSION );
+	}
+
+	/**
+	 * v2 → v3 migration: drop user_agent if it exists.
+	 * Runs once via init() when upgrading from a v2 install.
+	 */
+	private static function drop_user_agent_column(): void {
+		global $wpdb;
+		$table = $wpdb->prefix . 'rr_crawler_log';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$exists = $wpdb->get_results( "SHOW COLUMNS FROM {$table} LIKE 'user_agent'" );
+		if ( ! empty( $exists ) ) {
+			$wpdb->query( "ALTER TABLE {$table} DROP COLUMN user_agent" );
+		}
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	public static function drop_table(): void {
@@ -137,9 +167,6 @@ class RR_Crawler_Log {
 			return;
 		}
 
-		$ua  = isset( $_SERVER['HTTP_USER_AGENT'] )
-			? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) )
-			: '';
 		$uri = isset( $_SERVER['REQUEST_URI'] )
 			? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) )
 			: '';
@@ -165,14 +192,13 @@ class RR_Crawler_Log {
 			array(
 				'logged_at'  => current_time( 'mysql' ),
 				'bot_name'   => $bot,
-				'user_agent' => substr( $ua, 0, 500 ),
 				'url_path'   => substr( $uri, 0, 500 ),
 				'endpoint'   => $endpoint,
 				'post_id'    => $post_id,
 				'post_type'  => $post_type,
 				'post_title' => substr( $post_title, 0, 250 ),
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
+			array( '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
 		);
 	}
 
@@ -369,9 +395,17 @@ class RR_Crawler_Log {
 
 	// ── Maintenance ────────────────────────────────────────────────────────
 
+	/**
+	 * Daily pruning — two passes:
+	 * 1. Delete rows older than RETENTION_DAYS (time-based expiry).
+	 * 2. If total rows still exceed MAX_ROWS, delete the oldest excess rows
+	 *    (hard cap against runaway crawlers on high-traffic sites).
+	 */
 	public static function prune(): void {
 		global $wpdb;
 		$table = $wpdb->prefix . 'rr_crawler_log';
+
+		// Pass 1: time-based expiry.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$wpdb->query(
 			$wpdb->prepare(
@@ -379,6 +413,18 @@ class RR_Crawler_Log {
 				self::RETENTION_DAYS
 			)
 		);
+
+		// Pass 2: hard row cap — delete oldest rows beyond MAX_ROWS.
+		$total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+		if ( $total > self::MAX_ROWS ) {
+			$excess = $total - self::MAX_ROWS;
+			$wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$table} ORDER BY logged_at ASC LIMIT %d",
+					$excess
+				)
+			);
+		}
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 }

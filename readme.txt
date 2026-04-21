@@ -4,7 +4,7 @@ Tags: llm seo, ai seo, llms.txt, schema markup, eeat, ai overviews, chatgpt, per
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.7.0
+Stable tag: 0.6.7.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,11 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 0.6.7.1 =
+* Optimization: dropped redundant user_agent column from crawler log table (DB schema v3). bot_name already captures bot identity — storing the full raw UA string per row was pure bloat. Auto-migrated on update via ALTER TABLE, no manual action needed.
+* Optimization: retention window reduced from 90 to 30 days — covers all admin panel windows and keeps the table lean.
+* Optimization: daily prune now enforces a hard 50,000-row cap as a safety valve against runaway crawlers. Runs in existing cron, zero per-request overhead.
 
 = 0.6.7.0 =
 * New: CPT-aware bot tracking — every crawler hit now records the exact post/page/CPT that was read (post_id, post_type, post_title) via DB schema v2. Enables per-content-type analytics.

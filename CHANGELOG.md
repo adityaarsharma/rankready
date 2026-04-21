@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7.1] - 2026-04-21
+
+### Changed
+- DB schema v3: dropped `user_agent` column — `bot_name` already captures bot identity in human-readable form; storing the full raw UA string (up to 500 bytes) per row was pure redundant bloat. Migration runs once via `ALTER TABLE DROP COLUMN` guarded by `SHOW COLUMNS` check; no data loss.
+- Retention window reduced from 90 → 30 days — 90 days of bot hit logs was excessive for a content site; 30 days covers all analytics windows shown in the admin panel.
+- `prune()` now enforces a hard 50 000-row cap: after time-based expiry, if total rows still exceed the cap, oldest rows are deleted. Cap runs in the existing daily cron — zero per-request overhead.
+
 ## [0.6.7.0] - 2026-04-21
 
 ### Added

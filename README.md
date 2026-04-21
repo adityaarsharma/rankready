@@ -2,12 +2,12 @@
 
 **The WordPress plugin that gets your content cited by AI.**
 
-RankReady is the most complete WordPress plugin for AI search optimization. It combines all pillars of LLM SEO into a single, lightweight package: AI-generated content, intelligent schema markup that auto-detects your content type, LLMs.txt, Markdown endpoints, AI crawler management, content freshness monitoring, and a full **EEAT Author Box with Person JSON-LD schema** that powers author identity for ChatGPT, Perplexity, and Google AI Overviews citations.
+RankReady is the most complete WordPress plugin for AI search optimization. It combines all pillars of LLM SEO into a single, lightweight package: AI-generated content, intelligent schema markup that auto-detects your content type, LLMs.txt, Markdown endpoints, AI crawler management, AI crawler access analytics, content freshness monitoring, multi-layer cache bypass, and a full **EEAT Author Box with Person JSON-LD schema** that powers author identity for ChatGPT, Perplexity, and Google AI Overviews citations.
 
 [![WordPress](https://img.shields.io/badge/WordPress-6.2%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL--2.0--or--later-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.6.4.7-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
+[![Version](https://img.shields.io/badge/Version-0.6.7.1-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
 [![Agent-Ready Score](https://img.shields.io/badge/isitagentready.com-100%2F100%20Level%205-brightgreen.svg)](https://isitagentready.com)
 [![Markdown Ready](https://img.shields.io/badge/acceptmarkdown.com-passing-brightgreen.svg)](https://acceptmarkdown.com)
 [![Auto-Updates](https://img.shields.io/badge/auto--updates-via%20GitHub%20releases-success.svg)](#auto-updates)
@@ -65,9 +65,9 @@ No other WordPress plugin combines all of these:
 | Markdown Endpoints (.md) | Yes | No | No | No | No | No |
 | Per-Crawler Robots.txt (31 bots) | Yes | No | 3 bots | No | No | No |
 | **Content Signals (ai-train / search / ai-input)** | **Yes** | No | No | No | No | No |
-| **Agent Skills Discovery (/.well-known/)** | **Yes** | No | No | No | No | No |
-| **API Catalog (RFC 9727)** | **Yes** | No | No | No | No | No |
 | **Discovery Link headers (RFC 8288)** | **Yes** | No | No | No | No | No |
+| **AI Crawler Access Log (CPT-level)** | **Yes** | No | No | No | No | No |
+| **Multi-layer cache bypass (CF APO, Varnish, nginx, all WP caches)** | **Yes** | No | No | No | No | No |
 | Content Freshness Alerts | Yes | No | No | No | No | No |
 | Bulk Author Changer (EEAT) | Yes | No | No | No | No | No |
 | **Global fonts in Gutenberg blocks (theme.json)** | **Yes** | N/A | N/A | N/A | No | No |
@@ -96,7 +96,7 @@ Auto-generates SEO-optimized FAQ Q&A pairs using a two-stage pipeline:
 - Focus keyword auto-detected from Rank Math, Yoast, AIOSEO, or SEOPress
 - Content hash prevents duplicate API calls when content hasn't changed
 - Bulk generation across all post types with resume capability
-- **Auto-Generate on Publish toggle** (added in 0.5.x) — off by default, mirrors the AI Summary auto-generate behavior
+- **Auto-Generate on Publish toggle** — off by default, mirrors the AI Summary auto-generate behavior
 
 ### 2. AI Summary (Key Takeaways)
 
@@ -139,36 +139,17 @@ Scans your existing post content for step-by-step patterns and injects HowTo sch
 - Extracts step name, description text (up to 500 chars), and step images automatically
 - Skips if Rank Math HowTo block or Yoast How-To block already exists in the post
 
-**Why it matters:**
-- HowTo schema is one of Google's supported rich result types — eligible for step-by-step carousels in search
-- AI models extract HowTo structured data to build direct answers for "how to" queries
-- Rank Math and Yoast require a manual HowTo block — RankReady auto-detects from your existing content
-- Zero content changes needed — your blog posts already have the steps, RankReady just tells search engines about them
-
 #### ItemList JSON-LD Schema (Auto-Detected)
 
 Scans your listicle posts and injects ItemList schema automatically. Perfect for "Best of", "Top N", and comparison posts that AI models use to build recommendation answers.
 
 **How detection works:**
-- Title must match listicle patterns:
-  - Number + qualifier: "10 Best WordPress Plugins", "Top 5 Elementor Addons"
-  - Qualifier + number: "Best 10 Tools for SEO", "Top 5 Page Builders"
-  - Number + noun: "7 Plugins Every Developer Needs", "15 Tips for Faster WordPress"
-  - Qualifier without number: "Best Elementor Addons for 2025", "Top WordPress Themes"
-  - Supports 20+ list nouns: tools, plugins, addons, themes, extensions, widgets, alternatives, tips, tricks, strategies, and more
-- Items extracted from content using two methods:
-  1. **Numbered headings**: `<h2>1. Elementor Pro</h2>`, `<h3>#2 Beaver Builder</h3>`
-  2. **Consecutive headings**: Sequences of 3+ h2/h3 headings (auto-filters generic sections like Introduction, FAQ, Conclusion)
-- Requires minimum 3 items to inject schema
-- Extracts per item: name, URL (prioritizes links matching the item name), description (first paragraph, 200 chars), and image
+- Title must match listicle patterns: "10 Best WordPress Plugins", "Top 5 Elementor Addons", "Best Plugins for 2025"
+- Items extracted from numbered headings or consecutive h2/h3 sequences (auto-filters generic sections like Introduction, FAQ, Conclusion)
+- Requires minimum 3 items
+- Extracts per item: name, URL, description (first paragraph, 200 chars), and image
 
-**Why it matters:**
-- ItemList schema tells Google and AI models "this is a curated list of items" — eligible for list rich results
-- AI models like ChatGPT and Perplexity heavily cite listicle pages when answering "best X for Y" queries
-- Products mentioned in ItemList schema get stronger entity recognition in AI knowledge graphs
-- No other WordPress plugin auto-detects listicle content — Rank Math, Yoast, and AIOSEO don't offer this
-
-**Mutually exclusive with HowTo**: A post gets one schema type or the other based on title patterns. If the title matches "how to" patterns, ItemList detection is skipped. This prevents conflicting schema on the same page.
+**Mutually exclusive with HowTo**: A post gets one schema type or the other based on title patterns.
 
 ### 4. LLMs.txt Generator
 
@@ -176,7 +157,7 @@ Serves `/llms.txt` and `/llms-full.txt` per the [llmstxt.org specification](http
 
 - Structured site index for AI models to understand your content
 - `/llms.txt` — token-efficient links and descriptions
-- `/llms-full.txt` — full content as clean markdown (uses `strip_shortcodes()` for performance)
+- `/llms-full.txt` — full content as clean markdown
 - Respects noindex from Rank Math, Yoast, AIOSEO, SEOPress
 - Taxonomy controls: exclude categories and tags
 - Transient caching with configurable TTL
@@ -193,9 +174,10 @@ https://example.com/my-post.md   -> Clean Markdown
 
 - YAML frontmatter: title, date, author, description, categories, tags, word count
 - Strips Elementor, Divi, WPBakery, Beaver Builder markup
-- Content negotiation via `Accept: text/markdown` header
+- Content negotiation via `Accept: text/markdown` header (RFC 9110)
 - `<link rel="alternate" type="text/markdown">` auto-discovery
 - 5-minute transient cache keyed by `post_modified` — no repeated processing on bot crawls
+- Cache bypass headers on every response — Cloudflare APO, Varnish, nginx, all WP cache plugins (see below)
 
 ### 6. AI Crawler Management (robots.txt)
 
@@ -219,7 +201,56 @@ Per-crawler toggles for **31 AI bots** with automatic robots.txt management:
 
 **Strategy support:** Block training bots (GPTBot) while allowing search bots (OAI-SearchBot, ChatGPT-User). Per RFC 9309 spec. Append-only, never modifies existing plugin rules.
 
-### 7. Content Freshness Alerts
+### 7. AI Crawler Access Log
+
+Zero-config bot tracking that logs every hit to your LLM endpoints — llms.txt, llms-full.txt, `.md` URLs, and homepage markdown — and shows exactly which AI crawler read which piece of content.
+
+**What gets logged per hit:**
+- Bot name (human-readable, e.g. "GPTBot (OpenAI)")
+- Endpoint type (llms.txt / llms-full.txt / .md URL / Homepage .md)
+- Post title, post type (CPT), and post ID — so you know exactly which article was read
+- URL path and timestamp
+
+**25 AI bots tracked** (User-Agent substring matching, ordered most-specific first):
+GPTBot, ChatGPT-User, OAI-SearchBot, ClaudeBot, Claude-Web, Anthropic AI, Google-Extended, PerplexityBot, Cohere AI, AI2Bot, Bytespider, FacebookBot, Meta-ExternalAgent, Meta-ExternalFetcher, YouBot, DuckAssistBot, Diffbot, Applebot-Extended, Applebot, CCBot, Omgili, Timpibot, ImagesiftBot, Magpie (Brave), Amazonbot.
+
+**Organized admin dashboard with 5 sections:**
+
+1. **Summary strip** — 6 stat cards: Hits (30d), Hits (7d), Unique bots, Unique pages crawled, llms.txt hits, Markdown hits
+2. **By Bot** — Expandable grid rows: Bot | Total | llms.txt | llms-full | .md URL | Home .md | Pages | Last Seen. Click to expand and see the top 5 pages that specific bot read most (title linked to edit post, CPT badge, URL, hit count)
+3. **By Content Type** — CSS bar chart showing hit counts and unique post counts grouped by WordPress post type (post, page, custom CPTs)
+4. **Top Pages** — Table of most-crawled content: Title | Type | Hits | Bots | "Read by" bot badge chips | URL
+5. **Live Hit Log** — Collapsible log of the 40 most recent bot hits: Time | Bot | Endpoint | Type | Page/Post | URL
+
+**Scalability built in:**
+- Human traffic generates zero rows — only 25 known bot UAs are logged
+- 30-day rolling retention (daily WP-Cron prune)
+- Hard 50,000-row cap — oldest rows deleted if exceeded, zero per-request overhead
+- DB schema stores only what's needed — `user_agent` excluded (redundant; `bot_name` captures identity)
+- 4 DB indexes: `bot_name`, `logged_at`, `endpoint`, `post_type`
+
+### 8. Multi-Layer Cache Bypass
+
+A centralized `RR_Cache` utility class covers every known CDN and WordPress page-cache layer. Markdown responses and homepage content negotiation need to bypass caches — otherwise a CDN serves cached HTML to a bot requesting `text/markdown`.
+
+**CDN layers handled:**
+
+| Layer | Header / Mechanism |
+|-------|-------------------|
+| **Cloudflare APO** | `cf-edge-cache: no-cache` (APO-specific — `CDN-Cache-Control` is ignored by APO) |
+| **Cloudflare non-APO / BunnyCDN** | `CDN-Cache-Control: no-store` |
+| **Varnish / Fastly** | `Surrogate-Control: no-store` |
+| **Akamai** | `Edge-Control: no-store` |
+| **nginx FastCGI cache** | `X-Accel-Expires: 0` |
+| **HTTP standard** | `Cache-Control: no-store, no-cache, must-revalidate` + `Pragma: no-cache` |
+
+**WordPress page-cache layers handled:**
+
+WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache, WP Fastest Cache, Cloudflare WP plugin, Nginx Helper, SG Optimizer, Breeze, Hummingbird, Cache Enabler, Comet Cache, Swift Performance, Autoptimize, Pantheon — via both PHP constants (`DONOTCACHEPAGE`, `LSCWP_NO_CACHE`, `DONOTCACHEOBJECT`, `DONOTCACHEDB`) and plugin-specific purge actions/methods.
+
+**No dashboard configuration required** — RankReady sets the correct headers on every markdown and llms.txt response automatically. Works with any cache setup.
+
+### 9. Content Freshness Alerts
 
 Monitor content staleness that impacts AI visibility:
 
@@ -231,7 +262,7 @@ Monitor content staleness that impacts AI visibility:
 - Fresh percentage dashboard
 - Direct edit links for stale posts
 
-### 8. Bulk Author Changer (EEAT)
+### 10. Bulk Author Changer (EEAT)
 
 Reassign post authors across any post type for E-E-A-T optimization:
 
@@ -240,14 +271,14 @@ Reassign post authors across any post type for E-E-A-T optimization:
 - Batch processing with progress tracking
 - Capped at 10,000 posts per operation
 
-### 9. Tools Dashboard
+### 11. Tools Dashboard
 
 - **Health Check**: 12-point diagnostic scan of all plugin features
 - **API Usage Tracking**: OpenAI tokens + DataForSEO cost monitoring
 - **Error Log**: Recent API errors with source, timestamp, post reference
 - **Bulk Operations**: Summary, FAQ, and Start Over with resume capability
 
-### 10. Headless WordPress Public API
+### 12. Headless WordPress Public API
 
 Production-grade read-only REST API built for headless WordPress — Next.js, Nuxt, Astro, SvelteKit, Gatsby, Faust.js, WPEngine Atlas, and any frontend where the backend domain is separate from the rendering layer.
 
@@ -267,29 +298,29 @@ Production-grade read-only REST API built for headless WordPress — Next.js, Nu
 
 **Enterprise features:**
 
-- **HTTP caching**: ETag (weak, payload + version hash), Last-Modified, `Cache-Control: public, s-maxage=N, stale-while-revalidate=86400`, automatic `304 Not Modified` on matching `If-None-Match` / `If-Modified-Since`
+- **HTTP caching**: ETag (weak, payload + version hash), Last-Modified, `Cache-Control: public, s-maxage=N, stale-while-revalidate=86400`, automatic `304 Not Modified`
 - **CORS hardening**: Allowlist from settings, `Vary: Origin`, `Access-Control-Expose-Headers: ETag, Last-Modified, X-RR-*`
 - **Rate limiting**: Transient per-IP (default 120 req/min, configurable), real IP detection via `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`, authenticated editors exempt, `429` + `Retry-After` on exceed
-- **On-Demand Revalidation**: Fire-and-forget POST to Next.js / Nuxt endpoint when FAQ / summary / schema changes. `blocking=>false, timeout=>0.01` so the editor flow never waits. `X-RR-Secret` header verified with `hash_equals()` on the frontend.
+- **On-Demand Revalidation**: Fire-and-forget POST to Next.js / Nuxt endpoint when FAQ / summary / schema changes. `blocking=>false, timeout=>0.01` so the editor flow never waits. `X-RR-Secret` header verified with `hash_equals()`
 - **WPGraphQL integration**: Conditional `rankReadyFaq`, `rankReadySummary`, `rankReadySchema` fields on every public post type when WPGraphQL is active
-- **Multilingual**: Polylang + WPML support — `lang` query arg on slug / list endpoints, translations map in combined payload
-- **RFC 7807 errors**: 4xx / 5xx responses on `/public/` routes transformed to `application/problem+json`
+- **Multilingual**: Polylang + WPML support — `lang` query arg on slug / list endpoints
+- **RFC 7807 errors**: 4xx / 5xx responses transformed to `application/problem+json`
 - **Security**: Per-page capped at 100, password-protected posts return 403, `hash_equals()` for secrets, no admin / PII in any response
 - **Observability**: `X-RR-Version`, `X-RR-Request-Id`, `X-RR-Cache` headers for debugging
 
-**Off by default.** Enable in `RankReady > Headless` tab. Configure CORS origins, cache TTL, rate limit, revalidate webhook URL + secret, and optional WPGraphQL fields.
+**Off by default.** Enable in `RankReady > Headless` tab.
 
-### 11. EEAT Author Box with Person JSON-LD Schema
+### 13. EEAT Author Box with Person JSON-LD Schema
 
-A full EEAT author identity system that maps every profile field directly to Schema.org Person data. Built for AI citation — the 2026 citation research is clear that authors with verifiable identity, structured credentials, and priority-ordered `sameAs` links get cited ~23% more by Perplexity and show up dramatically more in Google AI Overviews.
+A full EEAT author identity system that maps every profile field directly to Schema.org Person data. Built for AI citation — authors with verifiable identity, structured credentials, and priority-ordered `sameAs` links get cited significantly more by Perplexity and Google AI Overviews.
 
 **How it works:**
 
-1. **Fill the author profile** — Every WordPress user gets a new "RankReady Author Box" section on `user-edit.php` with 23 schema-mapped fields (job title, employer, bio, headshot, started year, topics of expertise, credentials suffix, education repeater, certifications repeater, memberships repeater, awards repeater, Wikidata QID, Wikipedia, ORCID, Google Scholar, LinkedIn, GitHub, YouTube, X, personal site, contact form URL). Every field has an inline description explaining what EEAT signal it emits.
+1. **Fill the author profile** — Every WordPress user gets a new "RankReady Author Box" section on `user-edit.php` with 23 schema-mapped fields (job title, employer, bio, headshot, started year, topics of expertise, credentials suffix, education repeater, certifications repeater, memberships repeater, awards repeater, Wikidata QID, Wikipedia, ORCID, Google Scholar, LinkedIn, GitHub, YouTube, X, personal site, contact form URL).
 
 2. **Add the block or widget** — Insert the `RankReady Author Box` Gutenberg block or the matching Elementor widget on any post, or enable auto-display globally from `RankReady → Author Box` settings.
 
-3. **RankReady emits Person JSON-LD** — On every article the author appears in `Article.author` as a full Person node with `jobTitle`, `worksFor` (Organization), `description`, `image`, `knowsAbout`, `sameAs`, `alumniOf`, `hasCredential`, `memberOf`, `award`, `contactPoint`, `publishingPrinciples`, and `identifier` PropertyValue for both ORCID and Wikidata. On `is_author()` archive pages, a `ProfilePage { mainEntity: Person }` node is emitted via `wp_head` (zero visible template override — RankReady never overrides author archive templates).
+3. **RankReady emits Person JSON-LD** — On every article the author appears in `Article.author` as a full Person node with `jobTitle`, `worksFor` (Organization), `description`, `image`, `knowsAbout`, `sameAs`, `alumniOf`, `hasCredential`, `memberOf`, `award`, `contactPoint`, `publishingPrinciples`, and `identifier` PropertyValue for both ORCID and Wikidata.
 
 **Priority-ordered `sameAs`** (research-backed):
 
@@ -297,46 +328,34 @@ A full EEAT author identity system that maps every profile field directly to Sch
 Wikidata → Wikipedia → ORCID → Google Scholar → LinkedIn → GitHub → YouTube → X → personal site
 ```
 
-The first three are the canonical entity anchors LLMs actually reuse. Wikidata URIs get the #1 slot because Wikidata QIDs are what Google's Knowledge Graph and every major LLM internally resolve entities against.
+The first three are the canonical entity anchors LLMs actually reuse. Wikidata QIDs are what Google's Knowledge Graph and every major LLM internally resolve entities against.
 
-**ORCID dual emission** — When ORCID is set, RankReady emits both the orcid.org URL in `sameAs` AND an `identifier` PropertyValue with `propertyID: "ORCID"`. This two-channel emission significantly improves disambiguation in academic citation contexts.
-
-**Per-post Author Trust fields** — Post editor sidebar gets a new panel with three fields, all backed by registered post meta exposed to the block editor:
+**Per-post Author Trust fields:**
 
 - **Fact-checked by** (user picker) → `Article.reviewedBy[]`
 - **Reviewed by** (user picker) → `Article.reviewedBy[]`
 - **Last reviewed** (date) → `Article.lastReviewed`
 
-Both reviewer fields serialize into `reviewedBy[]` as full Person nodes (each carries their own credentials, sameAs, memberOf, award), and both also render in the Author Box display as a "Fact-checked by X · Reviewed by Y · Last reviewed [date]" line (Healthline pattern).
-
-**Zero schema conflict with other SEO plugins** — RankReady never emits a duplicate Person node. When Rank Math, Yoast SEO, AIOSEO, SEOPress, The SEO Framework, or Slim SEO is active, RankReady hooks into each plugin's schema graph filter and **enhances the existing Person node in place** with its own `sameAs`, `knowsAbout`, `alumniOf`, `hasCredential`, `memberOf`, `award` — never overwriting existing fields. When no SEO plugin is active, RankReady emits its own Person node inline on articles plus a `ProfilePage` on author archives.
+**Zero schema conflict with other SEO plugins** — When Rank Math, Yoast SEO, AIOSEO, SEOPress, The SEO Framework, or Slim SEO is active, RankReady hooks into each plugin's schema graph filter and **enhances the existing Person node in place** — never overwriting existing fields.
 
 **Three layouts:**
 
-- **Card** — Full end-of-article box: 96px headshot, name + credentials suffix, job title + employer + years of experience, bio, topics of expertise pills, education + certifications rows, social icons, reviewed-by line, editorial policy + fact-check footer links
-- **Compact** — Small sidebar-ready variant: 64px headshot, condensed byline, bio, social icons
-- **Inline byline** — Healthline-style above-the-fold row: 40px headshot, "By [Name]" + job title + reviewed-by line, no bio/credentials/box
+- **Card** — Full end-of-article box: headshot, name + credentials, job title + employer + years, bio, expertise pills, education + certifications, social icons, reviewed-by line, editorial policy links
+- **Compact** — Small sidebar-ready variant: condensed byline, bio, social icons
+- **Inline byline** — Healthline-style above-the-fold row: "By [Name]" + job title + reviewed-by line
 
-**Configurable fields per block/widget** — Every section (headshot, job title, employer, years of experience, bio, expertise tags, credentials, social icons, reviewed-by) has an individual toggle so you can build a minimal byline or a maximal card from the same data source.
+### 14. Gutenberg Typography Parity with theme.json Global Fonts
 
-### 12. Gutenberg Typography Parity with theme.json Global Fonts
+The Gutenberg Summary, FAQ, and Author Box blocks ship full typography controls. Every text layer exposes:
 
-The Gutenberg Summary, FAQ, and Author Box blocks ship full typography controls that previously only existed in the Elementor widgets. Every text layer (Summary label, Summary bullets, FAQ question, FAQ answer, Author Box heading, name, meta, bio) exposes:
-
-- **Font Family** — Dropdown populated from `wp.data.select('core/block-editor').getSettings().__experimentalFeatures.typography.fontFamilies`, reading the Theme, Custom, and Default groups. Any block theme that registers global fonts via `theme.json` shows up automatically — **Kadence, Astra, GeneratePress, Twenty Twenty-Four, and every other block theme** — with a `"Theme — Inter"` / `"Custom — Space Grotesk"` label so you can see which group each font comes from.
+- **Font Family** — Reads `theme.json` global fonts automatically. Kadence, Astra, GeneratePress, Twenty Twenty-Four, and every block theme show up with `"Theme — Inter"` / `"Custom — Space Grotesk"` labels
 - **Font Weight** — 100 Thin through 900 Black
-- **Font Size (px)** — with `0 = inherit from theme` semantics so you can leave it on the theme default
-- **Line Height**
-- **Letter Spacing (px)** — on Summary label and bullets
-- **Text Transform** — none / uppercase / lowercase / capitalize on Summary label
-
-Every new control carries an inline `help:` description so end users don't have to guess what each one does. Backwards compatible — unset values cascade to the theme.
+- **Font Size (px)** — with `0 = inherit from theme` semantics
+- **Line Height**, **Letter Spacing**, **Text Transform**
 
 ---
 
 ## Schema Auto-Detection: How It Decides
-
-RankReady reads your post title and content, then picks the right schema automatically:
 
 ```
 Post Published/Updated
@@ -362,7 +381,7 @@ Post Published/Updated
           |-- NO  -> Skip
 ```
 
-**Every schema type has duplicate detection.** RankReady never conflicts with Rank Math, Yoast, or AIOSEO. If a competing plugin already handles a schema type, RankReady steps aside.
+**Every schema type has duplicate detection.** RankReady never conflicts with Rank Math, Yoast, or AIOSEO.
 
 ---
 
@@ -376,17 +395,22 @@ AI Crawler visits your site
     |     |-- Allow: /llms-full.txt
     |     |-- Allow: /*.md$
     |
-    |-- /llms.txt (structured site index)
+    |-- /llms.txt (structured site index)        ← hit logged to AI Crawler Access Log
     |     |-- Links to every published post
     |     |-- Links to /llms-full.txt
     |
-    |-- /llms-full.txt (full content dump)
+    |-- /llms-full.txt (full content dump)       ← hit logged to AI Crawler Access Log
     |     |-- Every post as inline markdown
     |
-    |-- /any-post.md (per-post markdown)
+    |-- /any-post.md (per-post markdown)         ← hit logged with post_id + post_type
     |     |-- YAML frontmatter
     |     |-- AI Summary (key takeaways)
     |     |-- Clean content
+    |     |-- Cache bypass headers (CF APO, Varnish, nginx, all WP caches)
+    |
+    |-- Homepage (Accept: text/markdown)         ← hit logged as 'homepage' type
+    |     |-- Cache bypass headers force CDN to serve PHP response
+    |     |-- Returns site overview as markdown
     |
     |-- HTML page
           |-- Article JSON-LD + Speakable schema
@@ -395,14 +419,11 @@ AI Crawler visits your site
           |-- ItemList JSON-LD (if listicle post)
           |-- <link rel="alternate" type="text/markdown">
           |-- Link HTTP header to .md version
-          |-- Accept: text/markdown negotiation
 ```
 
 ---
 
-## AI Standards Implemented (v0.6.4)
-
-RankReady implements the following AI/LLM web standards. Each entry includes the spec status so you know exactly what is standardized versus community convention.
+## AI Standards Implemented
 
 | Standard | Endpoint / Mechanism | Spec Status |
 |----------|---------------------|-------------|
@@ -410,18 +431,13 @@ RankReady implements the following AI/LLM web standards. Each entry includes the
 | **Markdown content negotiation** | `Accept: text/markdown` → `Content-Type: text/markdown` + `Vary: Accept` | RFC 9110 §12 (fully standardized) |
 | **Markdown URL endpoints** | `/post-slug.md` → clean markdown | llmstxt.org convention (not a formal standard) |
 | **Content Signals** | `ai-train`, `search`, `ai-input` in robots.txt | IETF Internet Draft (contentsignals.org — not yet RFC) |
-| **AI Crawler robots.txt** | Per-bot Allow/Disallow via RFC 9309 | RFC 9309 (fully standardized) |
-| **Agent Skills** | `/.well-known/agent-skills/index.json` | Draft — no ratified spec. Format based on isitagentready.com expectations. |
-| **API Catalog** | `/.well-known/api-catalog` (`application/linkset+json`) | RFC 9727 + RFC 9264 (fully standardized) |
-| **Discovery Link headers** | `Link: </llms.txt>; rel="llms-txt"` etc. | RFC 8288 (standardized). `rel="llms-txt"`, `rel="llms-full-txt"`, `rel="sitemap"` are NOT IANA-registered — community conventions. |
+| **AI Crawler robots.txt** | Per-bot Allow/Disallow | RFC 9309 (fully standardized) |
+| **Discovery Link headers** | `Link: </llms.txt>; rel="llms-txt"` etc. | RFC 8288 (standardized). Specific `rel` values are community conventions, not IANA-registered. |
 | **Article + Speakable JSON-LD** | `<script type="application/ld+json">` | schema.org/Article + SpeakableSpecification (Google-supported) |
 | **FAQPage JSON-LD** | `<script type="application/ld+json">` | schema.org/FAQPage (Google rich results) |
+| **Multi-layer cache bypass** | Response headers per CDN + WP cache plugin | Various (HTTP/1.1 RFC 9111 + vendor-specific directives) |
 
-**Honest assessment**: The maximum achievable score on isitagentready.com for a content site is ~55-60/100. The remaining checks require live MCP servers, OAuth infrastructure, or payment endpoints that don't apply to WordPress content sites.
-
-**Cloudflare WAF note**: `/.well-known/agent-skills/index.json` and `/.well-known/api-catalog` return 403 on sites behind Cloudflare proxy without a WAF bypass rule for `/.well-known/*`. This is a Cloudflare configuration issue, not a plugin bug.
-
-See [`AI-Standards-Whitepaper.md`](AI-Standards-Whitepaper.md) for full spec citations, correct implementation notes, and known limitations.
+**Honest assessment**: The maximum achievable score on isitagentready.com for a content site is ~55-60/100. The remaining checks require live MCP servers, OAuth infrastructure, or payment endpoints that don't apply to standard WordPress content sites.
 
 ---
 
@@ -439,7 +455,7 @@ Every install of RankReady auto-updates from the GitHub releases on this repo. *
    |  2. Stage rankready/ folder (rsync, exclude .git/.github)   |
    |  3. Build rankready-X.Y.Z.zip with correct folder structure |
    |  4. Extract changelog section for X.Y.Z                     |
-   |  5. Create GitHub release, attach the zip                   |
+   |  5. Create GitHub Release, attach the zip                   |
    +-------------------------------------------------------------+
                                       |
                                       v
@@ -453,13 +469,11 @@ Every install of RankReady auto-updates from the GitHub releases on this repo. *
    +-------------------------------------------------------------+
 ```
 
-PUC is bundled inside `vendor/plugin-update-checker/` and wired in `rankready.php`. It uses GitHub's anonymous public API (60 requests/hour limit — way more than enough for daily checks). To force an immediate check on a site, visit:
+PUC is bundled inside `vendor/plugin-update-checker/`. To force an immediate check on a site:
 
 ```
 /wp-admin/plugins.php?puc_check_for_updates=1&puc_slug=rankready
 ```
-
-**License gating roadmap.** When v1.0 ships with paid Pro features, the same PUC integration will accept an optional license key parameter. Free features will keep updating from public releases for everyone. Paid Pro features will validate the license key at runtime and unlock additional functionality. The update mechanism itself stays free and public.
 
 ---
 
@@ -472,10 +486,10 @@ PUC is bundled inside `vendor/plugin-update-checker/` and wired in `rankready.ph
    - **Settings tab**: OpenAI key + DataForSEO credentials
    - **Content AI tab**: AI Summary and FAQ Generator — post types, prompts, brand terms, auto-generate toggles
    - **Authority tab**: Author Box EEAT profile fields, layouts, typography
-   - **AI Crawlers tab**: LLMs.txt, Markdown endpoints, per-bot robots.txt controls
+   - **AI Crawlers tab**: LLMs.txt, Markdown endpoints, per-bot robots.txt controls, AI Crawler Access Log
    - **Advanced tab**: Bulk operations, freshness alerts, health check, headless API
 
-After install, future updates appear inline in WP Admin → Plugins like any plugin from wordpress.org. Click "update now" and it installs the latest GitHub release zip automatically.
+After install, future updates appear inline in WP Admin → Plugins like any plugin from wordpress.org.
 
 ---
 
@@ -498,9 +512,9 @@ After install, future updates appear inline in WP Admin → Plugins like any plu
 - Bulk operations capped at 10,000 posts
 - Physical robots.txt managed via WP_Filesystem API
 - Multisite guard on robots.txt sync
-- `flush_rewrite_rules()` deferred to `init` hook (prevents corrupting other plugins' rules)
-- Clean uninstall removes all options and post meta
-- Duplicate-install guard — if two RankReady folders end up in the plugins directory, the second copy bails out cleanly with an admin notice instead of fataling the site
+- `flush_rewrite_rules()` deferred to `init` hook
+- Clean uninstall removes all options and post meta (opt-in, off by default)
+- Duplicate-install guard — second copy bails out cleanly with an admin notice
 
 ---
 
@@ -519,8 +533,11 @@ After install, future updates appear inline in WP Admin → Plugins like any plu
 - Elementor widgets (Summary + FAQ + Author Box) with native `Group_Control_Typography`
 - Auto-display above or below content
 
-**Block Themes with Global Font Support** (tested — fonts registered via `theme.json` appear automatically in the Gutenberg Author Box / Summary / FAQ blocks):
-- Kadence, Astra, GeneratePress, Twenty Twenty-Four, Twenty Twenty-Three, Blocksy, Hello Elementor, and any theme that registers fonts in `theme.json`
+**Cache Plugins** (full purge + bypass support):
+- WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache, WP Fastest Cache, Cloudflare WP plugin, Nginx Helper, SG Optimizer, Breeze, Hummingbird, Cache Enabler, Comet Cache, Swift Performance, Autoptimize, Pantheon
+
+**CDNs** (bypass headers on all markdown + llms.txt responses):
+- Cloudflare (APO + non-APO), BunnyCDN, Varnish, Fastly, Akamai, nginx FastCGI
 
 ---
 
@@ -568,7 +585,7 @@ $person = RR_Author_Box::build_person_schema( $user_id );
 echo RR_Author_Box::render_html(
     $user_id,
     array(
-        'layout'         => 'card',         // card | compact | inline
+        'layout'         => 'card',   // card | compact | inline
         'showHeadshot'   => true,
         'showBio'        => true,
         'showCredentials'=> true,
@@ -586,8 +603,9 @@ All profile fields are registered user meta with `show_in_rest => true`, so the 
 ## Roadmap to v1.0
 
 - **v0.5.x** — Internal dev releases. Feature-complete free plugin. Public repo, public auto-updates, no licensing.
-- **v0.6 – v0.9** — Add AI Crawler Analytics dashboard, LLM Citation Tracking (via DataForSEO `ai_optimization_llm_mentions`), Content AI-Readiness Score, Bing ranking gap analysis.
-- **v1.0** — Public launch. Same free plugin everyone gets today + paid Pro features gated by license key. License keys validated at runtime by the same plugin. Updates stay free and public for the free version. Pro features stay locked unless a valid key is present.
+- **v0.6.x** — AI Crawler Analytics dashboard, CPT-level bot tracking, multi-layer cache bypass, markdown content negotiation hardening, DB schema optimization. *(Current)*
+- **v0.7 – v0.9** — LLM Citation Tracking (via DataForSEO `ai_optimization_llm_mentions`), Content AI-Readiness Score, Bing ranking gap analysis, Answer-First Content Optimizer.
+- **v1.0** — Public launch. Same free plugin everyone gets today + paid Pro features gated by license key. License keys validated at runtime. Updates stay free and public for the free version.
 
 License gating in v1.0 is **runtime, not download-time**. The same zip is shipped to free users and paid users. The license key only changes which features activate.
 
@@ -610,8 +628,6 @@ RankReady follows [Semantic Versioning](https://semver.org/). Version numbers li
 
 ### Automated release
 
-A GitHub Actions workflow (`.github/workflows/release.yml`) watches for version tags and handles everything else automatically. The full release flow is:
-
 ```bash
 # 1. Bump version in the three files above, commit
 git commit -am "vX.Y.Z: <one-line summary>"
@@ -621,14 +637,7 @@ git tag vX.Y.Z
 git push origin main --follow-tags
 ```
 
-The workflow will:
-1. Verify header Version, `RR_VERSION` constant, and readme.txt Stable tag all match the pushed tag (fails fast on mismatch)
-2. Extract the matching section from `CHANGELOG.md` as the release notes
-3. Build a clean `rankready-X.Y.Z.zip` (excludes `.git`, `.github`, dev configs)
-4. Create a GitHub Release with the zip attached
-5. PUC on every install picks up the new release on its next daily poll and surfaces it as an inline plugin update
-
-Tag patterns that trigger it: `0.5.1`, `1.0.0`, `v0.5.1`, etc.
+The GitHub Actions workflow (`.github/workflows/release.yml`) handles the rest: validates version sync, extracts changelog section, builds a clean `rankready-X.Y.Z.zip`, creates the GitHub Release. PUC on every install picks up the new release on its next daily poll.
 
 ---
 

@@ -243,11 +243,20 @@ class RR_Markdown {
 		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
 			return;
 		}
-		// Only add Vary on cacheable front-end responses, not admin/REST.
 		if ( is_admin() || defined( 'REST_REQUEST' ) ) {
 			return;
 		}
 		header( 'Vary: Accept', false );
+
+		// Homepage only: tell Cloudflare (and any CDN) not to cache this response.
+		// Cloudflare APO ignores Vary: Accept, so without this it serves cached HTML
+		// to agents sending Accept: text/markdown. CDN-Cache-Control: no-store is
+		// Cloudflare-specific and does not affect browser caching.
+		// After one cache purge this makes every homepage request reach PHP so
+		// content negotiation works without any Cloudflare Cache Rule.
+		if ( is_front_page() || is_home() ) {
+			header( 'CDN-Cache-Control: no-store' );
+		}
 	}
 
 	// ── Link tag + header to .md version ─────────────────────────────────────
@@ -335,7 +344,10 @@ class RR_Markdown {
 	private static function serve_markdown( string $markdown, string $canonical_url ): void {
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/markdown; charset=utf-8' );
-		header( 'Cache-Control: public, max-age=3600' );
+		// no-store prevents CDN/proxy caches from serving a stale markdown response to HTML clients.
+		header( 'Cache-Control: no-store' );
+		header( 'CDN-Cache-Control: no-store' );
+		header( 'x-markdown-source: accept' );
 		header( 'Link: <' . esc_url( $canonical_url ) . '>; rel="canonical"', false );
 		header( 'Vary: Accept' );
 

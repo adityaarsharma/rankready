@@ -4,7 +4,7 @@ Tags: llm seo, ai seo, llms.txt, schema markup, eeat, ai overviews, chatgpt, per
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.6.0
+Stable tag: 0.6.7.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,6 +35,28 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 5. Configure LLMs.txt and Markdown in the LLM Optimization tab.
 
 == Changelog ==
+
+= 0.6.7.0 =
+* New: CPT-aware bot tracking — every crawler hit now records the exact post/page/CPT that was read (post_id, post_type, post_title) via DB schema v2. Enables per-content-type analytics.
+* New: AI Crawler Access Log admin panel rewritten with five organized sections: (1) summary strip with 6 stat cards (Hits 30d/7d, unique bots, unique pages, llms.txt hits, markdown hits), (2) per-bot expandable grid with endpoint column breakdown and top 5 pages per bot, (3) CPT bar chart showing hits and unique post counts by post type, (4) top pages table with "Read by" bot badge chips showing which bots read each piece of content, (5) collapsible live hit log with full columns.
+* Fix: Markdown log calls in class-rr-markdown.php now log AFTER post resolution and pass the WP_Post object — previously logged before resolution so no post metadata was captured.
+* Fix: handle_accept_header() singular post path now logs bot hits — was previously unlogged.
+
+= 0.6.6.0 =
+* New: AI crawler access log — auto-detects 25 known AI/LLM bots and logs every hit to llms.txt, llms-full.txt, .md URLs, and homepage markdown requests to a custom DB table. Zero config.
+* New: AI Crawlers tab shows total hits, unique bots, per-bot breakdown with endpoint counts, top URLs, and collapsible live hit log.
+* Data auto-pruned after 90 days via daily WP-Cron.
+
+= 0.6.5.5 =
+* New: Centralized cache layer utility (RR_Cache) covering Cloudflare APO, Varnish/Fastly, Akamai, nginx FastCGI, WP Rocket, LiteSpeed, W3TC, WP Super Cache, WP Fastest Cache, Breeze, SG Optimizer, Hummingbird, Comet Cache, Cache Enabler, Swift Performance, and Pantheon.
+* New: RR_Cache::no_cache_headers() sets all CDN + page-cache bypass headers in a single call.
+* New: RR_Cache::purge_url() and purge_all() cover all active cache layers.
+
+= 0.6.5.4 =
+* Fix: Homepage markdown negotiation broken behind Cloudflare APO — added cf-edge-cache: no-cache (APO-specific bypass directive) so APO stops caching the homepage. No Cloudflare dashboard config required.
+
+= 0.6.5.3 =
+* Removed: Agent Skills and API Catalog endpoints deleted. These were blocked by Cloudflare on content sites and serve no purpose for standard WordPress installations.
 
 = 0.6.4.7 =
 * Fix: Accept header content negotiation now parses q-values correctly per RFC 9110 — if a client sends Accept: text/html;q=0.9, text/markdown;q=0.5, WordPress HTML is served (higher q wins). Previously markdown was always served whenever text/markdown appeared anywhere in the Accept string.

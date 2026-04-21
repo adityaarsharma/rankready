@@ -108,10 +108,7 @@ class RR_Markdown {
 			exit;
 		}
 
-		// Log AI bot hit for .md URL endpoint.
-		RR_Crawler_Log::log( 'markdown' );
-
-		// Resolve the path to a post.
+		// Resolve the path to a post first so we can pass it to the logger.
 		$post = self::resolve_post_from_path( $md_path );
 
 		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
@@ -129,6 +126,9 @@ class RR_Markdown {
 			echo '# 404 Not Found';
 			exit;
 		}
+
+		// Log with the resolved post so CPT, title, and ID are captured.
+		RR_Crawler_Log::log( 'markdown', $post );
 
 		$cache_key = 'rr_md_' . $post->ID . '_' . strtotime( $post->post_modified );
 		$markdown  = get_transient( $cache_key );
@@ -209,6 +209,9 @@ class RR_Markdown {
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
 			return;
 		}
+
+		// Log Accept-header markdown hit with the resolved post (CPT + title captured).
+		RR_Crawler_Log::log( 'markdown', $post );
 
 		$cache_key = 'rr_md_' . $post->ID . '_' . strtotime( $post->post_modified );
 		$markdown  = get_transient( $cache_key );

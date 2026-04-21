@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7.0] - 2026-04-21
+
+### Added
+- CPT-aware bot tracking: `wp_rr_crawler_log` DB schema v2 adds `post_id`, `post_type`, `post_title` columns so every crawler hit is linked to the exact post/page/CPT that was read.
+- `RR_Crawler_Log::get_bot_top_pages()` — top 5 pages read by a specific bot, grouped by post.
+- `RR_Crawler_Log::get_cpt_stats()` — hit counts and unique post counts grouped by WordPress post type (CPT breakdown).
+- `RR_Crawler_Log::get_top_pages()` — top pages across all bots with `bots_csv` (pipe-separated list of which bots read each page).
+- `RR_Crawler_Log::get_endpoint_totals()` — per-endpoint totals (llms.txt, llms-full.txt, .md URL, homepage .md) for the summary strip.
+- `RR_Crawler_Log::get_unique_pages()` — count of distinct post IDs crawled within a time window.
+
+### Changed
+- `RR_Crawler_Log::log()` signature updated to `log( string $endpoint, ?WP_Post $post = null )` — callers pass the already-resolved WP_Post so post metadata is stored without a second URL resolution.
+- `RR_Crawler_Log::get_bot_stats()` now includes `unique_pages` via `COUNT(DISTINCT NULLIF(post_id, 0))`.
+- `handle_request()` in `class-rr-markdown.php` now logs AFTER post resolution and passes `$post` object — previously logged before resolution so no post metadata was captured.
+- `handle_accept_header()` singular post path now logs bot hits — was previously unlogged.
+- AI Crawler Access Log admin panel rewritten with five organized sections: (1) summary strip with 6 stat cards, (2) per-bot expandable grid with endpoint column breakdown and top 5 pages per bot, (3) CPT bar chart with unique post counts, (4) top pages table with "Read by" bot badge chips, (5) collapsible live hit log with full columns (Time, Bot, Endpoint, Type, Page/Post, URL).
+
 ## [0.6.6.0] - 2026-04-21
 
 ### Added

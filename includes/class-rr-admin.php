@@ -1775,117 +1775,245 @@ class RR_Admin {
 
 		<!-- ── AI Crawler Access Log ─────────────────────────────────────── -->
 		<?php
-		$bot_stats    = RR_Crawler_Log::get_bot_stats( 30 );
-		$recent_hits  = RR_Crawler_Log::get_recent_hits( 30 );
-		$total_30d    = RR_Crawler_Log::get_total( 30 );
-		$total_7d     = RR_Crawler_Log::get_total( 7 );
-		$top_urls     = RR_Crawler_Log::get_top_urls( 30, 5 );
-		$ep_labels    = RR_Crawler_Log::ENDPOINT_LABELS;
+		$ep_labels     = RR_Crawler_Log::ENDPOINT_LABELS;
+		$total_30d     = RR_Crawler_Log::get_total( 30 );
+		$total_7d      = RR_Crawler_Log::get_total( 7 );
+		$unique_pages  = RR_Crawler_Log::get_unique_pages( 30 );
+		$bot_stats     = RR_Crawler_Log::get_bot_stats( 30 );
+		$cpt_stats     = RR_Crawler_Log::get_cpt_stats( 30 );
+		$top_pages     = RR_Crawler_Log::get_top_pages( 30, 15 );
+		$ep_totals     = RR_Crawler_Log::get_endpoint_totals( 30 );
+		$recent_hits   = RR_Crawler_Log::get_recent_hits( 40 );
+		$cpt_max       = empty( $cpt_stats ) ? 1 : max( array_column( $cpt_stats, 'total' ) );
 		?>
+
 		<div class="rr-card" style="margin-bottom:24px;">
 			<h2 class="rr-card-title"><?php esc_html_e( 'AI Crawler Access Log', 'rankready' ); ?></h2>
-			<p class="rr-card-desc"><?php esc_html_e( 'Tracks which AI bots are reading your llms.txt, Markdown endpoints, and homepage markdown. Only known AI crawlers are logged — regular visitors are ignored. 90-day retention.', 'rankready' ); ?></p>
+			<p class="rr-card-desc"><?php esc_html_e( 'Real-time tracking of known AI bots reading your llms.txt, Markdown, and homepage endpoints. Logs CPT, post title, and URL per hit. 90-day retention, auto-pruned daily.', 'rankready' ); ?></p>
 
-			<!-- Summary row -->
-			<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;">
-				<div style="background:#f0f6fc;border:1px solid #c3d4e4;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;">
-					<div style="font-size:28px;font-weight:700;color:#0a3862;line-height:1;"><?php echo esc_html( number_format( $total_30d ) ); ?></div>
-					<div style="font-size:11px;color:#646970;margin-top:4px;"><?php esc_html_e( 'Hits last 30 days', 'rankready' ); ?></div>
+			<!-- ① Summary strip ──────────────────────────────────────────── -->
+			<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
+				<?php
+				$cards = array(
+					array( 'val' => number_format( $total_30d ),    'label' => __( 'Hits — 30 days', 'rankready' ) ),
+					array( 'val' => number_format( $total_7d ),     'label' => __( 'Hits — 7 days', 'rankready' ) ),
+					array( 'val' => count( $bot_stats ),            'label' => __( 'Unique bots', 'rankready' ) ),
+					array( 'val' => number_format( $unique_pages ),  'label' => __( 'Unique pages read', 'rankready' ) ),
+					array( 'val' => number_format( $ep_totals['llms_txt'] ),  'label' => __( 'llms.txt hits', 'rankready' ) ),
+					array( 'val' => number_format( $ep_totals['markdown'] + $ep_totals['home_md'] ), 'label' => __( 'Markdown hits', 'rankready' ) ),
+				);
+				foreach ( $cards as $c ) :
+				?>
+				<div style="background:#f6f7f7;border:1px solid #dcdcde;border-radius:6px;padding:12px 18px;min-width:110px;text-align:center;flex:1;">
+					<div style="font-size:26px;font-weight:700;color:#1d2327;line-height:1.1;"><?php echo esc_html( $c['val'] ); ?></div>
+					<div style="font-size:11px;color:#646970;margin-top:3px;"><?php echo esc_html( $c['label'] ); ?></div>
 				</div>
-				<div style="background:#f0f6fc;border:1px solid #c3d4e4;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;">
-					<div style="font-size:28px;font-weight:700;color:#0a3862;line-height:1;"><?php echo esc_html( number_format( $total_7d ) ); ?></div>
-					<div style="font-size:11px;color:#646970;margin-top:4px;"><?php esc_html_e( 'Hits last 7 days', 'rankready' ); ?></div>
-				</div>
-				<div style="background:#f0f6fc;border:1px solid #c3d4e4;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;">
-					<div style="font-size:28px;font-weight:700;color:#0a3862;line-height:1;"><?php echo esc_html( count( $bot_stats ) ); ?></div>
-					<div style="font-size:11px;color:#646970;margin-top:4px;"><?php esc_html_e( 'Unique bots (30d)', 'rankready' ); ?></div>
-				</div>
+				<?php endforeach; ?>
 			</div>
 
 			<?php if ( empty( $bot_stats ) ) : ?>
-				<p style="color:#646970;font-style:italic;"><?php esc_html_e( 'No AI crawler visits recorded yet. Hits will appear here once a known bot accesses your llms.txt, Markdown, or homepage endpoints.', 'rankready' ); ?></p>
+				<p style="color:#646970;font-style:italic;padding:12px 0;"><?php esc_html_e( 'No AI crawler visits recorded yet. Once a known bot hits your llms.txt, .md, or homepage endpoints the data appears here automatically.', 'rankready' ); ?></p>
 			<?php else : ?>
 
-				<!-- Per-bot breakdown -->
-				<h3 style="margin:0 0 8px;font-size:13px;font-weight:600;color:#1d2327;"><?php esc_html_e( 'Visits by Bot — Last 30 Days', 'rankready' ); ?></h3>
-				<table class="wp-list-table widefat fixed striped" style="margin-bottom:20px;">
-					<thead>
-						<tr>
-							<th><?php esc_html_e( 'Bot', 'rankready' ); ?></th>
-							<th style="width:80px;text-align:center;"><?php esc_html_e( 'Total', 'rankready' ); ?></th>
-							<th style="width:90px;text-align:center;"><?php esc_html_e( 'llms.txt', 'rankready' ); ?></th>
-							<th style="width:100px;text-align:center;"><?php esc_html_e( 'llms-full', 'rankready' ); ?></th>
-							<th style="width:90px;text-align:center;"><?php esc_html_e( '.md URLs', 'rankready' ); ?></th>
-							<th style="width:100px;text-align:center;"><?php esc_html_e( 'Home .md', 'rankready' ); ?></th>
-							<th style="width:130px;"><?php esc_html_e( 'Last Seen', 'rankready' ); ?></th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ( $bot_stats as $row ) : ?>
-						<tr>
-							<td><strong><?php echo esc_html( $row['bot_name'] ); ?></strong></td>
-							<td style="text-align:center;font-weight:600;"><?php echo esc_html( number_format( (int) $row['total'] ) ); ?></td>
-							<td style="text-align:center;"><?php echo esc_html( (int) $row['llms_txt'] ?: '—' ); ?></td>
-							<td style="text-align:center;"><?php echo esc_html( (int) $row['llms_full'] ?: '—' ); ?></td>
-							<td style="text-align:center;"><?php echo esc_html( (int) $row['markdown'] ?: '—' ); ?></td>
-							<td style="text-align:center;"><?php echo esc_html( (int) $row['home_md'] ?: '—' ); ?></td>
-							<td style="color:#646970;font-size:12px;"><?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $row['last_seen'] ) ) ); ?></td>
-						</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
-
-				<!-- Top URLs -->
-				<?php if ( ! empty( $top_urls ) ) : ?>
-				<h3 style="margin:0 0 8px;font-size:13px;font-weight:600;color:#1d2327;"><?php esc_html_e( 'Most-Read URLs — Last 30 Days', 'rankready' ); ?></h3>
-				<table class="wp-list-table widefat fixed striped" style="margin-bottom:20px;">
-					<thead>
-						<tr>
-							<th><?php esc_html_e( 'URL', 'rankready' ); ?></th>
-							<th style="width:110px;"><?php esc_html_e( 'Endpoint', 'rankready' ); ?></th>
-							<th style="width:80px;text-align:center;"><?php esc_html_e( 'Hits', 'rankready' ); ?></th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ( $top_urls as $row ) : ?>
-						<tr>
-							<td><code style="font-size:11px;"><?php echo esc_html( $row['url_path'] ); ?></code></td>
-							<td><?php echo esc_html( $ep_labels[ $row['endpoint'] ] ?? $row['endpoint'] ); ?></td>
-							<td style="text-align:center;font-weight:600;"><?php echo esc_html( number_format( (int) $row['total'] ) ); ?></td>
-						</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
-				<?php endif; ?>
-
-				<!-- Recent hits live log -->
-				<?php if ( ! empty( $recent_hits ) ) : ?>
-				<details>
-					<summary style="cursor:pointer;font-size:13px;font-weight:600;color:#1d2327;margin-bottom:8px;"><?php esc_html_e( 'Recent Hits (last 30 entries)', 'rankready' ); ?></summary>
-					<table class="wp-list-table widefat fixed striped" style="margin-top:8px;">
-						<thead>
-							<tr>
-								<th style="width:145px;"><?php esc_html_e( 'Time', 'rankready' ); ?></th>
-								<th><?php esc_html_e( 'Bot', 'rankready' ); ?></th>
-								<th style="width:100px;"><?php esc_html_e( 'Endpoint', 'rankready' ); ?></th>
-								<th><?php esc_html_e( 'URL', 'rankready' ); ?></th>
-							</tr>
-						</thead>
-						<tbody>
-							<?php foreach ( $recent_hits as $hit ) : ?>
-							<tr>
-								<td style="font-size:11px;color:#646970;"><?php echo esc_html( wp_date( 'Y-m-d H:i', strtotime( $hit['logged_at'] ) ) ); ?></td>
-								<td style="font-size:12px;"><?php echo esc_html( $hit['bot_name'] ); ?></td>
-								<td style="font-size:12px;"><?php echo esc_html( $ep_labels[ $hit['endpoint'] ] ?? $hit['endpoint'] ); ?></td>
-								<td><code style="font-size:11px;"><?php echo esc_html( $hit['url_path'] ); ?></code></td>
-							</tr>
-							<?php endforeach; ?>
-						</tbody>
-					</table>
+			<!-- ② By Bot — expandable rows ──────────────────────────────── -->
+			<h3 style="font-size:13px;font-weight:600;color:#1d2327;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;"><?php esc_html_e( 'By Bot', 'rankready' ); ?></h3>
+			<div style="border:1px solid #dcdcde;border-radius:6px;overflow:hidden;margin-bottom:24px;">
+				<!-- header row -->
+				<div style="display:grid;grid-template-columns:1fr 70px 80px 80px 75px 75px 80px 130px;gap:0;background:#f6f7f7;border-bottom:1px solid #dcdcde;padding:7px 12px;font-size:11px;font-weight:600;color:#646970;text-transform:uppercase;letter-spacing:.03em;">
+					<span><?php esc_html_e( 'Bot', 'rankready' ); ?></span>
+					<span style="text-align:center;"><?php esc_html_e( 'Total', 'rankready' ); ?></span>
+					<span style="text-align:center;"><?php esc_html_e( 'llms.txt', 'rankready' ); ?></span>
+					<span style="text-align:center;"><?php esc_html_e( 'llms-full', 'rankready' ); ?></span>
+					<span style="text-align:center;"><?php esc_html_e( '.md URL', 'rankready' ); ?></span>
+					<span style="text-align:center;"><?php esc_html_e( 'Home .md', 'rankready' ); ?></span>
+					<span style="text-align:center;"><?php esc_html_e( 'Pages', 'rankready' ); ?></span>
+					<span><?php esc_html_e( 'Last Seen', 'rankready' ); ?></span>
+				</div>
+				<?php foreach ( $bot_stats as $i => $row ) :
+					$bot_pages = RR_Crawler_Log::get_bot_top_pages( $row['bot_name'], 30, 5 );
+					$has_pages = ! empty( $bot_pages );
+					$bg        = 0 === $i % 2 ? '#fff' : '#f9f9f9';
+				?>
+				<details style="border-bottom:1px solid #dcdcde;">
+					<summary style="display:grid;grid-template-columns:1fr 70px 80px 80px 75px 75px 80px 130px;gap:0;padding:9px 12px;background:<?php echo esc_attr( $bg ); ?>;cursor:<?php echo $has_pages ? 'pointer' : 'default'; ?>;list-style:none;align-items:center;">
+						<span style="font-size:13px;font-weight:600;color:#1d2327;display:flex;align-items:center;gap:6px;">
+							<?php if ( $has_pages ) : ?><span style="color:#2271b1;font-size:10px;">&#9660;</span><?php endif; ?>
+							<?php echo esc_html( $row['bot_name'] ); ?>
+						</span>
+						<span style="text-align:center;font-weight:700;color:#1d2327;"><?php echo esc_html( number_format( (int) $row['total'] ) ); ?></span>
+						<span style="text-align:center;color:#646970;"><?php echo ( (int) $row['llms_txt'] > 0 ) ? esc_html( number_format( (int) $row['llms_txt'] ) ) : '—'; ?></span>
+						<span style="text-align:center;color:#646970;"><?php echo ( (int) $row['llms_full'] > 0 ) ? esc_html( number_format( (int) $row['llms_full'] ) ) : '—'; ?></span>
+						<span style="text-align:center;color:#646970;"><?php echo ( (int) $row['markdown'] > 0 ) ? esc_html( number_format( (int) $row['markdown'] ) ) : '—'; ?></span>
+						<span style="text-align:center;color:#646970;"><?php echo ( (int) $row['home_md'] > 0 ) ? esc_html( number_format( (int) $row['home_md'] ) ) : '—'; ?></span>
+						<span style="text-align:center;color:#2271b1;font-weight:600;"><?php echo esc_html( number_format( (int) $row['unique_pages'] ) ); ?></span>
+						<span style="font-size:11px;color:#646970;"><?php echo esc_html( wp_date( 'M j, H:i', strtotime( $row['last_seen'] ) ) ); ?></span>
+					</summary>
+					<?php if ( $has_pages ) : ?>
+					<div style="padding:8px 12px 10px 28px;background:#f0f6fc;border-top:1px solid #dcdcde;">
+						<div style="font-size:11px;font-weight:600;color:#646970;margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;"><?php esc_html_e( 'Top pages read by this bot', 'rankready' ); ?></div>
+						<table style="width:100%;border-collapse:collapse;font-size:12px;">
+							<thead>
+								<tr style="color:#646970;">
+									<th style="text-align:left;padding:3px 8px;font-weight:600;"><?php esc_html_e( 'Title', 'rankready' ); ?></th>
+									<th style="text-align:left;padding:3px 8px;font-weight:600;width:80px;"><?php esc_html_e( 'Type', 'rankready' ); ?></th>
+									<th style="text-align:left;padding:3px 8px;font-weight:600;"><?php esc_html_e( 'URL', 'rankready' ); ?></th>
+									<th style="text-align:center;padding:3px 8px;font-weight:600;width:55px;"><?php esc_html_e( 'Hits', 'rankready' ); ?></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php foreach ( $bot_pages as $pg ) : ?>
+								<tr>
+									<td style="padding:4px 8px;color:#1d2327;font-weight:500;">
+										<?php if ( ! empty( $pg['post_title'] ) ) : ?>
+											<?php if ( (int) $pg['post_id'] > 0 ) : ?>
+												<a href="<?php echo esc_url( get_edit_post_link( (int) $pg['post_id'] ) ); ?>" style="color:#2271b1;text-decoration:none;" target="_blank"><?php echo esc_html( $pg['post_title'] ); ?></a>
+											<?php else : ?>
+												<?php echo esc_html( $pg['post_title'] ); ?>
+											<?php endif; ?>
+										<?php else : ?>
+											<em style="color:#646970;"><?php esc_html_e( '(no title)', 'rankready' ); ?></em>
+										<?php endif; ?>
+									</td>
+									<td style="padding:4px 8px;"><span style="background:#e0e7ff;color:#3730a3;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;"><?php echo esc_html( $pg['post_type'] ); ?></span></td>
+									<td style="padding:4px 8px;"><code style="font-size:10px;color:#646970;"><?php echo esc_html( $pg['url_path'] ); ?></code></td>
+									<td style="padding:4px 8px;text-align:center;font-weight:700;color:#1d2327;"><?php echo esc_html( $pg['total'] ); ?></td>
+								</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					</div>
+					<?php endif; ?>
 				</details>
-				<?php endif; ?>
+				<?php endforeach; ?>
+			</div>
 
+			<!-- ③ By Content Type (CPT bar chart) ───────────────────────── -->
+			<?php if ( ! empty( $cpt_stats ) ) : ?>
+			<h3 style="font-size:13px;font-weight:600;color:#1d2327;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;"><?php esc_html_e( 'By Content Type', 'rankready' ); ?></h3>
+			<div style="border:1px solid #dcdcde;border-radius:6px;padding:14px 16px;margin-bottom:24px;">
+				<div style="display:grid;grid-template-columns:100px 1fr 70px 90px;gap:8px 12px;align-items:center;font-size:12px;">
+					<span style="font-weight:600;color:#646970;font-size:11px;text-transform:uppercase;"><?php esc_html_e( 'Type', 'rankready' ); ?></span>
+					<span></span>
+					<span style="text-align:center;font-weight:600;color:#646970;font-size:11px;text-transform:uppercase;"><?php esc_html_e( 'Hits', 'rankready' ); ?></span>
+					<span style="text-align:center;font-weight:600;color:#646970;font-size:11px;text-transform:uppercase;"><?php esc_html_e( 'Unique posts', 'rankready' ); ?></span>
+				</div>
+				<?php foreach ( $cpt_stats as $cpt ) :
+					$pct = round( ( (int) $cpt['total'] / max( 1, (int) $cpt_max ) ) * 100 );
+					// Colour coding by type
+					$bar_colour = '#2271b1';
+					if ( 'post' === $cpt['post_type'] )     $bar_colour = '#2271b1';
+					if ( 'page' === $cpt['post_type'] )     $bar_colour = '#8b5cf6';
+					if ( 'homepage' === $cpt['post_type'] ) $bar_colour = '#059669';
+				?>
+				<div style="display:grid;grid-template-columns:100px 1fr 70px 90px;gap:4px 12px;align-items:center;padding:5px 0;border-top:1px solid #f0f0f1;">
+					<span style="font-size:12px;font-weight:600;color:#1d2327;">
+						<span style="background:<?php echo esc_attr( $bar_colour ); ?>22;color:<?php echo esc_attr( $bar_colour ); ?>;padding:1px 7px;border-radius:3px;font-size:11px;">
+							<?php echo esc_html( $cpt['post_type'] ); ?>
+						</span>
+					</span>
+					<div style="background:#f0f0f1;border-radius:3px;height:14px;overflow:hidden;">
+						<div style="width:<?php echo esc_attr( $pct ); ?>%;background:<?php echo esc_attr( $bar_colour ); ?>;height:14px;border-radius:3px;transition:width .3s;"></div>
+					</div>
+					<span style="text-align:center;font-weight:700;color:#1d2327;"><?php echo esc_html( number_format( (int) $cpt['total'] ) ); ?></span>
+					<span style="text-align:center;color:#646970;"><?php echo esc_html( number_format( (int) $cpt['unique_posts'] ) ); ?></span>
+				</div>
+				<?php endforeach; ?>
+			</div>
 			<?php endif; ?>
+
+			<!-- ④ Top Pages ──────────────────────────────────────────────── -->
+			<?php if ( ! empty( $top_pages ) ) : ?>
+			<h3 style="font-size:13px;font-weight:600;color:#1d2327;margin:0 0 10px;text-transform:uppercase;letter-spacing:.04em;"><?php esc_html_e( 'Top Pages Read by AI Bots', 'rankready' ); ?></h3>
+			<table class="wp-list-table widefat fixed striped" style="margin-bottom:24px;">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Page / Post Title', 'rankready' ); ?></th>
+						<th style="width:80px;"><?php esc_html_e( 'Type', 'rankready' ); ?></th>
+						<th style="width:65px;text-align:center;"><?php esc_html_e( 'Hits', 'rankready' ); ?></th>
+						<th style="width:65px;text-align:center;"><?php esc_html_e( 'Bots', 'rankready' ); ?></th>
+						<th><?php esc_html_e( 'Read by', 'rankready' ); ?></th>
+						<th><?php esc_html_e( 'URL', 'rankready' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ( $top_pages as $pg ) :
+						$bots_list = ! empty( $pg['bots_csv'] ) ? explode( '|', $pg['bots_csv'] ) : array();
+					?>
+					<tr>
+						<td style="font-weight:600;">
+							<?php if ( ! empty( $pg['post_title'] ) ) : ?>
+								<?php if ( (int) $pg['post_id'] > 0 ) : ?>
+									<a href="<?php echo esc_url( get_edit_post_link( (int) $pg['post_id'] ) ); ?>" style="color:#1d2327;text-decoration:none;" target="_blank">
+										<?php echo esc_html( $pg['post_title'] ); ?>
+									</a>
+									<span style="display:block;font-size:10px;font-weight:400;color:#646970;">ID <?php echo esc_html( $pg['post_id'] ); ?></span>
+								<?php else : ?>
+									<?php echo esc_html( $pg['post_title'] ); ?>
+								<?php endif; ?>
+							<?php else : ?>
+								<em style="color:#646970;font-weight:400;"><?php esc_html_e( '—', 'rankready' ); ?></em>
+							<?php endif; ?>
+						</td>
+						<td><span style="background:#f0f0f1;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;"><?php echo esc_html( $pg['post_type'] ); ?></span></td>
+						<td style="text-align:center;font-weight:700;"><?php echo esc_html( number_format( (int) $pg['total'] ) ); ?></td>
+						<td style="text-align:center;color:#646970;"><?php echo esc_html( $pg['unique_bots'] ); ?></td>
+						<td style="font-size:11px;color:#646970;">
+							<?php foreach ( array_slice( $bots_list, 0, 3 ) as $b ) : ?>
+								<span style="display:inline-block;background:#e0f0fb;color:#0a3862;padding:1px 5px;border-radius:3px;margin:1px 2px 1px 0;"><?php echo esc_html( $b ); ?></span>
+							<?php endforeach; ?>
+							<?php if ( count( $bots_list ) > 3 ) : ?>
+								<span style="color:#646970;">+<?php echo esc_html( count( $bots_list ) - 3 ); ?></span>
+							<?php endif; ?>
+						</td>
+						<td><code style="font-size:10px;color:#646970;"><?php echo esc_html( $pg['url_path'] ); ?></code></td>
+					</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+			<?php endif; ?>
+
+			<!-- ⑤ Live Hit Log ───────────────────────────────────────────── -->
+			<?php if ( ! empty( $recent_hits ) ) : ?>
+			<details>
+				<summary style="cursor:pointer;font-size:12px;font-weight:600;color:#2271b1;text-decoration:underline;list-style:none;">
+					&#9660; <?php esc_html_e( 'Live Hit Log — last 40 entries', 'rankready' ); ?>
+				</summary>
+				<div style="margin-top:10px;overflow-x:auto;">
+				<table class="wp-list-table widefat fixed striped" style="font-size:11px;">
+					<thead>
+						<tr>
+							<th style="width:130px;"><?php esc_html_e( 'Time', 'rankready' ); ?></th>
+							<th><?php esc_html_e( 'Bot', 'rankready' ); ?></th>
+							<th style="width:90px;"><?php esc_html_e( 'Endpoint', 'rankready' ); ?></th>
+							<th style="width:70px;"><?php esc_html_e( 'Type', 'rankready' ); ?></th>
+							<th><?php esc_html_e( 'Page / Post', 'rankready' ); ?></th>
+							<th><?php esc_html_e( 'URL', 'rankready' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $recent_hits as $hit ) : ?>
+						<tr>
+							<td style="color:#646970;"><?php echo esc_html( wp_date( 'M j H:i:s', strtotime( $hit['logged_at'] ) ) ); ?></td>
+							<td style="font-weight:600;"><?php echo esc_html( $hit['bot_name'] ); ?></td>
+							<td><?php echo esc_html( $ep_labels[ $hit['endpoint'] ] ?? $hit['endpoint'] ); ?></td>
+							<td>
+								<?php if ( ! empty( $hit['post_type'] ) ) : ?>
+								<span style="background:#f0f0f1;padding:1px 5px;border-radius:3px;font-size:10px;"><?php echo esc_html( $hit['post_type'] ); ?></span>
+								<?php else : ?>—<?php endif; ?>
+							</td>
+							<td style="color:#1d2327;">
+								<?php echo ! empty( $hit['post_title'] ) ? esc_html( $hit['post_title'] ) : '<em style="color:#646970;">—</em>'; ?>
+							</td>
+							<td><code style="font-size:10px;"><?php echo esc_html( $hit['url_path'] ); ?></code></td>
+						</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				</div>
+			</details>
+			<?php endif; ?>
+
+			<?php endif; // end if bot_stats not empty ?>
 		</div>
 		<!-- ── /AI Crawler Access Log ─────────────────────────────────────── -->
 

@@ -7,7 +7,7 @@ RankReady is the most complete WordPress plugin for AI search optimization. It c
 [![WordPress](https://img.shields.io/badge/WordPress-6.2%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL--2.0--or--later-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.6.4.4-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
+[![Version](https://img.shields.io/badge/Version-0.6.4.6-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
 [![Auto-Updates](https://img.shields.io/badge/auto--updates-via%20GitHub%20releases-success.svg)](#auto-updates)
 [![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-brightgreen.svg)](CHANGELOG.md)
 
@@ -406,7 +406,7 @@ RankReady implements the following AI/LLM web standards. Each entry includes the
 
 **Cloudflare WAF note**: `/.well-known/agent-skills/index.json` and `/.well-known/api-catalog` return 403 on sites behind Cloudflare proxy without a WAF bypass rule for `/.well-known/*`. This is a Cloudflare configuration issue, not a plugin bug.
 
-See [`AI-Standards-Whitepaper.md`](../AI-Standards-Whitepaper.md) for full spec citations, correct implementation notes, and known limitations.
+See [`AI-Standards-Whitepaper.md`](AI-Standards-Whitepaper.md) for full spec citations, correct implementation notes, and known limitations.
 
 ---
 

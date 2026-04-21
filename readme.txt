@@ -36,6 +36,10 @@ RankReady optimizes your WordPress site for AI search engines, LLM crawlers, and
 
 == Changelog ==
 
+= 0.6.4.6 =
+* Fix: Markdown negotiation now works on Cloudflare APO sites without any Cache Rules. Homepage HTML responses send CDN-Cache-Control: no-store so Cloudflare never caches the homepage — every Accept: text/markdown request reaches PHP and gets the correct text/markdown response. One cache purge after updating is all that is needed.
+* Fix: Markdown response headers improved — added x-markdown-source: accept header, changed Cache-Control from public to no-store to prevent CDN mis-serving markdown to browser clients.
+
 = 0.6.4.5 =
 * Fix: Content Signals format updated to match current isitagentready.com spec — now outputs a single `Content-Signal: ai-train=yes, search=yes, ai-input=yes` directive instead of separate `ai-train: allow` lines.
 

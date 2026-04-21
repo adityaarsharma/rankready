@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4.6] - 2026-04-21
+
+### Fixed
+- Markdown negotiation on Cloudflare APO sites: homepage HTML responses now send `CDN-Cache-Control: no-store`, which tells Cloudflare not to cache the homepage. This allows every `Accept: text/markdown` request to reach PHP where content negotiation serves the correct `Content-Type: text/markdown` response. Previously, Cloudflare APO served cached HTML to AI agents regardless of the Accept header. One cache purge after this update is all that is needed — no Cloudflare Cache Rules or plan upgrades required.
+- Markdown response headers: added `x-markdown-source: accept` (matching roots.io convention) and changed `Cache-Control` from `public, max-age=3600` to `no-store` to prevent CDN layers from caching and mis-serving the markdown response to browser clients.
+
 ## [0.6.4.5] - 2026-04-21
 
 ### Fixed

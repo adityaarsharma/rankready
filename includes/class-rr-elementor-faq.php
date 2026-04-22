@@ -228,9 +228,9 @@ class RR_Elementor_Faq_Widget extends \Elementor\Widget_Base {
 		echo '</div>';
 
 		if ( $show_reviewed ) {
-			$generated = get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
-			if ( ! empty( $generated ) ) {
-				$date = wp_date( get_option( 'date_format' ), (int) $generated );
+			$modified_ts = get_the_modified_time( 'U', $post_id );
+			if ( ! empty( $modified_ts ) ) {
+				$date = wp_date( get_option( 'date_format' ), (int) $modified_ts );
 				echo '<p class="rr-faq-reviewed">'
 					. esc_html( sprintf( __( 'Last reviewed: %s', 'rankready' ), $date ) )
 					. '</p>';

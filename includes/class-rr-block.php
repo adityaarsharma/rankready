@@ -227,9 +227,9 @@ class RR_Block {
 		$out .= '</div>';
 
 		if ( $show_reviewed ) {
-			$generated = get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
-			if ( ! empty( $generated ) ) {
-				$date = wp_date( get_option( 'date_format' ), (int) $generated );
+			$modified_ts = get_the_modified_time( 'U', $post_id );
+			if ( ! empty( $modified_ts ) ) {
+				$date = wp_date( get_option( 'date_format' ), (int) $modified_ts );
 				$out .= '<p class="rr-faq-reviewed">'
 					. esc_html( sprintf( __( 'Last reviewed: %s', 'rankready' ), $date ) )
 					. '</p>';
@@ -872,10 +872,12 @@ class RR_Block {
 			$props['mentions'] = $mentions;
 		}
 
-		// ── 6. lastReviewed — freshness signal from FAQ review date ────
-		$faq_reviewed = get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
-		if ( ! empty( $faq_reviewed ) ) {
-			$props['lastReviewed'] = gmdate( 'Y-m-d', (int) $faq_reviewed );
+		// ── 6. lastReviewed — freshness signal from post modified date ────
+		// Uses post_modified so the schema reflects actual content updates,
+		// not just when the AI last generated the FAQ.
+		$modified_ts = get_the_modified_time( 'U', $post_id );
+		if ( ! empty( $modified_ts ) ) {
+			$props['lastReviewed'] = gmdate( 'Y-m-d', (int) $modified_ts );
 		}
 
 		// ── 7. reviewedBy — E-E-A-T signal: content author ────────────

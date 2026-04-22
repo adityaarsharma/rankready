@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7.3] - 2026-04-21
+
+### Fixed
+- FAQ "Last reviewed" date now uses the post's last modified date (`post_modified`) instead of the FAQ generation timestamp. Fixes cases where regenerating the FAQ would reset the displayed date even when the underlying content had not changed. Affects the Gutenberg FAQ block, the Elementor FAQ widget, and the shortcode renderer. The `lastReviewed` field in Article JSON-LD schema is also updated to match.
+
 ## [0.6.7.2] - 2026-04-21
 
 ### Removed

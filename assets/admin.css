@@ -29,10 +29,8 @@
 	text-wrap: balance;
 }
 
-.rr-title-icon {
-	font-size: 24px;
-	color: #2271b1;
-}
+/* .rr-title-icon retained for backward compat — hidden by default */
+.rr-title-icon { display: none; }
 
 .rr-version {
 	font-size: 12px;
@@ -42,12 +40,14 @@
 	padding: 2px 8px;
 	border-radius: 3px;
 	margin-left: 4px;
+	font-variant-numeric: tabular-nums;
 }
 
 .rr-subtitle {
 	margin: 4px 0 0;
 	color: #646970;
 	font-size: 13px;
+	text-wrap: pretty;
 }
 
 /* ── Tabs ──────────────────────────────────────────────────────────────────── */
@@ -55,15 +55,24 @@
 .rr-tabs {
 	margin-top: 16px;
 	border-bottom: 1px solid #c3c4c7;
+	position: sticky;
+	top: 32px; /* below WP admin bar */
+	background: #f0f0f1;
+	z-index: 9;
+	padding-top: 4px;
+}
+
+@media screen and (max-width: 782px) {
+	.rr-tabs { top: 46px; }
 }
 
 .rr-tabs .nav-tab {
 	font-size: 13px;
-	padding: 8px 16px;
-	display: inline-flex;
-	align-items: center;
-	gap: 5px;
-	transition: color .15s ease, background-color .15s ease;
+	font-weight: 500;
+	padding: 10px 18px; /* 40px+ hit area per rule 16 */
+	transition-property: color, background-color, scale;
+	transition-duration: .15s;
+	transition-timing-function: ease;
 }
 
 .rr-tabs .nav-tab:hover:not(.nav-tab-active) {
@@ -71,17 +80,10 @@
 	background: #f0f6fc;
 }
 
-.rr-tabs .nav-tab .dashicons {
-	font-size: 14px;
-	width: 14px;
-	height: 14px;
-	line-height: 1;
-	opacity: .75;
-}
+.rr-tabs .nav-tab:active { scale: 0.97; } /* tactile feedback per rule 12 */
 
-.rr-tabs .nav-tab-active .dashicons {
-	opacity: 1;
-}
+/* Tab icons removed for a cleaner, text-first nav */
+.rr-tabs .nav-tab .dashicons { display: none; }
 
 .rr-tab-content {
 	padding-top: 20px;
@@ -99,7 +101,11 @@
 	background: #fff;
 	border: none;
 	border-radius: 8px;
-	box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+	/* 3-layer shadow per make-interfaces-feel-better: ring + lift + ambient */
+	box-shadow:
+		0 0 0 1px rgba(0, 0, 0, .06),
+		0 1px 2px -1px rgba(0, 0, 0, .06),
+		0 2px 4px 0 rgba(0, 0, 0, .04);
 	padding: 20px 24px;
 	margin-bottom: 20px;
 }
@@ -122,6 +128,7 @@
 	color: #646970;
 	font-size: 13px;
 	margin: 0 0 16px;
+	text-wrap: pretty;
 }
 
 /* ── Collapsible details ───────────────────────────────────────────────────── */
@@ -268,6 +275,7 @@
 	width: 0%;
 	transition: width 0.25s ease;
 	border-radius: 4px 0 0 4px;
+	/* removed: width is not GPU-compositable per make-interfaces-feel-better rule 15 */
 }
 
 .rr-progress-label {
@@ -324,12 +332,32 @@
 	border-radius: 6px;
 	box-shadow: 0 1px 2px rgba(0,0,0,.06);
 	padding: 16px;
+	/* stagger enter — index set via inline style or nth-child */
+	animation: rr-fade-up .18s ease both;
 }
 
-.rr-info-icon {
-	font-size: 20px;
-	color: #2271b1;
-	margin-bottom: 8px;
+.rr-info-grid .rr-info-item:nth-child(1) { animation-delay: 0ms; }
+.rr-info-grid .rr-info-item:nth-child(2) { animation-delay: 60ms; }
+.rr-info-grid .rr-info-item:nth-child(3) { animation-delay: 120ms; }
+.rr-info-grid .rr-info-item:nth-child(4) { animation-delay: 180ms; }
+.rr-info-grid .rr-info-item:nth-child(5) { animation-delay: 240ms; }
+.rr-info-grid .rr-info-item:nth-child(6) { animation-delay: 300ms; }
+.rr-info-grid .rr-info-item:nth-child(n+7) { animation-delay: 360ms; }
+
+/* Info icons retired in v1.0.0 — kept hidden for backward CSS compat */
+.rr-info-icon { display: none; }
+
+@keyframes rr-icon-pop {
+	from {
+		opacity: 0;
+		transform: scale(0.25);
+		filter: blur(4px);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+		filter: blur(0px);
+	}
 }
 
 .rr-info-item h3 {
@@ -343,6 +371,7 @@
 	color: #646970;
 	margin: 0;
 	line-height: 1.5;
+	text-wrap: pretty;
 }
 
 /* ── Stats row ─────────────────────────────────────────────────────────────── */
@@ -360,7 +389,14 @@
 	border: none;
 	border-radius: 6px;
 	box-shadow: 0 1px 2px rgba(0,0,0,.06);
+	animation: rr-fade-up .18s ease both;
 }
+
+.rr-stats-row .rr-stat:nth-child(1) { animation-delay: 0ms; }
+.rr-stats-row .rr-stat:nth-child(2) { animation-delay: 80ms; }
+.rr-stats-row .rr-stat:nth-child(3) { animation-delay: 160ms; }
+.rr-stats-row .rr-stat:nth-child(4) { animation-delay: 240ms; }
+.rr-stats-row .rr-stat:nth-child(n+5) { animation-delay: 320ms; }
 
 .rr-stat-number {
 	display: block;
@@ -387,20 +423,13 @@
 }
 
 .rr-section-header {
-	display: flex;
-	align-items: flex-start;
-	gap: 12px;
-	margin-bottom: 16px;
+	margin: 4px 0 16px;
+	padding-left: 12px;
+	border-left: 3px solid #1d2327;
 }
 
-.rr-section-icon {
-	font-size: 22px;
-	width: 22px;
-	height: 22px;
-	color: #2271b1;
-	flex-shrink: 0;
-	margin-top: 2px;
-}
+/* Section icons retired in v1.0.0 — kept hidden for backward compat */
+.rr-section-icon { display: none; }
 
 .rr-section-title {
 	font-size: 17px;
@@ -414,6 +443,7 @@
 	font-size: 13px;
 	color: #646970;
 	margin: 0;
+	text-wrap: pretty;
 }
 
 /* ── Dashboard feature cards ────────────────────────────────────────────────── */
@@ -422,13 +452,6 @@
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-}
-
-.rr-dash-feature .rr-info-icon {
-	font-size: 22px;
-	width: 22px;
-	height: 22px;
-	margin-bottom: 4px;
 }
 
 .rr-dash-feature h3 {
@@ -444,6 +467,7 @@
 	margin: 0;
 	line-height: 1.5;
 	flex: 1;
+	text-wrap: pretty;
 }
 
 .rr-dash-link {
@@ -452,8 +476,24 @@
 	text-decoration: none;
 	color: #2271b1;
 	margin-top: 6px;
-	transition: color .15s ease;
+	display: inline-flex;
+	align-items: center;
+	min-height: 24px; /* visible link */
+	position: relative;
+	transition-property: color, scale;
+	transition-duration: .15s;
+	transition-timing-function: ease;
 }
+
+/* Hit-area extension per rule 16 — 40px min via pseudo-element */
+.rr-dash-link::after {
+	content: "";
+	position: absolute;
+	inset: -8px -8px;
+	min-height: 40px;
+}
+
+.rr-dash-link:active { scale: 0.97; }
 
 .rr-dash-link:hover {
 	color: #135e96;
@@ -480,4 +520,468 @@ select.regular-text {
 	.rr-date-range {
 		flex-direction: column;
 	}
+}
+
+/* ── Free Tier Usage Banner ────────────────────────────────────────────────── */
+
+.rr-usage-banner {
+	background: #fff;
+	/* shadows over borders — adapts to any background */
+	box-shadow:
+		0 0 0 1px rgba(0,0,0,.07),
+		inset 4px 0 0 #2271b1;
+	border-radius: 8px; /* matches .rr-card for visual consistency */
+	margin: 0 0 20px;
+	padding: 14px 18px;
+}
+
+.rr-usage-banner--warn {
+	box-shadow:
+		0 0 0 1px rgba(0,0,0,.07),
+		inset 4px 0 0 #d63638;
+	background: #fff8f8;
+}
+
+.rr-usage-banner__inner {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	flex-wrap: wrap;
+}
+
+.rr-usage-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 200px;
+}
+
+.rr-usage-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: #50575e;
+	white-space: nowrap;
+}
+
+.rr-usage-bar-wrap {
+	flex: 1;
+	min-width: 80px;
+	max-width: 120px;
+	height: 6px;
+	background: #e0e0e0;
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.rr-usage-bar {
+	height: 100%;
+	background: #2271b1;
+	border-radius: 3px;
+	transition: width .3s ease;
+	/* removed: width is not GPU-compositable per make-interfaces-feel-better rule 15 */
+}
+
+.rr-usage-banner--warn .rr-usage-bar {
+	background: #d63638;
+}
+
+.rr-usage-count {
+	font-size: 12px;
+	color: #50575e;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums; /* prevents layout shift on number change */
+}
+
+.rr-usage-reset {
+	font-size: 11px;
+	color: #8c8f94;
+	white-space: nowrap;
+}
+
+/* 40×40px minimum hit area + scale on press */
+.rr-usage-upgrade {
+	margin-left: auto;
+	font-size: 12px;
+	font-weight: 600;
+	color: #2271b1;
+	text-decoration: none;
+	white-space: nowrap;
+	padding: 10px 14px; /* min 40px tall at 13px font */
+	border: 1px solid #2271b1;
+	border-radius: 4px; /* concentric: 8px outer − 14px padding ≈ keep ≥3px */
+	transition: background .15s ease, color .15s ease, transform .1s ease;
+	display: inline-block;
+}
+
+.rr-usage-upgrade:hover {
+	background: #2271b1;
+	color: #fff;
+}
+
+.rr-usage-upgrade:active {
+	transform: scale(0.96); /* scale on press — never below 0.95 */
+}
+
+/* ── Scale on press — all interactive buttons ──────────────────────────────── */
+
+.rr-wrap .button:active,
+.rr-wrap .button-primary:active,
+.rr-wrap .button-secondary:active {
+	transform: scale(0.96); /* exactly 0.96 — never below 0.95 */
+	transition: transform .1s ease;
+}
+
+/* ── Upsell inline notice (post-win + limit hit) ───────────────────────────── */
+
+.rr-notice--upsell {
+	background: #f0f6fc;
+	border-left-color: #2271b1;
+	padding: 10px 14px;
+	font-size: 13px;
+}
+
+.rr-notice--upsell a {
+	font-weight: 600;
+	color: #2271b1;
+}
+
+.rr-notice--dismissible {
+	position: relative;
+	padding-right: 36px;
+}
+
+/* ── Plan status banner (Dashboard top) ────────────────────────────────────── */
+
+.rr-plan-banner {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	flex-wrap: wrap;
+	border-radius: 8px;
+	padding: 18px 22px;
+	margin-bottom: 24px;
+	box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+}
+
+.rr-plan-banner--free {
+	background: #fff;
+	box-shadow: 0 0 0 1px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.06);
+}
+
+.rr-plan-banner--pro {
+	background: linear-gradient(135deg, #1d2327 0%, #2c3338 100%);
+}
+
+.rr-plan-banner__left {
+	flex: 1;
+	min-width: 220px;
+}
+
+.rr-plan-banner__badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+	padding: 3px 10px;
+	border-radius: 20px;
+	margin-bottom: 8px;
+}
+
+.rr-plan-banner--free .rr-plan-banner__badge {
+	background: #f0f0f1;
+	color: #50575e;
+}
+
+.rr-plan-banner--pro .rr-plan-banner__badge {
+	background: rgba(255,255,255,.15);
+	color: #fff;
+}
+
+.rr-plan-banner__title {
+	font-size: 15px;
+	font-weight: 600;
+	margin: 0 0 4px;
+	color: #1d2327;
+}
+
+.rr-plan-banner--pro .rr-plan-banner__title {
+	color: #fff;
+}
+
+.rr-plan-banner__desc {
+	font-size: 12px;
+	color: #646970;
+	margin: 0;
+	text-wrap: pretty;
+}
+
+.rr-plan-banner--pro .rr-plan-banner__desc {
+	color: rgba(255,255,255,.7);
+}
+
+.rr-plan-banner__meters {
+	display: flex;
+	gap: 20px;
+	margin-top: 10px;
+	flex-wrap: wrap;
+}
+
+.rr-plan-meter {
+	min-width: 140px;
+}
+
+.rr-plan-meter__label {
+	font-size: 11px;
+	font-weight: 600;
+	color: #646970;
+	margin-bottom: 4px;
+	display: flex;
+	justify-content: space-between;
+}
+
+.rr-plan-meter__track {
+	height: 5px;
+	background: #e0e0e0;
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.rr-plan-meter__fill {
+	height: 100%;
+	border-radius: 3px;
+	background: #2271b1;
+	transition: width .4s ease;
+	/* removed: width is not GPU-compositable per make-interfaces-feel-better rule 15 */
+}
+
+.rr-plan-meter__fill--warn {
+	background: #d63638;
+}
+
+.rr-plan-banner__cta {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	align-items: flex-end;
+	flex-shrink: 0;
+}
+
+/* Upgrade button CSS removed in v1.0.0 — Pro CTAs replaced with non-interactive
+   "Coming Soon" pill until license system lands in v1.2. */
+
+.rr-plan-banner__cta-hint {
+	font-size: 11px;
+	color: #8c8f94;
+	text-align: right;
+}
+
+/* ── Coming Soon pill (used wherever Pro CTAs would appear) ──────────────── */
+
+.rr-coming-soon {
+	display: inline-flex;
+	align-items: center;
+	height: 30px;
+	padding: 0 14px;
+	background: #fff7e6;
+	color: #9a6700;
+	border: 1px solid #f0d987;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: .04em;
+	text-transform: uppercase;
+	white-space: nowrap;
+	line-height: 1;
+}
+
+/* ── PRO badge (inline pill) ───────────────────────────────────────────────── */
+
+.rr-pro-badge {
+	display: inline-block;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+	color: #fff;
+	background: #1d2327;
+	padding: 2px 6px;
+	border-radius: 3px;
+	vertical-align: middle;
+	margin-left: 4px;
+	line-height: 1.4;
+}
+
+.rr-free-badge {
+	display: inline-block;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+	color: #fff;
+	background: #00a32a;
+	padding: 2px 6px;
+	border-radius: 3px;
+	vertical-align: middle;
+	margin-left: 4px;
+	line-height: 1.4;
+}
+
+/* ── Pro gate — uniform grid layout, no wrapping issues ──────────────────── */
+
+.rr-pro-gate {
+	display: grid;
+	grid-template-columns: 24px 1fr;
+	column-gap: 14px;
+	align-items: start;
+	padding: 16px 20px;
+	background: #fff;
+	border: 1px solid #e5e5e5;
+	border-left: 3px solid #1d2327;
+	border-radius: 4px;
+	margin: 0 0 12px;
+	min-height: 72px;
+	box-sizing: border-box;
+	transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.rr-pro-gate:hover {
+	border-color: #d0d0d0;
+	box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+
+/* Stagger entrance per rule 5 — split + stagger enter animations */
+.rr-pro-gate {
+	opacity: 0;
+	transform: translateY(6px);
+	animation: rr-pro-gate-in .35s cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+.rr-pro-gate:nth-of-type(1) { animation-delay: 40ms; }
+.rr-pro-gate:nth-of-type(2) { animation-delay: 100ms; }
+.rr-pro-gate:nth-of-type(3) { animation-delay: 160ms; }
+.rr-pro-gate:nth-of-type(4) { animation-delay: 220ms; }
+.rr-pro-gate:nth-of-type(n+5) { animation-delay: 280ms; }
+
+@keyframes rr-pro-gate-in {
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.rr-pro-gate__icon {
+	font-size: 18px;
+	width: 18px;
+	height: 18px;
+	color: #8c8f94;
+	margin-top: 2px;
+}
+
+.rr-pro-gate__text {
+	min-width: 0;
+}
+
+.rr-pro-gate__text strong {
+	font-size: 13px;
+	font-weight: 600;
+	color: #1d2327;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	line-height: 1.4;
+}
+
+.rr-pro-gate__text p {
+	font-size: 12px;
+	color: #646970;
+	margin: 6px 0 0;
+	text-wrap: pretty;
+	line-height: 1.55;
+}
+
+.rr-pro-gate__soon {
+	display: inline-block;
+	margin-top: 8px;
+	font-size: 11px;
+	color: #9a6700;
+	font-style: italic;
+	letter-spacing: .01em;
+}
+
+/* ── Feature list (dashboard free/pro columns) ─────────────────────────────── */
+
+.rr-feature-split {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 20px;
+	margin-bottom: 24px;
+}
+
+@media (max-width: 782px) {
+	.rr-feature-split {
+		grid-template-columns: 1fr;
+	}
+}
+
+.rr-feature-col__title {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: .06em;
+	text-transform: uppercase;
+	color: #646970;
+	margin: 0 0 12px;
+	padding-bottom: 8px;
+	border-bottom: 2px solid #f0f0f1;
+}
+
+.rr-feature-col__title--pro {
+	color: #2271b1;
+	border-bottom-color: #2271b1;
+}
+
+.rr-feature-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+}
+
+.rr-feature-list li {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	font-size: 13px;
+	color: #1d2327;
+	line-height: 1.4;
+}
+
+.rr-feature-list li .rr-feature-icon {
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	margin-top: 1px;
+	font-size: 14px;
+	line-height: 1;
+}
+
+.rr-feature-list li .rr-feature-icon--check {
+	color: #00a32a;
+}
+
+.rr-feature-list li .rr-feature-icon--lock {
+	color: #8c8f94;
+}
+
+.rr-feature-list li small {
+	display: block;
+	font-size: 11px;
+	color: #8c8f94;
+	margin-top: 1px;
+}
+
+.rr-feature-col__upgrade {
+	margin-top: 16px;
+	padding-top: 14px;
+	border-top: 1px solid #f0f0f1;
 }

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0-beta.5] - 2026-04-28
+
+### Changed
+- **Beta license is now silent and automatic.** New pre-issued key (`fe7f1e51…`) replaces the previous one that EDD was rejecting. The plugin now auto-activates against `store.posimyth.com` on first `wp_loaded` after install, with a one-hour retry throttle, so beta testers never see a license field and auto-updates flow without any user interaction.
+- Removed the dormant admin license form handlers and notice from `class-rr-pro-beta.php` (no UI ever rendered them — replaced by the silent activation flow).
+
+### Fixed
+- Beta installs were failing to receive auto-updates because the license was only being *checked* (never *activated*) against the EDD store, so EDD reported `site_inactive` and the SL Plugin Updater silently bailed out.
+
+### Removed
+- Deleted the legacy `vendor/plugin-update-checker/` library (~660 KB on disk, 165 KB zipped) — it was dead weight from the pre-1.0.0 GitHub auto-update flow. v1.0.0+ uses the WP.org store for free updates and `RR_SL_Plugin_Updater` for beta updates; PUC has zero references in the codebase. Beta zip drops from 376 KB → 212 KB (35 files).
+
+## [1.0.0] - 2026-04-23
+
+### Added
+- **Freemium tier**: Free version now includes 5 AI summary generations and 5 FAQ generations per calendar month. Limits reset on the 1st of each month.
+- `RR_Limits` class (`includes/class-rr-limits.php`): calendar-month usage tracking via `wp_options`, per-feature limit checks, usage recording, loss-aversion upsell copy with dynamic post counts, peak-end rule post-win notices, `get_stats()` for admin display, REST endpoint `GET /rankready/v1/limits`.
+- Free-tier constants: `RR_FREE_SUMMARY_LIMIT` (5), `RR_FREE_FAQ_LIMIT` (5), `RR_STORE_URL`.
+- Usage banner on Content AI tab showing progress bars for summary/FAQ usage with limit-aware upgrade CTA.
+- Post-win upsell notice (shown when ≤3 uses remain) — peak-end rule framing.
+- CSS styles for `.rr-usage-banner`, `.rr-usage-bar`, `.rr-notice--upsell`, `.rr-notice--dismissible`.
+
+### Changed
+- Plugin URI updated to `https://store.posimyth.com/plugins/rank-ready`.
+- Author set to `POSIMYTH Inc. & Aditya Sharma`; Author URI set to `https://posimyth.com`.
+- AI summary generation (`class-rr-generator.php`) now checks `RR_Limits::can_generate_summary()` before API call and records usage after success.
+- FAQ generation (`class-rr-faq.php`) now checks `RR_Limits::can_generate_faq()` before API call and records usage after success.
+- Admin footer link updated from GitHub repository to POSIMYTH Store.
+- Plugin version bumped to `1.0.0` — first public freemium release.
+
 ## [0.6.7.3] - 2026-04-21
 
 ### Fixed

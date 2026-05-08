@@ -35,6 +35,11 @@ class RR_Generator {
 			return;
 		}
 
+		// Pro gate — auto-generate on publish is a Pro feature.
+		if ( ! ( function_exists( 'rr_is_pro' ) && rr_is_pro() ) ) {
+			return;
+		}
+
 		if ( 'publish' !== $post->post_status ) {
 			return;
 		}
@@ -179,6 +184,11 @@ class RR_Generator {
 			return false;
 		}
 
+		// ── Free tier limit check (before API call) ───────────────────────────
+		if ( ! RR_Limits::can_generate_summary() ) {
+			return RR_Limits::summary_limit_error();
+		}
+
 		$api_key = (string) get_option( RR_OPT_KEY, '' );
 		if ( empty( $api_key ) ) {
 			return false;
@@ -198,10 +208,12 @@ class RR_Generator {
 
 		$result = self::call_openai( $content, $post, $api_key );
 
-		if ( $result ) {
+		if ( $result && ! is_wp_error( $result ) ) {
 			update_post_meta( $post_id, RR_META_SUMMARY,   $result );
 			update_post_meta( $post_id, RR_META_HASH,      $new_hash );
 			update_post_meta( $post_id, RR_META_GENERATED, time() );
+			// Record free tier usage after successful API call.
+			RR_Limits::record_summary();
 		}
 
 		return $result;

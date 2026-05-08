@@ -43,6 +43,11 @@ class RR_Faq {
 			return;
 		}
 
+		// Pro gate — auto-generate on publish is a Pro feature.
+		if ( ! ( function_exists( 'rr_is_pro' ) && rr_is_pro() ) ) {
+			return;
+		}
+
 		if ( ! $post || 'publish' !== $post->post_status ) {
 			return;
 		}
@@ -572,6 +577,11 @@ class RR_Faq {
 			return new \WP_Error( 'invalid_post', 'Post not found.' );
 		}
 
+		// ── Free tier limit check (before API call) ───────────────────────────
+		if ( ! RR_Limits::can_generate_faq() ) {
+			return RR_Limits::faq_limit_error();
+		}
+
 		// Resolve focus keyword.
 		if ( empty( $keyword ) ) {
 			$keyword = self::get_focus_keyword( $post_id );
@@ -778,6 +788,9 @@ class RR_Faq {
 		update_post_meta( $post_id, RR_META_FAQ_HASH, $new_hash );
 		update_post_meta( $post_id, RR_META_FAQ_GENERATED, time() );
 		update_post_meta( $post_id, RR_META_FAQ_KEYWORD, $keyword );
+
+		// Record free tier usage after successful FAQ generation.
+		RR_Limits::record_faq();
 
 		// Bump dateModified by touching the post (legitimate content update).
 		// Set generator guard to prevent wp_update_post from re-triggering summary generation.

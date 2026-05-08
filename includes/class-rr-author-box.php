@@ -231,16 +231,27 @@ class RR_Author_Box {
 		$awards        = self::decode_repeater( $m( 'rr_author_awards' ) );
 
 		wp_nonce_field( 'rr_save_author_box', 'rr_author_box_nonce' );
+
+		$profile_is_pro = function_exists( 'rr_is_pro' ) && rr_is_pro();
 		?>
 		<h2 id="rr-author-box"><?php esc_html_e( 'RankReady Author Box', 'rankready' ); ?></h2>
 		<p class="description" style="max-width:780px;">
-			<?php esc_html_e( 'Every field below emits Schema.org Person data for Google EEAT and AI citation (ChatGPT, Perplexity, Google AI Overviews). Fill in only what applies. RankReady uses this data in the Author Box block, Elementor widget, and JSON-LD schema — and merges into Rank Math / Yoast / AIOSEO / SEOPress Person schema automatically when those plugins are active.', 'rankready' ); ?>
+			<?php if ( $profile_is_pro ) : ?>
+			<?php esc_html_e( 'Every field below emits Schema.org Person data for Google EEAT and AI citation (ChatGPT, Perplexity, Google AI Overviews). Fill in only what applies. RankReady merges into Rank Math / Yoast / AIOSEO Person schema automatically when those plugins are active.', 'rankready' ); ?>
+			<?php else : ?>
+			<?php esc_html_e( 'Fill in your basic profile below — these fields power the Author Box display. Full Person JSON-LD schema (credentials, Wikidata, ORCID, sameAs) is coming in RankReady Pro.', 'rankready' ); ?>
+			<?php endif; ?>
 		</p>
 
 		<table class="form-table" role="presentation">
 
-			<!-- ── Identity & Work ──────────────────────────────────────────── -->
-			<tr><th colspan="2"><h3 style="margin:16px 0 0;"><?php esc_html_e( 'Identity & Work', 'rankready' ); ?></h3></th></tr>
+			<!-- ── Identity & Work — FREE ───────────────────────────────────── -->
+			<tr><th colspan="2">
+				<h3 style="margin:16px 0 0;"><?php esc_html_e( 'Identity & Work', 'rankready' ); ?></h3>
+				<?php if ( ! $profile_is_pro ) : ?>
+				<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#00a32a;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'FREE', 'rankready' ); ?></span>
+				<?php endif; ?>
+			</th></tr>
 
 			<tr>
 				<th><label for="rr_author_job_title"><?php esc_html_e( 'Job Title', 'rankready' ); ?></label></th>
@@ -286,8 +297,13 @@ class RR_Author_Box {
 				</td>
 			</tr>
 
-			<!-- ── Experience ──────────────────────────────────────────────── -->
-			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Experience', 'rankready' ); ?></h3></th></tr>
+			<!-- ── Experience — FREE ───────────────────────────────────────── -->
+			<tr><th colspan="2">
+				<h3 style="margin:24px 0 0;"><?php esc_html_e( 'Experience', 'rankready' ); ?></h3>
+				<?php if ( ! $profile_is_pro ) : ?>
+				<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#00a32a;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'FREE', 'rankready' ); ?></span>
+				<?php endif; ?>
+			</th></tr>
 
 			<tr>
 				<th><label for="rr_author_started_year"><?php esc_html_e( 'Started in Field (Year)', 'rankready' ); ?></label></th>
@@ -304,8 +320,27 @@ class RR_Author_Box {
 				</td>
 			</tr>
 
+			<?php if ( ! $profile_is_pro ) : ?>
+			<!-- ── Pro gate separator ───────────────────────────────────────── -->
+			<tr>
+				<td colspan="2" style="padding:24px 0 8px;">
+					<div style="display:grid;grid-template-columns:24px 1fr;column-gap:14px;align-items:start;border:1px solid #e5e5e5;border-left:3px solid #1d2327;border-radius:4px;padding:16px 20px;background:#fff;min-height:72px;box-sizing:border-box;">
+						<span class="dashicons dashicons-lock" style="font-size:18px;width:18px;height:18px;color:#8c8f94;margin-top:2px;" aria-hidden="true"></span>
+						<div style="min-width:0;">
+							<strong style="font-size:13px;font-weight:600;color:#1d2327;display:inline-flex;align-items:center;gap:8px;line-height:1.4;"><?php esc_html_e( 'Full EEAT Schema', 'rankready' ); ?> <span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#1d2327;padding:2px 6px;border-radius:3px;">PRO</span></strong>
+							<p style="margin:6px 0 0;color:#646970;font-size:12px;line-height:1.55;"><?php esc_html_e( 'Credentials, Verified Identity (Wikidata, ORCID, LinkedIn), Social sameAs links, and Contact — these fields will emit Person JSON-LD that AI systems use to verify authorship and increase citation probability.', 'rankready' ); ?></p>
+							<span style="display:inline-block;margin-top:8px;font-size:11px;color:#9a6700;font-style:italic;letter-spacing:.01em;"><?php esc_html_e( 'Launching with RankReady Pro.', 'rankready' ); ?></span>
+						</div>
+					</div>
+				</td>
+			</tr>
+			<?php endif; ?>
+
 			<!-- ── Credentials ─────────────────────────────────────────────── -->
-			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Credentials', 'rankready' ); ?></h3></th></tr>
+			<?php if ( $profile_is_pro ) : ?>
+			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Credentials', 'rankready' ); ?> <span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#1d2327;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'PRO', 'rankready' ); ?></span></h3></th></tr>
+			<?php endif; ?>
+			<?php if ( $profile_is_pro ) : ?>
 
 			<tr>
 				<th><label for="rr_author_credentials_suffix"><?php esc_html_e( 'Credentials Suffix', 'rankready' ); ?></label></th>
@@ -440,6 +475,7 @@ class RR_Author_Box {
 					<p class="description"><?php esc_html_e( 'Contact form page URL. Emits as Person.contactPoint — preferred over raw email (zero scrape risk).', 'rankready' ); ?></p>
 				</td>
 			</tr>
+			<?php endif; // profile_is_pro — credentials + verified identity + social + contact ?>
 		</table>
 
 		<script>

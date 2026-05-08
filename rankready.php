@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name:       RankReady – LLM SEO, EEAT & AI Optimization
- * Plugin URI:        https://github.com/adityaarsharma/rankready
- * Description:       AI summaries, FAQ generator, Author Box with EEAT schema, Article JSON-LD with speakable, LLMs.txt generator, Markdown endpoints, bulk author changer. Built for LLM SEO, EEAT, and AI Overviews.
- * Version:           0.6.7.3
- * Requires at least: 6.2
+ * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
+ * Plugin URI:        https://posimyth.com
+ * Description:       AI-first SEO for WordPress. Get cited by ChatGPT, Perplexity & Google AI Overviews. LLMs.txt generator, AI summaries, FAQ schema, EEAT author box, AI crawler controls.
+ * Version:           1.1.0-beta.5
+ * Requires at least: 6.0
  * Requires PHP:      7.4
- * Author:            POSIMYTH & Aditya Sharma
+ * Author:            POSIMYTH Inc. & Aditya Sharma
  * Author URI:        https://posimyth.com
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -51,11 +51,16 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '0.6.7.3' );
+	define( 'RR_VERSION',  '1.1.0-beta.5' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
 	define( 'RR_BASENAME', plugin_basename( __FILE__ ) );
+
+	// Free tier limits (calendar-month reset).
+	define( 'RR_FREE_SUMMARY_LIMIT', 5 );
+	define( 'RR_FREE_FAQ_LIMIT',     5 );
+	define( 'RR_STORE_URL',          'https://store.posimyth.com/plugins/rank-ready' );
 
 	// Option keys — AI Summary.
 	define( 'RR_OPT_KEY',              'rr_openai_api_key' );
@@ -216,6 +221,13 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_LLMS_FULL_CACHE_KEY', 'rr_llms_full_txt_cache' );
 }
 
+// ── Beta / Pro bootstrap (must run before autoloader so rr_is_pro() is defined) ─
+$_rr_pro_beta_file = __DIR__ . '/includes/class-rr-pro-beta.php';
+if ( file_exists( $_rr_pro_beta_file ) ) {
+	require_once $_rr_pro_beta_file;
+}
+unset( $_rr_pro_beta_file );
+
 // ── Autoloader ────────────────────────────────────────────────────────────────
 spl_autoload_register( function ( string $class ): void {
 	if ( 0 !== strpos( $class, 'RR_' ) ) {
@@ -263,44 +275,33 @@ add_action( 'admin_init', function (): void {
 } );
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Plugin Update Checker (PUC) — auto-updates from public GitHub releases.
+// Updates: handled by WordPress.org SVN (auto-updates via Plugins screen).
 // ─────────────────────────────────────────────────────────────────────────────
-// Pulls update metadata from github.com/adityaarsharma/rankready releases and
-// surfaces them in WP-Admin → Plugins like a normal plugin update. The repo
-// is public, so no authentication is required — every install just works.
-//
-// Update flow:
-//   1. PUC polls GitHub Releases API once a day (configurable).
-//   2. If the latest release tag is newer than RR_VERSION, WordPress shows
-//      "Update available" on the Plugins screen.
-//   3. WordPress downloads the rankready-X.Y.Z.zip release asset (NOT the
-//      auto-generated "Source code" zip — that one has the wrong folder
-//      structure) and installs it like any other plugin.
-//
-// To force a check immediately on a site, hit:
-//     /wp-admin/plugins.php?puc_check_for_updates=1&puc_slug=rankready
-//
-// When license gating lands (planned for v1.0), this block stays mostly the
-// same — we'll add a license-key parameter to the GitHub API request and an
-// EDD-SL fallback for paid Pro features.
+// v1.0.0+ ships exclusively from WordPress.org. The Plugin Update Checker
+// (PUC) library was removed from the WP.org distribution per WP.org policy.
 // ═════════════════════════════════════════════════════════════════════════════
-if ( file_exists( RR_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php' ) ) {
-	require_once RR_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php';
 
-	if ( class_exists( '\\YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory' ) ) {
-		$rr_update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
-			'https://github.com/adityaarsharma/rankready/',
-			RR_FILE,
-			'rankready',
-			24 // $checkPeriod: hours between update checks. Gentler on GitHub's
-			   // unauthenticated rate limit (60/hr) than the 12h default.
-		);
-
-		// Pull update zip from the GitHub Release asset (rankready-X.Y.Z.zip),
-		// not the auto-generated "Source code" zip — the asset has the correct
-		// folder structure (`rankready/rankready.php` at zip root).
-		$rr_update_checker->getVcsApi()->enableReleaseAssets();
+// ─────────────────────────────────────────────────────────────────────────────
+// Beta build auto-updates via EDD Software Licensing on store.posimyth.com.
+// This block only runs when class-rr-pro-beta.php is present (beta zip only).
+// The WP.org free zip never includes that file so RR_BETA_BUILD is never set.
+// ─────────────────────────────────────────────────────────────────────────────
+if ( defined( 'RR_BETA_BUILD' ) && is_admin() ) {
+	if ( ! class_exists( 'RR_SL_Plugin_Updater' ) ) {
+		require_once RR_DIR . 'includes/RR_SL_Plugin_Updater.php';
 	}
+	new RR_SL_Plugin_Updater(
+		'https://store.posimyth.com',
+		__FILE__,
+		array(
+			'version' => RR_VERSION,
+			'license' => defined( 'RR_BETA_LICENSE' ) ? RR_BETA_LICENSE : get_option( 'rr_license_key', '' ),
+			'item_id' => 463989,
+			'author'  => 'POSIMYTH Inc.',
+			'url'     => home_url(),
+			'beta'    => true,
+		)
+	);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -609,6 +610,9 @@ add_action( 'plugins_loaded', function (): void {
 	RR_Headless::init();
 	RR_Author_Box::init();
 	RR_Crawler_Log::init();
+
+	// Free tier limits — REST endpoint for admin JS usage display.
+	add_action( 'rest_api_init', array( 'RR_Limits', 'register_rest' ) );
 
 	if ( did_action( 'elementor/loaded' ) ) {
 		add_action( 'elementor/widgets/register', function ( $widgets_manager ): void {

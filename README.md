@@ -4,16 +4,19 @@
 
 RankReady is the most complete WordPress plugin for AI search optimization. It combines all pillars of LLM SEO into a single, lightweight package: AI-generated content, intelligent schema markup that auto-detects your content type, LLMs.txt, Markdown endpoints, AI crawler management, AI crawler access analytics, content freshness monitoring, multi-layer cache bypass, and a full **EEAT Author Box with Person JSON-LD schema** that powers author identity for ChatGPT, Perplexity, and Google AI Overviews citations.
 
-[![WordPress](https://img.shields.io/badge/WordPress-6.2%2B-blue.svg)](https://wordpress.org)
+[![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL--2.0--or--later-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.6.7.1-orange.svg)](https://github.com/adityaarsharma/rankready/releases)
+[![Version](https://img.shields.io/badge/Version-1.1.0--beta.5-orange.svg)](https://github.com/adityaarsharma/rankready/releases/latest)
 [![Agent-Ready Score](https://img.shields.io/badge/isitagentready.com-100%2F100%20Level%205-brightgreen.svg)](https://isitagentready.com)
 [![Markdown Ready](https://img.shields.io/badge/acceptmarkdown.com-passing-brightgreen.svg)](https://acceptmarkdown.com)
-[![Auto-Updates](https://img.shields.io/badge/auto--updates-via%20GitHub%20releases-success.svg)](#auto-updates)
+[![Auto-Updates](https://img.shields.io/badge/auto--updates-silent%20%E2%80%94%20no%20config-success.svg)](#auto-updates)
 [![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-brightgreen.svg)](CHANGELOG.md)
 
-> **Status: v0.6 — public beta.** RankReady is free and open-source (GPL-2.0). Download the latest release zip below. Pro features (license-gated) arrive in v1.0. Auto-updates flow from GitHub releases to every install — no token, no config, no setup.
+> **Status: v1.1.0-beta.5 — public beta. All features unlocked. Free while in beta.**
+> RankReady is GPL-2.0 open-source. Download the zip below, install in WordPress, done. Auto-updates flow silently — no token, no license input, no config. Free and paid tiers arrive after the beta period.
+
+### ⬇️ [Download rankready.zip → Latest Release](https://github.com/adityaarsharma/rankready/releases/latest)
 
 ---
 
@@ -77,7 +80,7 @@ No other WordPress plugin combines all of these:
 | **On-Demand Revalidation Webhook** | **Yes** | No | No | No | No | No |
 | DataForSEO + OpenAI Usage Tracking | Yes | N/A | N/A | N/A | No | No |
 | Health Check Diagnostic | Yes | No | No | No | No | No |
-| **Auto-updates from GitHub releases** | **Yes** | wp.org | wp.org | wp.org | No | No |
+| **Silent auto-updates (no token, no config)** | **Yes** | wp.org | wp.org | wp.org | No | No |
 
 ---
 
@@ -441,47 +444,35 @@ AI Crawler visits your site
 
 ---
 
-## <a id="auto-updates"></a>Auto-Updates (no token, no config)
+## <a id="auto-updates"></a>Auto-Updates (silent — no token, no config)
 
-Every install of RankReady auto-updates from the GitHub releases on this repo. **No GitHub token required.** No per-site configuration. Install once and forget.
-
-```
-                               git push --tags
-                                      |
-                                      v
-   +-------------------------------------------------------------+
-   | GitHub Action (.github/workflows/release.yml)               |
-   |  1. Validate plugin header / RR_VERSION / readme.txt match  |
-   |  2. Stage rankready/ folder (rsync, exclude .git/.github)   |
-   |  3. Build rankready-X.Y.Z.zip with correct folder structure |
-   |  4. Extract changelog section for X.Y.Z                     |
-   |  5. Create GitHub Release, attach the zip                   |
-   +-------------------------------------------------------------+
-                                      |
-                                      v
-   +-------------------------------------------------------------+
-   | Plugin Update Checker (PUC) bundled with the plugin         |
-   |  1. Polls GitHub releases API once per day (anonymous)      |
-   |  2. Compares latest release tag vs RR_VERSION               |
-   |  3. If newer, surfaces "Update available" in WP Admin       |
-   |  4. WordPress installs the rankready-X.Y.Z.zip release      |
-   |     asset like any normal plugin update                     |
-   +-------------------------------------------------------------+
-```
-
-PUC is bundled inside `vendor/plugin-update-checker/`. To force an immediate check on a site:
+Beta builds auto-update silently. Install once and forget.
 
 ```
-/wp-admin/plugins.php?puc_check_for_updates=1&puc_slug=rankready
+   Install rankready.zip
+          |
+          v
+   Plugin activates a pre-issued beta license against store.posimyth.com
+   (silent, on first wp_loaded — no UI, no user action)
+          |
+          v
+   WordPress Update Checker (EDD SL) polls store.posimyth.com daily
+          |
+          v
+   New beta release available? → "Update available" in WP Admin → Plugins
+   WordPress installs the update like any normal plugin
 ```
+
+**No token needed. No license field. No manual steps.** The beta license is pre-issued and baked in — every install auto-activates and receives updates automatically.
 
 ---
 
 ## Installation
 
-1. Download the latest release zip from [Releases](https://github.com/adityaarsharma/rankready/releases/latest)
-2. **Plugins → Add New → Upload Plugin** in WordPress admin
-3. Activate and go to **RankReady** in the admin menu
+1. Download **`rankready.zip`** from [GitHub Releases → Latest](https://github.com/adityaarsharma/rankready/releases/latest)
+   > ⚠️ Use the `rankready.zip` asset — **not** the "Source code" zip. The source code archive has a different folder name and will break auto-updates.
+2. **Plugins → Add New → Upload Plugin** in WordPress admin — upload `rankready.zip`
+3. Activate → go to **RankReady** in the admin menu
 4. Configure:
    - **Settings tab**: OpenAI key + DataForSEO credentials
    - **Content AI tab**: AI Summary and FAQ Generator — post types, prompts, brand terms, auto-generate toggles
@@ -489,7 +480,7 @@ PUC is bundled inside `vendor/plugin-update-checker/`. To force an immediate che
    - **AI Crawlers tab**: LLMs.txt, Markdown endpoints, per-bot robots.txt controls, AI Crawler Access Log
    - **Advanced tab**: Bulk operations, freshness alerts, health check, headless API
 
-After install, future updates appear inline in WP Admin → Plugins like any plugin from wordpress.org.
+After install, future updates appear silently in **WP Admin → Plugins** — no license key entry, no configuration. The beta license is pre-activated automatically.
 
 ---
 
@@ -600,15 +591,6 @@ All profile fields are registered user meta with `show_in_rest => true`, so the 
 
 ---
 
-## Roadmap to v1.0
-
-- **v0.5.x** — Internal dev releases. Feature-complete free plugin. Public repo, public auto-updates, no licensing.
-- **v0.6.x** — AI Crawler Analytics dashboard, CPT-level bot tracking, multi-layer cache bypass, markdown content negotiation hardening, DB schema optimization. *(Current)*
-- **v0.7 – v0.9** — LLM Citation Tracking (via DataForSEO `ai_optimization_llm_mentions`), Content AI-Readiness Score, Bing ranking gap analysis, Answer-First Content Optimizer.
-- **v1.0** — Public launch. Same free plugin everyone gets today + paid Pro features gated by license key. License keys validated at runtime. Updates stay free and public for the free version.
-
-License gating in v1.0 is **runtime, not download-time**. The same zip is shipped to free users and paid users. The license key only changes which features activate.
-
 ---
 
 ## Changelog
@@ -620,24 +602,15 @@ Downloadable builds are published to [**GitHub Releases**](https://github.com/ad
 
 ## Versioning & Releases
 
-RankReady follows [Semantic Versioning](https://semver.org/). Version numbers live in three places and must stay in sync:
+RankReady follows [Semantic Versioning](https://semver.org/). During beta, releases are tagged `v1.x.x-beta.N`.
+
+Version numbers live in three places and must stay in sync:
 
 1. `rankready.php` — `Version:` header + `RR_VERSION` constant
 2. `readme.txt` — `Stable tag:` line
 3. `CHANGELOG.md` — add a new `## [X.Y.Z] - YYYY-MM-DD` section under `## [Unreleased]`
 
-### Automated release
-
-```bash
-# 1. Bump version in the three files above, commit
-git commit -am "vX.Y.Z: <one-line summary>"
-
-# 2. Tag and push — that's it
-git tag vX.Y.Z
-git push origin main --follow-tags
-```
-
-The GitHub Actions workflow (`.github/workflows/release.yml`) handles the rest: validates version sync, extracts changelog section, builds a clean `rankready-X.Y.Z.zip`, creates the GitHub Release. PUC on every install picks up the new release on its next daily poll.
+All beta releases are published to [GitHub Releases](https://github.com/adityaarsharma/rankready/releases) with `rankready.zip` attached. Install that zip — don't use the auto-generated "Source code" archive (wrong folder name).
 
 ---
 

@@ -1237,4 +1237,77 @@
 		} );
 	}
 
+	// ── Progressive disclosure: toggle reveals child settings ────────────────
+	//
+	// Pattern: a master checkbox marked with `data-rr-toggle-master`
+	// controls visibility of every element marked with the matching
+	// `data-rr-toggle-target="<id>"`. Two attributes only — no class
+	// hardcoding, works inside any tab.
+	//
+	// Usage in PHP:
+	//   <input type="checkbox" data-rr-toggle-master="headless">
+	//   <div data-rr-toggle-target="headless"> ... settings ... </div>
+	//
+	function bindToggleDisclosure() {
+		var masters = document.querySelectorAll( '[data-rr-toggle-master]' );
+		if ( ! masters.length ) {
+			return;
+		}
+		masters.forEach( function ( master ) {
+			var key      = master.getAttribute( 'data-rr-toggle-master' );
+			var targets  = document.querySelectorAll( '[data-rr-toggle-target="' + key + '"]' );
+			if ( ! targets.length ) {
+				return;
+			}
+			var sync = function () {
+				var on = master.checked;
+				targets.forEach( function ( t ) {
+					t.style.display = on ? '' : 'none';
+				} );
+			};
+			master.addEventListener( 'change', sync );
+			sync();
+		} );
+	}
+	bindToggleDisclosure();
+
+	// ── Verify Key — provider-aware ──────────────────────────────────────────
+	//
+	// Each provider card has its own [data-rr-verify-provider] button. Pulls
+	// the matching key field's value (or the saved key if masked) and pings
+	// the REST verify endpoint with the chosen provider.
+	//
+	function bindVerifyButtons() {
+		var buttons = document.querySelectorAll( '[data-rr-verify-provider]' );
+		buttons.forEach( function ( btn ) {
+			btn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				var provider = btn.getAttribute( 'data-rr-verify-provider' );
+				var keyInput = document.querySelector( '[data-rr-key-for="' + provider + '"]' );
+				var status   = document.querySelector( '[data-rr-verify-status="' + provider + '"]' );
+				if ( ! keyInput || ! status ) { return; }
+
+				var key = keyInput.value;
+				status.style.display = 'inline';
+				status.style.color   = '#646970';
+				status.textContent   = 'Verifying…';
+				btn.disabled = true;
+
+				rrFetch( '/verify-key', 'POST', { key: key, provider: provider } )
+					.then( function ( r ) { return r.json(); } )
+					.then( function ( data ) {
+						btn.disabled       = false;
+						status.style.color = data.valid ? '#00a32a' : '#d63638';
+						status.textContent = data.valid ? '✓ ' + data.message : '✗ ' + data.message;
+					} )
+					.catch( function () {
+						btn.disabled       = false;
+						status.style.color = '#d63638';
+						status.textContent = '✗ Request failed.';
+					} );
+			} );
+		} );
+	}
+	bindVerifyButtons();
+
 } )();

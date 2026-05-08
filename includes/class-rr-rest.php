@@ -143,6 +143,13 @@ class RR_Rest {
 					'type'     => 'string',
 					'sanitize_callback' => 'sanitize_text_field',
 				),
+				'provider' => array(
+					'required'          => false,
+					'type'              => 'string',
+					'default'           => 'openai',
+					'enum'              => array( 'openai', 'anthropic', 'gemini', 'deepseek' ),
+					'sanitize_callback' => 'sanitize_key',
+				),
 			),
 		) );
 
@@ -985,31 +992,85 @@ class RR_Rest {
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function verify_api_key( $request ) {
-		$key = $request->get_param( 'key' );
+		$key      = (string) $request->get_param( 'key' );
+		$provider = sanitize_key( (string) $request->get_param( 'provider' ) );
+		if ( '' === $provider ) {
+			$provider = 'openai'; // back-compat with the original endpoint
+		}
+
+		// Provider → (stored option key, validation endpoint, header builder).
+		$providers = array(
+			'openai'    => array(
+				'option'  => RR_OPT_KEY,
+				'verify'  => function ( $key ) {
+					return wp_remote_get( 'https://api.openai.com/v1/models', array(
+						'headers' => array( 'Authorization' => 'Bearer ' . $key ),
+						'timeout' => 15,
+					) );
+				},
+			),
+			'anthropic' => array(
+				'option'  => 'rr_anthropic_api_key',
+				'verify'  => function ( $key ) {
+					// Tiny messages call — `model` is required, 1-token output keeps cost trivial.
+					return wp_remote_post( 'https://api.anthropic.com/v1/messages', array(
+						'timeout' => 15,
+						'headers' => array(
+							'x-api-key'         => $key,
+							'anthropic-version' => '2023-06-01',
+							'content-type'      => 'application/json',
+						),
+						'body' => wp_json_encode( array(
+							'model'      => 'claude-haiku-4-5',
+							'max_tokens' => 1,
+							'messages'   => array( array( 'role' => 'user', 'content' => 'hi' ) ),
+						) ),
+					) );
+				},
+			),
+			'gemini'    => array(
+				'option'  => 'rr_gemini_api_key',
+				'verify'  => function ( $key ) {
+					// `models` list endpoint — cheapest valid auth check for AI Studio keys.
+					return wp_remote_get( 'https://generativelanguage.googleapis.com/v1beta/models?key=' . rawurlencode( $key ), array(
+						'timeout' => 15,
+					) );
+				},
+			),
+			'deepseek'  => array(
+				'option'  => 'rr_deepseek_api_key',
+				'verify'  => function ( $key ) {
+					return wp_remote_get( 'https://api.deepseek.com/v1/models', array(
+						'headers' => array( 'Authorization' => 'Bearer ' . $key ),
+						'timeout' => 15,
+					) );
+				},
+			),
+		);
+
+		if ( ! isset( $providers[ $provider ] ) ) {
+			return new WP_REST_Response( array(
+				'valid'   => false,
+				'message' => __( 'Unknown provider.', 'rankready' ),
+			), 200 );
+		}
+
+		$cfg = $providers[ $provider ];
+
+		// If the form sends a masked value (`sk-1234••••••••`), fall back to
+		// the stored key for that provider — same UX as before.
+		if ( '' === $key || false !== strpos( $key, '••••' ) ) {
+			$key = (string) get_option( $cfg['option'], '' );
+		}
 
 		if ( empty( $key ) ) {
 			return new WP_REST_Response( array(
 				'valid'   => false,
-				'message' => __( 'No API key provided.', 'rankready' ),
+				'message' => __( 'No API key stored for this provider.', 'rankready' ),
 			), 200 );
 		}
 
-		// If masked key, use stored key.
-		if ( false !== strpos( $key, '••••' ) ) {
-			$key = (string) get_option( RR_OPT_KEY, '' );
-		}
-
-		if ( empty( $key ) ) {
-			return new WP_REST_Response( array(
-				'valid'   => false,
-				'message' => __( 'No API key stored.', 'rankready' ),
-			), 200 );
-		}
-
-		$response = wp_remote_get( 'https://api.openai.com/v1/models', array(
-			'headers' => array( 'Authorization' => 'Bearer ' . $key ),
-			'timeout' => 15,
-		) );
+		$response = call_user_func( $cfg['verify'], $key );
 
 		if ( is_wp_error( $response ) ) {
 			return new WP_REST_Response( array(
@@ -1018,7 +1079,7 @@ class RR_Rest {
 			), 200 );
 		}
 
-		$code = wp_remote_retrieve_response_code( $response );
+		$code = (int) wp_remote_retrieve_response_code( $response );
 
 		if ( 200 === $code ) {
 			return new WP_REST_Response( array(
@@ -1028,7 +1089,15 @@ class RR_Rest {
 		}
 
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-		$err  = isset( $body['error']['message'] ) ? $body['error']['message'] : __( 'Invalid API key.', 'rankready' );
+		// Each provider nests its error message differently — try the common
+		// shapes before falling back to a generic HTTP status.
+		$err = '';
+		if ( isset( $body['error']['message'] ) )      { $err = (string) $body['error']['message']; }       // OpenAI / DeepSeek / Gemini
+		elseif ( isset( $body['error'] ) && is_string( $body['error'] ) ) { $err = (string) $body['error']; }
+		elseif ( isset( $body['message'] ) )           { $err = (string) $body['message']; }                 // Anthropic uses { type, message }
+		if ( '' === $err ) {
+			$err = sprintf( /* translators: %d: HTTP status code */ __( 'Verification failed (HTTP %d).', 'rankready' ), $code );
+		}
 
 		return new WP_REST_Response( array(
 			'valid'   => false,

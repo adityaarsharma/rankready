@@ -893,7 +893,7 @@ class RR_Admin {
 
 		$tabs = array(
 			'dashboard' => __( 'Dashboard', 'rankready' ),
-			'content'   => __( 'Content AI', 'rankready' ),
+			'content'   => __( 'AI', 'rankready' ),
 			'authority' => __( 'Authority', 'rankready' ),
 			'crawlers'  => __( 'AI Crawlers', 'rankready' ),
 			'settings'  => __( 'Settings', 'rankready' ),
@@ -1264,12 +1264,44 @@ class RR_Admin {
 		}
 		?>
 		<?php settings_errors(); ?>
+
+		<?php /* AI Provider summary block — quick visibility into what's active,
+		         with a one-click jump to the picker on the Settings tab. Full
+		         provider picker stays on Settings for v1.1.1-beta.1 (form group
+		         migration is queued for a later beta). */ ?>
+		<div class="rr-card" style="margin-bottom:20px;background:linear-gradient(135deg,#f6f7f7 0%,#eef0f2 100%);">
+			<h2 class="rr-card-title"><?php esc_html_e( 'Active AI Provider', 'rankready' ); ?></h2>
+			<p class="rr-card-desc" style="margin-bottom:8px;">
+				<?php
+				$provider_label = RR_LLM::get_provider_label( RR_LLM::get_active_provider() );
+				$active_model   = RR_LLM::get_model( RR_LLM::get_active_provider() );
+				$key_set        = RR_LLM::active_provider_ready();
+				echo esc_html( sprintf(
+					/* translators: 1: provider name, 2: model id */
+					__( '%1$s — %2$s', 'rankready' ),
+					$provider_label,
+					$active_model
+				) );
+				if ( $key_set ) {
+					echo ' <span style="color:#00a32a;font-weight:600;">' . esc_html__( '(key configured ✓)', 'rankready' ) . '</span>';
+				} else {
+					echo ' <span style="color:#d63638;font-weight:600;">' . esc_html__( '(no key — Summary + FAQ won\'t run)', 'rankready' ) . '</span>';
+				}
+				?>
+			</p>
+			<p style="margin:0;">
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="button button-secondary">
+					<?php esc_html_e( 'Change provider / Add API key →', 'rankready' ); ?>
+				</a>
+			</p>
+		</div>
+
 		<form method="post" action="options.php" novalidate="novalidate">
 			<?php settings_fields( self::CONTENT_GROUP ); ?>
 
 			<div class="rr-section-header">
 				<h2 class="rr-section-title"><?php esc_html_e( 'AI Summary', 'rankready' ); ?></h2>
-				<p class="rr-section-desc"><?php esc_html_e( 'Generate key takeaways from post content via OpenAI. Display via block, widget, or auto-inject.', 'rankready' ); ?></p>
+				<p class="rr-section-desc"><?php esc_html_e( 'Generate key takeaways from post content via your active AI provider. Display via block, widget, or auto-inject.', 'rankready' ); ?></p>
 			</div>
 			<?php self::render_tab_summary(); ?>
 
@@ -1277,7 +1309,7 @@ class RR_Admin {
 
 			<div class="rr-section-header">
 				<h2 class="rr-section-title"><?php esc_html_e( 'FAQ Generator', 'rankready' ); ?></h2>
-				<p class="rr-section-desc"><?php esc_html_e( 'Generate FAQPage schema and an expandable FAQ section using DataForSEO question discovery + OpenAI answers.', 'rankready' ); ?></p>
+				<p class="rr-section-desc"><?php esc_html_e( 'Generate FAQPage schema and an expandable FAQ section using DataForSEO question discovery + your active AI provider for answers.', 'rankready' ); ?></p>
 			</div>
 			<?php self::render_tab_faq(); ?>
 
@@ -1396,6 +1428,20 @@ class RR_Admin {
 				</table>
 			</div>
 
+			<?php
+			// Helper for the per-provider verify button row.
+			$render_verify_row = function ( $provider_id ) {
+				?>
+				<p style="margin-top:8px;">
+					<button type="button" class="button button-secondary" data-rr-verify-provider="<?php echo esc_attr( $provider_id ); ?>">
+						<?php esc_html_e( 'Verify Key', 'rankready' ); ?>
+					</button>
+					<span data-rr-verify-status="<?php echo esc_attr( $provider_id ); ?>" style="margin-left:10px;font-size:13px;display:none;"></span>
+				</p>
+				<?php
+			};
+			?>
+
 			<!-- OpenAI -->
 			<div class="rr-card rr-provider-card" data-rr-provider="openai" <?php echo 'openai' === $active_provider ? '' : 'style="display:none;"'; ?>>
 				<h2 class="rr-card-title"><?php esc_html_e( 'OpenAI', 'rankready' ); ?></h2>
@@ -1407,13 +1453,9 @@ class RR_Admin {
 						<td>
 							<input type="password" id="rr_api_key" name="<?php echo esc_attr( RR_OPT_KEY ); ?>"
 								   value="<?php echo esc_attr( $openai_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false" />
-							<p style="margin-top:8px;">
-								<button type="button" id="rr-verify-key" class="button button-secondary">
-									<?php esc_html_e( 'Verify Key', 'rankready' ); ?>
-								</button>
-								<span id="rr-verify-status" style="margin-left:10px;font-size:13px;display:none;"></span>
-							</p>
+								   autocomplete="new-password" spellcheck="false"
+								   data-rr-key-for="openai" />
+							<?php $render_verify_row( 'openai' ); ?>
 							<p class="description"><?php esc_html_e( 'Your OpenAI secret key (sk-...). Stored server-side only. Get one at platform.openai.com/api-keys.', 'rankready' ); ?></p>
 						</td>
 					</tr>
@@ -1445,7 +1487,9 @@ class RR_Admin {
 						<td>
 							<input type="password" id="rr_anthropic_key" name="<?php echo esc_attr( RR_OPT_ANTHROPIC_KEY ); ?>"
 								   value="<?php echo esc_attr( $anthropic_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false" />
+								   autocomplete="new-password" spellcheck="false"
+								   data-rr-key-for="anthropic" />
+							<?php $render_verify_row( 'anthropic' ); ?>
 							<p class="description"><?php esc_html_e( 'Your Anthropic API key (sk-ant-...). Get one at console.anthropic.com.', 'rankready' ); ?></p>
 						</td>
 					</tr>
@@ -1477,7 +1521,9 @@ class RR_Admin {
 						<td>
 							<input type="password" id="rr_gemini_key" name="<?php echo esc_attr( RR_OPT_GEMINI_KEY ); ?>"
 								   value="<?php echo esc_attr( $gemini_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false" />
+								   autocomplete="new-password" spellcheck="false"
+								   data-rr-key-for="gemini" />
+							<?php $render_verify_row( 'gemini' ); ?>
 							<p class="description"><?php esc_html_e( 'Your Google AI Studio API key (AIza...). Get one at aistudio.google.com/apikey.', 'rankready' ); ?></p>
 						</td>
 					</tr>
@@ -1509,7 +1555,9 @@ class RR_Admin {
 						<td>
 							<input type="password" id="rr_deepseek_key" name="<?php echo esc_attr( RR_OPT_DEEPSEEK_KEY ); ?>"
 								   value="<?php echo esc_attr( $deepseek_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false" />
+								   autocomplete="new-password" spellcheck="false"
+								   data-rr-key-for="deepseek" />
+							<?php $render_verify_row( 'deepseek' ); ?>
 							<p class="description"><?php esc_html_e( 'Your DeepSeek API key (sk-...). Get one at platform.deepseek.com/api_keys.', 'rankready' ); ?></p>
 						</td>
 					</tr>
@@ -3019,15 +3067,19 @@ class RR_Admin {
 						<th scope="row"><?php esc_html_e( 'Enable Public API', 'rankready' ); ?></th>
 						<td>
 							<label class="rr-toggle">
-								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_HEADLESS_ENABLE ); ?>" value="on" <?php checked( $enabled ); ?> />
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_HEADLESS_ENABLE ); ?>" value="on" <?php checked( $enabled ); ?>
+									data-toggle-target="rr-headless-inner" />
 								<span class="rr-toggle-slider"></span>
 							</label>
 							<p class="description">
-								<?php esc_html_e( 'Turn on the public REST endpoints. Off by default for security.', 'rankready' ); ?>
+								<?php esc_html_e( 'Turn on the public REST endpoints. Off by default for security. Settings appear once enabled.', 'rankready' ); ?>
 							</p>
 						</td>
 					</tr>
+				</table>
 
+				<div id="rr-headless-inner" class="rr-conditional-fields" <?php echo $enabled ? '' : 'style="display:none;"'; ?>>
+				<table class="form-table">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Expose in Core REST', 'rankready' ); ?></th>
 						<td>
@@ -3071,6 +3123,7 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
+				</div><?php /* /#rr-headless-inner — wrap the inner card body so it hides until Enable Public API is on */ ?>
 			</div>
 
 			<div class="rr-card">
@@ -3221,43 +3274,9 @@ class RR_Admin {
 			</div>
 		</div>
 
-		<!-- Start Over: Summaries — PRO (separate from FAQ) -->
-		<div class="rr-card">
-			<h2 class="rr-card-title"><?php esc_html_e( 'Start Over — AI Summaries Only', 'rankready' ); ?></h2>
-			<p class="rr-card-desc">
-				<?php esc_html_e( 'Clears ALL existing AI Summaries first, then regenerates from scratch using current prompts. Does not touch FAQ data.', 'rankready' ); ?>
-			</p>
-
-			<table class="form-table rr-form-table" style="width:auto;">
-				<tr>
-					<th style="padding:10px 20px 10px 0;"><?php esc_html_e( 'Post Types', 'rankready' ); ?></th>
-					<td>
-						<?php foreach ( $post_types as $slug => $label ) : ?>
-							<label style="display:block;margin-bottom:4px;">
-								<input type="checkbox" class="rr-startover-type" value="<?php echo esc_attr( $slug ); ?>" checked />
-								<?php echo esc_html( $label ); ?>
-							</label>
-						<?php endforeach; ?>
-					</td>
-				</tr>
-				<tr>
-					<th></th>
-					<td>
-						<button type="button" id="rr-startover-btn" class="button button-primary"><?php esc_html_e( 'Clear &amp; Regenerate', 'rankready' ); ?></button>
-						<button type="button" id="rr-startover-resume" class="button button-secondary" style="margin-left:8px;"><?php esc_html_e( 'Resume', 'rankready' ); ?></button>
-						<button type="button" id="rr-startover-stop" class="button button-secondary" style="display:none;margin-left:8px;"><?php esc_html_e( 'Stop', 'rankready' ); ?></button>
-						<p class="description" style="margin-top:4px;"><?php esc_html_e( 'Destructive: deletes old summaries first. 1 post at a time.', 'rankready' ); ?></p>
-					</td>
-				</tr>
-			</table>
-
-			<div id="rr-startover-progress" style="display:none;margin-top:16px;">
-				<div class="rr-progress-track">
-					<div id="rr-startover-bar" class="rr-progress-fill"></div>
-				</div>
-				<p id="rr-startover-status" class="rr-progress-label"><?php esc_html_e( 'Preparing...', 'rankready' ); ?></p>
-			</div>
-		</div>
+		<?php /* Start Over card removed in v1.1.1-beta.1 — Bulk Regenerate already
+		         covers re-running the prompt over existing posts; the
+		         destructive "delete then re-call" flow was duplicate UX. */ ?>
 
 		<?php else : ?>
 
@@ -3271,14 +3290,9 @@ class RR_Admin {
 				__( 'Bulk Regenerate — FAQ', 'rankready' ),
 				__( 'Generate FAQ schema across all existing published posts in one run. Free plan is limited to 5 manual FAQ generations per month — bulk processing is a Pro feature.', 'rankready' )
 			);
-			self::render_pro_gate(
-				__( 'Start Over — Clear &amp; Regenerate Summaries', 'rankready' ),
-				__( 'Wipe and rebuild all AI Summaries with your latest prompt. Pro only.', 'rankready' )
-			);
-			self::render_pro_gate(
-				__( 'Start Over — Clear &amp; Regenerate FAQ', 'rankready' ),
-				__( 'Wipe and rebuild all FAQ schema with your latest prompt. Pro only.', 'rankready' )
-			);
+			// Start Over Pro gates removed in v1.1.1-beta.1 alongside the
+			// Pro card itself — Bulk Regenerate already handles re-running
+			// the prompt over existing posts.
 		?>
 
 		<?php endif; ?>

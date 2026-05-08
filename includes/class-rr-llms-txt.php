@@ -78,11 +78,19 @@ class RR_Llms_Txt {
 	 * Similar to how Sitemap is referenced in robots.txt.
 	 */
 	public static function add_to_robots_txt( string $output, bool $public ): string {
-		if ( ! $public ) {
-			return $output;
-		}
+		// Note: do NOT bail out when ! $public.
+		//
+		// When the WP "Discourage search engines" toggle is on, $public is
+		// false and WordPress emits `Disallow: /`. We previously bailed out
+		// here, which silently dropped Content Signals output too. Content
+		// Signals (ai-train / search / ai-input) is an INDEPENDENT
+		// declaration about AI training, not about search-engine indexing —
+		// users may legitimately want SEO blocked but AI allowed (or
+		// vice-versa). The block below only emits content the user has
+		// explicitly enabled, so always running it is safe.
 
-		// Don't duplicate if RankReady block already present.
+		// Don't duplicate if RankReady block already present in $output
+		// (defends against double-filtering edge cases).
 		if ( false !== stripos( $output, 'RankReady' ) ) {
 			return $output;
 		}

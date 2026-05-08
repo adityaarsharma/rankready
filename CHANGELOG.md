@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1-beta.1] - 2026-05-08
+
+### Added
+- **Per-provider Verify Key buttons.** Every AI provider card (OpenAI, Claude, Gemini, DeepSeek) now has a Verify Key button that pings the provider's auth endpoint and confirms the key is live. Previously only OpenAI had verification; the others had to be tested via Save → connection test.
+- **Provider-aware `verify-key` REST endpoint.** Accepts a `provider` parameter (one of `openai`, `anthropic`, `gemini`, `deepseek`) and routes verification to the right API: OpenAI `/v1/models`, Anthropic `/v1/messages` (1-token probe), Gemini `/v1beta/models`, DeepSeek `/v1/models`.
+- **Headless API: progressive disclosure toggle.** Inner Headless settings (CORS origins, cache TTL, rate limit, revalidation URL/secret, GraphQL fields) now hide until the **Enable Public API** master toggle is on. Reduces visual noise when the feature is dormant.
+- **AI tab: Active Provider summary card.** Top of the AI (formerly Content AI) tab now shows the currently-active provider, model, and key status with a one-click jump to **Settings → AI Provider** for changes. Quick visibility into "what AI is generating my content right now?".
+
+### Changed
+- **Tab rename:** "Content AI" → "AI" (consolidates the AI feature surface under one label).
+- **Card cost label:** Advanced tab's API Usage card now reads "Estimated Cost (blended)" instead of "Estimated Cost (GPT-4o-mini)" — the underlying token tracker is provider-agnostic in v1.1.1+.
+
+### Removed
+- **Start Over — AI Summaries Only** card (Advanced → Tools). Bulk Regenerate already covers re-running prompts over existing posts; the destructive "delete then re-call" flow was duplicate UX. The two Pro gate cards for Start Over were also removed.
+
+### Fixed
+- **Content Signals not appearing in robots.txt when "Discourage search engines" is enabled.** `add_to_robots_txt()` was bailing out early whenever `blog_public` was false, silently dropping the entire `# RankReady` block including Content Signals. Content Signals (`ai-train` / `search` / `ai-input`) is an INDEPENDENT declaration about AI training — users may legitimately want SEO blocked but AI allowed (or vice-versa). Removed the early bail-out so Content Signals + AI Crawler directives now emit regardless of the blog_public flag. The block only includes content the user has explicitly enabled, so always-running is safe.
+
+### Notes
+- This is a beta iteration on top of the live `1.1.1` GitHub release. Shipped as a GitHub pre-release; auto-updates to beta installs flow via EDD SL on store.posimyth.com.
+- Full structural merge of AI Provider + AI feature settings into a single tab is queued for the next beta — requires migrating the provider options from `SETTINGS_GROUP` to a shared group, which is risky for a single iteration. The summary card on the AI tab + cross-link to Settings is the interim UX.
+
 ## [1.1.1] - 2026-05-08
 
 ### Added

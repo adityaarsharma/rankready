@@ -893,7 +893,7 @@ class RR_Admin {
 
 		$tabs = array(
 			'dashboard' => __( 'Dashboard', 'rankready' ),
-			'content'   => __( 'AI', 'rankready' ),
+			'content'   => __( 'Content AI', 'rankready' ),
 			'authority' => __( 'Authority', 'rankready' ),
 			'crawlers'  => __( 'AI Crawlers', 'rankready' ),
 			'settings'  => __( 'Settings', 'rankready' ),
@@ -1046,10 +1046,9 @@ class RR_Admin {
 					<li><strong><?php esc_html_e( 'More AI brains.', 'rankready' ); ?></strong> <?php esc_html_e( 'Now works with Claude, Gemini, and DeepSeek alongside OpenAI. Pick your provider in Settings → AI Provider.', 'rankready' ); ?></li>
 					<li><strong><?php esc_html_e( 'Fixed:', 'rankready' ); ?></strong> <?php esc_html_e( '.md URLs now serve the right page when AI tools send Accept: text/markdown.', 'rankready' ); ?></li>
 				</ul>
-				<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+				<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
 					<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="button button-primary" style="background:#fff;color:#1a1a2e;border:none;"><?php esc_html_e( 'Open AI Provider Settings', 'rankready' ); ?></a>
-					<a href="https://github.com/adityaarsharma/rankready/blob/main/CHANGELOG.md" target="_blank" rel="noopener" class="button" style="background:transparent;color:#fff;border-color:#4d5478;"><?php esc_html_e( 'View full changelog', 'rankready' ); ?></a>
-					<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rankready&rr_dismiss_whatsnew=' . RR_VERSION ), 'rr_dismiss_whatsnew' ) ); ?>" style="margin-left:auto;color:#9da3c0;text-decoration:none;align-self:center;"><?php esc_html_e( 'Dismiss', 'rankready' ); ?></a>
+					<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rankready&rr_dismiss_whatsnew=' . RR_VERSION ), 'rr_dismiss_whatsnew' ) ); ?>" style="margin-left:auto;color:#9da3c0;text-decoration:none;"><?php esc_html_e( 'Dismiss', 'rankready' ); ?></a>
 				</div>
 			</div>
 		</div>
@@ -1265,10 +1264,9 @@ class RR_Admin {
 		?>
 		<?php settings_errors(); ?>
 
-		<?php /* AI Provider summary block — quick visibility into what's active,
-		         with a one-click jump to the picker on the Settings tab. Full
-		         provider picker stays on Settings for v1.1.1-beta.1 (form group
-		         migration is queued for a later beta). */ ?>
+		<?php /* Active AI provider summary — quick visibility on the Content AI
+		         tab into what model is currently powering Summary + FAQ, with
+		         a one-click jump to Settings to change provider/key. */ ?>
 		<div class="rr-card" style="margin-bottom:20px;background:linear-gradient(135deg,#f6f7f7 0%,#eef0f2 100%);">
 			<h2 class="rr-card-title"><?php esc_html_e( 'Active AI Provider', 'rankready' ); ?></h2>
 			<p class="rr-card-desc" style="margin-bottom:8px;">
@@ -3123,8 +3121,10 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
-				</div><?php /* /#rr-headless-inner — wrap the inner card body so it hides until Enable Public API is on */ ?>
-			</div>
+			</div><?php /* end card 1 — Headless WordPress Public API. The
+			      `rr-headless-inner` wrapper opened earlier closes AFTER the
+			      WPGraphQL card so all three cards hide together until
+			      Enable Public API is on. */ ?>
 
 			<div class="rr-card">
 				<div class="rr-card-header">
@@ -3217,6 +3217,7 @@ class RR_Admin {
 					</tr>
 				</table>
 			</div>
+			</div><?php /* /#rr-headless-inner — closes the wrapper that hid every Headless card while the master toggle was off. */ ?>
 			<?php endif; ?>
 
 			<?php submit_button( __( 'Save Headless Settings', 'rankready' ) ); ?>

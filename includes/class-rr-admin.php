@@ -1057,10 +1057,10 @@ class RR_Admin {
 		<?php if ( ! $tutorial_dismissed ) : ?>
 		<div class="rr-card rr-tutorial-card" style="margin-bottom:24px;">
 			<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-				<h2 class="rr-card-title" style="margin:0;"><?php esc_html_e( '👋 New to RankReady? Watch the 5-minute walkthrough', 'rankready' ); ?></h2>
+				<h2 class="rr-card-title" style="margin:0;"><?php esc_html_e( '👋 New to RankReady? Watch the video', 'rankready' ); ?></h2>
 				<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rankready&rr_dismiss_tutorial=1' ), 'rr_dismiss_tutorial' ) ); ?>" class="rr-tutorial-dismiss" style="color:#646970;text-decoration:none;font-size:13px;"><?php esc_html_e( 'Hide this', 'rankready' ); ?></a>
 			</div>
-			<p class="rr-card-desc" style="margin-top:0;"><?php esc_html_e( 'Aditya walks through every RankReady setting — AI Summary, FAQ Generator, Author Box, llms.txt, AI Crawler controls — so you can ship a 100/100 AI-ready site in under 10 minutes.', 'rankready' ); ?></p>
+			<p class="rr-card-desc" style="margin-top:0;"><?php esc_html_e( 'Aditya walks through every RankReady setting — AI Summary, FAQ Generator, Author Box, llms.txt, AI Crawler controls — so you can ship a 100/100 AI-ready site.', 'rankready' ); ?></p>
 			<div style="position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;background:#000;">
 				<iframe
 					style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"
@@ -1154,7 +1154,7 @@ class RR_Admin {
 			</div>
 			<div class="rr-info-item rr-dash-feature">
 				<h3><?php esc_html_e( 'Plugin Info', 'rankready' ); ?></h3>
-				<p>v<?php echo esc_html( RR_VERSION ); ?> &middot; <?php esc_html_e( 'by POSIMYTH', 'rankready' ); ?></p>
+				<p>v<?php echo esc_html( RR_VERSION ); ?> &middot; <a href="https://store.posimyth.com/plugins/rankready/" target="_blank" rel="noopener" style="color:#646970;text-decoration:none;"><?php esc_html_e( 'by POSIMYTH Innovations', 'rankready' ); ?></a></p>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&puc_check_for_updates=1&puc_slug=rankready' ) ); ?>" class="rr-dash-link"><?php esc_html_e( 'Check for updates', 'rankready' ); ?></a>
 			</div>
 		</div>
@@ -1350,20 +1350,23 @@ class RR_Admin {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	private static function render_tab_advanced(): void {
+		// Order (per UX feedback): Bulk generation operations come first
+		// because they're the most-used tools; Headless / Public API is
+		// dev-focused and lives lower on the page.
 		?>
-		<div class="rr-section-header">
-			<h2 class="rr-section-title"><?php esc_html_e( 'Headless / Public API', 'rankready' ); ?></h2>
-			<p class="rr-section-desc"><?php esc_html_e( 'REST endpoints, CORS, rate limiting, and on-demand revalidation for Next.js, Nuxt, and Astro sites.', 'rankready' ); ?></p>
-		</div>
-		<?php self::render_tab_headless(); ?>
-
-		<div class="rr-section-divider"></div>
-
 		<div class="rr-section-header">
 			<h2 class="rr-section-title"><?php esc_html_e( 'Tools', 'rankready' ); ?></h2>
 			<p class="rr-section-desc"><?php esc_html_e( 'Bulk operations, health check, freshness alerts, API usage, and data retention.', 'rankready' ); ?></p>
 		</div>
 		<?php self::render_tab_tools(); ?>
+
+		<div class="rr-section-divider"></div>
+
+		<div class="rr-section-header">
+			<h2 class="rr-section-title"><?php esc_html_e( 'Headless / Public API', 'rankready' ); ?></h2>
+			<p class="rr-section-desc"><?php esc_html_e( 'REST endpoints, CORS, rate limiting, and on-demand revalidation for Next.js, Nuxt, and Astro sites. Off by default — flip the toggle inside the card to reveal settings.', 'rankready' ); ?></p>
+		</div>
+		<?php self::render_tab_headless(); ?>
 
 		<div class="rr-section-divider"></div>
 
@@ -3052,6 +3055,11 @@ class RR_Admin {
 		<form method="post" action="options.php" class="rr-form">
 			<?php settings_fields( self::HEADLESS_GROUP ); ?>
 
+			<?php /* Single Headless card. All sub-sections (Public API, On-Demand
+			         Revalidation, WPGraphQL, Endpoint Reference) live inside ONE
+			         outer rr-card to match the rest of the plugin's UI density.
+			         The master "Enable Public API" toggle controls visibility of
+			         every setting below it via #rr-headless-inner. */ ?>
 			<div class="rr-card">
 				<div class="rr-card-header">
 					<h2><?php esc_html_e( 'Headless WordPress Public API', 'rankready' ); ?></h2>
@@ -3077,148 +3085,135 @@ class RR_Admin {
 				</table>
 
 				<div id="rr-headless-inner" class="rr-conditional-fields" <?php echo $enabled ? '' : 'style="display:none;"'; ?>>
-				<table class="form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Expose in Core REST', 'rankready' ); ?></th>
-						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_HEADLESS_EXPOSE_META ); ?>" value="on" <?php checked( $expose_meta ); ?> />
-								<?php esc_html_e( 'Add rankready_faq, rankready_summary, rankready_schema to /wp/v2/posts/{id}', 'rankready' ); ?>
-							</label>
-							<p class="description">
-								<?php esc_html_e( 'Recommended for Faust.js, headless themes, and anything that already consumes core WP REST.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
 
-					<tr>
-						<th scope="row"><?php esc_html_e( 'CORS Allowed Origins', 'rankready' ); ?></th>
-						<td>
-							<textarea name="<?php echo esc_attr( RR_OPT_HEADLESS_CORS_ORIGINS ); ?>" rows="3" class="large-text code" placeholder="https://www.example.com, https://staging.example.com"><?php echo esc_textarea( $cors_origins ); ?></textarea>
-							<p class="description">
-								<?php esc_html_e( 'Comma-separated list of allowed frontend origins. Leave empty to allow all origins (wildcard). Use specific origins in production.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
+					<table class="form-table">
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Expose in Core REST', 'rankready' ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RR_OPT_HEADLESS_EXPOSE_META ); ?>" value="on" <?php checked( $expose_meta ); ?> />
+									<?php esc_html_e( 'Add rankready_faq, rankready_summary, rankready_schema to /wp/v2/posts/{id}', 'rankready' ); ?>
+								</label>
+								<p class="description">
+									<?php esc_html_e( 'Recommended for Faust.js, headless themes, and anything that already consumes core WP REST.', 'rankready' ); ?>
+								</p>
+							</td>
+						</tr>
 
-					<tr>
-						<th scope="row"><?php esc_html_e( 'CDN Cache TTL (seconds)', 'rankready' ); ?></th>
-						<td>
-							<input type="number" min="0" max="31536000" step="1" name="<?php echo esc_attr( RR_OPT_HEADLESS_CACHE_TTL ); ?>" value="<?php echo esc_attr( (string) $cache_ttl ); ?>" class="small-text" />
-							<p class="description">
-								<?php esc_html_e( 'Cache-Control: public, s-maxage=N, stale-while-revalidate=86400. Default 300 (5 min). Set higher for stable content.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'CORS Allowed Origins', 'rankready' ); ?></th>
+							<td>
+								<textarea name="<?php echo esc_attr( RR_OPT_HEADLESS_CORS_ORIGINS ); ?>" rows="3" class="large-text code" placeholder="https://www.example.com, https://staging.example.com"><?php echo esc_textarea( $cors_origins ); ?></textarea>
+								<p class="description">
+									<?php esc_html_e( 'Comma-separated list of allowed frontend origins. Leave empty to allow all origins (wildcard). Use specific origins in production.', 'rankready' ); ?>
+								</p>
+							</td>
+						</tr>
 
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Rate Limit (req/min per IP)', 'rankready' ); ?></th>
-						<td>
-							<input type="number" min="0" max="10000" step="1" name="<?php echo esc_attr( RR_OPT_HEADLESS_RATE_LIMIT ); ?>" value="<?php echo esc_attr( (string) $rate_limit ); ?>" class="small-text" />
-							<p class="description">
-								<?php esc_html_e( '0 disables rate limiting. Authenticated editors are always exempt. IP is detected from Cloudflare / X-Forwarded-For / X-Real-IP.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
-				</table>
-			</div><?php /* end card 1 — Headless WordPress Public API. The
-			      `rr-headless-inner` wrapper opened earlier closes AFTER the
-			      WPGraphQL card so all three cards hide together until
-			      Enable Public API is on. */ ?>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'CDN Cache TTL (seconds)', 'rankready' ); ?></th>
+							<td>
+								<input type="number" min="0" max="31536000" step="1" name="<?php echo esc_attr( RR_OPT_HEADLESS_CACHE_TTL ); ?>" value="<?php echo esc_attr( (string) $cache_ttl ); ?>" class="small-text" />
+								<p class="description">
+									<?php esc_html_e( 'Cache-Control: public, s-maxage=N, stale-while-revalidate=86400. Default 300 (5 min). Set higher for stable content.', 'rankready' ); ?>
+								</p>
+							</td>
+						</tr>
 
-			<div class="rr-card">
-				<div class="rr-card-header">
-					<h2><?php esc_html_e( 'On-Demand Revalidation (Next.js / Nuxt)', 'rankready' ); ?></h2>
-					<p class="rr-card-subtitle">
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Rate Limit (req/min per IP)', 'rankready' ); ?></th>
+							<td>
+								<input type="number" min="0" max="10000" step="1" name="<?php echo esc_attr( RR_OPT_HEADLESS_RATE_LIMIT ); ?>" value="<?php echo esc_attr( (string) $rate_limit ); ?>" class="small-text" />
+								<p class="description">
+									<?php esc_html_e( '0 disables rate limiting. Authenticated editors are always exempt. IP is detected from Cloudflare / X-Forwarded-For / X-Real-IP.', 'rankready' ); ?>
+								</p>
+							</td>
+						</tr>
+					</table>
+
+					<h3 class="rr-subsection-title" style="margin:24px 0 4px;font-size:15px;font-weight:600;color:#1d2327;"><?php esc_html_e( 'On-Demand Revalidation (Next.js / Nuxt)', 'rankready' ); ?></h3>
+					<p class="rr-subsection-desc" style="margin:0 0 8px;color:#646970;font-size:13px;">
 						<?php esc_html_e( 'When FAQ or summary data changes, RankReady pings your frontend to revalidate the affected page. Fire-and-forget, never blocks the editor.', 'rankready' ); ?>
 					</p>
-				</div>
 
-				<table class="form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Webhook URL', 'rankready' ); ?></th>
-						<td>
-							<input type="url" name="<?php echo esc_attr( RR_OPT_HEADLESS_REVALIDATE_URL ); ?>" value="<?php echo esc_attr( $revalidate_url ); ?>" class="large-text" placeholder="https://www.example.com/api/revalidate" />
-							<p class="description">
-								<?php esc_html_e( 'Your Next.js / Nuxt revalidation endpoint. POST receives JSON { post_id, slug, reason, ts, site } and header X-RR-Secret.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
+					<table class="form-table">
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Webhook URL', 'rankready' ); ?></th>
+							<td>
+								<input type="url" name="<?php echo esc_attr( RR_OPT_HEADLESS_REVALIDATE_URL ); ?>" value="<?php echo esc_attr( $revalidate_url ); ?>" class="large-text" placeholder="https://www.example.com/api/revalidate" />
+								<p class="description">
+									<?php esc_html_e( 'Your Next.js / Nuxt revalidation endpoint. POST receives JSON { post_id, slug, reason, ts, site } and header X-RR-Secret.', 'rankready' ); ?>
+								</p>
+							</td>
+						</tr>
 
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Shared Secret', 'rankready' ); ?></th>
-						<td>
-							<input type="text" name="<?php echo esc_attr( RR_OPT_HEADLESS_REVALIDATE_SEC ); ?>" value="<?php echo esc_attr( $secret_masked ); ?>" class="regular-text" autocomplete="off" />
-							<p class="description">
-								<?php esc_html_e( 'Shared secret sent as X-RR-Secret header. Use hash_equals() to verify on the frontend. Leave blank to clear.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
-				</table>
-			</div>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Shared Secret', 'rankready' ); ?></th>
+							<td>
+								<input type="text" name="<?php echo esc_attr( RR_OPT_HEADLESS_REVALIDATE_SEC ); ?>" value="<?php echo esc_attr( $secret_masked ); ?>" class="regular-text" autocomplete="off" />
+								<p class="description">
+									<?php esc_html_e( 'Shared secret sent as X-RR-Secret header. Use hash_equals() to verify on the frontend. Leave blank to clear.', 'rankready' ); ?>
+								</p>
+							</td>
+						</tr>
+					</table>
 
-			<div class="rr-card">
-				<div class="rr-card-header">
-					<h2><?php esc_html_e( 'WPGraphQL Integration', 'rankready' ); ?></h2>
-					<p class="rr-card-subtitle">
+					<h3 class="rr-subsection-title" style="margin:24px 0 4px;font-size:15px;font-weight:600;color:#1d2327;"><?php esc_html_e( 'WPGraphQL Integration', 'rankready' ); ?></h3>
+					<p class="rr-subsection-desc" style="margin:0 0 8px;color:#646970;font-size:13px;">
 						<?php esc_html_e( 'Register rankReadyFaq, rankReadySummary, rankReadySchema as GraphQL fields on every public post type.', 'rankready' ); ?>
 					</p>
-				</div>
 
-				<table class="form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Register GraphQL Fields', 'rankready' ); ?></th>
-						<td>
-							<label class="rr-toggle">
-								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_HEADLESS_GRAPHQL ); ?>" value="on" <?php checked( $graphql ); ?> <?php disabled( ! $graphql_active ); ?> />
-								<span class="rr-toggle-slider"></span>
-							</label>
-							<?php if ( ! $graphql_active ) : ?>
-								<p class="description" style="color:#d63638;">
-									<?php esc_html_e( 'WPGraphQL plugin is not active. Install and activate it to enable this option.', 'rankready' ); ?>
-								</p>
-							<?php else : ?>
+					<table class="form-table">
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Register GraphQL Fields', 'rankready' ); ?></th>
+							<td>
+								<label class="rr-toggle">
+									<input type="checkbox" name="<?php echo esc_attr( RR_OPT_HEADLESS_GRAPHQL ); ?>" value="on" <?php checked( $graphql ); ?> <?php disabled( ! $graphql_active ); ?> />
+									<span class="rr-toggle-slider"></span>
+								</label>
+								<?php if ( ! $graphql_active ) : ?>
+									<p class="description" style="color:#d63638;">
+										<?php esc_html_e( 'WPGraphQL plugin is not active. Install and activate it to enable this option.', 'rankready' ); ?>
+									</p>
+								<?php else : ?>
+									<p class="description">
+										<?php esc_html_e( 'WPGraphQL detected. Fields will be available on all GraphQL post types.', 'rankready' ); ?>
+									</p>
+								<?php endif; ?>
+							</td>
+						</tr>
+					</table>
+
+					<?php if ( $enabled ) : ?>
+					<h3 class="rr-subsection-title" style="margin:24px 0 4px;font-size:15px;font-weight:600;color:#1d2327;"><?php esc_html_e( 'Endpoint Reference', 'rankready' ); ?></h3>
+
+					<table class="form-table">
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Base URL', 'rankready' ); ?></th>
+							<td><code><?php echo esc_html( $site_url ); ?></code></td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Available Routes', 'rankready' ); ?></th>
+							<td>
+								<ul class="rr-endpoint-list">
+									<li><code>GET  faq/{id}</code> &mdash; <?php esc_html_e( 'FAQ items for a post', 'rankready' ); ?></li>
+									<li><code>GET  summary/{id}</code> &mdash; <?php esc_html_e( 'AI summary for a post', 'rankready' ); ?></li>
+									<li><code>GET  schema/{id}</code> &mdash; <?php esc_html_e( 'Ready-to-inject JSON-LD', 'rankready' ); ?></li>
+									<li><code>GET  post/{id}</code> &mdash; <?php esc_html_e( 'Combined (FAQ + summary + schema)', 'rankready' ); ?></li>
+									<li><code>GET  post-by-slug/{slug}?post_type=post&amp;lang=en</code></li>
+									<li><code>GET  list?post_type=post&amp;per_page=20&amp;page=1&amp;since=ISO8601</code></li>
+									<li><code>POST revalidate</code> &mdash; <?php esc_html_e( 'Manual revalidation trigger (requires secret)', 'rankready' ); ?></li>
+								</ul>
 								<p class="description">
-									<?php esc_html_e( 'WPGraphQL detected. Fields will be available on all GraphQL post types.', 'rankready' ); ?>
+									<?php esc_html_e( 'All responses include ETag, Last-Modified, Cache-Control s-maxage + stale-while-revalidate, and X-RR-Request-Id headers. 304 Not Modified is returned on matching If-None-Match / If-Modified-Since.', 'rankready' ); ?>
 								</p>
-							<?php endif; ?>
-						</td>
-					</tr>
-				</table>
-			</div>
+							</td>
+						</tr>
+					</table>
+					<?php endif; ?>
 
-			<?php if ( $enabled ) : ?>
-			<div class="rr-card">
-				<div class="rr-card-header">
-					<h2><?php esc_html_e( 'Endpoint Reference', 'rankready' ); ?></h2>
-				</div>
-
-				<table class="form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Base URL', 'rankready' ); ?></th>
-						<td><code><?php echo esc_html( $site_url ); ?></code></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Available Routes', 'rankready' ); ?></th>
-						<td>
-							<ul class="rr-endpoint-list">
-								<li><code>GET  faq/{id}</code> &mdash; <?php esc_html_e( 'FAQ items for a post', 'rankready' ); ?></li>
-								<li><code>GET  summary/{id}</code> &mdash; <?php esc_html_e( 'AI summary for a post', 'rankready' ); ?></li>
-								<li><code>GET  schema/{id}</code> &mdash; <?php esc_html_e( 'Ready-to-inject JSON-LD', 'rankready' ); ?></li>
-								<li><code>GET  post/{id}</code> &mdash; <?php esc_html_e( 'Combined (FAQ + summary + schema)', 'rankready' ); ?></li>
-								<li><code>GET  post-by-slug/{slug}?post_type=post&amp;lang=en</code></li>
-								<li><code>GET  list?post_type=post&amp;per_page=20&amp;page=1&amp;since=ISO8601</code></li>
-								<li><code>POST revalidate</code> &mdash; <?php esc_html_e( 'Manual revalidation trigger (requires secret)', 'rankready' ); ?></li>
-							</ul>
-							<p class="description">
-								<?php esc_html_e( 'All responses include ETag, Last-Modified, Cache-Control s-maxage + stale-while-revalidate, and X-RR-Request-Id headers. 304 Not Modified is returned on matching If-None-Match / If-Modified-Since.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
-				</table>
-			</div>
-			</div><?php /* /#rr-headless-inner — closes the wrapper that hid every Headless card while the master toggle was off. */ ?>
-			<?php endif; ?>
+				</div><?php /* /#rr-headless-inner */ ?>
+			</div><?php /* /.rr-card — single Headless container */ ?>
 
 			<?php submit_button( __( 'Save Headless Settings', 'rankready' ) ); ?>
 		</form>
@@ -3725,10 +3720,10 @@ class RR_Admin {
 			<p style="margin:0;font-size:13px;color:#646970;">
 				<?php
 				printf(
-					/* translators: %s: author link */
+					/* translators: 1: plugin version, 2: company link */
 					esc_html__( 'RankReady v%1$s by %2$s', 'rankready' ),
 					esc_html( RR_VERSION ),
-					'<a href="https://github.com/adityaarsharma/rankready" target="_blank">Aditya Sharma</a>'
+					'<a href="https://store.posimyth.com/plugins/rankready/" target="_blank" rel="noopener">POSIMYTH Innovations</a>'
 				);
 				?>
 			</p>

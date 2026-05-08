@@ -83,8 +83,8 @@ class RR_Faq {
 			return;
 		}
 
-		// Need both API keys.
-		if ( empty( get_option( RR_OPT_KEY ) ) || empty( get_option( RR_OPT_DFS_LOGIN ) ) || empty( get_option( RR_OPT_DFS_PASSWORD ) ) ) {
+		// Need both an LLM provider key (whichever is active) AND DataForSEO.
+		if ( ! RR_LLM::active_provider_ready() || empty( get_option( RR_OPT_DFS_LOGIN ) ) || empty( get_option( RR_OPT_DFS_PASSWORD ) ) ) {
 			return;
 		}
 
@@ -622,15 +622,19 @@ class RR_Faq {
 		// Get internal links from post content for doc references.
 		$internal_links = self::extract_internal_links( $post );
 
-		// Build OpenAI prompt.
+		// Build LLM prompt.
 		$prompt = self::build_faq_prompt( $post, $keyword, $brand_terms, $dfs_questions, $internal_links, $count );
 
-		// Call OpenAI.
-		$api_key = get_option( RR_OPT_KEY, '' );
-		$model   = get_option( RR_OPT_MODEL, 'gpt-4o-mini' );
-
-		if ( empty( $api_key ) ) {
-			return new \WP_Error( 'no_api_key', 'OpenAI API key not configured.' );
+		// Confirm an LLM provider is configured (OpenAI/Claude/Gemini/DeepSeek).
+		if ( ! RR_LLM::active_provider_ready() ) {
+			return new \WP_Error(
+				'no_api_key',
+				sprintf(
+					/* translators: %s: provider label */
+					__( 'No %s API key configured.', 'rankready' ),
+					RR_LLM::get_provider_label( RR_LLM::get_active_provider() )
+				)
+			);
 		}
 
 		// Build system prompt with product context.
@@ -689,52 +693,28 @@ class RR_Faq {
 			$faq_system .= "\n\nAdditional instructions:\n" . $custom_prompt;
 		}
 
-		$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', array(
-			'headers' => array(
-				'Authorization' => 'Bearer ' . $api_key,
-				'Content-Type'  => 'application/json',
-			),
-			'body'    => wp_json_encode( array(
-				'model'           => $model,
-				'messages'        => array(
-					array( 'role' => 'system', 'content' => $faq_system ),
-					array( 'role' => 'user',   'content' => $prompt ),
-				),
-				'response_format' => array( 'type' => 'json_object' ),
-				'temperature'     => 0.3,
-				'max_tokens'      => 2000,
-			) ),
-			'timeout' => 15,
+		// Dispatch through the LLM abstraction — provider-agnostic.
+		$result = RR_LLM::generate( $faq_system, $prompt, array(
+			'max_tokens'  => 2000,
+			'temperature' => 0.3,
+			'json'        => true,
+			'timeout'     => 25,
 		) );
 
-		if ( is_wp_error( $response ) ) {
-			RR_Generator::log_error( 'FAQ/OpenAI', $response->get_error_message(), $post_id );
-			return $response;
+		$source_label = 'FAQ/' . strtoupper( $result['provider'] );
+
+		if ( empty( $result['ok'] ) ) {
+			RR_Generator::log_error( $source_label, (string) $result['error'], $post_id );
+			return new \WP_Error( 'llm_error', (string) $result['error'] );
 		}
 
-		$http_code = (int) wp_remote_retrieve_response_code( $response );
-		$body      = json_decode( wp_remote_retrieve_body( $response ), true );
+		// Track token usage (combined tokens).
+		RR_Generator::track_tokens( (int) $result['tokens_total'], $post_id, 'faq' );
 
-		if ( 200 !== $http_code ) {
-			$err = isset( $body['error']['message'] ) ? $body['error']['message'] : 'HTTP ' . $http_code;
-			RR_Generator::log_error( 'FAQ/OpenAI', $err, $post_id );
-			return new \WP_Error( 'openai_http_error', $err );
-		}
+		$raw = (string) $result['content'];
 
-		// Track token usage.
-		if ( isset( $body['usage']['total_tokens'] ) ) {
-			RR_Generator::track_tokens( (int) $body['usage']['total_tokens'], $post_id, 'faq' );
-		}
-
-		if ( empty( $body['choices'][0]['message']['content'] ) ) {
-			$error_msg = isset( $body['error']['message'] ) ? $body['error']['message'] : 'Empty response from OpenAI.';
-			RR_Generator::log_error( 'FAQ/OpenAI', $error_msg, $post_id );
-			return new \WP_Error( 'openai_error', $error_msg );
-		}
-
-		$raw = $body['choices'][0]['message']['content'];
-
-		// Parse JSON from response (handle markdown code blocks).
+		// Defensive: strip any leftover markdown code fences (some providers
+		// wrap JSON responses in ``` even when asked not to).
 		$raw = preg_replace( '/^```(?:json)?\s*/i', '', trim( $raw ) );
 		$raw = preg_replace( '/\s*```$/i', '', $raw );
 

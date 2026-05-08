@@ -4,7 +4,7 @@ Tags: ai seo, llms.txt, schema markup, chatgpt, faq
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,19 @@ Yes. RankReady is open source under GPL-2.0-or-later. Source: [github.com/aditya
 
 == Changelog ==
 
+= 1.1.1 — 2026-05-08 =
+
+**Multi-provider AI engine + bug fix.**
+
+* New: RankReady now works with **Claude (Anthropic)**, **Gemini (Google)**, and **DeepSeek** alongside OpenAI. Pick any provider in Settings → AI Provider — only the active one needs an API key.
+* New: Tutorial video card on the Dashboard tab — embedded walkthrough, dismissible per user.
+* New: "What's new" upgrade banner on RankReady admin pages, dismissible per version per user.
+* New: Red-dot release indicator on the WordPress sidebar RankReady menu item — clears when you dismiss the banner.
+* Changed: AI Summary + FAQ Generator dispatch through a unified `RR_LLM` abstraction. Same prompts, same output, provider-agnostic at the call site.
+* Changed: Connection test now pings the active provider (no longer hard-coded to OpenAI).
+* Changed: Advanced tab reorganized — Bulk Generate FAQs now sits next to Bulk Regenerate AI Summaries.
+* Fixed: `.md` URLs now serve the correct page when AI tools send `Accept: text/markdown` (was incorrectly serving the homepage index — issue #1).
+
 = 1.0.0 — 2026-04-23 =
 
 **First public freemium release for WordPress.org.**
@@ -173,6 +186,9 @@ Yes. RankReady is open source under GPL-2.0-or-later. Source: [github.com/aditya
 For the full pre-1.0.0 development history (versions 0.5.0 through 0.6.7.2), see the [GitHub repository](https://github.com/adityaarsharma/rankready/blob/main/CHANGELOG.md).
 
 == Upgrade Notice ==
+
+= 1.1.1 =
+Major: now supports Claude, Gemini, and DeepSeek alongside OpenAI. Existing OpenAI users keep working with zero migration. Includes a fix for `.md` URLs that were serving the homepage instead of the requested page.
 
 = 1.0.0 =
 First public release on WordPress.org. Existing users on the GitHub-distributed v0.6.x: this version removes the GitHub auto-update path. After upgrading to 1.0.0, all future updates will arrive via WordPress.org's standard plugin updater.

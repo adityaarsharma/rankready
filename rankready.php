@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
  * Plugin URI:        https://posimyth.com
  * Description:       AI-first SEO for WordPress. Get cited by ChatGPT, Perplexity & Google AI Overviews. LLMs.txt generator, AI summaries, FAQ schema, EEAT author box, AI crawler controls.
- * Version:           1.1.0-beta.5
+ * Version:           1.1.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.1.0-beta.5' );
+	define( 'RR_VERSION',  '1.1.1' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -62,7 +62,27 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_FREE_FAQ_LIMIT',     5 );
 	define( 'RR_STORE_URL',          'https://store.posimyth.com/plugins/rank-ready' );
 
-	// Option keys — AI Summary.
+	// Option keys — LLM provider selection (multi-provider, since v1.1.1).
+	// `RR_OPT_KEY` and `RR_OPT_MODEL` below remain the OpenAI key/model for
+	// backwards compatibility — every existing install keeps working.
+	define( 'RR_OPT_LLM_PROVIDER',     'rr_llm_provider' ); // 'openai' | 'anthropic' | 'gemini' | 'deepseek'
+
+	// Anthropic (Claude).
+	define( 'RR_OPT_ANTHROPIC_KEY',    'rr_anthropic_api_key' );
+	define( 'RR_OPT_ANTHROPIC_MODEL',  'rr_anthropic_model' );
+
+	// Google Gemini.
+	define( 'RR_OPT_GEMINI_KEY',       'rr_gemini_api_key' );
+	define( 'RR_OPT_GEMINI_MODEL',     'rr_gemini_model' );
+
+	// DeepSeek.
+	define( 'RR_OPT_DEEPSEEK_KEY',     'rr_deepseek_api_key' );
+	define( 'RR_OPT_DEEPSEEK_MODEL',   'rr_deepseek_model' );
+
+	// "What's new" banner — last seen plugin version, per-user dismiss.
+	define( 'RR_OPT_INSTALLED_VERSION', 'rr_installed_version' );
+
+	// Option keys — AI Summary (OpenAI legacy keys, kept for back-compat).
 	define( 'RR_OPT_KEY',              'rr_openai_api_key' );
 	define( 'RR_OPT_MODEL',            'rr_openai_model' );
 	define( 'RR_OPT_POST_TYPES',       'rr_post_types' );

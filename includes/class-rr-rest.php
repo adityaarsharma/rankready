@@ -974,7 +974,14 @@ class RR_Rest {
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// API KEY VERIFICATION
+	// API KEY VERIFICATION (OpenAI-specific)
+	// ──────────────────────────────────────────────────────────────────────────
+	// Bound to the "Verify Key" button on the OpenAI card in Settings. Hits
+	// the OpenAI `/v1/models` list endpoint to confirm the key. For other
+	// providers (Claude / Gemini / DeepSeek), users save the key and use the
+	// connection test pathway, which routes through RR_LLM::generate() and
+	// is provider-agnostic. Adding a generic per-provider verify is a v1.1.2
+	// follow-up — kept narrow here to not reshape working UI.
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function verify_api_key( $request ) {

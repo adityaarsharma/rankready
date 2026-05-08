@@ -145,6 +145,16 @@ class RR_Markdown {
 	//   - Returns 406 when Accept excludes every type we can produce
 
 	public static function handle_accept_header(): void {
+		// Don't interfere when an explicit .md URL is being processed.
+		// At this stage WordPress hasn't resolved the queried object yet
+		// (only `rr_md_path` query var is set), so is_home() returns true
+		// and we'd incorrectly serve the homepage index instead of the page.
+		// handle_request() at priority 10 serves the correct page markdown.
+		// Reported in issue #1 by @rohitposimyth-seo.
+		if ( '' !== (string) get_query_var( 'rr_md_path', '' ) ) {
+			return;
+		}
+
 		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
 			return;
 		}

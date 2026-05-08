@@ -69,8 +69,8 @@ class RR_Generator {
 			return;
 		}
 
-		// No API key
-		if ( empty( get_option( RR_OPT_KEY ) ) ) {
+		// No API key for the active LLM provider — nothing to call.
+		if ( ! RR_LLM::active_provider_ready() ) {
 			return;
 		}
 
@@ -110,14 +110,13 @@ class RR_Generator {
 			return;
 		}
 
-		$api_key = (string) get_option( RR_OPT_KEY, '' );
-		if ( empty( $api_key ) ) {
+		if ( ! RR_LLM::active_provider_ready() ) {
 			self::$generating = false;
 			return;
 		}
 
 		$content = self::get_content_string( $post );
-		$result  = self::call_openai( $content, $post, $api_key );
+		$result  = self::call_openai( $content, $post );
 
 		if ( $result ) {
 			update_post_meta( $post_id, RR_META_SUMMARY,   $result );
@@ -145,8 +144,7 @@ class RR_Generator {
 			return;
 		}
 
-		$api_key = (string) get_option( RR_OPT_KEY, '' );
-		if ( empty( $api_key ) ) {
+		if ( ! RR_LLM::active_provider_ready() ) {
 			self::$generating = false;
 			return;
 		}
@@ -158,7 +156,7 @@ class RR_Generator {
 		}
 
 		$content = self::get_content_string( $post );
-		$result  = self::call_openai( $content, $post, $api_key );
+		$result  = self::call_openai( $content, $post );
 
 		if ( $result ) {
 			update_post_meta( $post_id, RR_META_SUMMARY,   $result );
@@ -189,8 +187,7 @@ class RR_Generator {
 			return RR_Limits::summary_limit_error();
 		}
 
-		$api_key = (string) get_option( RR_OPT_KEY, '' );
-		if ( empty( $api_key ) ) {
+		if ( ! RR_LLM::active_provider_ready() ) {
 			return false;
 		}
 
@@ -206,7 +203,7 @@ class RR_Generator {
 			}
 		}
 
-		$result = self::call_openai( $content, $post, $api_key );
+		$result = self::call_openai( $content, $post );
 
 		if ( $result && ! is_wp_error( $result ) ) {
 			update_post_meta( $post_id, RR_META_SUMMARY,   $result );
@@ -219,12 +216,15 @@ class RR_Generator {
 		return $result;
 	}
 
-	// ── OpenAI call ───────────────────────────────────────────────────────────
+	// ── LLM call (multi-provider since v1.1.1) ─────────────────────────────────
+	//
+	// Method name kept as `call_openai()` for back-compat with any external
+	// callers, but the body now dispatches through `RR_LLM::generate()` to
+	// whichever provider is active (OpenAI / Claude / Gemini / DeepSeek).
+	// `$api_key` parameter is ignored — the active provider's own key is
+	// fetched by RR_LLM. Callers can pass an empty string.
 
-	public static function call_openai( $content, $post, $api_key ) {
-		$model = (string) get_option( RR_OPT_MODEL, 'gpt-4o-mini' );
-
-		// Use regex-based word count — locale-safe for CJK, Arabic, etc.
+	public static function call_openai( $content, $post, $api_key = '' ) {
 		$word_count   = preg_match_all( '/\S+/', $content );
 		$word_count   = false !== $word_count ? $word_count : 0;
 		$bullet_count = 3;
@@ -282,52 +282,33 @@ Blog Post:
 			$content
 		);
 
-		$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', array(
-			'timeout'    => 25,
-			'user-agent' => 'RankReady/' . RR_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
-			'headers'    => array(
-				'Authorization' => 'Bearer ' . $api_key,
-				'Content-Type'  => 'application/json',
-			),
-			'body' => wp_json_encode( array(
-				'model'             => $model,
-				'messages'          => array(
-					array( 'role' => 'system', 'content' => $system_prompt ),
-					array( 'role' => 'user',   'content' => $user_prompt ),
-				),
-				'max_tokens'        => 500,
-				'temperature'       => 0.2,
-				'frequency_penalty' => 0.3,
-				'response_format'   => array( 'type' => 'json_object' ),
-			) ),
+		$result = RR_LLM::generate( $system_prompt, $user_prompt, array(
+			'max_tokens'  => 500,
+			'temperature' => 0.2,
+			'json'        => true,
+			'timeout'     => 25,
 		) );
 
-		if ( is_wp_error( $response ) ) {
-			self::log_error( 'OpenAI', $response->get_error_message(), $post->ID );
+		$source_label = strtoupper( $result['provider'] );
+
+		if ( empty( $result['ok'] ) ) {
+			self::log_error( $source_label, (string) $result['error'], $post->ID );
 			return false;
 		}
 
-		$http_code = (int) wp_remote_retrieve_response_code( $response );
-		if ( 200 !== $http_code ) {
-			self::log_error( 'OpenAI', 'HTTP ' . $http_code . ': ' . wp_remote_retrieve_body( $response ), $post->ID );
-			return false;
-		}
+		// Track token usage (combined in/out for back-compat with existing
+		// totals widget; cost stays accurate per provider).
+		self::track_tokens( (int) $result['tokens_total'], $post->ID, 'summary' );
 
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-		$raw  = isset( $body['choices'][0]['message']['content'] ) ? trim( $body['choices'][0]['message']['content'] ) : '';
-
-		// Track token usage.
-		if ( isset( $body['usage']['total_tokens'] ) ) {
-			self::track_tokens( (int) $body['usage']['total_tokens'], $post->ID, 'summary' );
-		}
-
-		if ( empty( $raw ) ) {
+		$raw = (string) $result['content'];
+		if ( '' === $raw ) {
+			self::log_error( $source_label, 'Empty content from provider.', $post->ID );
 			return false;
 		}
 
 		$decoded = json_decode( $raw, true );
 		if ( ! is_array( $decoded ) || empty( $decoded['bullets'] ) || ! is_array( $decoded['bullets'] ) ) {
-			self::log_error( 'OpenAI', 'Unexpected JSON structure: ' . mb_substr( $raw, 0, 200 ), $post->ID );
+			self::log_error( $source_label, 'Unexpected JSON structure: ' . mb_substr( $raw, 0, 200 ), $post->ID );
 			return false;
 		}
 
@@ -342,36 +323,34 @@ Blog Post:
 
 	// ── Connection test ───────────────────────────────────────────────────────
 
+	/**
+	 * Connection test — pings the active LLM provider with a tiny prompt.
+	 * Returns true on success, or a string error message on failure.
+	 *
+	 * Routes through `RR_LLM::generate()` so adding a new provider needs no
+	 * changes here.
+	 */
 	public static function test_api_connection() {
-		$api_key = (string) get_option( RR_OPT_KEY, '' );
-		if ( empty( $api_key ) ) {
-			return __( 'No API key configured.', 'rankready' );
+		if ( ! RR_LLM::active_provider_ready() ) {
+			return sprintf(
+				/* translators: %s: provider name */
+				__( 'No %s API key configured.', 'rankready' ),
+				RR_LLM::get_provider_label( RR_LLM::get_active_provider() )
+			);
 		}
 
-		$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', array(
-			'timeout' => 10,
-			'headers' => array(
-				'Authorization' => 'Bearer ' . $api_key,
-				'Content-Type'  => 'application/json',
-			),
-			'body' => wp_json_encode( array(
-				'model'      => 'gpt-4o-mini',
-				'messages'   => array( array( 'role' => 'user', 'content' => 'Reply with OK only.' ) ),
-				'max_tokens' => 5,
-			) ),
-		) );
+		$result = RR_LLM::generate(
+			'You reply with the single word OK.',
+			'Reply with OK only.',
+			array(
+				'max_tokens'  => 5,
+				'temperature' => 0.0,
+				'json'        => false,
+				'timeout'     => 10,
+			)
+		);
 
-		if ( is_wp_error( $response ) ) {
-			return $response->get_error_message();
-		}
-
-		$code = (int) wp_remote_retrieve_response_code( $response );
-		if ( 200 === $code ) {
-			return true;
-		}
-
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-		return isset( $body['error']['message'] ) ? $body['error']['message'] : 'HTTP ' . $code;
+		return ! empty( $result['ok'] ) ? true : (string) $result['error'];
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────

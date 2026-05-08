@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-05-08
+
+### Added
+- **Multi-provider AI engine.** RankReady now works with **Claude (Anthropic)**, **Gemini (Google)**, and **DeepSeek** alongside OpenAI. Pick any one in **Settings → AI Provider** — only the active provider needs an API key, the rest stay dormant. All four providers share a single `RR_LLM` abstraction so adding a fifth in future is a single class file.
+- New provider classes: `RR_LLM`, `RR_LLM_OpenAI`, `RR_LLM_Anthropic`, `RR_LLM_Gemini`, `RR_LLM_DeepSeek`. Each implements an identical `generate( system, user, opts )` contract returning `['ok','content','tokens_in','tokens_out','tokens_total','model','provider','error']`.
+- Per-provider key + model options (`rr_anthropic_api_key`, `rr_gemini_api_key`, `rr_deepseek_api_key` and matching model selectors). Existing `rr_openai_api_key` / `rr_openai_model` left untouched — every existing install keeps working with zero migration.
+- Per-provider key format validation (Anthropic `sk-ant-…`, Gemini `AIza…`, DeepSeek `sk-…`).
+- **Tutorial video card** at the top of the Dashboard tab — embedded YouTube walkthrough (privacy-enhanced via `youtube-nocookie.com`, lazy-loaded), dismissible per user via `rr_tutorial_dismissed` user meta.
+- **"What's new" upgrade banner** — shown once per major version on RankReady admin pages only (never WP-wide), per-user dismissible via `rr_whatsnew_dismissed_version` user meta.
+- **Red dot release indicator** on the WordPress sidebar `RankReady` menu item — appears when the user hasn't seen the latest release notes, clears on dismiss.
+
+### Changed
+- **AI Summary + FAQ Generator** now dispatch through the `RR_LLM` abstraction. Same prompts, same output schema, same cost tracking — provider-agnostic at the call site.
+- **Connection test** in Settings now pings whichever provider is active (no longer hard-coded to OpenAI).
+- **Advanced tab** reorganized: `Bulk Generate FAQs` now sits adjacent to `Bulk Regenerate AI Summaries` (both content-generation operations grouped together).
+- **Dashboard widgets** (status grid, "Settings" card, API Usage section heading) now show the active provider's name and model rather than hard-coding "OpenAI".
+
+### Fixed
+- **`.md` URL serves wrong page when `Accept: text/markdown` is sent** ([#1](https://github.com/adityaarsharma/rankready/issues/1)). At `template_redirect` priority 5, `WP_Query::parse_query()` hadn't yet resolved the queried object — `is_home()` returned true and `handle_accept_header()` would serve the homepage markdown index instead of the requested page. Added an early bail-out when `rr_md_path` query var is set so `handle_request()` at priority 10 can serve the correct page markdown. Confirmed fixed on three production sites by the reporter (@rohitposimyth-seo).
+
 ## [1.1.0-beta.5] - 2026-04-28
 
 ### Changed

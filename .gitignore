@@ -6,3 +6,6 @@ node_modules/
 *.log
 .phpunit.result.cache
 .wp-env.json
+
+# Orbit pre-release checklist — local-only, never push to GitHub
+ORBIT-PRE-RELEASE.md

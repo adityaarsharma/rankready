@@ -27,6 +27,8 @@ class RR_Admin {
 	public static function init(): void {
 		add_action( 'admin_menu',            array( self::class, 'register_menu' ) );
 		add_action( 'admin_init',            array( self::class, 'register_settings' ) );
+		add_action( 'admin_init',            array( self::class, 'handle_dismiss_actions' ) );
+		add_action( 'admin_init',            array( self::class, 'track_installed_version' ) );
 		add_action( 'admin_notices',         array( self::class, 'connection_notice' ) );
 		add_action( 'admin_notices',         array( self::class, 'permalink_notice' ) );
 		add_action( 'admin_enqueue_scripts', array( self::class, 'enqueue_admin_assets' ) );
@@ -36,6 +38,68 @@ class RR_Admin {
 
 		// Defer column registration to 'wp_loaded' so all CPTs are registered.
 		add_action( 'wp_loaded', array( self::class, 'register_status_columns' ) );
+	}
+
+	// ── "What's new" banner + tutorial dismiss handlers ─────────────────────────
+
+	/**
+	 * Records the most recently installed plugin version. When the running
+	 * `RR_VERSION` is newer than the stored value, every user gets the
+	 * "what's new" banner exactly once until each one dismisses it.
+	 */
+	public static function track_installed_version(): void {
+		$stored = (string) get_option( RR_OPT_INSTALLED_VERSION, '' );
+		if ( $stored !== RR_VERSION ) {
+			update_option( RR_OPT_INSTALLED_VERSION, RR_VERSION, false );
+		}
+	}
+
+	/**
+	 * Returns true when this user should see the "what's new" banner for
+	 * the running version. Skips users who've already dismissed for this
+	 * version. Only relevant on RankReady admin pages — caller should
+	 * check screen first.
+	 */
+	public static function should_show_whatsnew( int $user_id ): bool {
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		$dismissed_for = (string) get_user_meta( $user_id, 'rr_whatsnew_dismissed_version', true );
+		return $dismissed_for !== RR_VERSION;
+	}
+
+	/**
+	 * Returns true when this user has unread release notes — drives the
+	 * red-dot indicator on the "RankReady" menu item. Same gating as the
+	 * banner so the dot disappears when the banner is dismissed.
+	 */
+	public static function has_unread_release_notes( int $user_id ): bool {
+		return self::should_show_whatsnew( $user_id );
+	}
+
+	/**
+	 * Handles the "Dismiss" action on the what's new banner and the
+	 * tutorial card. Both are GET-based with nonces — single-click,
+	 * no JS required, no AJAX surface.
+	 */
+	public static function handle_dismiss_actions(): void {
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+		$user_id = get_current_user_id();
+
+		if ( isset( $_GET['rr_dismiss_whatsnew'] ) && check_admin_referer( 'rr_dismiss_whatsnew' ) ) {
+			update_user_meta( $user_id, 'rr_whatsnew_dismissed_version', RR_VERSION );
+			wp_safe_redirect( remove_query_arg( array( 'rr_dismiss_whatsnew', '_wpnonce' ) ) );
+			exit;
+		}
+
+		if ( isset( $_GET['rr_dismiss_tutorial'] ) && check_admin_referer( 'rr_dismiss_tutorial' ) ) {
+			update_user_meta( $user_id, 'rr_tutorial_dismissed', 1 );
+			wp_safe_redirect( remove_query_arg( array( 'rr_dismiss_tutorial', '_wpnonce' ) ) );
+			exit;
+		}
 	}
 
 	// ── Status columns (deferred to wp_loaded so CPTs exist) ─────────────────
@@ -54,9 +118,17 @@ class RR_Admin {
 	// ── Menu ──────────────────────────────────────────────────────────────────
 
 	public static function register_menu(): void {
+		// Append a red-dot bubble to the menu label when this user hasn't
+		// seen the latest release notes. Same WP-core CSS class the plugin
+		// updates counter uses, so it inherits theme styling.
+		$menu_label = __( 'RankReady', 'rankready' );
+		if ( is_user_logged_in() && self::has_unread_release_notes( get_current_user_id() ) ) {
+			$menu_label .= ' <span class="awaiting-mod update-plugins" style="background:#d63638;color:#fff;border-radius:10px;padding:0 6px;margin-left:5px;font-size:9px;line-height:17px;display:inline-block;vertical-align:top;">1</span>';
+		}
+
 		add_menu_page(
 			__( 'RankReady', 'rankready' ),
-			__( 'RankReady', 'rankready' ),
+			$menu_label,
 			'manage_options',
 			self::MENU_SLUG,
 			array( self::class, 'render_page' ),
@@ -85,16 +157,59 @@ class RR_Admin {
 
 		// ═══ Settings Tab ═════════════════════════════════════════════════════
 
+		// Active LLM provider — drives which key/model is used by RR_LLM.
+		register_setting( self::SETTINGS_GROUP, RR_OPT_LLM_PROVIDER, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_llm_provider' ),
+			'default'           => 'openai',
+		) );
+
+		// OpenAI key + model.
 		register_setting( self::SETTINGS_GROUP, RR_OPT_KEY, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_api_key' ),
 			'default'           => '',
 		) );
-
 		register_setting( self::SETTINGS_GROUP, RR_OPT_MODEL, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_model' ),
 			'default'           => 'gpt-4o-mini',
+		) );
+
+		// Anthropic (Claude) key + model.
+		register_setting( self::SETTINGS_GROUP, RR_OPT_ANTHROPIC_KEY, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_anthropic_key' ),
+			'default'           => '',
+		) );
+		register_setting( self::SETTINGS_GROUP, RR_OPT_ANTHROPIC_MODEL, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_provider_model' ),
+			'default'           => 'claude-haiku-4-5',
+		) );
+
+		// Gemini key + model.
+		register_setting( self::SETTINGS_GROUP, RR_OPT_GEMINI_KEY, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_gemini_key' ),
+			'default'           => '',
+		) );
+		register_setting( self::SETTINGS_GROUP, RR_OPT_GEMINI_MODEL, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_provider_model' ),
+			'default'           => 'gemini-2.5-flash',
+		) );
+
+		// DeepSeek key + model.
+		register_setting( self::SETTINGS_GROUP, RR_OPT_DEEPSEEK_KEY, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_deepseek_key' ),
+			'default'           => '',
+		) );
+		register_setting( self::SETTINGS_GROUP, RR_OPT_DEEPSEEK_MODEL, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_provider_model' ),
+			'default'           => 'deepseek-chat',
 		) );
 
 		register_setting( self::SETTINGS_GROUP, RR_OPT_POST_TYPES, array(
@@ -539,10 +654,82 @@ class RR_Admin {
 		}
 		if ( ! empty( $value ) && ! preg_match( '/^sk-[A-Za-z0-9\-_]{20,}$/', $value ) ) {
 			add_settings_error( RR_OPT_KEY, 'rr_invalid_key',
-				__( 'The API key format looks incorrect. It should start with sk-', 'rankready' ), 'error' );
+				__( 'The OpenAI API key format looks incorrect. It should start with sk-', 'rankready' ), 'error' );
 			return (string) get_option( RR_OPT_KEY, '' );
 		}
 		return $value;
+	}
+
+	/**
+	 * Anthropic keys begin with `sk-ant-`.
+	 */
+	public static function sanitize_anthropic_key( $value ): string {
+		$value = sanitize_text_field( (string) $value );
+		if ( '__UNCHANGED__' === $value || false !== strpos( $value, '••••' ) ) {
+			return (string) get_option( RR_OPT_ANTHROPIC_KEY, '' );
+		}
+		if ( ! empty( $value ) && ! preg_match( '/^sk-ant-[A-Za-z0-9\-_]{20,}$/', $value ) ) {
+			add_settings_error( RR_OPT_ANTHROPIC_KEY, 'rr_invalid_anthropic_key',
+				__( 'The Anthropic API key format looks incorrect. It should start with sk-ant-', 'rankready' ), 'error' );
+			return (string) get_option( RR_OPT_ANTHROPIC_KEY, '' );
+		}
+		return $value;
+	}
+
+	/**
+	 * Google AI Studio keys begin with `AIza`.
+	 */
+	public static function sanitize_gemini_key( $value ): string {
+		$value = sanitize_text_field( (string) $value );
+		if ( '__UNCHANGED__' === $value || false !== strpos( $value, '••••' ) ) {
+			return (string) get_option( RR_OPT_GEMINI_KEY, '' );
+		}
+		if ( ! empty( $value ) && ! preg_match( '/^AIza[A-Za-z0-9\-_]{20,}$/', $value ) ) {
+			add_settings_error( RR_OPT_GEMINI_KEY, 'rr_invalid_gemini_key',
+				__( 'The Gemini API key format looks incorrect. Get one from Google AI Studio (aistudio.google.com).', 'rankready' ), 'error' );
+			return (string) get_option( RR_OPT_GEMINI_KEY, '' );
+		}
+		return $value;
+	}
+
+	/**
+	 * DeepSeek keys begin with `sk-`. Same prefix as OpenAI but a different
+	 * issuer — we only check format and length, not API validation here.
+	 */
+	public static function sanitize_deepseek_key( $value ): string {
+		$value = sanitize_text_field( (string) $value );
+		if ( '__UNCHANGED__' === $value || false !== strpos( $value, '••••' ) ) {
+			return (string) get_option( RR_OPT_DEEPSEEK_KEY, '' );
+		}
+		if ( ! empty( $value ) && ! preg_match( '/^sk-[A-Za-z0-9]{20,}$/', $value ) ) {
+			add_settings_error( RR_OPT_DEEPSEEK_KEY, 'rr_invalid_deepseek_key',
+				__( 'The DeepSeek API key format looks incorrect. It should start with sk-', 'rankready' ), 'error' );
+			return (string) get_option( RR_OPT_DEEPSEEK_KEY, '' );
+		}
+		return $value;
+	}
+
+	/**
+	 * Active LLM provider: must be one of the four known IDs.
+	 */
+	public static function sanitize_llm_provider( $value ): string {
+		$value = sanitize_key( (string) $value );
+		$valid = array( 'openai', 'anthropic', 'gemini', 'deepseek' );
+		return in_array( $value, $valid, true ) ? $value : 'openai';
+	}
+
+	/**
+	 * Generic provider model sanitizer. Accepts any model ID listed in the
+	 * provider's RR_LLM::get_models_for() list, falls back to provider
+	 * default. Resolves the provider from the option name being sanitized.
+	 */
+	public static function sanitize_provider_model( $value ): string {
+		$value = sanitize_text_field( (string) $value );
+		// Light validation — no strict allowlist so future model IDs work
+		// without a plugin update. We just strip anything that isn't a safe
+		// model-ID character (alphanumerics, dot, dash, underscore, slash).
+		$value = preg_replace( '/[^a-zA-Z0-9._\-\/]/', '', $value );
+		return (string) $value;
 	}
 
 	public static function sanitize_dfs_login( $value ): string {
@@ -827,7 +1014,15 @@ class RR_Admin {
 		$llms_on   = 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' );
 		$robots_on = (bool) get_option( RR_OPT_ROBOTS_ENABLE, false );
 		$md_on     = 'on' === get_option( RR_OPT_MD_ENABLE, 'off' );
-		$api_set   = ! empty( get_option( RR_OPT_KEY, '' ) );
+		// Across all four providers — true if any has a key configured.
+		$api_set   = RR_LLM::active_provider_ready();
+
+		// Tutorial video — dismissible per user.
+		$user_id            = get_current_user_id();
+		$tutorial_dismissed = (bool) get_user_meta( $user_id, 'rr_tutorial_dismissed', true );
+
+		// "What's new" banner — show once per major version, dismissible per user.
+		$show_whatsnew = self::should_show_whatsnew( $user_id );
 
 		$stats  = RR_Limits::get_stats();
 		$s_used = $stats['summary_used'];
@@ -839,10 +1034,55 @@ class RR_Admin {
 
 		?>
 
+		<?php if ( $show_whatsnew ) : ?>
+		<div class="rr-whatsnew-banner" style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:18px 22px;border-radius:8px;margin-bottom:20px;display:flex;align-items:flex-start;gap:16px;">
+			<div style="font-size:28px;line-height:1;">🎉</div>
+			<div style="flex:1;">
+				<h3 style="margin:0 0 6px;color:#fff;font-size:16px;"><?php
+					/* translators: %s: version number */
+					echo esc_html( sprintf( __( 'RankReady %s is here', 'rankready' ), RR_VERSION ) );
+				?></h3>
+				<ul style="margin:0;padding:0;list-style:none;font-size:13px;line-height:1.6;color:#e8e8f0;">
+					<li><strong><?php esc_html_e( 'More AI brains.', 'rankready' ); ?></strong> <?php esc_html_e( 'Now works with Claude, Gemini, and DeepSeek alongside OpenAI. Pick your provider in Settings → AI Provider.', 'rankready' ); ?></li>
+					<li><strong><?php esc_html_e( 'Fixed:', 'rankready' ); ?></strong> <?php esc_html_e( '.md URLs now serve the right page when AI tools send Accept: text/markdown.', 'rankready' ); ?></li>
+				</ul>
+				<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="button button-primary" style="background:#fff;color:#1a1a2e;border:none;"><?php esc_html_e( 'Open AI Provider Settings', 'rankready' ); ?></a>
+					<a href="https://github.com/adityaarsharma/rankready/blob/main/CHANGELOG.md" target="_blank" rel="noopener" class="button" style="background:transparent;color:#fff;border-color:#4d5478;"><?php esc_html_e( 'View full changelog', 'rankready' ); ?></a>
+					<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rankready&rr_dismiss_whatsnew=' . RR_VERSION ), 'rr_dismiss_whatsnew' ) ); ?>" style="margin-left:auto;color:#9da3c0;text-decoration:none;align-self:center;"><?php esc_html_e( 'Dismiss', 'rankready' ); ?></a>
+				</div>
+			</div>
+		</div>
+		<?php endif; ?>
+
+		<?php if ( ! $tutorial_dismissed ) : ?>
+		<div class="rr-card rr-tutorial-card" style="margin-bottom:24px;">
+			<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+				<h2 class="rr-card-title" style="margin:0;"><?php esc_html_e( '👋 New to RankReady? Watch the 5-minute walkthrough', 'rankready' ); ?></h2>
+				<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rankready&rr_dismiss_tutorial=1' ), 'rr_dismiss_tutorial' ) ); ?>" class="rr-tutorial-dismiss" style="color:#646970;text-decoration:none;font-size:13px;"><?php esc_html_e( 'Hide this', 'rankready' ); ?></a>
+			</div>
+			<p class="rr-card-desc" style="margin-top:0;"><?php esc_html_e( 'Aditya walks through every RankReady setting — AI Summary, FAQ Generator, Author Box, llms.txt, AI Crawler controls — so you can ship a 100/100 AI-ready site in under 10 minutes.', 'rankready' ); ?></p>
+			<div style="position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;background:#000;">
+				<iframe
+					style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"
+					src="https://www.youtube-nocookie.com/embed/JA-rEwMbqNo?rel=0&modestbranding=1"
+					title="<?php esc_attr_e( 'RankReady walkthrough', 'rankready' ); ?>"
+					loading="lazy"
+					allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+					allowfullscreen></iframe>
+			</div>
+			<div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="button button-secondary"><?php esc_html_e( 'Configure API key →', 'rankready' ); ?></a>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=authority' ) ); ?>" class="button button-secondary"><?php esc_html_e( 'Set up Author Box →', 'rankready' ); ?></a>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=crawlers' ) ); ?>" class="button button-secondary"><?php esc_html_e( 'Enable LLMs.txt →', 'rankready' ); ?></a>
+			</div>
+		</div>
+		<?php endif; ?>
+
 		<?php if ( ! $api_set ) : ?>
 		<div class="rr-notice rr-notice--warn" style="margin-bottom:20px;">
-			<?php esc_html_e( 'OpenAI API key not set — AI Summaries and FAQ Generator won\'t work until you add it.', 'rankready' ); ?>
-			<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" style="margin-left:8px;font-weight:600;"><?php esc_html_e( 'Add Key →', 'rankready' ); ?></a>
+			<?php esc_html_e( 'No AI provider key set — AI Summaries and FAQ Generator won\'t work until you add one.', 'rankready' ); ?>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" style="margin-left:8px;font-weight:600;"><?php esc_html_e( 'Pick a Provider →', 'rankready' ); ?></a>
 		</div>
 		<?php endif; ?>
 
@@ -895,7 +1135,17 @@ class RR_Admin {
 			</div>
 			<div class="rr-info-item rr-dash-feature">
 				<h3><?php esc_html_e( 'Settings', 'rankready' ); ?></h3>
-				<p><?php echo $api_set ? esc_html__( 'OpenAI key configured.', 'rankready' ) : '<strong style="color:#d63638;">' . esc_html__( 'API key required', 'rankready' ) . '</strong>'; ?></p>
+				<p><?php
+					if ( $api_set ) {
+						echo esc_html( sprintf(
+							/* translators: %s: provider label like "OpenAI" or "Claude (Anthropic)" */
+							__( '%s key configured.', 'rankready' ),
+							RR_LLM::get_provider_label( RR_LLM::get_active_provider() )
+						) );
+					} else {
+						echo '<strong style="color:#d63638;">' . esc_html__( 'AI provider key required', 'rankready' ) . '</strong>';
+					}
+				?></p>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="rr-dash-link"><?php esc_html_e( 'Open →', 'rankready' ); ?></a>
 			</div>
 			<div class="rr-info-item rr-dash-feature">
@@ -1096,16 +1346,58 @@ class RR_Admin {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	private static function render_tab_api(): void {
-		$key     = (string) get_option( RR_OPT_KEY, '' );
-		$display = ! empty( $key ) ? substr( $key, 0, 7 ) . str_repeat( '••••', 6 ) : '';
+		$active_provider = RR_LLM::get_active_provider();
+
+		// Helper closure to mask saved keys for display.
+		$mask = static function( $val ) {
+			return ! empty( $val ) ? substr( (string) $val, 0, 7 ) . str_repeat( '••••', 6 ) : '';
+		};
+
+		$openai_disp    = $mask( get_option( RR_OPT_KEY, '' ) );
+		$anthropic_disp = $mask( get_option( RR_OPT_ANTHROPIC_KEY, '' ) );
+		$gemini_disp    = $mask( get_option( RR_OPT_GEMINI_KEY, '' ) );
+		$deepseek_disp  = $mask( get_option( RR_OPT_DEEPSEEK_KEY, '' ) );
 		?>
 		<?php settings_errors(); ?>
 
 		<form method="post" action="options.php" novalidate="novalidate">
 			<?php settings_fields( self::SETTINGS_GROUP ); ?>
 
-			<!-- OpenAI -->
+			<!-- LLM Provider Picker -->
 			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'AI Provider', 'rankready' ); ?></h2>
+				<p class="rr-card-desc"><?php esc_html_e( 'Pick which AI powers Summary + FAQ generation. Switch any time. Only the selected provider needs an API key — the others stay dormant.', 'rankready' ); ?></p>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Active provider', 'rankready' ); ?></th>
+						<td>
+							<fieldset id="rr-llm-provider-picker">
+								<?php
+								$providers = array(
+									'openai'    => array( 'OpenAI',    __( 'GPT-4o, GPT-4o mini', 'rankready' ) ),
+									'anthropic' => array( 'Claude',    __( 'Claude Haiku 4.5, Sonnet 4.5', 'rankready' ) ),
+									'gemini'    => array( 'Gemini',    __( 'Gemini 2.5 Flash, 2.5 Pro', 'rankready' ) ),
+									'deepseek'  => array( 'DeepSeek',  __( 'DeepSeek Chat, Reasoner', 'rankready' ) ),
+								);
+								foreach ( $providers as $id => $info ) :
+									?>
+									<label style="display:block;margin-bottom:6px;">
+										<input type="radio" name="<?php echo esc_attr( RR_OPT_LLM_PROVIDER ); ?>" value="<?php echo esc_attr( $id ); ?>" <?php checked( $active_provider, $id ); ?> data-rr-provider-radio />
+										<strong><?php echo esc_html( $info[0] ); ?></strong>
+										<span style="color:#646970;"> — <?php echo esc_html( $info[1] ); ?></span>
+									</label>
+									<?php
+								endforeach;
+								?>
+							</fieldset>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<!-- OpenAI -->
+			<div class="rr-card rr-provider-card" data-rr-provider="openai" <?php echo 'openai' === $active_provider ? '' : 'style="display:none;"'; ?>>
 				<h2 class="rr-card-title"><?php esc_html_e( 'OpenAI', 'rankready' ); ?></h2>
 				<p class="rr-card-desc"><?php esc_html_e( 'Powers AI Summary generation and FAQ answer writing.', 'rankready' ); ?></p>
 
@@ -1114,7 +1406,7 @@ class RR_Admin {
 						<th scope="row"><label for="rr_api_key"><?php esc_html_e( 'API Key', 'rankready' ); ?></label></th>
 						<td>
 							<input type="password" id="rr_api_key" name="<?php echo esc_attr( RR_OPT_KEY ); ?>"
-								   value="<?php echo esc_attr( $display ); ?>" class="regular-text"
+								   value="<?php echo esc_attr( $openai_disp ); ?>" class="regular-text"
 								   autocomplete="new-password" spellcheck="false" />
 							<p style="margin-top:8px;">
 								<button type="button" id="rr-verify-key" class="button button-secondary">
@@ -1122,7 +1414,7 @@ class RR_Admin {
 								</button>
 								<span id="rr-verify-status" style="margin-left:10px;font-size:13px;display:none;"></span>
 							</p>
-							<p class="description"><?php esc_html_e( 'Your OpenAI secret key (sk-...). Stored server-side only.', 'rankready' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Your OpenAI secret key (sk-...). Stored server-side only. Get one at platform.openai.com/api-keys.', 'rankready' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -1130,17 +1422,126 @@ class RR_Admin {
 						<td>
 							<select name="<?php echo esc_attr( RR_OPT_MODEL ); ?>" id="rr_model">
 								<?php $current_model = (string) get_option( RR_OPT_MODEL, 'gpt-4o-mini' ); ?>
-								<?php foreach ( self::get_allowed_models() as $value => $label ) : ?>
+								<?php foreach ( RR_LLM::get_models_for( 'openai' ) as $value => $label ) : ?>
 									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $current_model, $value ); ?>>
 										<?php echo esc_html( $label ); ?>
 									</option>
 								<?php endforeach; ?>
 							</select>
-							<p class="description"><?php esc_html_e( 'gpt-4o-mini recommended for both summaries and FAQ.', 'rankready' ); ?></p>
+							<p class="description"><?php esc_html_e( 'gpt-4o-mini is the cheapest and recommended for most sites.', 'rankready' ); ?></p>
 						</td>
 					</tr>
 				</table>
 			</div>
+
+			<!-- Anthropic (Claude) -->
+			<div class="rr-card rr-provider-card" data-rr-provider="anthropic" <?php echo 'anthropic' === $active_provider ? '' : 'style="display:none;"'; ?>>
+				<h2 class="rr-card-title"><?php esc_html_e( 'Claude (Anthropic)', 'rankready' ); ?></h2>
+				<p class="rr-card-desc"><?php esc_html_e( 'Claude is exceptional at following content rules and producing factual, citation-quality output for AI summaries and FAQs.', 'rankready' ); ?></p>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><label for="rr_anthropic_key"><?php esc_html_e( 'API Key', 'rankready' ); ?></label></th>
+						<td>
+							<input type="password" id="rr_anthropic_key" name="<?php echo esc_attr( RR_OPT_ANTHROPIC_KEY ); ?>"
+								   value="<?php echo esc_attr( $anthropic_disp ); ?>" class="regular-text"
+								   autocomplete="new-password" spellcheck="false" />
+							<p class="description"><?php esc_html_e( 'Your Anthropic API key (sk-ant-...). Get one at console.anthropic.com.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="rr_anthropic_model"><?php esc_html_e( 'Model', 'rankready' ); ?></label></th>
+						<td>
+							<select name="<?php echo esc_attr( RR_OPT_ANTHROPIC_MODEL ); ?>" id="rr_anthropic_model">
+								<?php $cur = (string) get_option( RR_OPT_ANTHROPIC_MODEL, 'claude-haiku-4-5' ); ?>
+								<?php foreach ( RR_LLM::get_models_for( 'anthropic' ) as $value => $label ) : ?>
+									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
+										<?php echo esc_html( $label ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description"><?php esc_html_e( 'Haiku 4.5 is the cheapest and fastest. Sonnet 4.5 is best for nuanced content.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<!-- Gemini -->
+			<div class="rr-card rr-provider-card" data-rr-provider="gemini" <?php echo 'gemini' === $active_provider ? '' : 'style="display:none;"'; ?>>
+				<h2 class="rr-card-title"><?php esc_html_e( 'Gemini (Google)', 'rankready' ); ?></h2>
+				<p class="rr-card-desc"><?php esc_html_e( 'Gemini is the cheapest of the major providers and ships native JSON output. Great default for high-volume sites.', 'rankready' ); ?></p>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><label for="rr_gemini_key"><?php esc_html_e( 'API Key', 'rankready' ); ?></label></th>
+						<td>
+							<input type="password" id="rr_gemini_key" name="<?php echo esc_attr( RR_OPT_GEMINI_KEY ); ?>"
+								   value="<?php echo esc_attr( $gemini_disp ); ?>" class="regular-text"
+								   autocomplete="new-password" spellcheck="false" />
+							<p class="description"><?php esc_html_e( 'Your Google AI Studio API key (AIza...). Get one at aistudio.google.com/apikey.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="rr_gemini_model"><?php esc_html_e( 'Model', 'rankready' ); ?></label></th>
+						<td>
+							<select name="<?php echo esc_attr( RR_OPT_GEMINI_MODEL ); ?>" id="rr_gemini_model">
+								<?php $cur = (string) get_option( RR_OPT_GEMINI_MODEL, 'gemini-2.5-flash' ); ?>
+								<?php foreach ( RR_LLM::get_models_for( 'gemini' ) as $value => $label ) : ?>
+									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
+										<?php echo esc_html( $label ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description"><?php esc_html_e( 'Gemini 2.5 Flash is recommended for both summaries and FAQ.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<!-- DeepSeek -->
+			<div class="rr-card rr-provider-card" data-rr-provider="deepseek" <?php echo 'deepseek' === $active_provider ? '' : 'style="display:none;"'; ?>>
+				<h2 class="rr-card-title"><?php esc_html_e( 'DeepSeek', 'rankready' ); ?></h2>
+				<p class="rr-card-desc"><?php esc_html_e( 'Cost-efficient open-source models. DeepSeek Chat (V3) for general use, Reasoner (R1) for harder content.', 'rankready' ); ?></p>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><label for="rr_deepseek_key"><?php esc_html_e( 'API Key', 'rankready' ); ?></label></th>
+						<td>
+							<input type="password" id="rr_deepseek_key" name="<?php echo esc_attr( RR_OPT_DEEPSEEK_KEY ); ?>"
+								   value="<?php echo esc_attr( $deepseek_disp ); ?>" class="regular-text"
+								   autocomplete="new-password" spellcheck="false" />
+							<p class="description"><?php esc_html_e( 'Your DeepSeek API key (sk-...). Get one at platform.deepseek.com/api_keys.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="rr_deepseek_model"><?php esc_html_e( 'Model', 'rankready' ); ?></label></th>
+						<td>
+							<select name="<?php echo esc_attr( RR_OPT_DEEPSEEK_MODEL ); ?>" id="rr_deepseek_model">
+								<?php $cur = (string) get_option( RR_OPT_DEEPSEEK_MODEL, 'deepseek-chat' ); ?>
+								<?php foreach ( RR_LLM::get_models_for( 'deepseek' ) as $value => $label ) : ?>
+									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
+										<?php echo esc_html( $label ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+						</td>
+					</tr>
+				</table>
+			</div>
+
+			<script>
+			(function(){
+				// Hide non-selected provider cards on radio change.
+				const radios = document.querySelectorAll('[data-rr-provider-radio]');
+				const cards  = document.querySelectorAll('[data-rr-provider]');
+				const sync = () => {
+					const sel = document.querySelector('[data-rr-provider-radio]:checked');
+					if (!sel) return;
+					cards.forEach(c => { c.style.display = (c.dataset.rrProvider === sel.value) ? '' : 'none'; });
+				};
+				radios.forEach(r => r.addEventListener('change', sync));
+			})();
+			</script>
 
 			<!-- Product Context -->
 			<div class="rr-card">
@@ -1244,15 +1645,21 @@ class RR_Admin {
 			<h3 class="rr-card-title" style="font-size:14px;"><?php esc_html_e( 'Status', 'rankready' ); ?></h3>
 			<div class="rr-stats-row" style="margin-top:12px;">
 				<div class="rr-stat">
-					<span class="rr-stat-number"><?php echo ! empty( get_option( RR_OPT_KEY, '' ) ) ? '&#10003;' : '&#10007;'; ?></span>
-					<span class="rr-stat-label"><?php esc_html_e( 'OpenAI Key', 'rankready' ); ?></span>
+					<span class="rr-stat-number"><?php echo RR_LLM::active_provider_ready() ? '&#10003;' : '&#10007;'; ?></span>
+					<span class="rr-stat-label"><?php
+						echo esc_html( sprintf(
+							/* translators: %s: provider name */
+							__( '%s Key', 'rankready' ),
+							RR_LLM::get_provider_label( RR_LLM::get_active_provider() )
+						) );
+					?></span>
 				</div>
 				<div class="rr-stat">
 					<span class="rr-stat-number"><?php echo ! empty( get_option( RR_OPT_DFS_LOGIN, '' ) ) && ! empty( get_option( RR_OPT_DFS_PASSWORD, '' ) ) ? '&#10003;' : '&#10007;'; ?></span>
 					<span class="rr-stat-label"><?php esc_html_e( 'DataForSEO', 'rankready' ); ?></span>
 				</div>
 				<div class="rr-stat">
-					<span class="rr-stat-number"><?php echo esc_html( get_option( RR_OPT_MODEL, 'gpt-4o-mini' ) ); ?></span>
+					<span class="rr-stat-number" style="font-size:14px;"><?php echo esc_html( RR_LLM::get_model( RR_LLM::get_active_provider() ) ); ?></span>
 					<span class="rr-stat-label"><?php esc_html_e( 'Active Model', 'rankready' ); ?></span>
 				</div>
 			</div>
@@ -2876,6 +3283,45 @@ class RR_Admin {
 
 		<?php endif; ?>
 
+		<!-- Bulk Generate FAQs (placed adjacent to Bulk AI Summaries — both
+		     are content-generation operations, grouped per UX feedback). -->
+		<div class="rr-card">
+			<h2 class="rr-card-title"><?php esc_html_e( 'Bulk Generate FAQs', 'rankready' ); ?></h2>
+			<p class="rr-card-desc">
+				<?php esc_html_e( 'Generate FAQ Q&A pairs for all existing published posts using DataForSEO + your active AI provider. Requires both API keys to be configured.', 'rankready' ); ?>
+			</p>
+
+			<table class="form-table rr-form-table" style="width:auto;">
+				<tr>
+					<th style="padding:10px 20px 10px 0;"><?php esc_html_e( 'Post Types', 'rankready' ); ?></th>
+					<td>
+						<?php foreach ( $post_types as $slug => $label ) : ?>
+							<label style="display:block;margin-bottom:4px;">
+								<input type="checkbox" class="rr-faq-bulk-type" value="<?php echo esc_attr( $slug ); ?>" checked />
+								<?php echo esc_html( $label ); ?>
+							</label>
+						<?php endforeach; ?>
+					</td>
+				</tr>
+				<tr>
+					<th></th>
+					<td>
+						<button id="rr-faq-bulk-start" class="button button-primary"><?php esc_html_e( 'Start Bulk FAQ Generate', 'rankready' ); ?></button>
+						<button id="rr-faq-bulk-resume" class="button button-secondary" style="margin-left:8px;"><?php esc_html_e( 'Resume', 'rankready' ); ?></button>
+						<button id="rr-faq-bulk-stop" class="button button-secondary" style="display:none;margin-left:8px;"><?php esc_html_e( 'Stop', 'rankready' ); ?></button>
+						<p class="description" style="margin-top:4px;"><?php esc_html_e( 'Skips posts with unchanged content. Resume picks up from where you stopped.', 'rankready' ); ?></p>
+					</td>
+				</tr>
+			</table>
+
+			<div id="rr-faq-bulk-progress" style="display:none;margin-top:16px;">
+				<div class="rr-progress-track">
+					<div id="rr-faq-bulk-bar" class="rr-progress-fill"></div>
+				</div>
+				<p id="rr-faq-bulk-status" class="rr-progress-label"><?php esc_html_e( 'Preparing...', 'rankready' ); ?></p>
+			</div>
+		</div>
+
 		<!-- Bulk Author Changer -->
 		<div class="rr-card">
 			<h2 class="rr-card-title"><?php esc_html_e( 'Bulk Author Changer', 'rankready' ); ?></h2>
@@ -2987,8 +3433,10 @@ class RR_Admin {
 		$total_calls    = isset( $token_usage['total_calls'] ) ? (int) $token_usage['total_calls'] : 0;
 		$total_tokens   = $summary_tokens + $faq_tokens;
 
-		// Estimated cost: GPT-4o-mini ~$0.15/1M input, $0.60/1M output.
-		// Blended estimate ~$0.30/1M tokens (we track total, not split).
+		// Cost-per-token varies by provider (and by model within a provider).
+		// We display a blended estimate using a conservative average across
+		// the four provider defaults — actual cost depends on the provider
+		// you have active. See RR_LLM for the per-model price reference.
 		$est_cost = ( $total_tokens / 1000000 ) * 0.30;
 
 		// DataForSEO usage.
@@ -3006,7 +3454,7 @@ class RR_Admin {
 			<div style="margin-top:12px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap;">
 				<div style="padding:10px 16px;background:#f0f6fc;border:1px solid #c8d8e8;border-radius:6px;display:inline-block;">
 					<span style="font-size:22px;font-weight:700;color:#1d2327;">$<?php echo esc_html( number_format( $est_cost, 4 ) ); ?></span>
-					<span style="font-size:13px;color:#646970;margin-left:6px;"><?php esc_html_e( 'Estimated Cost (GPT-4o-mini)', 'rankready' ); ?></span>
+					<span style="font-size:13px;color:#646970;margin-left:6px;"><?php esc_html_e( 'Estimated Cost (blended)', 'rankready' ); ?></span>
 				</div>
 				<?php if ( $dfs_calls > 0 || $dfs_cost > 0 ) : ?>
 				<div style="padding:10px 16px;background:#fef8f0;border:1px solid #e8d8c0;border-radius:6px;display:inline-block;">
@@ -3016,7 +3464,13 @@ class RR_Admin {
 				<?php endif; ?>
 			</div>
 
-			<h3 style="font-size:14px;margin:16px 0 8px;color:#1d2327;"><?php esc_html_e( 'OpenAI', 'rankready' ); ?></h3>
+			<h3 style="font-size:14px;margin:16px 0 8px;color:#1d2327;"><?php
+				echo esc_html( sprintf(
+					/* translators: %s: active LLM provider label */
+					__( 'AI Provider — %s', 'rankready' ),
+					RR_LLM::get_provider_label( RR_LLM::get_active_provider() )
+				) );
+			?></h3>
 			<div class="rr-stats-row">
 				<div class="rr-stat">
 					<span class="rr-stat-number"><?php echo esc_html( number_format_i18n( $summary_tokens ) ); ?></span>
@@ -3064,44 +3518,6 @@ class RR_Admin {
 					</thead>
 					<tbody id="rr-tokens-tbody"></tbody>
 				</table>
-			</div>
-		</div>
-
-		<!-- Bulk Generate FAQs -->
-		<div class="rr-card">
-			<h2 class="rr-card-title"><?php esc_html_e( 'Bulk Generate FAQs', 'rankready' ); ?></h2>
-			<p class="rr-card-desc">
-				<?php esc_html_e( 'Generate FAQ Q&A pairs for all existing published posts using DataForSEO + OpenAI. Requires both API keys to be configured.', 'rankready' ); ?>
-			</p>
-
-			<table class="form-table rr-form-table" style="width:auto;">
-				<tr>
-					<th style="padding:10px 20px 10px 0;"><?php esc_html_e( 'Post Types', 'rankready' ); ?></th>
-					<td>
-						<?php foreach ( $post_types as $slug => $label ) : ?>
-							<label style="display:block;margin-bottom:4px;">
-								<input type="checkbox" class="rr-faq-bulk-type" value="<?php echo esc_attr( $slug ); ?>" checked />
-								<?php echo esc_html( $label ); ?>
-							</label>
-						<?php endforeach; ?>
-					</td>
-				</tr>
-				<tr>
-					<th></th>
-					<td>
-						<button id="rr-faq-bulk-start" class="button button-primary"><?php esc_html_e( 'Start Bulk FAQ Generate', 'rankready' ); ?></button>
-						<button id="rr-faq-bulk-resume" class="button button-secondary" style="margin-left:8px;"><?php esc_html_e( 'Resume', 'rankready' ); ?></button>
-						<button id="rr-faq-bulk-stop" class="button button-secondary" style="display:none;margin-left:8px;"><?php esc_html_e( 'Stop', 'rankready' ); ?></button>
-						<p class="description" style="margin-top:4px;"><?php esc_html_e( 'Skips posts with unchanged content. Resume picks up from where you stopped.', 'rankready' ); ?></p>
-					</td>
-				</tr>
-			</table>
-
-			<div id="rr-faq-bulk-progress" style="display:none;margin-top:16px;">
-				<div class="rr-progress-track">
-					<div id="rr-faq-bulk-bar" class="rr-progress-fill"></div>
-				</div>
-				<p id="rr-faq-bulk-status" class="rr-progress-label"><?php esc_html_e( 'Preparing...', 'rankready' ); ?></p>
 			</div>
 		</div>
 

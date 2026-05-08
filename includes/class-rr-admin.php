@@ -46,11 +46,25 @@ class RR_Admin {
 	 * Records the most recently installed plugin version. When the running
 	 * `RR_VERSION` is newer than the stored value, every user gets the
 	 * "what's new" banner exactly once until each one dismisses it.
+	 *
+	 * Also runs idempotent one-shot migrations for stale option values that
+	 * would silently break against the live API — currently the deprecated
+	 * `deepseek-chat` / `deepseek-reasoner` aliases. Safe to re-enter.
 	 */
 	public static function track_installed_version(): void {
 		$stored = (string) get_option( RR_OPT_INSTALLED_VERSION, '' );
 		if ( $stored !== RR_VERSION ) {
 			update_option( RR_OPT_INSTALLED_VERSION, RR_VERSION, false );
+		}
+
+		// DeepSeek deprecated `deepseek-chat` / `deepseek-reasoner` in favour
+		// of pinned V4 IDs. Migrate silently so existing users don't hit a
+		// dead alias when DeepSeek finishes the retirement.
+		$deepseek_model = (string) get_option( 'rr_deepseek_model', '' );
+		if ( 'deepseek-chat' === $deepseek_model ) {
+			update_option( 'rr_deepseek_model', 'deepseek-v4-flash', false );
+		} elseif ( 'deepseek-reasoner' === $deepseek_model ) {
+			update_option( 'rr_deepseek_model', 'deepseek-v4-pro', false );
 		}
 	}
 
@@ -209,7 +223,7 @@ class RR_Admin {
 		register_setting( self::SETTINGS_GROUP, RR_OPT_DEEPSEEK_MODEL, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_provider_model' ),
-			'default'           => 'deepseek-chat',
+			'default'           => 'deepseek-v4-flash',
 		) );
 
 		register_setting( self::SETTINGS_GROUP, RR_OPT_POST_TYPES, array(
@@ -1409,9 +1423,9 @@ class RR_Admin {
 								<?php
 								$providers = array(
 									'openai'    => array( 'OpenAI',    __( 'GPT-4o, GPT-4o mini', 'rankready' ) ),
-									'anthropic' => array( 'Claude',    __( 'Claude Haiku 4.5, Sonnet 4.5', 'rankready' ) ),
+									'anthropic' => array( 'Claude',    __( 'Haiku 4.5, Sonnet 4.6, Opus 4.7', 'rankready' ) ),
 									'gemini'    => array( 'Gemini',    __( 'Gemini 2.5 Flash, 2.5 Pro', 'rankready' ) ),
-									'deepseek'  => array( 'DeepSeek',  __( 'DeepSeek Chat, Reasoner', 'rankready' ) ),
+									'deepseek'  => array( 'DeepSeek',  __( 'V4 Flash, V4 Pro', 'rankready' ) ),
 								);
 								foreach ( $providers as $id => $info ) :
 									?>
@@ -1505,7 +1519,7 @@ class RR_Admin {
 									</option>
 								<?php endforeach; ?>
 							</select>
-							<p class="description"><?php esc_html_e( 'Haiku 4.5 is the cheapest and fastest. Sonnet 4.5 is best for nuanced content.', 'rankready' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Haiku 4.5 is the cheapest and fastest. Sonnet 4.6 is the balanced pick. Opus 4.7 is highest quality (most expensive).', 'rankready' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -1548,7 +1562,7 @@ class RR_Admin {
 			<!-- DeepSeek -->
 			<div class="rr-card rr-provider-card" data-rr-provider="deepseek" <?php echo 'deepseek' === $active_provider ? '' : 'style="display:none;"'; ?>>
 				<h2 class="rr-card-title"><?php esc_html_e( 'DeepSeek', 'rankready' ); ?></h2>
-				<p class="rr-card-desc"><?php esc_html_e( 'Cost-efficient open-source models. DeepSeek Chat (V3) for general use, Reasoner (R1) for harder content.', 'rankready' ); ?></p>
+				<p class="rr-card-desc"><?php esc_html_e( 'Cost-efficient open-source models. V4 Flash for everyday generation, V4 Pro when you need higher quality. (The legacy `deepseek-chat` and `deepseek-reasoner` aliases are being retired by DeepSeek — switch to V4 IDs.)', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
 					<tr>
@@ -1566,7 +1580,7 @@ class RR_Admin {
 						<th scope="row"><label for="rr_deepseek_model"><?php esc_html_e( 'Model', 'rankready' ); ?></label></th>
 						<td>
 							<select name="<?php echo esc_attr( RR_OPT_DEEPSEEK_MODEL ); ?>" id="rr_deepseek_model">
-								<?php $cur = (string) get_option( RR_OPT_DEEPSEEK_MODEL, 'deepseek-chat' ); ?>
+								<?php $cur = (string) get_option( RR_OPT_DEEPSEEK_MODEL, 'deepseek-v4-flash' ); ?>
 								<?php foreach ( RR_LLM::get_models_for( 'deepseek' ) as $value => $label ) : ?>
 									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
 										<?php echo esc_html( $label ); ?>

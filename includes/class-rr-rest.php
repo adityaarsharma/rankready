@@ -1020,6 +1020,9 @@ class RR_Rest {
 							'anthropic-version' => '2023-06-01',
 							'content-type'      => 'application/json',
 						),
+						// Cheapest valid Anthropic ID for an auth probe. Update
+						// this when Haiku ships a new generation — Anthropic
+						// has no evergreen alias, every ID is a pinned snapshot.
 						'body' => wp_json_encode( array(
 							'model'      => 'claude-haiku-4-5',
 							'max_tokens' => 1,

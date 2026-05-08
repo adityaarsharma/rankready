@@ -69,14 +69,31 @@ class RR_LLM {
 
 	/**
 	 * Returns the active model for a given provider.
+	 *
+	 * Defaults are kept in sync with each provider's *current* recommended
+	 * production ID as of the plugin release. Notes per provider:
+	 *
+	 * - OpenAI:    no evergreen alias. `gpt-4o-mini` is the cheapest current model.
+	 * - Anthropic: every ID is pinned (Anthropic docs explicitly say so —
+	 *              `claude-haiku-4-5` is the dateless pin, not an evergreen pointer).
+	 * - Gemini:    `gemini-2.5-flash` is the stable production pick. Google docs
+	 *              warn against `*-latest` aliases in production (hot-swap risk).
+	 * - DeepSeek:  `deepseek-v4-flash` replaces the deprecated `deepseek-chat`
+	 *              alias (per DeepSeek's pricing page, `deepseek-chat` /
+	 *              `deepseek-reasoner` are being retired).
+	 *
+	 * If a user has an older saved value (e.g. `deepseek-chat`), it stays in
+	 * `wp_options` and we still send it to the provider — the dropdown just
+	 * stops listing it. When the user saves any change, sanitize_provider_model
+	 * preserves whatever string they pick.
 	 */
 	public static function get_model( string $provider ): string {
 		switch ( $provider ) {
 			case self::PROVIDER_ANTHROPIC: return (string) get_option( 'rr_anthropic_model', 'claude-haiku-4-5' );
-			case self::PROVIDER_GEMINI:    return (string) get_option( 'rr_gemini_model', 'gemini-2.5-flash' );
-			case self::PROVIDER_DEEPSEEK:  return (string) get_option( 'rr_deepseek_model', 'deepseek-chat' );
+			case self::PROVIDER_GEMINI:    return (string) get_option( 'rr_gemini_model',    'gemini-2.5-flash' );
+			case self::PROVIDER_DEEPSEEK:  return (string) get_option( 'rr_deepseek_model',  'deepseek-v4-flash' );
 			case self::PROVIDER_OPENAI:
-			default:                       return (string) get_option( RR_OPT_MODEL, 'gpt-4o-mini' );
+			default:                       return (string) get_option( RR_OPT_MODEL,         'gpt-4o-mini' );
 		}
 	}
 
@@ -103,18 +120,22 @@ class RR_LLM {
 	}
 
 	/**
-	 * Returns the list of model IDs available for a provider. Kept short —
-	 * latest production models only. Each entry is `id => human label`.
+	 * Returns the list of model IDs available for a provider. Each entry is
+	 * `id => human label`. Kept short — only currently-recommended production
+	 * IDs. Updated each plugin release as providers ship new generations.
 	 *
-	 * Pricing context (per 1M tokens, May 2026):
-	 *   - GPT-4o-mini:        $0.15 in / $0.60 out
-	 *   - GPT-4o:             $2.50 in / $10.00 out
-	 *   - Claude Haiku 4.5:   $1.00 in / $5.00 out
-	 *   - Claude Sonnet 4.5:  $3.00 in / $15.00 out
-	 *   - Gemini 2.5 Flash:   $0.075 in / $0.30 out
-	 *   - Gemini 2.5 Pro:     $1.25 in / $5.00 out
-	 *   - DeepSeek V3 chat:   $0.27 in / $1.10 out
-	 *   - DeepSeek Reasoner:  $0.55 in / $2.19 out
+	 * Why no `*-latest` evergreen aliases:
+	 *   - Anthropic: every model ID is a pinned snapshot — there's no evergreen
+	 *     pointer (per Anthropic docs).
+	 *   - Google: `gemini-flash-latest` etc. exist but Google explicitly
+	 *     recommends pinned IDs for production (2-week hot-swap notice).
+	 *   - DeepSeek: `deepseek-chat` / `deepseek-reasoner` were the only true
+	 *     evergreen aliases and DeepSeek is deprecating them in favour of
+	 *     pinned `deepseek-v4-*` IDs.
+	 *
+	 * So "evergreen" in 2026 means shipping each provider's most current
+	 * recommended pinned ID with every plugin release. Anything else risks
+	 * sudden behaviour change or silent retirement.
 	 */
 	public static function get_models_for( string $provider ): array {
 		switch ( $provider ) {
@@ -122,24 +143,23 @@ class RR_LLM {
 				return array(
 					'gpt-4o-mini'   => __( 'GPT-4o mini (fast, cheapest)', 'rankready' ),
 					'gpt-4o'        => __( 'GPT-4o (best quality)', 'rankready' ),
-					'gpt-4-turbo'   => __( 'GPT-4 Turbo (legacy)', 'rankready' ),
-					'gpt-3.5-turbo' => __( 'GPT-3.5 Turbo (legacy, cheapest)', 'rankready' ),
 				);
 			case self::PROVIDER_ANTHROPIC:
 				return array(
 					'claude-haiku-4-5'  => __( 'Claude Haiku 4.5 (fast, cheap)', 'rankready' ),
-					'claude-sonnet-4-5' => __( 'Claude Sonnet 4.5 (best quality)', 'rankready' ),
+					'claude-sonnet-4-6' => __( 'Claude Sonnet 4.6 (balanced)', 'rankready' ),
+					'claude-opus-4-7'   => __( 'Claude Opus 4.7 (highest quality)', 'rankready' ),
 				);
 			case self::PROVIDER_GEMINI:
 				return array(
-					'gemini-2.5-flash'      => __( 'Gemini 2.5 Flash (fast, cheapest)', 'rankready' ),
-					'gemini-2.5-pro'        => __( 'Gemini 2.5 Pro (best quality)', 'rankready' ),
+					'gemini-2.5-flash'      => __( 'Gemini 2.5 Flash (fast, cheap)', 'rankready' ),
 					'gemini-2.5-flash-lite' => __( 'Gemini 2.5 Flash Lite (lowest cost)', 'rankready' ),
+					'gemini-2.5-pro'        => __( 'Gemini 2.5 Pro (highest quality)', 'rankready' ),
 				);
 			case self::PROVIDER_DEEPSEEK:
 				return array(
-					'deepseek-chat'     => __( 'DeepSeek Chat (V3, fast)', 'rankready' ),
-					'deepseek-reasoner' => __( 'DeepSeek Reasoner (R1, deep reasoning)', 'rankready' ),
+					'deepseek-v4-flash' => __( 'DeepSeek V4 Flash (fast, cheap)', 'rankready' ),
+					'deepseek-v4-pro'   => __( 'DeepSeek V4 Pro (highest quality)', 'rankready' ),
 				);
 		}
 		return array();

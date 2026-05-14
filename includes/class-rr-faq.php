@@ -99,6 +99,22 @@ class RR_Faq {
 			return;
 		}
 
+		// Circuit breaker: skip re-scheduling if the last attempt failed within the past hour.
+		// Without this, every save of a post that has never successfully generated FAQs (e.g.
+		// because the API endpoint is unreachable) queues a new cron job, flooding the error
+		// log and burning PHP worker threads on guaranteed-timeout requests.
+		$last_failure = (int) get_post_meta( $post_id, RR_META_FAQ_LAST_FAILURE, true );
+		if ( $last_failure && ( time() - $last_failure ) < HOUR_IN_SECONDS ) {
+			return;
+		}
+
+		// Stamp the hash BEFORE scheduling. generate_faq() also stamps it on success, but
+		// without this early stamp every subsequent save re-enters here: $old_hash stays stale
+		// (it was never written) and the condition above never short-circuits, so a new cron
+		// job fires for each save even when the content has not changed and the last attempt
+		// just failed.
+		update_post_meta( $post_id, RR_META_FAQ_HASH, $new_hash );
+
 		// Schedule via cron (FAQ takes longer due to DataForSEO + OpenAI calls).
 		wp_clear_scheduled_hook( 'rr_async_faq_generate', array( $post_id ) );
 		wp_schedule_single_event( time() + 15, 'rr_async_faq_generate', array( $post_id ) );
@@ -123,7 +139,16 @@ class RR_Faq {
 			return;
 		}
 
-		self::generate_faq( $post_id );
+		$result = self::generate_faq( $post_id );
+
+		// Record failure timestamp so schedule_faq_generation() can enforce the
+		// 1-hour cooldown and avoid hammering an unreachable API on every post save.
+		if ( is_wp_error( $result ) ) {
+			update_post_meta( $post_id, RR_META_FAQ_LAST_FAILURE, time() );
+		} else {
+			// Clear stale failure timestamp on success.
+			delete_post_meta( $post_id, RR_META_FAQ_LAST_FAILURE );
+		}
 	}
 
 	// ── Auto-display ─────────────────────────────────────────────────────────

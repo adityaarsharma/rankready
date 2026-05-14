@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
  * Plugin URI:        https://posimyth.com
  * Description:       AI-first SEO for WordPress. Get cited by ChatGPT, Perplexity & Google AI Overviews. LLMs.txt generator, AI summaries, FAQ schema, EEAT author box, AI crawler controls.
- * Version:           1.1.1-beta.1
+ * Version:           1.1.3
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.1.1-beta.1' );
+	define( 'RR_VERSION',  '1.1.3' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -195,6 +195,8 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_OPT_HEADLESS_REVALIDATE_SEC',  'rr_headless_revalidate_secret' ); // Shared secret for webhook auth.
 	define( 'RR_OPT_HEADLESS_GRAPHQL',         'rr_headless_graphql' );           // Register WPGraphQL fields.
 
+	define( 'RR_OPT_BRAND_TERMS', 'rr_brand_terms' );    // Canonical brand terms for AI crawler tab.
+
 	// Meta keys.
 	define( 'RR_META_SUMMARY',   '_rr_summary' );
 	define( 'RR_META_HASH',      '_rr_content_hash' );
@@ -204,9 +206,10 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	// Meta keys — FAQ.
 	define( 'RR_META_FAQ',           '_rr_faq' );
 	define( 'RR_META_FAQ_HASH',      '_rr_faq_hash' );
-	define( 'RR_META_FAQ_GENERATED', '_rr_faq_generated' );
-	define( 'RR_META_FAQ_DISABLE',   '_rr_faq_disable' );
-	define( 'RR_META_FAQ_KEYWORD',   '_rr_faq_keyword' );
+	define( 'RR_META_FAQ_GENERATED',     '_rr_faq_generated' );
+	define( 'RR_META_FAQ_DISABLE',       '_rr_faq_disable' );
+	define( 'RR_META_FAQ_KEYWORD',       '_rr_faq_keyword' );
+	define( 'RR_META_FAQ_LAST_FAILURE',  '_rr_faq_last_failure' ); // Unix timestamp of last failed generation attempt.
 
 	// Cron.
 	define( 'RR_CRON_HOOK', 'rr_async_generate' );

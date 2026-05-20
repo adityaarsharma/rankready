@@ -443,6 +443,18 @@ class RR_Admin {
 			'default'           => 'on',
 		) );
 
+		// v1.2.0-beta.3 — Markdown sub-toggles.
+		register_setting( self::LLMS_GROUP, RR_OPT_MD_HINT_DIV, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+		register_setting( self::LLMS_GROUP, RR_OPT_MD_BOT_AUTO_SERVE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+
 		// ── DataForSEO credentials (Settings tab, same save as OpenAI) ──────
 		register_setting( self::SETTINGS_GROUP, RR_OPT_DFS_LOGIN, array(
 			'type'              => 'string',
@@ -1121,8 +1133,16 @@ class RR_Admin {
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="button button-secondary"><?php esc_html_e( 'Configure API key →', 'rankready' ); ?></a>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=authority' ) ); ?>" class="button button-secondary"><?php esc_html_e( 'Set up Author Box →', 'rankready' ); ?></a>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=crawlers' ) ); ?>" class="button button-secondary"><?php esc_html_e( 'Enable LLMs.txt →', 'rankready' ); ?></a>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-welcome' ) ); ?>" class="button button-secondary"><?php esc_html_e( 'Re-run setup wizard →', 'rankready' ); ?></a>
 			</div>
 		</div>
+		<?php endif; ?>
+
+		<?php if ( $tutorial_dismissed ) : // When the tutorial card is hidden, surface the wizard link as a tiny standalone row so it stays discoverable. ?>
+			<p style="margin:0 0 14px;font-size:12px;color:var(--rr-color-text-muted,#646970);">
+				<?php esc_html_e( 'Need to start over?', 'rankready' ); ?>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-welcome' ) ); ?>"><?php esc_html_e( 'Re-run the setup wizard →', 'rankready' ); ?></a>
+			</p>
 		<?php endif; ?>
 
 		<?php if ( ! $api_set ) : ?>
@@ -2309,6 +2329,105 @@ class RR_Admin {
 		?>
 		<?php settings_errors(); ?>
 
+		<!-- ── Agent Visibility Status (read-only summary, v1.2.0-beta.3) ───── -->
+		<?php
+		$rr_status_signals = array(
+			array(
+				'label' => __( 'llms.txt', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ),
+				'url'   => home_url( '/llms.txt' ),
+			),
+			array(
+				'label' => __( 'llms-full.txt', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ),
+				'url'   => home_url( '/llms-full.txt' ),
+			),
+			array(
+				'label' => __( '.md routes', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ),
+			),
+			array(
+				'label' => __( 'AI hint in body', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ) && 'on' === get_option( RR_OPT_MD_HINT_DIV, 'on' ),
+			),
+			array(
+				'label' => __( 'AI bot auto-serve', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ) && 'on' === get_option( RR_OPT_MD_BOT_AUTO_SERVE, 'on' ),
+			),
+			array(
+				'label' => __( 'robots.txt AI rules', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_ROBOTS_ENABLE, 'on' ),
+			),
+			array(
+				'label' => __( 'Content Signals', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_CONTENT_SIGNALS_ENABLE, 'off' ),
+			),
+			array(
+				'label' => __( 'max-snippet: -1 default', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_MAX_SNIPPET_DEFAULT, 'on' ),
+			),
+			array(
+				'label' => __( 'AI Referral tracking', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_AI_REFERRAL_ENABLE, 'on' ),
+			),
+			array(
+				'label' => __( 'WebMCP manifest', 'rankready' ),
+				'on'    => 'on' === get_option( RR_OPT_MCP_ENABLE, 'on' ),
+				'url'   => home_url( '/.well-known/mcp.json' ),
+			),
+			array(
+				'label' => __( 'Brand Terms set', 'rankready' ),
+				'on'    => '' !== trim( (string) get_option( RR_OPT_BRAND_TERMS, '' ) ),
+			),
+		);
+		$rr_status_on  = count( array_filter( $rr_status_signals, function( $s ) { return $s['on']; } ) );
+		$rr_status_all = count( $rr_status_signals );
+		$rr_status_pct = (int) round( ( $rr_status_on / max( 1, $rr_status_all ) ) * 100 );
+		?>
+		<div class="rr-card rr-agent-status" style="margin-bottom:24px;background:linear-gradient(135deg,var(--rr-color-surface,#fff) 0%,var(--rr-color-brand-soft,#f0f6fc) 100%);border:1px solid var(--rr-color-border,#c3c4c7);">
+			<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;">
+				<div>
+					<h2 class="rr-card-title" style="margin:0;"><?php esc_html_e( 'Agent Visibility', 'rankready' ); ?></h2>
+					<p class="rr-card-desc" style="margin:4px 0 0;">
+						<?php
+						printf(
+							/* translators: 1: signals on, 2: signals total */
+							esc_html__( '%1$d of %2$d agent signals active. The more enabled, the more visible your site is to ChatGPT, Perplexity, Claude, Gemini, and Google AI.', 'rankready' ),
+							(int) $rr_status_on,
+							(int) $rr_status_all
+						);
+						?>
+					</p>
+				</div>
+				<div style="text-align:right;min-width:120px;">
+					<div style="font-size:32px;font-weight:700;line-height:1;color:var(--rr-color-brand,#2271b1);">
+						<?php echo esc_html( $rr_status_pct ); ?>%
+					</div>
+					<div style="font-size:11px;color:var(--rr-color-text-muted,#646970);text-transform:uppercase;letter-spacing:0.04em;margin-top:2px;">
+						<?php esc_html_e( 'Coverage', 'rankready' ); ?>
+					</div>
+				</div>
+			</div>
+
+			<ul style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px 18px;margin:0;padding:0;list-style:none;font-size:12px;">
+				<?php foreach ( $rr_status_signals as $sig ) :
+					$icon  = $sig['on'] ? '✓' : '○';
+					$color = $sig['on'] ? 'var(--rr-color-success,#00a32a)' : 'var(--rr-color-text-muted,#646970)';
+					?>
+					<li style="display:flex;align-items:center;gap:6px;">
+						<span style="display:inline-block;width:16px;text-align:center;color:<?php echo esc_attr( $color ); ?>;font-weight:700;font-size:13px;"><?php echo esc_html( $icon ); ?></span>
+						<span style="color:<?php echo $sig['on'] ? 'var(--rr-color-ink,#1d2327)' : 'var(--rr-color-text-muted,#646970)'; ?>;">
+							<?php echo esc_html( $sig['label'] ); ?>
+						</span>
+						<?php if ( $sig['on'] && ! empty( $sig['url'] ) ) : ?>
+							<a href="<?php echo esc_url( $sig['url'] ); ?>" target="_blank" rel="noopener" style="font-size:11px;text-decoration:none;color:var(--rr-color-brand,#2271b1);">↗</a>
+						<?php endif; ?>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+		<!-- ── /Agent Visibility Status ───────────────────────────────────── -->
+
 		<!-- ── AI Crawler Access Log ─────────────────────────────────────── -->
 		<?php
 		$ep_labels     = RR_Crawler_Log::ENDPOINT_LABELS;
@@ -2922,6 +3041,32 @@ class RR_Admin {
 								</label>
 							</td>
 						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'AI hint in body', 'rankready' ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RR_OPT_MD_HINT_DIV ); ?>"
+										   value="on" <?php checked( get_option( RR_OPT_MD_HINT_DIV, 'on' ), 'on' ); ?> />
+									<?php esc_html_e( 'Inject a hidden div pointing AI agents at the .md version', 'rankready' ); ?>
+								</label>
+								<p class="description" style="font-size:11px;">
+									<?php esc_html_e( 'Visually invisible (clip-path + aria-hidden). Raw-HTML scrapers see "AI agents: a clean Markdown version is at URL.md". Evil Martians technique — got their docs cited by Claude.', 'rankready' ); ?>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Auto-serve to AI bots', 'rankready' ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RR_OPT_MD_BOT_AUTO_SERVE ); ?>"
+										   value="on" <?php checked( get_option( RR_OPT_MD_BOT_AUTO_SERVE, 'on' ), 'on' ); ?> />
+									<?php esc_html_e( 'Serve Markdown to GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot, Google-Extended (12 bots total)', 'rankready' ); ?>
+								</label>
+								<p class="description" style="font-size:11px;">
+									<?php esc_html_e( 'Detected via User-Agent header. Disable to restrict markdown to explicit Accept: text/markdown requests only.', 'rankready' ); ?>
+								</p>
+							</td>
+						</tr>
 					</table>
 				</div>
 			</div>
@@ -3051,9 +3196,14 @@ class RR_Admin {
 
 			<!-- ── Brand Terms ───────────────────────────────────────────────── -->
 			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Brand Terms', 'rankready' ); ?></h2>
+				<h2 class="rr-card-title">
+					<?php esc_html_e( 'Brand Terms', 'rankready' ); ?>
+					<span style="font-size:11px;background:var(--rr-color-info-bg,#e5f1f9);color:var(--rr-color-info-text,#135e96);padding:2px 8px;border-radius:9999px;margin-left:6px;vertical-align:middle;font-weight:600;">
+						<?php esc_html_e( 'WIRED EVERYWHERE', 'rankready' ); ?>
+					</span>
+				</h2>
 				<p class="rr-card-desc">
-					<?php esc_html_e( 'Canonical brand and product names for this site. RankReady uses these to guard against brand name variants confusing AI models.', 'rankready' ); ?>
+					<?php esc_html_e( 'Canonical brand and product names for this site. One input field, five consumers — RankReady automatically applies these names anywhere AI engines and LLMs read your site.', 'rankready' ); ?>
 				</p>
 				<table class="form-table rr-form-table">
 					<tr>
@@ -3066,8 +3216,28 @@ class RR_Admin {
 							          placeholder="<?php esc_attr_e( "e.g.\nThe Plus Addons for Elementor\nNexterWP\nYour Brand Name", 'rankready' ); ?>"
 							><?php echo esc_textarea( (string) get_option( RR_OPT_BRAND_TERMS, '' ) ); ?></textarea>
 							<p class="description">
-								<?php esc_html_e( 'One name per line. Use the exact capitalisation and spacing you want AI models to use. RankReady will warn you if a post uses inconsistent variants (e.g. "theplusaddons" vs "The Plus Addons for Elementor").', 'rankready' ); ?>
+								<?php esc_html_e( 'One canonical name per line. Use the exact capitalisation and spacing you want AI engines to recognise.', 'rankready' ); ?>
 							</p>
+
+							<?php $rr_bt_active = '' !== trim( (string) get_option( RR_OPT_BRAND_TERMS, '' ) ); ?>
+							<div style="margin-top:14px;padding:12px 14px;background:var(--rr-color-surface-2,#f6f7f7);border-radius:var(--rr-radius-md,6px);font-size:12px;line-height:1.7;color:var(--rr-color-ink-soft,#3c434a);">
+								<strong style="display:block;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--rr-color-text-muted,#646970);">
+									<?php esc_html_e( 'This one input wires into', 'rankready' ); ?>
+								</strong>
+								<ul style="margin:0;padding-left:18px;list-style:disc;">
+									<li><code>/llms.txt</code> &mdash; <?php esc_html_e( 'Brand line in site metadata header', 'rankready' ); ?></li>
+									<li><code>/llms-full.txt</code> &mdash; <?php esc_html_e( 'Brand line in site metadata header', 'rankready' ); ?></li>
+									<li><code>/robots.txt</code> &mdash; <?php esc_html_e( 'Brand comment line inside the RankReady AI block', 'rankready' ); ?></li>
+									<li><?php esc_html_e( 'FAQ generation prompt', 'rankready' ); ?> &mdash; <?php esc_html_e( 'canonical brand context injected before each AI call', 'rankready' ); ?></li>
+									<li><?php esc_html_e( 'AI Summary system prompt', 'rankready' ); ?> &mdash; <?php esc_html_e( 'forces consistent brand naming in every summary', 'rankready' ); ?></li>
+									<li><code>rankready/get-brand-terms</code> &mdash; <?php esc_html_e( 'exposed as a WebMCP ability to Claude Desktop / Cursor / VS Code', 'rankready' ); ?></li>
+								</ul>
+								<?php if ( ! $rr_bt_active ) : ?>
+									<p style="margin:8px 0 0;color:var(--rr-color-warning-text,#674c00);">
+										<?php esc_html_e( 'Currently empty — sites with no brand terms fall back to the WordPress site title. Set at least one name to drive entity consistency across all six surfaces above.', 'rankready' ); ?>
+									</p>
+								<?php endif; ?>
+							</div>
 						</td>
 					</tr>
 				</table>

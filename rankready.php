@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – Get cited by ChatGPT & Perplexity
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.2.0-beta.2
+ * Version:           1.2.0-beta.3
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.2.0-beta.2' );
+	define( 'RR_VERSION',  '1.2.0-beta.3' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -212,6 +212,10 @@ if ( ! defined( 'RR_VERSION' ) ) {
 
 	// WebMCP — master toggle for /.well-known/mcp.json + Abilities API registration.
 	define( 'RR_OPT_MCP_ENABLE',            'rr_mcp_enable' );          // 'on' | 'off'
+
+	// Markdown layer sub-toggles (controlled inside the Markdown Endpoints card).
+	define( 'RR_OPT_MD_HINT_DIV',           'rr_md_hint_div' );         // 'on' | 'off' — hidden AI-hint div in body
+	define( 'RR_OPT_MD_BOT_AUTO_SERVE',     'rr_md_bot_auto_serve' );   // 'on' | 'off' — UA-based forced markdown for AI bots
 
 	// Meta keys.
 	define( 'RR_META_SUMMARY',   '_rr_summary' );

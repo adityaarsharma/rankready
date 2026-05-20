@@ -169,7 +169,11 @@ class RR_Markdown {
 		}
 
 		$ua             = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
-		$force_markdown = ! empty( $ua ) && self::is_ai_bot( $ua );
+		// v1.2.0-beta.3 — sub-toggle for UA-based forced markdown. Default on.
+		// Disabling restricts markdown to explicit Accept: text/markdown only.
+		$force_markdown = 'on' === get_option( RR_OPT_MD_BOT_AUTO_SERVE, 'on' )
+			&& ! empty( $ua )
+			&& self::is_ai_bot( $ua );
 
 		$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) : '';
 
@@ -388,6 +392,11 @@ class RR_Markdown {
 	 */
 	public static function add_ai_hint_div(): void {
 		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+			return;
+		}
+		// v1.2.0-beta.3 — sub-toggle, default on. Users who prefer no hidden
+		// content (some SEO purists do) can disable from Markdown Endpoints card.
+		if ( 'on' !== get_option( RR_OPT_MD_HINT_DIV, 'on' ) ) {
 			return;
 		}
 

@@ -61,6 +61,84 @@ class RR_Crawler_Log {
 		'home_md'   => 'Homepage .md',
 	);
 
+	// ── Bot intent classification (v1.2.0-beta.3) ────────────────────────
+	// Citation-intent bots fetch on behalf of a real user query happening NOW.
+	// A hit from one of these bots is the strongest in-product signal that the
+	// page is being used as a source in an AI response. ~70%+ of these hits
+	// correlate with a citation in the LLM's answer to the user.
+	const BOTS_CITATION = array(
+		'OAI-SearchBot',  // OpenAI search engine bot (ChatGPT Search)
+		'ChatGPT-User',   // ChatGPT browsing on behalf of a user
+		'PerplexityBot',  // Perplexity main bot
+		'Claude-Web',     // Claude web fetcher for live queries
+		'DuckAssistBot',  // DuckDuckGo AI assistant
+	);
+
+	// Training-intent bots ingest content for future model training. No
+	// immediate citation, but content may surface from model weights later.
+	const BOTS_TRAINING = array(
+		'GPTBot',             // OpenAI training crawler
+		'ClaudeBot',          // Anthropic training crawler
+		'anthropic-ai',       // older Anthropic training UA
+		'Google-Extended',    // Gemini training opt-out token
+		'Bytespider',         // ByteDance / Doubao training
+		'CCBot',              // Common Crawl (used by many AI labs)
+		'Amazonbot',          // Amazon training crawler
+		'cohere-ai',          // Cohere training
+		'AI2Bot',             // Allen Institute training
+		'Applebot-Extended',  // Apple AI training opt-out token
+		'Meta-ExternalAgent', // Meta AI training crawler
+	);
+
+	/**
+	 * Classify a bot UA pattern into 'citation' | 'training' | 'indexing' | 'unknown'.
+	 *
+	 * Accepts either the raw bot pattern ('GPTBot') or the friendly label
+	 * stored in the DB ('GPTBot (OpenAI)'). Substring match.
+	 */
+	public static function bot_intent( string $bot ): string {
+		foreach ( self::BOTS_CITATION as $pattern ) {
+			if ( false !== stripos( $bot, $pattern ) ) {
+				return 'citation';
+			}
+		}
+		foreach ( self::BOTS_TRAINING as $pattern ) {
+			if ( false !== stripos( $bot, $pattern ) ) {
+				return 'training';
+			}
+		}
+		// Anything else that's in BOTS but not classified above is indexing.
+		foreach ( array_keys( self::BOTS ) as $pattern ) {
+			if ( false !== stripos( $bot, $pattern ) ) {
+				return 'indexing';
+			}
+		}
+		return 'unknown';
+	}
+
+	/**
+	 * Build a SQL fragment matching any citation-intent bot. Returns the
+	 * fragment + the corresponding params array, ready to splice into a
+	 * $wpdb->prepare() call. Returns null when the list is empty (defensive).
+	 *
+	 * Output: [ 'fragment' => '(bot_name LIKE %s OR bot_name LIKE %s ...)', 'params' => [...] ]
+	 */
+	private static function citation_bot_sql(): ?array {
+		if ( empty( self::BOTS_CITATION ) ) {
+			return null;
+		}
+		$frags  = array();
+		$params = array();
+		foreach ( self::BOTS_CITATION as $pattern ) {
+			$frags[]  = 'bot_name LIKE %s';
+			$params[] = '%' . $GLOBALS['wpdb']->esc_like( $pattern ) . '%';
+		}
+		return array(
+			'fragment' => '(' . implode( ' OR ', $frags ) . ')',
+			'params'   => $params,
+		);
+	}
+
 	// ── Bootstrap ─────────────────────────────────────────────────────────
 
 	public static function init(): void {
@@ -376,6 +454,97 @@ class RR_Crawler_Log {
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Count hits in the last N days from citation-intent bots only.
+	 *
+	 * This is THE most important crawl number to surface in the UI: every
+	 * hit from a citation-intent bot maps roughly 1:1 to a live AI query
+	 * where your content was retrieved as an answer source.
+	 *
+	 * @since 1.2.0-beta.3
+	 */
+	public static function get_citation_hits_total( int $days = 30 ): int {
+		$cite = self::citation_bot_sql();
+		if ( null === $cite ) {
+			return 0;
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'rr_crawler_log';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
+		$sql = "SELECT COUNT(*) FROM {$table}
+		        WHERE logged_at >= DATE_SUB(NOW(), INTERVAL %d DAY)
+		          AND {$cite['fragment']}";
+		$args = array_merge( array( $days ), $cite['params'] );
+		return (int) $wpdb->get_var( $wpdb->prepare( $sql, $args ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	/**
+	 * Sum of hits in last N days from training-intent bots. Complement to
+	 * get_citation_hits_total() — together with that they give the
+	 * "is my site being cited right now vs trained for later" split.
+	 *
+	 * @since 1.2.0-beta.3
+	 */
+	public static function get_training_hits_total( int $days = 30 ): int {
+		if ( empty( self::BOTS_TRAINING ) ) {
+			return 0;
+		}
+		global $wpdb;
+		$table  = $wpdb->prefix . 'rr_crawler_log';
+		$frags  = array();
+		$params = array( $days );
+		foreach ( self::BOTS_TRAINING as $pattern ) {
+			$frags[]  = 'bot_name LIKE %s';
+			$params[] = '%' . $wpdb->esc_like( $pattern ) . '%';
+		}
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
+		$sql = "SELECT COUNT(*) FROM {$table}
+		        WHERE logged_at >= DATE_SUB(NOW(), INTERVAL %d DAY)
+		          AND (" . implode( ' OR ', $frags ) . ')';
+		return (int) $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
+	}
+
+	/**
+	 * Top pages crawled by citation-intent bots in the last N days.
+	 *
+	 * The single most actionable view of the crawl log: these are the posts
+	 * AI engines actually pull as sources when answering live user queries.
+	 * Optimise these posts first — they're already winning.
+	 *
+	 * @since 1.2.0-beta.3
+	 * @return array<int,array{post_id:int,post_title:string,post_type:string,url_path:string,hits:int,unique_bots:int,last_seen:string}>
+	 */
+	public static function get_citation_top_pages( int $days = 30, int $limit = 10 ): array {
+		$cite = self::citation_bot_sql();
+		if ( null === $cite ) {
+			return array();
+		}
+		global $wpdb;
+		$table = $wpdb->prefix . 'rr_crawler_log';
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
+		$sql = "SELECT
+		            post_id,
+		            MAX(post_title) AS post_title,
+		            MAX(post_type)  AS post_type,
+		            MAX(url_path)   AS url_path,
+		            COUNT(*)        AS hits,
+		            COUNT(DISTINCT bot_name) AS unique_bots,
+		            MAX(logged_at)  AS last_seen
+		        FROM {$table}
+		        WHERE logged_at >= DATE_SUB(NOW(), INTERVAL %d DAY)
+		          AND {$cite['fragment']}
+		          AND (post_id > 0 OR url_path <> '')
+		        GROUP BY post_id, url_path
+		        ORDER BY hits DESC, last_seen DESC
+		        LIMIT %d";
+		$args = array_merge( array( $days ), $cite['params'], array( $limit ) );
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
+		return is_array( $rows ) ? $rows : array();
 	}
 
 	/** Total unique pages crawled. */

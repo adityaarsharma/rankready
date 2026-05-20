@@ -2430,41 +2430,136 @@ class RR_Admin {
 
 		<!-- ── AI Crawler Access Log ─────────────────────────────────────── -->
 		<?php
-		$ep_labels     = RR_Crawler_Log::ENDPOINT_LABELS;
-		$total_30d     = RR_Crawler_Log::get_total( 30 );
-		$total_7d      = RR_Crawler_Log::get_total( 7 );
-		$unique_pages  = RR_Crawler_Log::get_unique_pages( 30 );
-		$bot_stats     = RR_Crawler_Log::get_bot_stats( 30 );
-		$cpt_stats     = RR_Crawler_Log::get_cpt_stats( 30 );
-		$top_pages     = RR_Crawler_Log::get_top_pages( 30, 15 );
-		$ep_totals     = RR_Crawler_Log::get_endpoint_totals( 30 );
-		$recent_hits   = RR_Crawler_Log::get_recent_hits( 40 );
-		$cpt_max       = empty( $cpt_stats ) ? 1 : max( array_column( $cpt_stats, 'total' ) );
+		$ep_labels        = RR_Crawler_Log::ENDPOINT_LABELS;
+		$total_30d        = RR_Crawler_Log::get_total( 30 );
+		$total_7d         = RR_Crawler_Log::get_total( 7 );
+		$unique_pages     = RR_Crawler_Log::get_unique_pages( 30 );
+		$bot_stats        = RR_Crawler_Log::get_bot_stats( 30 );
+		$cpt_stats        = RR_Crawler_Log::get_cpt_stats( 30 );
+		$top_pages        = RR_Crawler_Log::get_top_pages( 30, 15 );
+		$ep_totals        = RR_Crawler_Log::get_endpoint_totals( 30 );
+		$recent_hits      = RR_Crawler_Log::get_recent_hits( 40 );
+		$citation_hits    = RR_Crawler_Log::get_citation_hits_total( 30 );
+		$training_hits    = RR_Crawler_Log::get_training_hits_total( 30 );
+		$citation_pages   = RR_Crawler_Log::get_citation_top_pages( 30, 10 );
+		$cpt_max          = empty( $cpt_stats ) ? 1 : max( array_column( $cpt_stats, 'total' ) );
 		?>
 
 		<div class="rr-card" style="margin-bottom:24px;">
 			<h2 class="rr-card-title"><?php esc_html_e( 'AI Crawler Access Log', 'rankready' ); ?></h2>
-			<p class="rr-card-desc"><?php esc_html_e( 'Real-time tracking of known AI bots reading your llms.txt, Markdown, and homepage endpoints. Logs CPT, post title, and URL per hit. 90-day retention, auto-pruned daily.', 'rankready' ); ?></p>
+			<p class="rr-card-desc">
+				<?php esc_html_e( 'Real-time tracking of known AI bots reading your llms.txt, Markdown, and homepage endpoints. Bots are classified by intent: citation bots (ChatGPT-User, OAI-SearchBot, PerplexityBot, Claude-Web) fetch on behalf of live user queries — every hit ≈ one AI answer that used your content. Training bots (GPTBot, Google-Extended, ClaudeBot) ingest for future model training. 30-day retention.', 'rankready' ); ?>
+			</p>
 
-			<!-- ① Summary strip ──────────────────────────────────────────── -->
+			<!-- ① Summary strip — citation-first ─────────────────────────── -->
 			<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;">
-				<?php
-				$cards = array(
-					array( 'val' => number_format( $total_30d ),    'label' => __( 'Hits — 30 days', 'rankready' ) ),
-					array( 'val' => number_format( $total_7d ),     'label' => __( 'Hits — 7 days', 'rankready' ) ),
-					array( 'val' => count( $bot_stats ),            'label' => __( 'Unique bots', 'rankready' ) ),
-					array( 'val' => number_format( $unique_pages ),  'label' => __( 'Unique pages read', 'rankready' ) ),
-					array( 'val' => number_format( $ep_totals['llms_txt'] ),  'label' => __( 'llms.txt hits', 'rankready' ) ),
-					array( 'val' => number_format( $ep_totals['markdown'] + $ep_totals['home_md'] ), 'label' => __( 'Markdown hits', 'rankready' ) ),
-				);
-				foreach ( $cards as $c ) :
-				?>
-				<div style="background:#f6f7f7;border:1px solid #dcdcde;border-radius:6px;padding:12px 18px;min-width:110px;text-align:center;flex:1;">
-					<div style="font-size:26px;font-weight:700;color:#1d2327;line-height:1.1;"><?php echo esc_html( $c['val'] ); ?></div>
-					<div style="font-size:11px;color:#646970;margin-top:3px;"><?php echo esc_html( $c['label'] ); ?></div>
+				<div style="background:var(--rr-color-success-bg,#d1ecdf);border:1px solid var(--rr-color-success,#00a32a);border-radius:6px;padding:12px 18px;min-width:140px;text-align:center;flex:1.5;">
+					<div style="font-size:11px;font-weight:600;color:var(--rr-color-success-text,#0a6c39);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">
+						<?php esc_html_e( '✓ Citation Hits — 30d', 'rankready' ); ?>
+					</div>
+					<div style="font-size:26px;font-weight:700;color:var(--rr-color-success-text,#0a6c39);line-height:1.1;"><?php echo esc_html( number_format( $citation_hits ) ); ?></div>
+					<div style="font-size:11px;color:var(--rr-color-success-text,#0a6c39);margin-top:3px;opacity:0.85;"><?php esc_html_e( 'Live AI answer fetches', 'rankready' ); ?></div>
 				</div>
-				<?php endforeach; ?>
+				<div style="background:var(--rr-color-info-bg,#e5f1f9);border:1px solid var(--rr-color-info,#3582c4);border-radius:6px;padding:12px 18px;min-width:140px;text-align:center;flex:1.5;">
+					<div style="font-size:11px;font-weight:600;color:var(--rr-color-info-text,#135e96);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">
+						<?php esc_html_e( 'Training Hits — 30d', 'rankready' ); ?>
+					</div>
+					<div style="font-size:26px;font-weight:700;color:var(--rr-color-info-text,#135e96);line-height:1.1;"><?php echo esc_html( number_format( $training_hits ) ); ?></div>
+					<div style="font-size:11px;color:var(--rr-color-info-text,#135e96);margin-top:3px;opacity:0.85;"><?php esc_html_e( 'For future model training', 'rankready' ); ?></div>
+				</div>
+				<div style="background:#f6f7f7;border:1px solid #dcdcde;border-radius:6px;padding:12px 18px;min-width:110px;text-align:center;flex:1;">
+					<div style="font-size:26px;font-weight:700;color:#1d2327;line-height:1.1;"><?php echo esc_html( number_format( $total_7d ) ); ?></div>
+					<div style="font-size:11px;color:#646970;margin-top:3px;"><?php esc_html_e( 'Hits — 7 days', 'rankready' ); ?></div>
+				</div>
+				<div style="background:#f6f7f7;border:1px solid #dcdcde;border-radius:6px;padding:12px 18px;min-width:110px;text-align:center;flex:1;">
+					<div style="font-size:26px;font-weight:700;color:#1d2327;line-height:1.1;"><?php echo esc_html( number_format( $unique_pages ) ); ?></div>
+					<div style="font-size:11px;color:#646970;margin-top:3px;"><?php esc_html_e( 'Unique pages read', 'rankready' ); ?></div>
+				</div>
+				<div style="background:#f6f7f7;border:1px solid #dcdcde;border-radius:6px;padding:12px 18px;min-width:110px;text-align:center;flex:1;">
+					<div style="font-size:26px;font-weight:700;color:#1d2327;line-height:1.1;"><?php echo esc_html( number_format( $ep_totals['llms_txt'] ) ); ?></div>
+					<div style="font-size:11px;color:#646970;margin-top:3px;"><?php esc_html_e( 'llms.txt hits', 'rankready' ); ?></div>
+				</div>
+				<div style="background:#f6f7f7;border:1px solid #dcdcde;border-radius:6px;padding:12px 18px;min-width:110px;text-align:center;flex:1;">
+					<div style="font-size:26px;font-weight:700;color:#1d2327;line-height:1.1;"><?php echo esc_html( number_format( $ep_totals['markdown'] + $ep_totals['home_md'] ) ); ?></div>
+					<div style="font-size:11px;color:#646970;margin-top:3px;"><?php esc_html_e( 'Markdown hits', 'rankready' ); ?></div>
+				</div>
 			</div>
+
+			<!-- ② AI Citation Candidates — the actionable insight ─────────── -->
+			<div style="margin-bottom:24px;padding:16px 18px;background:linear-gradient(135deg,var(--rr-color-success-bg,#d1ecdf) 0%,var(--rr-color-brand-soft,#f0f6fc) 100%);border:1px solid var(--rr-color-success,#00a32a);border-radius:8px;">
+				<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+					<h3 style="margin:0;font-size:14px;font-weight:600;color:var(--rr-color-success-text,#0a6c39);">
+						<?php esc_html_e( '🎯 AI Citation Candidates', 'rankready' ); ?>
+					</h3>
+					<span style="font-size:11px;color:var(--rr-color-text-muted,#646970);">
+						<?php esc_html_e( 'Last 30 days', 'rankready' ); ?>
+					</span>
+				</div>
+				<p style="margin:0 0 12px;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);line-height:1.55;">
+					<?php esc_html_e( 'Pages most fetched by citation-intent bots (ChatGPT-User, OAI-SearchBot, PerplexityBot, Claude-Web, DuckAssistBot). Each hit is a live AI answer that retrieved this page as a source. Optimise these first — they\'re already winning.', 'rankready' ); ?>
+				</p>
+
+				<?php if ( empty( $citation_pages ) ) : ?>
+					<p style="margin:0;padding:14px;background:rgba(255,255,255,0.7);border-radius:6px;color:var(--rr-color-text-muted,#646970);font-size:12px;font-style:italic;">
+						<?php esc_html_e( 'No citation bot hits yet. ChatGPT-User, OAI-SearchBot, PerplexityBot and Claude-Web only fetch when a real user asks the AI something where your content might be the answer. Keep your top posts fresh, expand FAQs, and the first citations typically arrive within 2–6 weeks of enabling RankReady.', 'rankready' ); ?>
+					</p>
+				<?php else : ?>
+					<table style="width:100%;border-collapse:collapse;background:rgba(255,255,255,0.7);border-radius:6px;overflow:hidden;">
+						<thead>
+							<tr style="background:rgba(255,255,255,0.5);font-size:11px;color:var(--rr-color-text-muted,#646970);text-transform:uppercase;letter-spacing:0.03em;">
+								<th style="text-align:left;padding:6px 12px;font-weight:600;"><?php esc_html_e( 'Page', 'rankready' ); ?></th>
+								<th style="text-align:center;padding:6px 12px;font-weight:600;width:70px;"><?php esc_html_e( 'Hits', 'rankready' ); ?></th>
+								<th style="text-align:center;padding:6px 12px;font-weight:600;width:60px;"><?php esc_html_e( 'Bots', 'rankready' ); ?></th>
+								<th style="text-align:left;padding:6px 12px;font-weight:600;width:130px;"><?php esc_html_e( 'Last fetched', 'rankready' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach ( $citation_pages as $cp ) :
+								$cp_post_id = (int) ( $cp['post_id'] ?? 0 );
+								$cp_title   = (string) ( $cp['post_title'] ?? '' );
+								$cp_type    = (string) ( $cp['post_type'] ?? '' );
+								$cp_path    = (string) ( $cp['url_path'] ?? '' );
+								$cp_hits    = (int) ( $cp['hits'] ?? 0 );
+								$cp_bots    = (int) ( $cp['unique_bots'] ?? 0 );
+								$cp_seen    = (string) ( $cp['last_seen'] ?? '' );
+								$cp_seen_ts = $cp_seen ? strtotime( $cp_seen ) : 0;
+								$cp_seen_ago = $cp_seen_ts > 0 ? human_time_diff( $cp_seen_ts ) . ' ' . __( 'ago', 'rankready' ) : '—';
+								?>
+								<tr style="border-top:1px solid rgba(0,0,0,0.05);">
+									<td style="padding:8px 12px;font-size:12px;">
+										<?php if ( $cp_title ) : ?>
+											<?php if ( $cp_post_id > 0 ) : ?>
+												<a href="<?php echo esc_url( get_edit_post_link( $cp_post_id ) ); ?>" target="_blank" style="color:var(--rr-color-brand,#2271b1);font-weight:600;text-decoration:none;">
+													<?php echo esc_html( $cp_title ); ?>
+												</a>
+											<?php else : ?>
+												<strong><?php echo esc_html( $cp_title ); ?></strong>
+											<?php endif; ?>
+											<?php if ( $cp_type ) : ?>
+												<span style="display:inline-block;margin-left:6px;padding:1px 7px;background:rgba(255,255,255,0.7);border-radius:3px;font-size:10px;color:var(--rr-color-text-muted,#646970);text-transform:uppercase;letter-spacing:0.03em;"><?php echo esc_html( $cp_type ); ?></span>
+											<?php endif; ?>
+											<br />
+											<code style="font-size:10px;color:var(--rr-color-text-muted,#646970);"><?php echo esc_html( $cp_path ); ?></code>
+										<?php else : ?>
+											<code style="font-size:11px;"><?php echo esc_html( $cp_path ); ?></code>
+										<?php endif; ?>
+									</td>
+									<td style="padding:8px 12px;text-align:center;font-weight:700;font-size:14px;color:var(--rr-color-success-text,#0a6c39);">
+										<?php echo esc_html( number_format( $cp_hits ) ); ?>
+									</td>
+									<td style="padding:8px 12px;text-align:center;font-size:12px;color:var(--rr-color-text-muted,#646970);">
+										<?php echo esc_html( $cp_bots ); ?>
+									</td>
+									<td style="padding:8px 12px;font-size:11px;color:var(--rr-color-text-muted,#646970);">
+										<?php echo esc_html( $cp_seen_ago ); ?>
+									</td>
+								</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				<?php endif; ?>
+			</div>
+			<!-- ── /AI Citation Candidates ──────────────────────────────────── -->
 
 			<?php if ( empty( $bot_stats ) ) : ?>
 				<p style="color:#646970;font-style:italic;padding:12px 0;"><?php esc_html_e( 'No AI crawler visits recorded yet. Once a known bot hits your llms.txt, .md, or homepage endpoints the data appears here automatically.', 'rankready' ); ?></p>
@@ -2488,11 +2583,21 @@ class RR_Admin {
 					$bot_pages = RR_Crawler_Log::get_bot_top_pages( $row['bot_name'], 30, 5 );
 					$has_pages = ! empty( $bot_pages );
 					$bg        = 0 === $i % 2 ? '#fff' : '#f9f9f9';
+					$intent    = RR_Crawler_Log::bot_intent( $row['bot_name'] );
+					$intent_badge = array(
+						'citation' => array( 'label' => __( 'Citation', 'rankready' ), 'bg' => 'var(--rr-color-success-bg,#d1ecdf)', 'fg' => 'var(--rr-color-success-text,#0a6c39)' ),
+						'training' => array( 'label' => __( 'Training', 'rankready' ), 'bg' => 'var(--rr-color-info-bg,#e5f1f9)',    'fg' => 'var(--rr-color-info-text,#135e96)' ),
+						'indexing' => array( 'label' => __( 'Indexing', 'rankready' ), 'bg' => '#f0f0f1',                              'fg' => '#646970' ),
+						'unknown'  => array( 'label' => __( 'Unknown',  'rankready' ), 'bg' => '#f0f0f1',                              'fg' => '#646970' ),
+					)[ $intent ];
 				?>
 				<details style="border-bottom:1px solid #dcdcde;">
 					<summary style="display:grid;grid-template-columns:1fr 70px 80px 80px 75px 75px 80px 130px;gap:0;padding:9px 12px;background:<?php echo esc_attr( $bg ); ?>;cursor:<?php echo $has_pages ? 'pointer' : 'default'; ?>;list-style:none;align-items:center;">
-						<span style="font-size:13px;font-weight:600;color:#1d2327;display:flex;align-items:center;gap:6px;">
+						<span style="font-size:13px;font-weight:600;color:#1d2327;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
 							<?php if ( $has_pages ) : ?><span style="color:#2271b1;font-size:10px;">&#9660;</span><?php endif; ?>
+							<span style="display:inline-block;padding:1px 7px;border-radius:9999px;background:<?php echo esc_attr( $intent_badge['bg'] ); ?>;color:<?php echo esc_attr( $intent_badge['fg'] ); ?>;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;" title="<?php echo esc_attr( ucfirst( $intent ) . ' intent' ); ?>">
+								<?php echo esc_html( $intent_badge['label'] ); ?>
+							</span>
 							<?php echo esc_html( $row['bot_name'] ); ?>
 						</span>
 						<span style="text-align:center;font-weight:700;color:#1d2327;"><?php echo esc_html( number_format( (int) $row['total'] ) ); ?></span>

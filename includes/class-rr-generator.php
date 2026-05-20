@@ -217,6 +217,15 @@ class RR_Generator {
 			$system_prompt .= "\n\nPRODUCT CONTEXT (use this as a fact-check reference — never contradict this, never add details beyond this):\n" . $product_context;
 		}
 
+		// Inject canonical brand terms (v1.2.0) — single source from AI Crawlers tab.
+		// Wires same one input through every LLM call so brand naming stays consistent.
+		if ( class_exists( 'RR_Llms_Txt' ) ) {
+			$brand_terms = RR_Llms_Txt::get_brand_terms_string();
+			if ( '' !== $brand_terms ) {
+				$system_prompt .= "\n\nCANONICAL BRAND NAMES (use these exact spellings — never abbreviate, paraphrase, or use variants):\n" . $brand_terms;
+			}
+		}
+
 		// Append custom prompt if set.
 		$custom_prompt = (string) get_option( RR_OPT_CUSTOM_PROMPT, '' );
 		if ( ! empty( $custom_prompt ) ) {

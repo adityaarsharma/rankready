@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-beta.1] - 2026-05-20 — "Agent Ready"
+
+The Agent Ready release. RankReady stops being just an AI-SEO plugin and becomes the layer that makes a WordPress site a first-class participant in the agentic web — discoverable, queryable, and citable by ChatGPT, Perplexity, Claude, Gemini, and any MCP-capable agent.
+
+### Added
+- **WebMCP via WordPress Abilities API** — RankReady now registers six typed abilities (`rankready/get-site-info`, `get-brand-terms`, `search-posts`, `get-post-summary`, `get-post-faq`, `list-recent-posts`) that any MCP-capable AI agent (Claude Desktop, Cursor, VS Code, custom OpenAI-Functions clients) can discover and call. When the official WordPress Abilities API plugin (v0.5.0+, WP 6.9+) is active, RankReady's abilities show up under the standard `/wp-json/wp/v2/abilities` route. Graceful no-op when the API plugin is missing.
+- **`/.well-known/mcp.json` manifest** — Standard discovery endpoint listing all RankReady-exposed abilities, brand terms, and other agent-readable endpoints (llms.txt, sitemap, REST). Works regardless of whether the Abilities API plugin is installed.
+- **AI Referral Traffic dashboard widget** — Server-side tracking of visitors arriving from `chatgpt.com`, `perplexity.ai`, `gemini.google.com`, `claude.ai`, `copilot.microsoft.com`. Aggregates daily, surfaces 30-day breakdown as a WP dashboard widget. No third-party analytics or external API calls.
+- **Content Freshness widget (3 tabs)** — Dashboard widget bucketing every published post as **Stale** (60+ days), **Going stale** (30–59), or **Fresh** (< 30). Per-tab post list with bulk "Refresh dateModified" action — legitimately bumps `post_modified` without touching content, the canonical AI freshness signal.
+- **Content Gap Scanner** — New admin page (RankReady → Content Gaps) listing every published post that lacks an AI summary, FAQ, or has gone stale. Per-row one-click "Generate" buttons reuse existing single-post endpoints. Filterable by post type and gap type.
+- **Per-post `max-snippet` control** — Meta box dropdown lets editors pick "Allow full snippet for AI" (`max-snippet:-1`), "Standard snippet only", or "Use site default". Sitewide default toggle in AI Crawlers settings. Zyppy's 23-factor study ranks Preview Control as the 4th highest AI citation factor (9.2/10).
+- **Per-post llms.txt exclusion** — Meta box checkbox lets editors exclude individual posts from llms.txt without disabling the feature sitewide.
+- **Hidden AI hint `<div>` in body** — Visually invisible (clip-path inset, aria-hidden) but raw-HTML scrapers see a clear pointer to the `.md` version of the page. Per the Evil Martians technique (April 2026) that got their docs site cited by Claude.
+- **Brand Terms now wired everywhere** — One canonical input (AI Crawlers tab → Brand Terms) feeds into llms.txt header, llms-full.txt header, robots.txt comment block, FAQ prompt brand context, and AI summary system prompt. Single source of entity-consistency truth across every LLM call.
+
+### Changed
+- **Meta box redesign** — Consolidated to "RankReady — Agent Visibility" with three sections: AI Summary, AI Snippet, llms.txt. Appears on every post type RankReady touches (summary post types ∪ llms.txt post types ∪ markdown post types).
+
+### Fixed
+- `RR_OPT_BRAND_TERMS` was a previously-defined-via-admin constant with no global `define()`. Now properly defined in `rankready.php`. Prevents fatal on PHP 8+ when the admin Brand Terms card renders.
+
+### Notes
+- This is a beta build. Free zip targets WordPress.org / GitHub. Beta auto-updates via EDD SL on store.posimyth.com for licensed installs.
+- WordPress Abilities API: install [WordPress/abilities-api](https://github.com/WordPress/abilities-api) (or wait for WP 6.9+ core inclusion) to expose RankReady abilities through the standard REST surface. RankReady's manifest at `/.well-known/mcp.json` works either way.
+
 ## [1.1.3] - 2026-05-13
 
 ### Added

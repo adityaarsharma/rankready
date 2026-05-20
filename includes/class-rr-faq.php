@@ -604,9 +604,17 @@ class RR_Faq {
 			return self::get_faq_data( $post_id );
 		}
 
-		// Get brand terms.
-		$brand_terms = (string) get_option( RR_OPT_FAQ_BRAND_TERMS, '' );
-		if ( empty( $brand_terms ) ) {
+		// Get brand terms. Prefer canonical brand list from AI Crawlers tab
+		// (RR_OPT_BRAND_TERMS — wired in v1.2.0). Fall back to FAQ-tab field
+		// for backwards compatibility, then to the site title.
+		$brand_terms = '';
+		if ( class_exists( 'RR_Llms_Txt' ) ) {
+			$brand_terms = RR_Llms_Txt::get_brand_terms_string();
+		}
+		if ( '' === $brand_terms ) {
+			$brand_terms = (string) get_option( RR_OPT_FAQ_BRAND_TERMS, '' );
+		}
+		if ( '' === $brand_terms ) {
 			$brand_terms = get_bloginfo( 'name' );
 		}
 

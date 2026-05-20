@@ -415,6 +415,13 @@ class RR_Admin {
 			'default'           => '',
 		) );
 
+		// v1.2.0 — AI Snippet preview default (per-post override lives in the meta box).
+		register_setting( self::LLMS_GROUP, RR_OPT_MAX_SNIPPET_DEFAULT, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+
 		// ── DataForSEO credentials (Settings tab, same save as OpenAI) ──────
 		register_setting( self::SETTINGS_GROUP, RR_OPT_DFS_LOGIN, array(
 			'type'              => 'string',
@@ -3777,11 +3784,24 @@ class RR_Admin {
 	// ── Per-post meta box ─────────────────────────────────────────────────────
 
 	public static function register_meta_box(): void {
-		$post_types = (array) get_option( RR_OPT_POST_TYPES, array( 'post' ) );
-		foreach ( $post_types as $pt ) {
+		// Union of every post type RankReady touches — keeps the consolidated
+		// meta box visible wherever any RankReady feature applies. Reduces
+		// "where do I tick exclude from llms.txt?" support tickets.
+		$pts = array();
+		foreach ( array(
+			(array) get_option( RR_OPT_POST_TYPES, array( 'post' ) ),
+			(array) get_option( RR_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) ),
+			(array) get_option( RR_OPT_MD_POST_TYPES, array( 'post', 'page' ) ),
+		) as $list ) {
+			foreach ( $list as $pt ) {
+				$pts[ $pt ] = true;
+			}
+		}
+
+		foreach ( array_keys( $pts ) as $pt ) {
 			add_meta_box(
 				'rr_summary_meta',
-				__( 'RankReady -- AI Summary', 'rankready' ),
+				__( 'RankReady — Agent Visibility', 'rankready' ),
 				array( self::class, 'render_meta_box' ),
 				$pt,
 				'side',
@@ -3791,44 +3811,87 @@ class RR_Admin {
 	}
 
 	public static function render_meta_box( $post ): void {
-		$disabled  = (bool) get_post_meta( $post->ID, RR_META_DISABLE, true );
-		$summary   = (string) get_post_meta( $post->ID, RR_META_SUMMARY, true );
-		$generated = (int) get_post_meta( $post->ID, RR_META_GENERATED, true );
+		$disabled       = (bool) get_post_meta( $post->ID, RR_META_DISABLE, true );
+		$llms_excluded  = '1' === (string) get_post_meta( $post->ID, RR_META_LLMS_EXCLUDE, true );
+		$snippet_pref   = (string) get_post_meta( $post->ID, RR_META_MAX_SNIPPET, true ); // '' inherit | 'on' | 'off'
+		$snippet_default = 'on' === get_option( RR_OPT_MAX_SNIPPET_DEFAULT, 'on' );
+		$summary        = (string) get_post_meta( $post->ID, RR_META_SUMMARY, true );
+		$generated      = (int) get_post_meta( $post->ID, RR_META_GENERATED, true );
 
 		wp_nonce_field( 'rr_meta_box', 'rr_meta_nonce' );
 		?>
-		<p>
+		<p style="margin-bottom:6px;font-weight:600;font-size:11px;text-transform:uppercase;color:#646970;">
+			<?php esc_html_e( 'AI Summary', 'rankready' ); ?>
+		</p>
+		<p style="margin-top:0;">
 			<label>
 				<input type="checkbox" name="rr_disable_summary" value="1" <?php checked( $disabled ); ?> />
 				<?php esc_html_e( 'Disable AI summary for this post', 'rankready' ); ?>
 			</label>
 		</p>
+
+		<hr style="margin:10px 0;border:none;border-top:1px solid #dcdcde;" />
+
+		<p style="margin-bottom:6px;font-weight:600;font-size:11px;text-transform:uppercase;color:#646970;">
+			<?php esc_html_e( 'AI Snippet', 'rankready' ); ?>
+		</p>
+		<p style="margin-top:0;">
+			<select name="rr_max_snippet" style="width:100%;">
+				<option value="" <?php selected( $snippet_pref, '' ); ?>>
+					<?php
+					/* translators: %s: site-wide default state (Allow / Block) */
+					printf(
+						esc_html__( 'Use default (%s)', 'rankready' ),
+						$snippet_default ? esc_html__( 'Allow full snippet', 'rankready' ) : esc_html__( 'Standard snippet', 'rankready' )
+					);
+					?>
+				</option>
+				<option value="on" <?php selected( $snippet_pref, 'on' ); ?>>
+					<?php esc_html_e( 'Allow full snippet (max-snippet:-1)', 'rankready' ); ?>
+				</option>
+				<option value="off" <?php selected( $snippet_pref, 'off' ); ?>>
+					<?php esc_html_e( 'Standard snippet only', 'rankready' ); ?>
+				</option>
+			</select>
+		</p>
+		<p class="description" style="font-size:11px;">
+			<?php esc_html_e( 'Controls how much of this page AI engines may quote.', 'rankready' ); ?>
+		</p>
+
+		<hr style="margin:10px 0;border:none;border-top:1px solid #dcdcde;" />
+
+		<p style="margin-bottom:6px;font-weight:600;font-size:11px;text-transform:uppercase;color:#646970;">
+			<?php esc_html_e( 'llms.txt', 'rankready' ); ?>
+		</p>
+		<p style="margin-top:0;">
+			<label>
+				<input type="checkbox" name="rr_llms_exclude" value="1" <?php checked( $llms_excluded ); ?> />
+				<?php esc_html_e( 'Exclude this post from llms.txt', 'rankready' ); ?>
+			</label>
+		</p>
+
 		<?php if ( $generated ) : ?>
-			<p class="description">
+			<hr style="margin:10px 0;border:none;border-top:1px solid #dcdcde;" />
+			<p class="description" style="font-size:11px;">
 				<?php
 				printf(
-					esc_html__( 'Last generated: %s ago', 'rankready' ),
+					esc_html__( 'Summary generated %s ago', 'rankready' ),
 					esc_html( human_time_diff( $generated ) )
 				);
 				?>
 			</p>
-		<?php endif; ?>
-		<?php if ( ! empty( $summary ) ) :
+		<?php endif;
+
+		if ( ! empty( $summary ) ) :
 			$decoded = RR_Generator::decode_summary( $summary );
 			if ( 'bullets' === $decoded['type'] ) : ?>
 				<ul style="margin:8px 0 0;padding-left:16px;list-style:disc;">
 					<?php foreach ( (array) $decoded['data'] as $bullet ) : ?>
-						<li style="font-size:12px;margin-bottom:4px;"><?php echo esc_html( $bullet ); ?></li>
+						<li style="font-size:11px;margin-bottom:4px;color:#50575e;"><?php echo esc_html( $bullet ); ?></li>
 					<?php endforeach; ?>
 				</ul>
-			<?php else : ?>
-				<p style="font-size:12px;margin:8px 0 0;"><?php echo esc_html( $decoded['data'] ); ?></p>
 			<?php endif;
-		else : ?>
-			<p class="description" style="font-style:italic;">
-				<?php esc_html_e( 'No summary yet. It will generate on publish/update.', 'rankready' ); ?>
-			</p>
-		<?php endif;
+		endif;
 	}
 
 	public static function save_meta_box( $post_id ): void {
@@ -3845,8 +3908,24 @@ class RR_Admin {
 			return;
 		}
 
+		// AI summary disable.
 		$disabled = isset( $_POST['rr_disable_summary'] ) ? '1' : '';
 		update_post_meta( $post_id, RR_META_DISABLE, $disabled );
+
+		// llms.txt per-post exclusion (v1.2.0).
+		$llms_excluded = isset( $_POST['rr_llms_exclude'] ) ? '1' : '';
+		update_post_meta( $post_id, RR_META_LLMS_EXCLUDE, $llms_excluded );
+
+		// max-snippet preference (v1.2.0) — '' inherits sitewide default.
+		$snippet = isset( $_POST['rr_max_snippet'] ) ? sanitize_key( wp_unslash( $_POST['rr_max_snippet'] ) ) : '';
+		if ( ! in_array( $snippet, array( '', 'on', 'off' ), true ) ) {
+			$snippet = '';
+		}
+		if ( '' === $snippet ) {
+			delete_post_meta( $post_id, RR_META_MAX_SNIPPET );
+		} else {
+			update_post_meta( $post_id, RR_META_MAX_SNIPPET, $snippet );
+		}
 	}
 
 	// ── Test connection ───────────────────────────────────────────────────────

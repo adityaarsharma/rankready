@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
  * Plugin URI:        https://posimyth.com
  * Description:       AI-first SEO for WordPress. Get cited by ChatGPT, Perplexity & Google AI Overviews. LLMs.txt generator, AI summaries, FAQ schema, EEAT author box, AI crawler controls.
- * Version:           1.1.1-beta.1
+ * Version:           1.2.0-beta.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.1.1-beta.1' );
+	define( 'RR_VERSION',  '1.2.0-beta.1' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -195,6 +195,20 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_OPT_HEADLESS_REVALIDATE_SEC',  'rr_headless_revalidate_secret' ); // Shared secret for webhook auth.
 	define( 'RR_OPT_HEADLESS_GRAPHQL',         'rr_headless_graphql' );           // Register WPGraphQL fields.
 
+	// ── v1.2.0 — Agent Ready options ──────────────────────────────────────────
+	// Brand Terms — single canonical input wired to llms.txt, robots.txt, FAQ prompt, and summary prompt.
+	define( 'RR_OPT_BRAND_TERMS',          'rr_brand_terms' );
+
+	// AI snippet preview controls.
+	define( 'RR_OPT_MAX_SNIPPET_DEFAULT',  'rr_max_snippet_default' );  // 'on'/'off' — default for new posts
+	define( 'RR_META_MAX_SNIPPET',          '_rr_max_snippet' );          // per-post override: 'on'|'off'|'' (inherit)
+
+	// Per-post llms.txt exclusion.
+	define( 'RR_META_LLMS_EXCLUDE',         '_rr_llms_exclude' );         // '1' = exclude this post from llms.txt
+
+	// AI Referral Traffic — daily counts per source, rolling 30 days.
+	define( 'RR_OPT_AI_REFERRAL_STATS',    'rr_ai_referral_stats' );
+
 	// Meta keys.
 	define( 'RR_META_SUMMARY',   '_rr_summary' );
 	define( 'RR_META_HASH',      '_rr_content_hash' );
@@ -204,9 +218,10 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	// Meta keys — FAQ.
 	define( 'RR_META_FAQ',           '_rr_faq' );
 	define( 'RR_META_FAQ_HASH',      '_rr_faq_hash' );
-	define( 'RR_META_FAQ_GENERATED', '_rr_faq_generated' );
-	define( 'RR_META_FAQ_DISABLE',   '_rr_faq_disable' );
-	define( 'RR_META_FAQ_KEYWORD',   '_rr_faq_keyword' );
+	define( 'RR_META_FAQ_GENERATED',    '_rr_faq_generated' );
+	define( 'RR_META_FAQ_DISABLE',      '_rr_faq_disable' );
+	define( 'RR_META_FAQ_KEYWORD',      '_rr_faq_keyword' );
+	define( 'RR_META_FAQ_LAST_FAILURE', '_rr_faq_last_failure' ); // v1.1.3 — circuit-breaker timestamp.
 
 	// Cron.
 	define( 'RR_CRON_HOOK', 'rr_async_generate' );
@@ -502,6 +517,7 @@ add_action( 'plugins_loaded', function (): void {
 		add_action( 'init', function () {
 			RR_Llms_Txt::add_rewrite_rules();
 			RR_Markdown::add_rewrite_rules();
+			RR_MCP::add_manifest_rewrite(); // v1.2.0 — /.well-known/mcp.json
 			flush_rewrite_rules( false );
 		}, 99 );
 		RR_Llms_Txt::sync_physical_robots_txt();
@@ -597,6 +613,7 @@ add_action( 'plugins_loaded', function (): void {
 		if ( $needs ) {
 			RR_Llms_Txt::add_rewrite_rules();
 			RR_Markdown::add_rewrite_rules();
+			RR_MCP::add_manifest_rewrite(); // v1.2.0 — /.well-known/mcp.json
 			flush_rewrite_rules( false );
 		}
 
@@ -630,6 +647,13 @@ add_action( 'plugins_loaded', function (): void {
 	RR_Headless::init();
 	RR_Author_Box::init();
 	RR_Crawler_Log::init();
+
+	// v1.2.0 — Agent Ready feature modules.
+	RR_Snippet::init();      // <meta robots max-snippet:-1> per-post + sitewide.
+	RR_AI_Referral::init();  // Track AI-referrer visits (ChatGPT/Perplexity/etc).
+	RR_Freshness::init();    // Dashboard widget + bulk dateModified refresh.
+	RR_Gap_Scanner::init();  // Admin page surfacing missing summaries/FAQs/stale posts.
+	RR_MCP::init();          // WebMCP — WordPress Abilities API + /.well-known/mcp.json.
 
 	// Free tier limits — REST endpoint for admin JS usage display.
 	add_action( 'rest_api_init', array( 'RR_Limits', 'register_rest' ) );
@@ -722,6 +746,7 @@ register_activation_hook( RR_FILE, function (): void {
 	// Register rewrite rules before flushing so they get written.
 	RR_Llms_Txt::add_rewrite_rules();
 	RR_Markdown::add_rewrite_rules();
+	RR_MCP::add_manifest_rewrite(); // v1.2.0 — /.well-known/mcp.json
 	flush_rewrite_rules();
 
 	// Sync to physical robots.txt if one exists.

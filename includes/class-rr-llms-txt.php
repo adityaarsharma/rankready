@@ -175,6 +175,14 @@ class RR_Llms_Txt {
 
 		$block = "\n# -- LLM & AI Crawler Rules (RankReady) --------------------\n";
 
+		// Brand Terms — canonical names as a comment. Some AI crawlers
+		// (notably PerplexityBot and SearchBot variants) ingest robots.txt
+		// comments alongside directives for entity recognition.
+		$brand_terms = self::get_brand_terms_list();
+		if ( ! empty( $brand_terms ) ) {
+			$block .= '# Brand: ' . implode( ', ', $brand_terms ) . "\n";
+		}
+
 		// Stack all User-agent lines in one block — per robots.txt spec,
 		// grouped User-agent lines share the same Allow/Disallow rules.
 		if ( $robots_on ) {
@@ -442,6 +450,13 @@ class RR_Llms_Txt {
 		// ── Site metadata ─────────────────────────────────────────────────
 		$lines[] = '- URL: ' . home_url( '/' );
 
+		// Brand Terms — canonical names for entity consistency. Helps AI engines
+		// recognise the same site/brand across variant spellings.
+		$brand_terms = self::get_brand_terms_list();
+		if ( ! empty( $brand_terms ) ) {
+			$lines[] = '- Brand: ' . implode( ', ', $brand_terms );
+		}
+
 		$feed_url = get_bloginfo( 'rss2_url' );
 		if ( ! empty( $feed_url ) ) {
 			$lines[] = '- RSS Feed: ' . $feed_url;
@@ -587,6 +602,13 @@ class RR_Llms_Txt {
 		$about = (string) get_option( RR_OPT_LLMS_ABOUT, '' );
 		if ( ! empty( $about ) ) {
 			$lines[] = self::clean_text( $about );
+			$lines[] = '';
+		}
+
+		// Brand Terms — canonical names for entity consistency.
+		$brand_terms = self::get_brand_terms_list();
+		if ( ! empty( $brand_terms ) ) {
+			$lines[] = '- Brand: ' . implode( ', ', $brand_terms );
 			$lines[] = '';
 		}
 
@@ -915,6 +937,12 @@ class RR_Llms_Txt {
 	private static function should_exclude_from_llms( WP_Post $post ): bool {
 		$post_id = $post->ID;
 
+		// ── Per-post RankReady opt-out (v1.2.0) ──────────────────────────
+		// Editors can tick "Exclude from llms.txt" in the meta box.
+		if ( '1' === (string) get_post_meta( $post_id, RR_META_LLMS_EXCLUDE, true ) ) {
+			return true;
+		}
+
 		// ── Yoast noindex ────────────────────────────────────────────────
 		if ( defined( 'WPSEO_VERSION' ) ) {
 			$yoast_noindex = get_post_meta( $post_id, '_yoast_wpseo_meta-robots-noindex', true );
@@ -957,6 +985,42 @@ class RR_Llms_Txt {
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
+
+	/**
+	 * Parse the Brand Terms textarea (one canonical name per line) into an
+	 * array of cleaned, deduplicated terms. Used by:
+	 *   - generate()             llms.txt header metadata
+	 *   - generate_full()        llms-full.txt header metadata
+	 *   - generate_robots_block() robots.txt comment line
+	 *   - RR_Faq::generate_faq()  augments FAQ prompt brand context
+	 *   - RR_Generator           augments summary system prompt
+	 *
+	 * Single source of truth: RR_OPT_BRAND_TERMS option (AI Crawlers tab).
+	 */
+	public static function get_brand_terms_list(): array {
+		$raw = (string) get_option( RR_OPT_BRAND_TERMS, '' );
+		if ( '' === trim( $raw ) ) {
+			return array();
+		}
+		$lines = preg_split( '/\r\n|\r|\n/', $raw );
+		$out   = array();
+		foreach ( $lines as $line ) {
+			$line = trim( $line );
+			if ( '' !== $line ) {
+				$out[] = $line;
+			}
+		}
+		return array_values( array_unique( $out ) );
+	}
+
+	/**
+	 * Returns brand terms as a comma-separated string suitable for prompt
+	 * injection. Empty string when nothing is configured.
+	 */
+	public static function get_brand_terms_string(): string {
+		$list = self::get_brand_terms_list();
+		return empty( $list ) ? '' : implode( ', ', $list );
+	}
 
 	private static function clean_text( string $text ): string {
 		$text = wp_strip_all_tags( $text );

@@ -42,6 +42,11 @@ class RR_Markdown {
 		add_action( 'send_headers',      array( self::class, 'add_md_link_header' ) );
 		add_action( 'send_headers',      array( self::class, 'add_homepage_link_headers' ) );
 
+		// v1.2.0 — Hidden AI hint div, visually invisible to humans, readable
+		// by AI scrapers parsing raw HTML. Helps agents (incl. those that don't
+		// honour Link headers) discover the .md endpoint.
+		add_action( 'wp_body_open',      array( self::class, 'add_ai_hint_div' ) );
+
 		// Prevent WordPress from adding trailing slash to .md URLs.
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_md_trailing_slash' ), 10, 2 );
 
@@ -367,6 +372,44 @@ class RR_Markdown {
 
 		$md_url = self::get_md_url( $post );
 		echo '<link rel="alternate" type="text/markdown" href="' . esc_url( $md_url ) . '" />' . "\n";
+	}
+
+	/**
+	 * Emit a hidden div in <body> pointing AI agents to the .md version.
+	 *
+	 * Hooked on wp_body_open. Visually hidden via inline CSS + aria-hidden so
+	 * it never reaches a screen reader or affects layout, but raw-HTML
+	 * scrapers (which most AI agents are) see the text and the URL.
+	 *
+	 * Per the Evil Martians technique (April 2026) that got their docs site
+	 * cited by Claude — combined with content negotiation, this gives AI
+	 * scrapers a no-ambiguity "the canonical machine-readable copy is here"
+	 * signal.
+	 */
+	public static function add_ai_hint_div(): void {
+		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+			return;
+		}
+
+		$post = get_queried_object();
+		if ( ! $post instanceof WP_Post ) {
+			return;
+		}
+
+		$enabled_types = (array) get_option( RR_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+			return;
+		}
+
+		$md_url = esc_url( self::get_md_url( $post ) );
+
+		// `aria-hidden` + clip-path drop the div from assistive tech and visual
+		// layout entirely. Keeping it in the DOM (not display:none) means raw
+		// HTML scrapers still see it — display:none can be ignored by some
+		// rendering-aware crawlers as "hidden = irrelevant".
+		echo '<div aria-hidden="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;">';
+		echo 'AI agents: a clean Markdown version of this page is available at <a href="' . $md_url . '">' . $md_url . '</a>. Send Accept: text/markdown to any URL for the same content.';
+		echo '</div>' . "\n";
 	}
 
 	public static function add_md_link_header(): void {

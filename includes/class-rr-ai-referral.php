@@ -60,18 +60,14 @@ class RR_AI_Referral {
 		$total  = array_sum( $counts );
 
 		if ( 0 === $total ) {
-			$gap_url = admin_url( 'admin.php?page=rankready-gaps' );
 			?>
 			<div style="padding:8px 0;">
 				<p style="margin:0 0 8px;font-size:var(--rr-text-md,13px);color:var(--rr-color-ink-soft,#3c434a);">
 					<?php esc_html_e( 'Tracking is live. Counters fill in as ChatGPT, Perplexity, Gemini, Claude, or Copilot send their first visitor.', 'rankready' ); ?>
 				</p>
-				<p style="margin:0 0 10px;font-size:var(--rr-text-sm,12px);color:var(--rr-color-text-muted,#646970);">
-					<?php esc_html_e( 'Typical first citation: 2–6 weeks after enabling. Speed it up by adding FAQs to your top posts.', 'rankready' ); ?>
+				<p style="margin:0 0 0;font-size:var(--rr-text-sm,12px);color:var(--rr-color-text-muted,#646970);">
+					<?php esc_html_e( 'Typical first citation: 2–6 weeks after enabling. Add FAQs to your top posts to speed this up.', 'rankready' ); ?>
 				</p>
-				<a class="button button-small" href="<?php echo esc_url( $gap_url ); ?>">
-					<?php esc_html_e( 'Find posts that need FAQs →', 'rankready' ); ?>
-				</a>
 			</div>
 			<?php
 			return;

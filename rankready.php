@@ -654,7 +654,6 @@ add_action( 'plugins_loaded', function (): void {
 	RR_AI_Referral::init();      // Track AI-referrer visits (ChatGPT/Perplexity/etc).
 	RR_Freshness::init();        // REST + bulk dateModified refresh.
 	RR_Agent_Dashboard::init();  // Unified dashboard widget (consolidates AI Referral + Freshness).
-	RR_Gap_Scanner::init();      // Admin page surfacing missing summaries/FAQs/stale posts.
 	RR_MCP::init();              // WebMCP — WordPress Abilities API + /.well-known/mcp.json.
 
 	// Free tier limits — REST endpoint for admin JS usage display.

@@ -159,13 +159,8 @@ class RR_Admin {
 		// Tiny file (~3 KB), zero JS — safe to always-load.
 		wp_enqueue_style( 'rr-design-tokens', RR_URL . 'assets/design-tokens.css', array(), RR_VERSION );
 
-		// Full admin styles + JS only on the RankReady settings page and
-		// the Content Gaps sub-page.
-		$rr_screens = array(
-			'toplevel_page_' . self::MENU_SLUG,
-			'rankready_page_rankready-gaps',
-		);
-		if ( ! in_array( $hook, $rr_screens, true ) ) {
+		// Full admin styles + JS only on the RankReady settings page.
+		if ( 'toplevel_page_' . self::MENU_SLUG !== $hook ) {
 			return;
 		}
 

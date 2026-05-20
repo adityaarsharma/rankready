@@ -207,7 +207,11 @@ if ( ! defined( 'RR_VERSION' ) ) {
 	define( 'RR_META_LLMS_EXCLUDE',         '_rr_llms_exclude' );         // '1' = exclude this post from llms.txt
 
 	// AI Referral Traffic — daily counts per source, rolling 30 days.
-	define( 'RR_OPT_AI_REFERRAL_STATS',    'rr_ai_referral_stats' );
+	define( 'RR_OPT_AI_REFERRAL_STATS',     'rr_ai_referral_stats' );
+	define( 'RR_OPT_AI_REFERRAL_ENABLE',    'rr_ai_referral_enable' ); // 'on' | 'off' — master toggle.
+
+	// WebMCP — master toggle for /.well-known/mcp.json + Abilities API registration.
+	define( 'RR_OPT_MCP_ENABLE',            'rr_mcp_enable' );          // 'on' | 'off'
 
 	// Meta keys.
 	define( 'RR_META_SUMMARY',   '_rr_summary' );

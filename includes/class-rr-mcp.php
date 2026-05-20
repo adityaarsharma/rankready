@@ -43,14 +43,23 @@ class RR_MCP {
 	public static function init(): void {
 		// Abilities API registers on its own init hook ('abilities_api_init')
 		// when the plugin is active. We hook there if the API is loaded; else
-		// no-op cleanly.
+		// no-op cleanly. The handler itself bails when the master toggle is off.
 		add_action( 'abilities_api_init', array( self::class, 'register_abilities' ) );
 
 		// /.well-known/mcp.json manifest — works whether or not Abilities API
 		// is active, so agents can still discover the site even on older WP.
+		// The handler bails on 404 when the master toggle is off.
 		add_action( 'init',              array( self::class, 'add_manifest_rewrite' ) );
 		add_action( 'template_redirect', array( self::class, 'maybe_serve_manifest' ) );
 		add_filter( 'query_vars',        array( self::class, 'register_query_vars' ) );
+	}
+
+	/**
+	 * Master toggle check. Defaults to enabled — agent visibility is the
+	 * core value RankReady ships, opt-out rather than opt-in.
+	 */
+	public static function is_enabled(): bool {
+		return 'on' === get_option( RR_OPT_MCP_ENABLE, 'on' );
 	}
 
 	// ── Manifest endpoint ─────────────────────────────────────────────────
@@ -67,6 +76,12 @@ class RR_MCP {
 	public static function maybe_serve_manifest(): void {
 		if ( ! get_query_var( 'rr_mcp_manifest' ) ) {
 			return;
+		}
+		if ( ! self::is_enabled() ) {
+			status_header( 404 );
+			header( 'Content-Type: text/plain; charset=utf-8' );
+			echo '404 Not Found';
+			exit;
 		}
 		self::serve_manifest();
 	}
@@ -146,6 +161,9 @@ class RR_MCP {
 	// ── Abilities API registration ────────────────────────────────────────
 
 	public static function register_abilities(): void {
+		if ( ! self::is_enabled() ) {
+			return; // Master toggle off — skip Abilities registration entirely.
+		}
 		if ( ! function_exists( 'wp_register_ability' ) ) {
 			return; // Abilities API plugin not active — graceful no-op.
 		}

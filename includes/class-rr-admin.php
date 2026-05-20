@@ -429,6 +429,20 @@ class RR_Admin {
 			'default'           => 'on',
 		) );
 
+		// v1.2.0-beta.3 — AI Referral Traffic tracker master toggle.
+		register_setting( self::LLMS_GROUP, RR_OPT_AI_REFERRAL_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+
+		// v1.2.0-beta.3 — WebMCP master toggle.
+		register_setting( self::LLMS_GROUP, RR_OPT_MCP_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+
 		// ── DataForSEO credentials (Settings tab, same save as OpenAI) ──────
 		register_setting( self::SETTINGS_GROUP, RR_OPT_DFS_LOGIN, array(
 			'type'              => 'string',
@@ -2541,6 +2555,140 @@ class RR_Admin {
 
 		<form method="post" action="options.php" novalidate="novalidate">
 			<?php settings_fields( self::LLMS_GROUP ); ?>
+
+			<!-- ── AI Referral Traffic (v1.2.0) ───────────────────────────────── -->
+			<?php
+			$rr_referral_enable = (string) get_option( RR_OPT_AI_REFERRAL_ENABLE, 'on' );
+			$rr_ref_counts      = class_exists( 'RR_AI_Referral' ) ? RR_AI_Referral::aggregate_last_n_days( 30 ) : array();
+			$rr_ref_total       = (int) array_sum( $rr_ref_counts );
+			?>
+			<div class="rr-card" style="margin-bottom:24px;">
+				<h2 class="rr-card-title"><?php esc_html_e( 'AI Referral Traffic', 'rankready' ); ?></h2>
+				<p class="rr-card-desc">
+					<?php esc_html_e( 'Tracks visitors arriving from ChatGPT, Perplexity, Gemini, Claude, and Copilot. 100% server-side, no third-party scripts, no JS. Updates daily, retains 30 days.', 'rankready' ); ?>
+				</p>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable tracking', 'rankready' ); ?></th>
+						<td>
+							<label class="rr-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_AI_REFERRAL_ENABLE ); ?>" value="on" <?php checked( $rr_referral_enable, 'on' ); ?> />
+								<span><?php esc_html_e( 'Count visits from AI engines', 'rankready' ); ?></span>
+							</label>
+							<p class="description"><?php esc_html_e( 'Detects Referer header values from chatgpt.com, perplexity.ai, gemini.google.com, claude.ai, copilot.microsoft.com.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+				</table>
+
+				<?php if ( 'on' === $rr_referral_enable && $rr_ref_total > 0 ) : ?>
+					<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+						<?php foreach ( $rr_ref_counts as $source => $count ) :
+							if ( $count <= 0 ) continue;
+							$label = class_exists( 'RR_AI_Referral' ) ? RR_AI_Referral::source_label( $source ) : ucfirst( $source );
+							?>
+							<div style="flex:1;min-width:120px;padding:10px 12px;background:var(--rr-color-surface-2,#f6f7f7);border-radius:var(--rr-radius-md,6px);">
+								<div style="font-size:11px;color:var(--rr-color-text-muted,#646970);text-transform:uppercase;letter-spacing:.04em;"><?php echo esc_html( $label ); ?></div>
+								<div style="font-size:20px;font-weight:600;margin-top:2px;"><?php echo esc_html( number_format_i18n( $count ) ); ?></div>
+							</div>
+						<?php endforeach; ?>
+					</div>
+					<p style="margin-top:10px;font-size:11px;color:var(--rr-color-text-muted,#646970);">
+						<?php
+						printf(
+							esc_html__( '%s total AI-sourced visits in the last 30 days.', 'rankready' ),
+							'<strong>' . esc_html( number_format_i18n( $rr_ref_total ) ) . '</strong>'
+						);
+						?>
+					</p>
+				<?php elseif ( 'on' === $rr_referral_enable ) : ?>
+					<p style="margin-top:8px;font-size:12px;color:var(--rr-color-text-muted,#646970);">
+						<?php esc_html_e( 'No AI-sourced visits in the last 30 days yet. Counters update on every front-end pageview that arrives with an AI Referer header. Typical first citation: 2–6 weeks.', 'rankready' ); ?>
+					</p>
+				<?php endif; ?>
+			</div>
+			<!-- ── /AI Referral Traffic ───────────────────────────────────────── -->
+
+			<!-- ── WebMCP (v1.2.0) ─────────────────────────────────────────────── -->
+			<?php
+			$rr_mcp_enable     = (string) get_option( RR_OPT_MCP_ENABLE, 'on' );
+			$rr_abilities_api  = function_exists( 'wp_register_ability' );
+			$rr_manifest_url   = home_url( '/.well-known/mcp.json' );
+			?>
+			<div class="rr-card" style="margin-bottom:24px;">
+				<h2 class="rr-card-title">
+					<?php esc_html_e( 'WebMCP — Agent Tooling', 'rankready' ); ?>
+					<span style="font-size:11px;background:var(--rr-color-info-bg,#e5f1f9);color:var(--rr-color-info-text,#135e96);padding:2px 8px;border-radius:9999px;margin-left:6px;vertical-align:middle;font-weight:600;">NEW</span>
+				</h2>
+				<p class="rr-card-desc">
+					<?php esc_html_e( 'Exposes your site to AI agents via Model Context Protocol. Claude Desktop, Cursor, and VS Code can discover and call your site\'s content as typed tools — not just scrape HTML.', 'rankready' ); ?>
+				</p>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable WebMCP', 'rankready' ); ?></th>
+						<td>
+							<label class="rr-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_MCP_ENABLE ); ?>" value="on" <?php checked( $rr_mcp_enable, 'on' ); ?> />
+								<span><?php esc_html_e( 'Serve /.well-known/mcp.json + register WordPress Abilities', 'rankready' ); ?></span>
+							</label>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Status', 'rankready' ); ?></th>
+						<td>
+							<?php if ( 'on' === $rr_mcp_enable ) : ?>
+								<p style="margin:0 0 6px;">
+									<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:var(--rr-color-success-bg,#d1ecdf);color:var(--rr-color-success-text,#0a6c39);font-size:11px;font-weight:600;">✓ <?php esc_html_e( 'Manifest live', 'rankready' ); ?></span>
+								</p>
+								<p style="margin:6px 0 0;">
+									<?php if ( $rr_abilities_api ) : ?>
+										<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:var(--rr-color-success-bg,#d1ecdf);color:var(--rr-color-success-text,#0a6c39);font-size:11px;font-weight:600;">✓ <?php esc_html_e( 'WordPress Abilities API detected — 6 abilities registered', 'rankready' ); ?></span>
+									<?php else : ?>
+										<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:var(--rr-color-warning-bg,#fcf9e8);color:var(--rr-color-warning-text,#674c00);font-size:11px;font-weight:600;">⚠ <?php esc_html_e( 'Abilities API plugin not active — manifest still works for raw MCP discovery', 'rankready' ); ?></span>
+										<br />
+										<a href="https://github.com/WordPress/abilities-api" target="_blank" rel="noopener" style="font-size:11px;"><?php esc_html_e( 'Install Abilities API plugin →', 'rankready' ); ?></a>
+									<?php endif; ?>
+								</p>
+							<?php else : ?>
+								<p style="margin:0;">
+									<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:var(--rr-color-surface-3,#f0f0f1);color:var(--rr-color-text-muted,#646970);font-size:11px;font-weight:600;">○ <?php esc_html_e( 'Disabled', 'rankready' ); ?></span>
+								</p>
+							<?php endif; ?>
+						</td>
+					</tr>
+
+					<?php if ( 'on' === $rr_mcp_enable ) : ?>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'MCP manifest URL', 'rankready' ); ?></th>
+							<td>
+								<input type="text" readonly value="<?php echo esc_attr( $rr_manifest_url ); ?>" onclick="this.select();" style="width:100%;max-width:520px;font-family:monospace;font-size:12px;" />
+								<p class="description">
+									<?php esc_html_e( 'Paste this URL into Claude Desktop / Cursor / VS Code MCP settings to make your site discoverable as a tool source.', 'rankready' ); ?>
+									<a href="<?php echo esc_url( $rr_manifest_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Open manifest →', 'rankready' ); ?></a>
+								</p>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Exposed abilities', 'rankready' ); ?></th>
+							<td>
+								<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);line-height:1.7;">
+									<li><code>rankready/get-site-info</code> &mdash; <?php esc_html_e( 'site name, description, URL, brand terms, language', 'rankready' ); ?></li>
+									<li><code>rankready/get-brand-terms</code> &mdash; <?php esc_html_e( 'canonical brand names array', 'rankready' ); ?></li>
+									<li><code>rankready/search-posts</code> &mdash; <?php esc_html_e( 'keyword search across published posts', 'rankready' ); ?></li>
+									<li><code>rankready/get-post-summary</code> &mdash; <?php esc_html_e( 'AI summary bullets for a post', 'rankready' ); ?></li>
+									<li><code>rankready/get-post-faq</code> &mdash; <?php esc_html_e( 'FAQ Q&amp;A pairs for a post', 'rankready' ); ?></li>
+									<li><code>rankready/list-recent-posts</code> &mdash; <?php esc_html_e( 'paginated recent-posts feed', 'rankready' ); ?></li>
+								</ul>
+								<p class="description" style="margin-top:8px;"><?php esc_html_e( 'All abilities are read-only. No write access exposed.', 'rankready' ); ?></p>
+							</td>
+						</tr>
+					<?php endif; ?>
+				</table>
+			</div>
+			<!-- ── /WebMCP ──────────────────────────────────────────────────────── -->
 
 			<!-- LLMs.txt -->
 			<div class="rr-card">

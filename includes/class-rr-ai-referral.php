@@ -118,6 +118,11 @@ class RR_AI_Referral {
 	 * increment the daily counter for that engine.
 	 */
 	public static function maybe_record_referral(): void {
+		// Master toggle (v1.2.0-beta.3) — users can disable from AI Crawlers tab.
+		if ( 'on' !== get_option( RR_OPT_AI_REFERRAL_ENABLE, 'on' ) ) {
+			return;
+		}
+
 		// Skip admin, REST, AJAX, cron, CLI — we only want public front-end hits.
 		if ( is_admin() || wp_doing_ajax() || wp_doing_cron() ) {
 			return;

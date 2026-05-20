@@ -91,40 +91,6 @@ class RR_Generator {
 		spawn_cron();
 	}
 
-	// ── Direct runner (fastcgi path) ──────────────────────────────────────────
-
-	public static function run_generation_direct( $post_id ): void {
-		$post_id = (int) $post_id;
-
-		self::$generating = true;
-
-		$last = (int) get_post_meta( $post_id, RR_META_GENERATED, true );
-		if ( $last && ( time() - $last ) < self::MIN_INTERVAL ) {
-			self::$generating = false;
-			return;
-		}
-
-		$post = get_post( $post_id );
-		if ( ! $post ) {
-			self::$generating = false;
-			return;
-		}
-
-		if ( ! RR_LLM::active_provider_ready() ) {
-			self::$generating = false;
-			return;
-		}
-
-		$content = self::get_content_string( $post );
-		$result  = self::call_openai( $content, $post );
-
-		if ( $result ) {
-			update_post_meta( $post_id, RR_META_SUMMARY,   $result );
-			update_post_meta( $post_id, RR_META_GENERATED, time() );
-		}
-
-		self::$generating = false;
-	}
 
 	// ── WP-Cron runner (fallback) ─────────────────────────────────────────────
 
@@ -289,7 +255,7 @@ Blog Post:
 			'timeout'     => 25,
 		) );
 
-		$source_label = strtoupper( $result['provider'] );
+		$source_label = strtoupper( (string) ( $result['provider'] ?? 'unknown' ) );
 
 		if ( empty( $result['ok'] ) ) {
 			self::log_error( $source_label, (string) $result['error'], $post->ID );
@@ -356,7 +322,9 @@ Blog Post:
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
 	public static function get_content_string( $post ): string {
-		$body = wp_strip_all_tags( do_shortcode( $post->post_content ) );
+		// strip_shortcodes() avoids side-effects from WooCommerce / form / cron-unsafe
+		// shortcodes when this runs under WP-Cron. We only need the raw text for the LLM.
+		$body = wp_strip_all_tags( strip_shortcodes( $post->post_content ) );
 		return $post->post_title . "\n\n" . $body;
 	}
 

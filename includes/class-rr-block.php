@@ -1365,6 +1365,7 @@ class RR_Block {
 		$php_version    = PHP_VERSION;
 
 		global $wpdb;
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- query has no variables; no user input.
 		$total_posts = (int) $wpdb->get_var(
 			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type IN ('post','page')"
 		);
@@ -1553,4 +1554,6 @@ class RR_Block {
 		if ( strlen( $text ) > 200 ) $text = substr( $text, 0, 197 ) . '...';
 		return $text;
 	}
+
+	// ── End of class ─────────────────────────────────────────────────────────
 }

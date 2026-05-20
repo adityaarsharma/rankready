@@ -409,6 +409,11 @@ class RR_Admin {
 			'default'           => 'allow',
 		) );
 
+		register_setting( self::LLMS_GROUP, RR_OPT_BRAND_TERMS, array(
+			'type'              => 'string',
+			'sanitize_callback' => 'sanitize_textarea_field',
+			'default'           => '',
+		) );
 
 		// ── DataForSEO credentials (Settings tab, same save as OpenAI) ──────
 		register_setting( self::SETTINGS_GROUP, RR_OPT_DFS_LOGIN, array(
@@ -1057,12 +1062,12 @@ class RR_Admin {
 					echo esc_html( sprintf( __( 'RankReady %s is here', 'rankready' ), RR_VERSION ) );
 				?></h3>
 				<ul style="margin:0;padding:0;list-style:none;font-size:13px;line-height:1.6;color:#e8e8f0;">
-					<li><strong><?php esc_html_e( 'More AI brains.', 'rankready' ); ?></strong> <?php esc_html_e( 'Now works with Claude, Gemini, and DeepSeek alongside OpenAI. Pick your provider in Settings → AI Provider.', 'rankready' ); ?></li>
-					<li><strong><?php esc_html_e( 'Fixed:', 'rankready' ); ?></strong> <?php esc_html_e( '.md URLs now serve the right page when AI tools send Accept: text/markdown.', 'rankready' ); ?></li>
+					<li><strong><?php esc_html_e( 'Brand Terms.', 'rankready' ); ?></strong> <?php esc_html_e( 'Add your canonical brand names in AI Crawlers → Brand Terms. Powers entity consistency checks.', 'rankready' ); ?></li>
+					<li><strong><?php esc_html_e( 'DeepSeek updated.', 'rankready' ); ?></strong> <?php esc_html_e( 'Default model switched to deepseek-v4-flash — faster and cheaper than the previous default.', 'rankready' ); ?></li>
+					<li><strong><?php esc_html_e( 'Bug fixes &amp; improvements.', 'rankready' ); ?></strong> <?php esc_html_e( 'Several stability and accuracy improvements across the plugin.', 'rankready' ); ?></li>
 				</ul>
-				<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="button button-primary" style="background:#fff;color:#1a1a2e;border:none;"><?php esc_html_e( 'Open AI Provider Settings', 'rankready' ); ?></a>
-					<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rankready&rr_dismiss_whatsnew=' . RR_VERSION ), 'rr_dismiss_whatsnew' ) ); ?>" style="margin-left:auto;color:#9da3c0;text-decoration:none;"><?php esc_html_e( 'Dismiss', 'rankready' ); ?></a>
+				<div style="margin-top:12px;">
+					<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rankready&rr_dismiss_whatsnew=' . RR_VERSION ), 'rr_dismiss_whatsnew' ) ); ?>" style="color:#9da3c0;text-decoration:none;font-size:13px;"><?php esc_html_e( 'Dismiss', 'rankready' ); ?></a>
 				</div>
 			</div>
 		</div>
@@ -2881,6 +2886,30 @@ class RR_Admin {
 				</div>
 			</div>
 
+
+			<!-- ── Brand Terms ───────────────────────────────────────────────── -->
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Brand Terms', 'rankready' ); ?></h2>
+				<p class="rr-card-desc">
+					<?php esc_html_e( 'Canonical brand and product names for this site. RankReady uses these to guard against brand name variants confusing AI models.', 'rankready' ); ?>
+				</p>
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><label for="rr_brand_terms"><?php esc_html_e( 'Canonical Names', 'rankready' ); ?></label></th>
+						<td>
+							<textarea id="rr_brand_terms"
+							          name="<?php echo esc_attr( RR_OPT_BRAND_TERMS ); ?>"
+							          rows="4"
+							          class="large-text"
+							          placeholder="<?php esc_attr_e( "e.g.\nThe Plus Addons for Elementor\nNexterWP\nYour Brand Name", 'rankready' ); ?>"
+							><?php echo esc_textarea( (string) get_option( RR_OPT_BRAND_TERMS, '' ) ); ?></textarea>
+							<p class="description">
+								<?php esc_html_e( 'One name per line. Use the exact capitalisation and spacing you want AI models to use. RankReady will warn you if a post uses inconsistent variants (e.g. "theplusaddons" vs "The Plus Addons for Elementor").', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+			</div>
 
 			<?php submit_button( __( 'Save LLM Settings', 'rankready' ) ); ?>
 		</form>

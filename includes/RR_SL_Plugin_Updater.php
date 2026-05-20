@@ -235,7 +235,7 @@ class RR_SL_Plugin_Updater {
 				printf(
 					wp_kses_post(
 						// translators: %1$s is the plugin name, %2$s is the opening tag for the link, %3$s is the new version number, %4$s is the closing tag for the link
-						__( 'There is a new version of %1$s available. %2$sView version %3$s details%4$s.', 'nexter-pro-extensions' )
+						__( 'There is a new version of %1$s available. %2$sView version %3$s details%4$s.', 'rankready' )
 					),
 					esc_html( $version_info->name ),
 					'<a target="_blank" class="thickbox" href="' . esc_url( $changelog_link ) . '">',
@@ -246,7 +246,7 @@ class RR_SL_Plugin_Updater {
 				printf(
 					wp_kses_post(
 						// Translators: %1$s is the plugin name, %2$s is the opening tag for the changelog link, %3$s is the version number, %4$s is the closing changelog tag, %5$s is the opening tag for the update link, %6$s is the closing update tag.
-						__( 'There is a new version of %1$s available. %2$sView version %3$s details%4$s or %5$supdate now%6$s.', 'nexter-pro-extensions' )
+						__( 'There is a new version of %1$s available. %2$sView version %3$s details%4$s or %5$supdate now%6$s.', 'rankready' )
 					),
 					esc_html( $version_info->name ),
 					'<a target="_blank" class="thickbox" href="' . esc_url( $changelog_link ) . '">',
@@ -491,8 +491,8 @@ class RR_SL_Plugin_Updater {
 
 		if( ! current_user_can( 'update_plugins' ) ) {
 			wp_die(
-				esc_html__( 'You do not have permission to install plugin updates', 'nexter-pro-extensions' ),
-				esc_html__( 'Error', 'nexter-pro-extensions' ),
+				esc_html__( 'You do not have permission to install plugin updates', 'rankready' ),
+				esc_html__( 'Error', 'rankready' ),
 				array( 'response' => 403 )
 			);
 		}

@@ -4,7 +4,7 @@ Tags: ai seo, llms.txt, schema markup, chatgpt, faq
 Requires at least: 6.0
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.1.1-beta.1
+Stable tag: 1.1.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -153,6 +153,21 @@ Yes. RankReady is open source under GPL-2.0-or-later. Source: [github.com/aditya
 
 == Changelog ==
 
+= 1.1.3 — 2026-05-13 =
+
+**Brand Terms, DeepSeek v4 default, agent discovery, stability fixes.**
+
+* New: **Brand Terms field** — AI Crawlers tab → Brand Terms card. One canonical name per line. Guards against brand name variants confusing AI models.
+* New: **Homepage Link header for agent discovery** — RFC 8288 `Link: </llms.txt>; rel="describedby"` response header on the homepage when llms.txt is enabled. Helps AI agents discover your llms.txt without scraping HTML.
+* New: `X-AEO-Version: 1.0` response header on markdown endpoints — advertises Dualmark AEO spec conformance to AI crawlers.
+* Changed: DeepSeek default model switched to `deepseek-v4-flash` — faster and cheaper than the previous default. Existing API keys keep working with zero migration. Legacy `deepseek-chat` / `deepseek-reasoner` users are auto-migrated.
+* Fixed: `strlen()` → `mb_strlen()` for multibyte token count header on markdown endpoints (was undercounting CJK/Arabic/Hindi characters).
+* Fixed: HTML entity decode on homepage markdown post titles (was outputting raw `&#8211;` instead of `—`).
+* Fixed: Null-coalescing guard on `$result['provider']` in generator to prevent PHP notice on unexpected API responses.
+* Fixed: `do_shortcode()` in `RR_Generator::get_content_string()` replaced with `strip_shortcodes()` — prevents WooCommerce / form / cache shortcode side-effects when generation runs under WP-Cron.
+* Fixed: Text domain corrected from `nexter-pro-extensions` to `rankready` in EDD plugin updater (4 strings).
+* Removed: Dead `run_generation_direct()` method from generator — shutdown-based path was removed in v1.1.0, method was unreachable.
+
 = 1.1.1 — 2026-05-08 =
 
 **Multi-provider AI engine + bug fix.**
@@ -186,6 +201,9 @@ Yes. RankReady is open source under GPL-2.0-or-later. Source: [github.com/aditya
 For the full pre-1.0.0 development history (versions 0.5.0 through 0.6.7.2), see the [GitHub repository](https://github.com/adityaarsharma/rankready/blob/main/CHANGELOG.md).
 
 == Upgrade Notice ==
+
+= 1.1.3 =
+New: Brand Terms field for entity consistency. DeepSeek default switched to deepseek-v4-flash with auto-migration for legacy users. Homepage Link header for AI agent discovery (RFC 8288). Includes multibyte token count fix, markdown title entity decode, WP-Cron shortcode safety, and dead-code cleanup.
 
 = 1.1.1 =
 Major: now supports Claude, Gemini, and DeepSeek alongside OpenAI. Existing OpenAI users keep working with zero migration. Includes a fix for `.md` URLs that were serving the homepage instead of the requested page.

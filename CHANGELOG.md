@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-05-13
+
+### Added
+- **Brand Terms field** — AI Crawlers tab → Brand Terms card. One canonical name per line. Guards against brand name variants confusing AI models.
+- **Homepage Link header for agent discovery** — RFC 8288 `Link: </llms.txt>; rel="describedby"; type="text/plain"` response header on the homepage when llms.txt is enabled. Helps AI agents (and isitagentready.com / Dualmark.dev style checks) discover the site's llms.txt without HTML scraping.
+- `X-AEO-Version: 1.0` response header on `.md` endpoints — advertises Dualmark AEO spec v1.0 conformance.
+
+### Changed
+- DeepSeek default model switched to `deepseek-v4-flash` — faster and cheaper than the previous default. Existing API keys keep working with zero migration. Legacy `deepseek-chat` / `deepseek-reasoner` option values auto-migrate to the v4 equivalents on next admin load.
+
+### Fixed
+- `strlen()` → `mb_strlen()` for multibyte token count header on markdown endpoints (was undercounting CJK/Arabic/Hindi characters).
+- HTML entity decode on homepage markdown post titles (was outputting raw `&#8211;` instead of `—`).
+- Null-coalescing guard on `$result['provider']` in generator to prevent PHP notice on unexpected API responses.
+- `do_shortcode()` in `RR_Generator::get_content_string()` replaced with `strip_shortcodes()` — prevents WooCommerce / form / cache shortcode side-effects when generation runs under WP-Cron.
+- Text domain corrected from `nexter-pro-extensions` to `rankready` in EDD plugin updater (4 strings — copied from a sister product).
+
+### Removed
+- Dead `run_generation_direct()` method from generator — shutdown-based path was removed in v1.1.0, method was unreachable.
+
 ## [1.1.1-beta.1] - 2026-05-08
 
 ### Added

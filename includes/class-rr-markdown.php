@@ -40,6 +40,7 @@ class RR_Markdown {
 		// Add Link header on HTML pages pointing to .md version.
 		add_action( 'wp_head',           array( self::class, 'add_md_link_tag' ) );
 		add_action( 'send_headers',      array( self::class, 'add_md_link_header' ) );
+		add_action( 'send_headers',      array( self::class, 'add_homepage_link_headers' ) );
 
 		// Prevent WordPress from adding trailing slash to .md URLs.
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_md_trailing_slash' ), 10, 2 );
@@ -143,6 +144,9 @@ class RR_Markdown {
 	// Implements RFC 9110 §12 content negotiation:
 	//   - Parses q-values so text/html;q=1.0 beats text/markdown;q=0.5
 	//   - Returns 406 when Accept excludes every type we can produce
+	//
+	// Also detects known AI crawler User-Agents (GPTBot, ClaudeBot, etc.)
+	// and serves markdown regardless of Accept header.
 
 	public static function handle_accept_header(): void {
 		// Don't interfere when an explicit .md URL is being processed.
@@ -159,41 +163,46 @@ class RR_Markdown {
 			return;
 		}
 
+		$ua             = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+		$force_markdown = ! empty( $ua ) && self::is_ai_bot( $ua );
+
 		$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) : '';
 
-		if ( empty( $accept ) ) {
-			return;
-		}
-
-		$types = self::parse_accept_types( $accept );
-
-		$q_markdown = self::get_type_q( $types, 'text/markdown' );
-		$q_html     = self::get_type_q( $types, 'text/html' );
-		$q_any      = self::get_type_q( $types, '*/*' );
-		$q_text     = self::get_type_q( $types, 'text/*' );
-
-		// Effective HTML q-value — wildcards count for HTML too.
-		$q_html_eff = max( $q_html, $q_any, $q_text );
-
-		if ( $q_markdown <= 0.0 ) {
-			// text/markdown not in Accept or explicitly excluded (q=0).
-			// If the client also can't accept HTML, nothing we serve will satisfy it.
-			if ( $q_html_eff <= 0.0 ) {
-				status_header( 406 );
-				header( 'Content-Type: text/plain; charset=utf-8' );
-				header( 'Vary: Accept' );
-				echo '406 Not Acceptable'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-				exit;
+		if ( ! $force_markdown ) {
+			if ( empty( $accept ) ) {
+				return;
 			}
-			return;
+
+			$types = self::parse_accept_types( $accept );
+
+			$q_markdown = self::get_type_q( $types, 'text/markdown' );
+			$q_html     = self::get_type_q( $types, 'text/html' );
+			$q_any      = self::get_type_q( $types, '*/*' );
+			$q_text     = self::get_type_q( $types, 'text/*' );
+
+			// Effective HTML q-value — wildcards count for HTML too.
+			$q_html_eff = max( $q_html, $q_any, $q_text );
+
+			if ( $q_markdown <= 0.0 ) {
+				// text/markdown not in Accept or explicitly excluded (q=0).
+				// If the client also can't accept HTML, nothing we serve will satisfy it.
+				if ( $q_html_eff <= 0.0 ) {
+					status_header( 406 );
+					header( 'Content-Type: text/plain; charset=utf-8' );
+					header( 'Vary: Accept' );
+					echo '406 Not Acceptable'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					exit;
+				}
+				return;
+			}
+
+			// If HTML is strictly more preferred than markdown, let WordPress serve HTML normally.
+			if ( $q_html > $q_markdown ) {
+				return;
+			}
 		}
 
-		// If HTML is strictly more preferred than markdown, let WordPress serve HTML normally.
-		if ( $q_html > $q_markdown ) {
-			return;
-		}
-
-		// text/markdown is preferred (or tied). Serve it.
+		// text/markdown is preferred (or tied, or forced by AI bot UA). Serve it.
 
 		// Homepage (static front page OR blog posts index): generate a site overview.
 		if ( is_front_page() || is_home() ) {
@@ -304,7 +313,8 @@ class RR_Markdown {
 				$lines[] = '## Recent Posts';
 				$lines[] = '';
 				foreach ( $posts as $post ) {
-					$lines[] = '- [' . esc_html( get_the_title( $post ) ) . '](' . get_permalink( $post ) . ')';
+					$title   = html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' );
+					$lines[] = '- [' . $title . '](' . get_permalink( $post ) . ')';
 				}
 				$lines[] = '';
 			}
@@ -378,6 +388,42 @@ class RR_Markdown {
 		header( 'Link: <' . esc_url( $md_url ) . '>; rel="alternate"; type="text/markdown"', false );
 	}
 
+	/**
+	 * Advertise the site's llms.txt to AI agents via an RFC 8288 Link header
+	 * on the homepage. Improves agent discovery (per isitagentready.com /
+	 * Dualmark checks) without any frontend impact.
+	 *
+	 * Only fires when llms.txt is enabled — guarantees the advertised URL
+	 * actually resolves.
+	 */
+	public static function add_homepage_link_headers(): void {
+		if ( ! is_front_page() || 'on' !== get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+			return;
+		}
+		header( 'Link: <' . esc_url( home_url( '/llms.txt' ) ) . '>; rel="describedby"; type="text/plain"', false );
+	}
+
+	// ── AI bot User-Agent detection ──────────────────────────────────────────
+
+	private static function is_ai_bot( string $ua ): bool {
+		static $patterns = array(
+			'GPTBot', 'ChatGPT-User', 'OAI-SearchBot',
+			'ClaudeBot', 'anthropic-ai',
+			'PerplexityBot',
+			'Google-Extended', 'Googlebot-Extended',
+			'cohere-ai',
+			'AI2Bot',
+			'Bytespider',
+			'Diffbot',
+		);
+		foreach ( $patterns as $pattern ) {
+			if ( false !== stripos( $ua, $pattern ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	// ── Serve markdown response ──────────────────────────────────────────────
 
 	private static function serve_markdown( string $markdown, string $canonical_url ): void {
@@ -389,6 +435,9 @@ class RR_Markdown {
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/markdown; charset=utf-8' );
 		header( 'Vary: Accept' );
+		header( 'X-Robots-Tag: noindex' );
+		header( 'X-AEO-Version: 1.0' );
+		header( 'X-Markdown-Tokens: ' . max( 1, (int) ceil( mb_strlen( $markdown, 'UTF-8' ) / 4 ) ) );
 		header( 'x-markdown-source: accept' );
 		header( 'Link: <' . esc_url( $canonical_url ) . '>; rel="canonical"', false );
 

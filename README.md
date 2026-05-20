@@ -1,8 +1,10 @@
-# RankReady – LLM SEO, EEAT & AI Optimization
+# RankReady — Get cited by ChatGPT & Perplexity
 
-**The WordPress plugin that gets your content cited by AI.**
+**The WordPress plugin that makes your site cited by AI.**
 
-RankReady is the most complete WordPress plugin for AI search optimization. It combines all pillars of LLM SEO into a single, lightweight package: AI-generated content, intelligent schema markup that auto-detects your content type, LLMs.txt, Markdown endpoints, AI crawler management, AI crawler access analytics, content freshness monitoring, multi-layer cache bypass, and a full **EEAT Author Box with Person JSON-LD schema** that powers author identity for ChatGPT, Perplexity, and Google AI Overviews citations.
+RankReady gets your WordPress content cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. Cited brands earn 23× higher conversion rates than non-cited competitors — but 40-55% of AI citations go to fewer than 1,000 domains. RankReady is how the rest of us join that list.
+
+One plugin, every signal AI engines look for: AI summaries (4 providers — OpenAI, Anthropic, Gemini, DeepSeek), FAQ schema (DataForSEO-sourced), llms.txt + .md routes, EEAT Person schema, AI crawler controls, content freshness tracking, AI referral analytics, **WebMCP via WordPress Abilities API** (Claude Desktop / Cursor / VS Code discover your site natively), and per-post snippet preview controls.
 
 [![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)

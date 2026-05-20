@@ -47,31 +47,33 @@ class RR_AI_Referral {
 	private const RETENTION_DAYS = 30;
 
 	public static function init(): void {
-		add_action( 'init',               array( self::class, 'maybe_record_referral' ), 5 );
-		add_action( 'wp_dashboard_setup', array( self::class, 'register_widget' ) );
+		add_action( 'init', array( self::class, 'maybe_record_referral' ), 5 );
+		// Note: dashboard widget registration handled by RR_Agent_Dashboard
+		// — single consolidated "Agent Visibility" widget replaces the two
+		// separate widgets shipped in beta.1.
 	}
 
-	// ── Dashboard widget ──────────────────────────────────────────────────
-
-	public static function register_widget(): void {
-		if ( ! current_user_can( 'edit_others_posts' ) ) {
-			return;
-		}
-		wp_add_dashboard_widget(
-			'rr_ai_referral_widget',
-			__( 'RankReady — AI Referral Traffic (last 30 days)', 'rankready' ),
-			array( self::class, 'render_widget' )
-		);
-	}
+	// ── Dashboard widget panel (rendered inside the unified widget) ──────
 
 	public static function render_widget(): void {
 		$counts = self::aggregate_last_n_days( 30 );
 		$total  = array_sum( $counts );
 
 		if ( 0 === $total ) {
-			echo '<p style="margin:6px 0;color:#646970;">';
-			esc_html_e( 'No visits from AI sources in the last 30 days yet. Tracking is live — counters increment as visitors arrive from ChatGPT, Perplexity, Gemini, Claude, or Copilot.', 'rankready' );
-			echo '</p>';
+			$gap_url = admin_url( 'admin.php?page=rankready-gaps' );
+			?>
+			<div style="padding:8px 0;">
+				<p style="margin:0 0 8px;font-size:var(--rr-text-md,13px);color:var(--rr-color-ink-soft,#3c434a);">
+					<?php esc_html_e( 'Tracking is live. Counters fill in as ChatGPT, Perplexity, Gemini, Claude, or Copilot send their first visitor.', 'rankready' ); ?>
+				</p>
+				<p style="margin:0 0 10px;font-size:var(--rr-text-sm,12px);color:var(--rr-color-text-muted,#646970);">
+					<?php esc_html_e( 'Typical first citation: 2–6 weeks after enabling. Speed it up by adding FAQs to your top posts.', 'rankready' ); ?>
+				</p>
+				<a class="button button-small" href="<?php echo esc_url( $gap_url ); ?>">
+					<?php esc_html_e( 'Find posts that need FAQs →', 'rankready' ); ?>
+				</a>
+			</div>
+			<?php
 			return;
 		}
 

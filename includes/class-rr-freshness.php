@@ -33,22 +33,13 @@ class RR_Freshness {
 	private const LIST_LIMIT      = 50;
 
 	public static function init(): void {
-		add_action( 'wp_dashboard_setup', array( self::class, 'register_widget' ) );
-		add_action( 'rest_api_init',      array( self::class, 'register_routes' ) );
+		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );
+		// Note: dashboard widget registration handled by RR_Agent_Dashboard
+		// — single consolidated "Agent Visibility" widget replaces the two
+		// separate widgets shipped in beta.1.
 	}
 
-	// ── Dashboard widget ──────────────────────────────────────────────────
-
-	public static function register_widget(): void {
-		if ( ! current_user_can( 'edit_others_posts' ) ) {
-			return;
-		}
-		wp_add_dashboard_widget(
-			'rr_freshness_widget',
-			__( 'RankReady — Content Freshness', 'rankready' ),
-			array( self::class, 'render_widget' )
-		);
-	}
+	// ── Dashboard widget panel (rendered inside the unified widget) ──────
 
 	public static function render_widget(): void {
 		$counts = self::bucket_counts();
@@ -88,7 +79,7 @@ class RR_Freshness {
 			</div>
 
 			<div class="rr-fw-list" style="max-height:280px;overflow-y:auto;">
-				<p style="color:#646970;font-style:italic;font-size:12px;padding:8px 0;">
+				<p style="color:var(--rr-color-text-muted,#646970);font-style:italic;font-size:var(--rr-text-sm,12px);padding:8px 0;">
 					<?php esc_html_e( 'Loading…', 'rankready' ); ?>
 				</p>
 			</div>
@@ -146,7 +137,12 @@ class RR_Freshness {
 					credentials: 'same-origin'
 				} ).then( function( r ) { return r.json(); } ).then( function( data ) {
 					if ( ! data || ! data.posts || ! data.posts.length ) {
-						listEl.innerHTML = '<p style="color:#646970;font-style:italic;font-size:12px;padding:8px 0;">No posts in this bucket.</p>';
+						var msg = current === 'stale'
+							? '🎯 No stale posts. Every published post has been touched within the last 60 days.'
+							: ( current === 'going_stale'
+								? '⏳ Nothing in the 30–60 day window. Plenty of time before any post goes stale.'
+								: '✨ Newly published or refreshed content shows up here.' );
+						listEl.innerHTML = '<p style="color:var(--rr-color-text-muted,#646970);font-style:italic;font-size:var(--rr-text-sm,12px);padding:8px 0;">' + msg + '</p>';
 						return;
 					}
 					var html = '<ul>';

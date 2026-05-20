@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-beta.2] - 2026-05-20 — "Agent Ready: Design Pass"
+
+Polish release on top of beta.1. Same engineering surface, redesigned UX. Addresses the PM/design audit findings: positioning whiplash, no onboarding, fragmented dashboards, no visual identity.
+
+### Added
+- **Welcome flow on first activation** — Apple-style one-question screen ("What's your brand name?") that auto-enables llms.txt, .md routes, AI crawler allowlist, and WebMCP manifest. Replaces "land on the settings page with 40 options" first run. Skippable, never re-shown after completion.
+- **Design tokens CSS** — `assets/design-tokens.css` with semantic CSS custom properties for colors (brand, success/warn/danger, AI source palette), spacing scale, radii, type scale, motion, shadows. Loaded on every admin screen. Foundation for future visual consistency.
+- **Status-first meta box** — Plain-English status banner at the top ("✓ Optimised for AI" / "⚠ AI visibility reduced" / "○ Not yet optimised") + compact summary preview + Advanced options collapsed by default. Editors scan in 1 second instead of reading 3 section headers.
+
+### Changed
+- **Consolidated dashboard widget** — AI Referral Traffic + Content Freshness merged into a single "RankReady — Agent Visibility" widget with a 2-column responsive grid. One widget, one mental model. Per-feature classes (`RR_AI_Referral`, `RR_Freshness`) still own the data and REST endpoints — only the dashboard registration moved.
+- **Positioning unified** — Plugin header, readme.txt, README.md hero now all lead with "Get cited by ChatGPT & Perplexity" instead of three different framings. WordPress.org tags refreshed.
+- **Empty states rewritten** — Gap Scanner, AI Referral widget, and Freshness tabs now show contextual prompts with CTAs ("Find posts that need FAQs →") instead of dead-end "no data" strings.
+
+### Fixed
+- Inline hex colors in dashboard widgets and gap scanner now reference design tokens. Old hardcoded `#646970` / `#dba617` etc. preserved as fallbacks in `var(--rr-color-x, #fallback)` form, so the UI works whether or not the tokens stylesheet has loaded.
+
+### Notes
+- Engineering surface unchanged from beta.1 — no functional regressions, all REST endpoints, abilities, and rewrite rules behave identically.
+- Telemetry (anonymous usage stats) and pricing page still pending; flagged for v1.3 in the audit.
+
 ## [1.2.0-beta.1] - 2026-05-20 — "Agent Ready"
 
 The Agent Ready release. RankReady stops being just an AI-SEO plugin and becomes the layer that makes a WordPress site a first-class participant in the agentic web — discoverable, queryable, and citable by ChatGPT, Perplexity, Claude, Gemini, and any MCP-capable agent.

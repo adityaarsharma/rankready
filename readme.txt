@@ -1,18 +1,18 @@
-=== RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI ===
+=== RankReady – Get cited by ChatGPT & Perplexity ===
 Contributors: posimyth, adityaarsharma
-Tags: ai seo, llms.txt, schema markup, chatgpt, faq
+Tags: ai seo, llms.txt, chatgpt, perplexity, agent ready
 Requires at least: 6.0
-Tested up to: 6.7
+Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.3
+Stable tag: 1.2.0-beta.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-AI-first SEO for WordPress. Get cited by ChatGPT, Perplexity & Google AI Overviews. LLMs.txt, FAQ schema, EEAT author box, AI crawler controls.
+Get your WordPress content cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, WebMCP, crawler controls.
 
 == Description ==
 
-**RankReady is the AI/LLM SEO toolkit for WordPress.** It optimizes your content for the new generation of search — ChatGPT, Perplexity, Google AI Overviews, Gemini, Claude — without conflicting with your existing SEO plugin.
+**RankReady gets your WordPress content cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews.** 40-55% of AI citations go to fewer than 1,000 domains. RankReady is how the rest of us join that list — without conflicting with your existing SEO plugin.
 
 Built by [POSIMYTH](https://posimyth.com) (makers of The Plus Addons for Elementor & NexterWP), RankReady ships every feature you need to be discovered, read, and cited by AI search engines.
 

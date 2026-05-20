@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
+ * Plugin Name:       RankReady – Get cited by ChatGPT & Perplexity
  * Plugin URI:        https://posimyth.com
- * Description:       AI-first SEO for WordPress. Get cited by ChatGPT, Perplexity & Google AI Overviews. LLMs.txt generator, AI summaries, FAQ schema, EEAT author box, AI crawler controls.
- * Version:           1.2.0-beta.1
+ * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
+ * Version:           1.2.0-beta.2
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.2.0-beta.1' );
+	define( 'RR_VERSION',  '1.2.0-beta.2' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -649,11 +649,13 @@ add_action( 'plugins_loaded', function (): void {
 	RR_Crawler_Log::init();
 
 	// v1.2.0 — Agent Ready feature modules.
-	RR_Snippet::init();      // <meta robots max-snippet:-1> per-post + sitewide.
-	RR_AI_Referral::init();  // Track AI-referrer visits (ChatGPT/Perplexity/etc).
-	RR_Freshness::init();    // Dashboard widget + bulk dateModified refresh.
-	RR_Gap_Scanner::init();  // Admin page surfacing missing summaries/FAQs/stale posts.
-	RR_MCP::init();          // WebMCP — WordPress Abilities API + /.well-known/mcp.json.
+	RR_Welcome::init();          // 1-question onboarding flow on first activation.
+	RR_Snippet::init();          // <meta robots max-snippet:-1> per-post + sitewide.
+	RR_AI_Referral::init();      // Track AI-referrer visits (ChatGPT/Perplexity/etc).
+	RR_Freshness::init();        // REST + bulk dateModified refresh.
+	RR_Agent_Dashboard::init();  // Unified dashboard widget (consolidates AI Referral + Freshness).
+	RR_Gap_Scanner::init();      // Admin page surfacing missing summaries/FAQs/stale posts.
+	RR_MCP::init();              // WebMCP — WordPress Abilities API + /.well-known/mcp.json.
 
 	// Free tier limits — REST endpoint for admin JS usage display.
 	add_action( 'rest_api_init', array( 'RR_Limits', 'register_rest' ) );
@@ -678,6 +680,14 @@ add_action( 'plugins_loaded', function (): void {
 
 // ── Activation / Deactivation ─────────────────────────────────────────────────
 register_activation_hook( RR_FILE, function (): void {
+	// v1.2.0 — flag the one-shot welcome redirect for first-time activations.
+	// RR_Welcome::flag_activation() is a no-op when the welcome has already
+	// been completed, so re-activating an existing install does NOT relaunch
+	// the onboarding flow.
+	if ( class_exists( 'RR_Welcome' ) ) {
+		RR_Welcome::flag_activation();
+	}
+
 	if ( false === get_option( RR_OPT_POST_TYPES ) ) {
 		update_option( RR_OPT_POST_TYPES, array( 'post' ) );
 	}

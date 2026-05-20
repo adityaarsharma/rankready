@@ -164,7 +164,14 @@ class RR_Gap_Scanner {
 						return;
 					}
 					if ( ! data.posts.length ) {
-						rows.innerHTML = '<tr><td colspan="5" style="padding:20px;color:#646970;font-style:italic;">No posts match.</td></tr>';
+						var emptyMsg = filterSel.value === 'any'
+							? '🎯 No gaps found. Every published post has a summary, an FAQ, and is fresher than 60 days.'
+							: ( filterSel.value === 'missing_summary'
+								? '✓ Every post has an AI summary. Switch to "Missing FAQ" or "Stale" to find other gaps.'
+								: ( filterSel.value === 'missing_faq'
+									? '✓ Every post has an FAQ. Switch to another filter to find other gaps.'
+									: '✓ No stale posts. All published content is within 60 days.' ) );
+						rows.innerHTML = '<tr><td colspan="5" style="padding:24px;color:var(--rr-color-text-muted,#646970);text-align:center;font-size:13px;">' + emptyMsg + '</td></tr>';
 					} else {
 						rows.innerHTML = data.posts.map( rowHtml ).join( '' );
 					}

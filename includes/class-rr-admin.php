@@ -154,10 +154,22 @@ class RR_Admin {
 	// ── Assets ────────────────────────────────────────────────────────────────
 
 	public static function enqueue_admin_assets( $hook ): void {
-		if ( 'toplevel_page_' . self::MENU_SLUG !== $hook ) {
+		// Design tokens load on every admin screen so dashboard widgets,
+		// meta box, and Content Gaps page all share the same visual language.
+		// Tiny file (~3 KB), zero JS — safe to always-load.
+		wp_enqueue_style( 'rr-design-tokens', RR_URL . 'assets/design-tokens.css', array(), RR_VERSION );
+
+		// Full admin styles + JS only on the RankReady settings page and
+		// the Content Gaps sub-page.
+		$rr_screens = array(
+			'toplevel_page_' . self::MENU_SLUG,
+			'rankready_page_rankready-gaps',
+		);
+		if ( ! in_array( $hook, $rr_screens, true ) ) {
 			return;
 		}
-		wp_enqueue_style( 'rr-admin', RR_URL . 'assets/admin.css', array(), RR_VERSION );
+
+		wp_enqueue_style( 'rr-admin', RR_URL . 'assets/admin.css', array( 'rr-design-tokens' ), RR_VERSION );
 		wp_enqueue_script( 'rr-admin', RR_URL . 'assets/admin.js', array(), RR_VERSION, true );
 		wp_localize_script( 'rr-admin', 'rrAdmin', array(
 			'nonce'   => wp_create_nonce( 'wp_rest' ),
@@ -3811,87 +3823,209 @@ class RR_Admin {
 	}
 
 	public static function render_meta_box( $post ): void {
-		$disabled       = (bool) get_post_meta( $post->ID, RR_META_DISABLE, true );
-		$llms_excluded  = '1' === (string) get_post_meta( $post->ID, RR_META_LLMS_EXCLUDE, true );
-		$snippet_pref   = (string) get_post_meta( $post->ID, RR_META_MAX_SNIPPET, true ); // '' inherit | 'on' | 'off'
+		$disabled        = (bool) get_post_meta( $post->ID, RR_META_DISABLE, true );
+		$llms_excluded   = '1' === (string) get_post_meta( $post->ID, RR_META_LLMS_EXCLUDE, true );
+		$snippet_pref    = (string) get_post_meta( $post->ID, RR_META_MAX_SNIPPET, true );
 		$snippet_default = 'on' === get_option( RR_OPT_MAX_SNIPPET_DEFAULT, 'on' );
-		$summary        = (string) get_post_meta( $post->ID, RR_META_SUMMARY, true );
-		$generated      = (int) get_post_meta( $post->ID, RR_META_GENERATED, true );
+		$summary         = (string) get_post_meta( $post->ID, RR_META_SUMMARY, true );
+		$generated       = (int) get_post_meta( $post->ID, RR_META_GENERATED, true );
+		$faq             = (string) get_post_meta( $post->ID, RR_META_FAQ, true );
+
+		// ── Compute status banner ────────────────────────────────────────
+		// Decide tone (ok / warn / muted) + plain-English headline + sub.
+		$status = self::compute_meta_box_status( $post, $disabled, $llms_excluded, ! empty( $summary ), ! empty( $faq ) );
 
 		wp_nonce_field( 'rr_meta_box', 'rr_meta_nonce' );
 		?>
-		<p style="margin-bottom:6px;font-weight:600;font-size:11px;text-transform:uppercase;color:#646970;">
-			<?php esc_html_e( 'AI Summary', 'rankready' ); ?>
-		</p>
-		<p style="margin-top:0;">
-			<label>
-				<input type="checkbox" name="rr_disable_summary" value="1" <?php checked( $disabled ); ?> />
-				<?php esc_html_e( 'Disable AI summary for this post', 'rankready' ); ?>
-			</label>
-		</p>
+		<style>
+			.rr-mb { font-size: var(--rr-text-md, 13px); }
+			.rr-mb__status {
+				display: flex; align-items: flex-start; gap: 8px;
+				padding: 10px 12px;
+				margin: -6px -12px 10px;
+				border-radius: 0;
+				font-size: var(--rr-text-md, 13px);
+				line-height: 1.4;
+			}
+			.rr-mb__status--ok    { background: var(--rr-color-success-bg, #d1ecdf); color: var(--rr-color-success-text, #0a6c39); }
+			.rr-mb__status--warn  { background: var(--rr-color-warning-bg, #fcf9e8); color: var(--rr-color-warning-text, #674c00); }
+			.rr-mb__status--muted { background: var(--rr-color-surface-2, #f6f7f7); color: var(--rr-color-text-muted, #646970); }
+			.rr-mb__icon { font-size: 16px; line-height: 1.2; flex-shrink: 0; }
+			.rr-mb__title { font-weight: var(--rr-weight-semibold, 600); margin-bottom: 2px; }
+			.rr-mb__sub { font-size: var(--rr-text-sm, 12px); opacity: 0.85; }
+			.rr-mb__preview {
+				margin: 0 0 10px;
+				padding: 8px 10px;
+				background: var(--rr-color-surface-2, #f6f7f7);
+				border-radius: var(--rr-radius-md, 6px);
+				font-size: var(--rr-text-sm, 12px);
+				color: var(--rr-color-ink-soft, #3c434a);
+			}
+			.rr-mb__preview ul { margin: 0; padding-left: 14px; list-style: disc; }
+			.rr-mb__preview li { margin-bottom: 3px; }
+			.rr-mb details { margin-top: 8px; }
+			.rr-mb summary {
+				cursor: pointer;
+				font-size: var(--rr-text-sm, 12px);
+				color: var(--rr-color-text-muted, #646970);
+				padding: 4px 0;
+				user-select: none;
+			}
+			.rr-mb summary:hover { color: var(--rr-color-brand, #2271b1); }
+			.rr-mb__advanced { padding-top: 8px; }
+			.rr-mb__field { margin: 0 0 10px; }
+			.rr-mb__field-label {
+				display: block;
+				font-size: var(--rr-text-xs, 11px);
+				font-weight: var(--rr-weight-semibold, 600);
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+				color: var(--rr-color-text-muted, #646970);
+				margin-bottom: 4px;
+			}
+			.rr-mb__field select { width: 100%; }
+			.rr-mb__hint { margin: 2px 0 0; font-size: var(--rr-text-xs, 11px); color: var(--rr-color-text-muted, #646970); }
+		</style>
 
-		<hr style="margin:10px 0;border:none;border-top:1px solid #dcdcde;" />
+		<div class="rr-mb">
+			<div class="rr-mb__status rr-mb__status--<?php echo esc_attr( $status['tone'] ); ?>">
+				<span class="rr-mb__icon" aria-hidden="true"><?php echo esc_html( $status['icon'] ); ?></span>
+				<span>
+					<span class="rr-mb__title"><?php echo esc_html( $status['title'] ); ?></span>
+					<span class="rr-mb__sub"><?php echo esc_html( $status['sub'] ); ?></span>
+				</span>
+			</div>
 
-		<p style="margin-bottom:6px;font-weight:600;font-size:11px;text-transform:uppercase;color:#646970;">
-			<?php esc_html_e( 'AI Snippet', 'rankready' ); ?>
-		</p>
-		<p style="margin-top:0;">
-			<select name="rr_max_snippet" style="width:100%;">
-				<option value="" <?php selected( $snippet_pref, '' ); ?>>
-					<?php
-					/* translators: %s: site-wide default state (Allow / Block) */
-					printf(
-						esc_html__( 'Use default (%s)', 'rankready' ),
-						$snippet_default ? esc_html__( 'Allow full snippet', 'rankready' ) : esc_html__( 'Standard snippet', 'rankready' )
-					);
-					?>
-				</option>
-				<option value="on" <?php selected( $snippet_pref, 'on' ); ?>>
-					<?php esc_html_e( 'Allow full snippet (max-snippet:-1)', 'rankready' ); ?>
-				</option>
-				<option value="off" <?php selected( $snippet_pref, 'off' ); ?>>
-					<?php esc_html_e( 'Standard snippet only', 'rankready' ); ?>
-				</option>
-			</select>
-		</p>
-		<p class="description" style="font-size:11px;">
-			<?php esc_html_e( 'Controls how much of this page AI engines may quote.', 'rankready' ); ?>
-		</p>
+			<?php
+			// Compact summary preview when a summary exists.
+			if ( ! empty( $summary ) ) :
+				$decoded = RR_Generator::decode_summary( $summary );
+				if ( 'bullets' === $decoded['type'] && ! empty( $decoded['data'] ) ) : ?>
+					<div class="rr-mb__preview">
+						<ul>
+							<?php foreach ( array_slice( (array) $decoded['data'], 0, 3 ) as $bullet ) : ?>
+								<li><?php echo esc_html( $bullet ); ?></li>
+							<?php endforeach; ?>
+						</ul>
+					</div>
+				<?php endif;
+			endif; ?>
 
-		<hr style="margin:10px 0;border:none;border-top:1px solid #dcdcde;" />
+			<details<?php echo ( $disabled || $llms_excluded || '' !== $snippet_pref ) ? ' open' : ''; ?>>
+				<summary><?php esc_html_e( 'Advanced options', 'rankready' ); ?></summary>
+				<div class="rr-mb__advanced">
 
-		<p style="margin-bottom:6px;font-weight:600;font-size:11px;text-transform:uppercase;color:#646970;">
-			<?php esc_html_e( 'llms.txt', 'rankready' ); ?>
-		</p>
-		<p style="margin-top:0;">
-			<label>
-				<input type="checkbox" name="rr_llms_exclude" value="1" <?php checked( $llms_excluded ); ?> />
-				<?php esc_html_e( 'Exclude this post from llms.txt', 'rankready' ); ?>
-			</label>
-		</p>
+					<div class="rr-mb__field">
+						<label class="rr-mb__field-label" for="rr_max_snippet"><?php esc_html_e( 'AI snippet', 'rankready' ); ?></label>
+						<select name="rr_max_snippet" id="rr_max_snippet">
+							<option value="" <?php selected( $snippet_pref, '' ); ?>>
+								<?php
+								printf(
+									esc_html__( 'Use default (%s)', 'rankready' ),
+									$snippet_default ? esc_html__( 'Allow full snippet', 'rankready' ) : esc_html__( 'Standard snippet', 'rankready' )
+								);
+								?>
+							</option>
+							<option value="on" <?php selected( $snippet_pref, 'on' ); ?>>
+								<?php esc_html_e( 'Allow full snippet (max-snippet:-1)', 'rankready' ); ?>
+							</option>
+							<option value="off" <?php selected( $snippet_pref, 'off' ); ?>>
+								<?php esc_html_e( 'Standard snippet only', 'rankready' ); ?>
+							</option>
+						</select>
+						<p class="rr-mb__hint"><?php esc_html_e( 'How much of this page AI engines may quote.', 'rankready' ); ?></p>
+					</div>
 
-		<?php if ( $generated ) : ?>
-			<hr style="margin:10px 0;border:none;border-top:1px solid #dcdcde;" />
-			<p class="description" style="font-size:11px;">
-				<?php
-				printf(
-					esc_html__( 'Summary generated %s ago', 'rankready' ),
-					esc_html( human_time_diff( $generated ) )
-				);
-				?>
-			</p>
-		<?php endif;
+					<div class="rr-mb__field">
+						<label>
+							<input type="checkbox" name="rr_llms_exclude" value="1" <?php checked( $llms_excluded ); ?> />
+							<?php esc_html_e( 'Exclude this post from llms.txt', 'rankready' ); ?>
+						</label>
+					</div>
 
-		if ( ! empty( $summary ) ) :
-			$decoded = RR_Generator::decode_summary( $summary );
-			if ( 'bullets' === $decoded['type'] ) : ?>
-				<ul style="margin:8px 0 0;padding-left:16px;list-style:disc;">
-					<?php foreach ( (array) $decoded['data'] as $bullet ) : ?>
-						<li style="font-size:11px;margin-bottom:4px;color:#50575e;"><?php echo esc_html( $bullet ); ?></li>
-					<?php endforeach; ?>
-				</ul>
-			<?php endif;
-		endif;
+					<div class="rr-mb__field">
+						<label>
+							<input type="checkbox" name="rr_disable_summary" value="1" <?php checked( $disabled ); ?> />
+							<?php esc_html_e( 'Disable AI summary on publish', 'rankready' ); ?>
+						</label>
+					</div>
+
+					<?php if ( $generated ) : ?>
+						<p class="rr-mb__hint">
+							<?php
+							printf(
+								esc_html__( 'Summary generated %s ago', 'rankready' ),
+								esc_html( human_time_diff( $generated ) )
+							);
+							?>
+						</p>
+					<?php endif; ?>
+
+				</div>
+			</details>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Compute the status banner shown at the top of the meta box.
+	 *
+	 * Three tones, one short headline + one subline. Aim: editor scans for
+	 * 1 second and knows whether the post is AI-ready.
+	 *
+	 * Tone priority (worst signal wins):
+	 *   warn  → opted out (disable / exclude) — user knows but flag it anyway
+	 *   muted → not yet generated (no summary AND no FAQ on a fresh post)
+	 *   ok    → fully optimised
+	 *
+	 * @return array{tone:string,icon:string,title:string,sub:string}
+	 */
+	private static function compute_meta_box_status( $post, bool $disabled, bool $llms_excluded, bool $has_summary, bool $has_faq ): array {
+		if ( $disabled || $llms_excluded ) {
+			$flags = array();
+			if ( $disabled )      { $flags[] = __( 'AI summary disabled', 'rankready' ); }
+			if ( $llms_excluded ) { $flags[] = __( 'excluded from llms.txt', 'rankready' ); }
+			return array(
+				'tone'  => 'warn',
+				'icon'  => '⚠',
+				'title' => __( 'AI visibility reduced', 'rankready' ),
+				'sub'   => implode( ' • ', $flags ),
+			);
+		}
+
+		if ( $has_summary && $has_faq ) {
+			return array(
+				'tone'  => 'ok',
+				'icon'  => '✓',
+				'title' => __( 'Optimised for AI', 'rankready' ),
+				'sub'   => __( 'Summary + FAQ ready. ChatGPT, Perplexity & Claude can cite this page.', 'rankready' ),
+			);
+		}
+
+		if ( $has_summary ) {
+			return array(
+				'tone'  => 'ok',
+				'icon'  => '✓',
+				'title' => __( 'AI summary ready', 'rankready' ),
+				'sub'   => __( 'Add an FAQ to boost citation rate.', 'rankready' ),
+			);
+		}
+
+		if ( 'publish' !== $post->post_status ) {
+			return array(
+				'tone'  => 'muted',
+				'icon'  => '○',
+				'title' => __( 'Generation runs on publish', 'rankready' ),
+				'sub'   => __( 'RankReady generates summary + FAQ after this post goes live.', 'rankready' ),
+			);
+		}
+
+		return array(
+			'tone'  => 'muted',
+			'icon'  => '○',
+			'title' => __( 'Not yet optimised', 'rankready' ),
+			'sub'   => __( 'Open the AI tab to generate summary + FAQ.', 'rankready' ),
+		);
 	}
 
 	public static function save_meta_box( $post_id ): void {

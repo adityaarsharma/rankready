@@ -3,6 +3,17 @@
 WordPress AI/LLM SEO plugin. Plugin slug: `rankready`. Text domain: `rankready`.
 GPL-2.0-or-later. Distributed via WordPress.org. Made by POSIMYTH.
 
+## Where to find context
+
+> **Picking this up cold? Start here, in order:**
+>
+> 1. **Strategy:** `../../docs/VISION.md` — one-line vision, audience, north star metric, strategic moats
+> 2. **Plan:** `../../docs/ROADMAP.md` — v1.2 QA checklist, v1.3 confirmed features, v1.4 considered list, decision log
+> 3. **Inventory:** `../../docs/FEATURES.md` — every shipped feature with status, version, admin location
+> 4. **Why:** `../../research/INDEX.md` — full research artefacts from May 20 work (market trends, competitors, ranking factors, audits)
+>
+> Then continue with this file for code-level rules.
+
 ## Critical rules — read first
 
 > **AEO Score feature was descoped in v1.1.2-beta.4.** Anything referring to `RR_AEO_Score`, `aeo-sidebar.js`, `aeo-sidebar.css`, `/aeo-score/{id}` REST route, `RR_META_AEO_SCORE`, `RR_META_AEO_SCORE_NUM`, `RR_CRON_AEO`, the admin bar AEO badge, or the AEO dashboard stats no longer exists. The whole feature is being re-planned and will ship separately in a future release. Do not re-add it without explicit instruction.

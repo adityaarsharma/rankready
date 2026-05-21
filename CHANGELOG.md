@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-beta.3] - 2026-05-21 — "Agent Ready: Insight Layer"
+
+Surfaces every v1.2 feature in the admin UI and turns the bot tracking data into an actionable insight (the real story behind the numbers).
+
+### Added
+- **Agent Visibility Status card** — Read-only summary card at the top of the AI Crawlers tab. 11-signal checklist (llms.txt, llms-full.txt, .md routes, AI hint in body, AI bot auto-serve, robots.txt AI rules, Content Signals, max-snippet default, AI Referral tracking, WebMCP, Brand Terms set) with a single Coverage % at a glance.
+- **Bot intent classification** — Every tracked AI bot now classified as `citation`, `training`, or `indexing`. Citation-intent bots (OAI-SearchBot, ChatGPT-User, PerplexityBot, Claude-Web, DuckAssistBot) fetch on behalf of live user queries — each hit ≈ one AI answer that used your content.
+- **AI Citation Candidates panel** — Top 10 pages most fetched by citation-intent bots in the last 30 days. The single most actionable view of the crawler log: these are the posts AI engines pull as sources when answering real user queries right now. Includes hit count, unique-bot count, last-fetched timestamp, and edit-post links.
+- **Citation vs Training summary cards** — Replaces 2 of 6 generic summary cards in the Crawler Log with green "Citation Hits" + blue "Training Hits" — the only crawl numbers that actually matter for AI citation visibility.
+- **Intent badges on By Bot table** — Each bot row shows a colored pill (Citation / Training / Indexing) before its name. One-glance answer to "which bots actually matter?".
+- **WebMCP settings card** — Master enable toggle (default ON), status detection (manifest live + Abilities API detected), copy-paste manifest URL field, full list of 6 exposed abilities. Lives in AI Crawlers tab.
+- **AI Referral Traffic settings card** — Master enable toggle (default ON), 30-day breakdown per source (ChatGPT, Perplexity, Gemini, Claude, Copilot). Lives in AI Crawlers tab.
+- **Markdown card sub-toggles** — Existing Markdown Endpoints card now exposes "Inject hidden AI hint in body" and "Auto-serve Markdown to AI bots" as proper sub-toggles. Both default ON. Wired into `class-rr-markdown.php` — turning them off actually disables the behaviour.
+- **Brand Terms "Wired everywhere" callout** — Brand Terms card now shows a "WIRED EVERYWHERE" badge + a callout block listing all 6 consumers (llms.txt, llms-full.txt, robots.txt, FAQ prompt, AI summary prompt, MCP get-brand-terms ability). When empty, a warning prompts users to set at least one name.
+- **Re-run setup wizard link** — Tutorial card gains a "Re-run setup wizard →" button. When the tutorial is dismissed, a standalone link surfaces in the Dashboard tab so the wizard stays discoverable.
+
+### Changed
+- **AI Crawler Access Log description** — Rewritten to lead with the citation-vs-training distinction. Users now see immediately what the data means.
+
+### Removed
+- **Content Gap Scanner** — Per user feedback during the design pass, removed cleanly. Functionality was overlapping with the Citation Candidates panel + Freshness widget without adding unique value.
+
+### Notes
+- All new features default ON for agent visibility — users shouldn't have to opt in to be discoverable.
+- Zero new dependencies. Bot intent classification is pure PHP logic on the existing crawl log table.
+
 ## [1.2.0-beta.2] - 2026-05-20 — "Agent Ready: Design Pass"
 
 Polish release on top of beta.1. Same engineering surface, redesigned UX. Addresses the PM/design audit findings: positioning whiplash, no onboarding, fragmented dashboards, no visual identity.

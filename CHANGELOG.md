@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-beta.5] - 2026-05-21 — "WebMCP Expansion"
+
+WebMCP grew from 6 to **16 abilities**. The previous surface was a proof-of-concept — agents could search and get summaries but couldn't actually read post content. v1.2.0-beta.5 fills the gap: full post Markdown retrieval, URL resolution, taxonomy discovery, sitemap, content freshness, EEAT author data, and inline llms.txt — everything a Claude Desktop / Cursor / VS Code agent needs to navigate a WordPress site as a first-class tool source.
+
+### Added — 10 new MCP abilities
+
+**Content retrieval (3):**
+- **`rankready/get-post`** — Full post Markdown content + title + URL + .md URL + author + author_id + excerpt + summary bullets + FAQ Q&A + categories + tags + modified date. The "view document" primitive that was missing in beta.4.
+- **`rankready/get-post-by-url`** — Resolve any site URL (incl. `.md`, `/category/x/`, `/tag/y/`) to content. Returns post payload OR term info (for category/tag archives). Lets an agent follow internal links.
+
+**Discovery / navigation (4):**
+- **`rankready/list-pages`** — Static pages separately from posts. Returns parent_id for hierarchy reconstruction.
+- **`rankready/list-content-types`** — Every public post type the site exposes (Posts, Pages, CPTs) with published counts + archive URLs.
+- **`rankready/list-categories`** — Ordered by post count: id, name, slug, parent_id, count, archive URL.
+- **`rankready/list-tags`** — Same shape as categories.
+
+**AI-native (3):**
+- **`rankready/get-llms-txt`** — Returns rendered llms.txt OR llms-full.txt content inline. Saves the agent an HTTP fetch round-trip. Respects the master toggle.
+- **`rankready/get-sitemap`** — Parsed sitemap (URL + lastmod + post_type) for cold-crawl scenarios. Up to 2000 entries.
+- **`rankready/get-fresh-content`** — Posts/pages modified in last N days. AI engines prioritise fresh content — surface what to read first.
+
+**EEAT signals (1):**
+- **`rankready/get-author`** — Full Person schema fields: bio, job title, employer, credentials, education, awards, ORCID, LinkedIn, GitHub, all socials. Drives AI trust signals.
+
+### Changed
+- WebMCP card admin UI now groups all 16 abilities into 4 collapsible categories: Site & metadata (3), Content retrieval (4), Discovery & navigation (5), AI-native (4).
+- MCP manifest `tools[]` lists every ability with name, description, method, endpoint, expected inputs.
+- "Abilities API detected" status badge updated to "16 abilities registered" (was 6).
+
+### Why this matters
+A `/find-bugs` review of beta.4 flagged that the 6-ability v1 set lacked the most important primitive — reading actual content. An agent couldn't answer "what does the post 'Best WordPress plugins' say?" because the only post-level abilities returned summary or FAQ snippets, never the body. `get-post` + `get-post-by-url` close that gap. Now an agent loaded with the RankReady MCP source can fully navigate, read, and reason about a WordPress site without a single HTML scrape.
+
+### Notes
+- All 16 abilities are read-only. Write abilities (draft-faq, refresh-post, update-summary) remain on the v1.4 roadmap with full governance + audit log + capability checks.
+- Total surface area aligns with reference MCP sources (Stripe docs MCP, Cloudflare MCP, GitHub MCP) which all expose 15-25 typed abilities.
+
 ## [1.2.0-beta.4] - 2026-05-21 — "Brand Identity + Security Patch"
 
 Two themes: (1) consolidates 5 fragmented brand-related fields into ONE unified Brand Identity card at the top of the AI Crawlers tab; (2) patches the 2 HIGH and 6 MEDIUM/LOW severity bugs surfaced by the post-design-pass `/find-bugs` audit.

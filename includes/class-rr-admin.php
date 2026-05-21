@@ -2968,7 +2968,7 @@ class RR_Admin {
 								</p>
 								<p style="margin:6px 0 0;">
 									<?php if ( $rr_abilities_api ) : ?>
-										<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:var(--rr-color-success-bg,#d1ecdf);color:var(--rr-color-success-text,#0a6c39);font-size:11px;font-weight:600;">✓ <?php esc_html_e( 'WordPress Abilities API detected — 6 abilities registered', 'rankready' ); ?></span>
+										<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:var(--rr-color-success-bg,#d1ecdf);color:var(--rr-color-success-text,#0a6c39);font-size:11px;font-weight:600;">✓ <?php esc_html_e( 'WordPress Abilities API detected — 16 abilities registered', 'rankready' ); ?></span>
 									<?php else : ?>
 										<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:var(--rr-color-warning-bg,#fcf9e8);color:var(--rr-color-warning-text,#674c00);font-size:11px;font-weight:600;">⚠ <?php esc_html_e( 'Abilities API plugin not active — manifest still works for raw MCP discovery', 'rankready' ); ?></span>
 										<br />
@@ -2996,17 +2996,52 @@ class RR_Admin {
 						</tr>
 
 						<tr>
-							<th scope="row"><?php esc_html_e( 'Exposed abilities', 'rankready' ); ?></th>
+							<th scope="row"><?php esc_html_e( 'Exposed abilities', 'rankready' ); ?>
+								<br /><span style="font-weight:400;font-size:11px;color:var(--rr-color-text-muted,#646970);text-transform:uppercase;letter-spacing:0.04em;"><?php esc_html_e( '16 read-only', 'rankready' ); ?></span>
+							</th>
 							<td>
-								<ul style="margin:0;padding-left:18px;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);line-height:1.7;">
-									<li><code>rankready/get-site-info</code> &mdash; <?php esc_html_e( 'site name, description, URL, brand terms, language', 'rankready' ); ?></li>
-									<li><code>rankready/get-brand-terms</code> &mdash; <?php esc_html_e( 'canonical brand names array', 'rankready' ); ?></li>
-									<li><code>rankready/search-posts</code> &mdash; <?php esc_html_e( 'keyword search across published posts', 'rankready' ); ?></li>
-									<li><code>rankready/get-post-summary</code> &mdash; <?php esc_html_e( 'AI summary bullets for a post', 'rankready' ); ?></li>
-									<li><code>rankready/get-post-faq</code> &mdash; <?php esc_html_e( 'FAQ Q&amp;A pairs for a post', 'rankready' ); ?></li>
-									<li><code>rankready/list-recent-posts</code> &mdash; <?php esc_html_e( 'paginated recent-posts feed', 'rankready' ); ?></li>
-								</ul>
-								<p class="description" style="margin-top:8px;"><?php esc_html_e( 'All abilities are read-only. No write access exposed.', 'rankready' ); ?></p>
+								<details style="margin-bottom:8px;" open>
+									<summary style="cursor:pointer;font-weight:600;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);margin-bottom:6px;"><?php esc_html_e( 'Site & metadata (3)', 'rankready' ); ?></summary>
+									<ul style="margin:6px 0 12px;padding-left:18px;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);line-height:1.7;">
+										<li><code>rankready/get-site-info</code> &mdash; <?php esc_html_e( 'site name, description, about, brand terms, language', 'rankready' ); ?></li>
+										<li><code>rankready/get-brand-terms</code> &mdash; <?php esc_html_e( 'canonical brand names array', 'rankready' ); ?></li>
+										<li><code>rankready/list-content-types</code> &mdash; <?php esc_html_e( 'every public post type + published count + archive URL', 'rankready' ); ?></li>
+									</ul>
+								</details>
+
+								<details style="margin-bottom:8px;" open>
+									<summary style="cursor:pointer;font-weight:600;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);margin-bottom:6px;"><?php esc_html_e( 'Content retrieval (4)', 'rankready' ); ?></summary>
+									<ul style="margin:6px 0 12px;padding-left:18px;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);line-height:1.7;">
+										<li><code>rankready/get-post</code> &mdash; <strong><?php esc_html_e( 'full Markdown content', 'rankready' ); ?></strong> + <?php esc_html_e( 'title, URL, author, summary, FAQ, schema in one call', 'rankready' ); ?></li>
+										<li><code>rankready/get-post-by-url</code> &mdash; <?php esc_html_e( 'resolve any permalink (incl. .md / /category/ / /tag/) to content', 'rankready' ); ?></li>
+										<li><code>rankready/get-post-summary</code> &mdash; <?php esc_html_e( 'AI summary bullets only', 'rankready' ); ?></li>
+										<li><code>rankready/get-post-faq</code> &mdash; <?php esc_html_e( 'FAQ Q&amp;A pairs only', 'rankready' ); ?></li>
+									</ul>
+								</details>
+
+								<details style="margin-bottom:8px;" open>
+									<summary style="cursor:pointer;font-weight:600;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);margin-bottom:6px;"><?php esc_html_e( 'Discovery & navigation (5)', 'rankready' ); ?></summary>
+									<ul style="margin:6px 0 12px;padding-left:18px;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);line-height:1.7;">
+										<li><code>rankready/search-posts</code> &mdash; <?php esc_html_e( 'keyword search across published posts', 'rankready' ); ?></li>
+										<li><code>rankready/list-pages</code> &mdash; <?php esc_html_e( 'static pages + parent_id hierarchy', 'rankready' ); ?></li>
+										<li><code>rankready/list-recent-posts</code> &mdash; <?php esc_html_e( 'paginated recent-posts feed', 'rankready' ); ?></li>
+										<li><code>rankready/list-categories</code> &mdash; <?php esc_html_e( 'topical hierarchy: name, slug, parent, count, URL', 'rankready' ); ?></li>
+										<li><code>rankready/list-tags</code> &mdash; <?php esc_html_e( 'tags ordered by post count', 'rankready' ); ?></li>
+									</ul>
+								</details>
+
+								<details style="margin-bottom:8px;" open>
+									<summary style="cursor:pointer;font-weight:600;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);margin-bottom:6px;"><?php esc_html_e( 'AI-native (4)', 'rankready' ); ?></summary>
+									<ul style="margin:6px 0 12px;padding-left:18px;font-size:12px;color:var(--rr-color-ink-soft,#3c434a);line-height:1.7;">
+										<li><code>rankready/get-llms-txt</code> &mdash; <?php esc_html_e( 'rendered llms.txt or llms-full.txt content inline', 'rankready' ); ?></li>
+										<li><code>rankready/get-sitemap</code> &mdash; <?php esc_html_e( 'parsed sitemap (URL + lastmod) for cold crawls', 'rankready' ); ?></li>
+										<li><code>rankready/get-fresh-content</code> &mdash; <?php esc_html_e( 'posts/pages modified in last N days', 'rankready' ); ?></li>
+										<li><code>rankready/get-author</code> &mdash; <?php esc_html_e( 'EEAT Person schema fields for an author (credentials, awards, socials)', 'rankready' ); ?></li>
+									</ul>
+								</details>
+
+								<p class="description" style="margin-top:8px;"><?php esc_html_e( 'All abilities are read-only. No write access exposed.', 'rankready' ); ?>
+								<a href="<?php echo esc_url( $rr_manifest_url ); ?>" target="_blank" rel="noopener" style="margin-left:6px;"><?php esc_html_e( 'View manifest JSON →', 'rankready' ); ?></a></p>
 							</td>
 						</tr>
 					<?php endif; ?>

@@ -422,28 +422,23 @@ class RR_Llms_Txt {
 	public static function generate(): string {
 		$lines = array();
 
+		// v1.2.0-beta.4 — read every brand field from the unified getter.
+		// Single source of truth: see get_brand_identity().
+		$brand = self::get_brand_identity();
+
 		// ── H1: Site name (REQUIRED per spec) ─────────────────────────────
-		$site_name = (string) get_option( RR_OPT_LLMS_SITE_NAME, '' );
-		if ( empty( $site_name ) ) {
-			$site_name = get_bloginfo( 'name' );
-		}
-		$lines[] = '# ' . self::clean_text( $site_name );
+		$lines[] = '# ' . self::clean_text( $brand['name'] );
 		$lines[] = '';
 
 		// ── Blockquote: Brief summary (RECOMMENDED per spec) ──────────────
-		$summary = (string) get_option( RR_OPT_LLMS_SUMMARY, '' );
-		if ( empty( $summary ) ) {
-			$summary = get_bloginfo( 'description' );
-		}
-		if ( ! empty( $summary ) ) {
-			$lines[] = '> ' . self::clean_text( $summary );
+		if ( '' !== $brand['summary'] ) {
+			$lines[] = '> ' . self::clean_text( $brand['summary'] );
 			$lines[] = '';
 		}
 
 		// ── About section (detailed info) ─────────────────────────────────
-		$about = (string) get_option( RR_OPT_LLMS_ABOUT, '' );
-		if ( ! empty( $about ) ) {
-			$lines[] = self::clean_text( $about );
+		if ( '' !== $brand['about'] ) {
+			$lines[] = self::clean_text( $brand['about'] );
 			$lines[] = '';
 		}
 
@@ -582,26 +577,20 @@ class RR_Llms_Txt {
 	public static function generate_full(): string {
 		$lines = array();
 
+		// v1.2.0-beta.4 — unified getter, same brand truth as generate().
+		$brand = self::get_brand_identity();
+
 		// ── Header (same as llms.txt) ─────────────────────────────────────
-		$site_name = (string) get_option( RR_OPT_LLMS_SITE_NAME, '' );
-		if ( empty( $site_name ) ) {
-			$site_name = get_bloginfo( 'name' );
-		}
-		$lines[] = '# ' . self::clean_text( $site_name );
+		$lines[] = '# ' . self::clean_text( $brand['name'] );
 		$lines[] = '';
 
-		$summary = (string) get_option( RR_OPT_LLMS_SUMMARY, '' );
-		if ( empty( $summary ) ) {
-			$summary = get_bloginfo( 'description' );
-		}
-		if ( ! empty( $summary ) ) {
-			$lines[] = '> ' . self::clean_text( $summary );
+		if ( '' !== $brand['summary'] ) {
+			$lines[] = '> ' . self::clean_text( $brand['summary'] );
 			$lines[] = '';
 		}
 
-		$about = (string) get_option( RR_OPT_LLMS_ABOUT, '' );
-		if ( ! empty( $about ) ) {
-			$lines[] = self::clean_text( $about );
+		if ( '' !== $brand['about'] ) {
+			$lines[] = self::clean_text( $brand['about'] );
 			$lines[] = '';
 		}
 
@@ -1021,6 +1010,67 @@ class RR_Llms_Txt {
 		$list = self::get_brand_terms_list();
 		return empty( $list ) ? '' : implode( ', ', $list );
 	}
+
+	/**
+	 * Unified Brand Identity getter (v1.2.0-beta.4).
+	 *
+	 * Replaces five fragmented inputs (RR_OPT_LLMS_SITE_NAME,
+	 * RR_OPT_LLMS_SUMMARY, RR_OPT_LLMS_ABOUT, RR_OPT_BRAND_TERMS,
+	 * RR_OPT_FAQ_BRAND_TERMS) with one consistent record so every consumer
+	 * — llms.txt, llms-full.txt, robots.txt, FAQ prompt, summary prompt,
+	 * MCP ability, homepage .md — sees the same brand truth.
+	 *
+	 * Resolution order (per field):
+	 *   1. The new unified options if present
+	 *   2. The legacy per-field options (back-compat)
+	 *   3. WordPress core fallbacks (bloginfo)
+	 *
+	 * Returns an associative array shaped:
+	 *   [
+	 *     'name'    => string (site / brand name),
+	 *     'summary' => string (one-line, ≤ 160 chars),
+	 *     'about'   => string (longer description, ≤ 500 chars),
+	 *     'terms'   => string[] (canonical brand names list),
+	 *   ]
+	 *
+	 * @since 1.2.0-beta.4
+	 */
+	public static function get_brand_identity(): array {
+		// Name: explicit > legacy > WP site title.
+		$name = (string) get_option( RR_OPT_LLMS_SITE_NAME, '' );
+		if ( '' === trim( $name ) ) {
+			$name = (string) get_bloginfo( 'name' );
+		}
+
+		// Summary: legacy LLMS summary > WP tagline.
+		$summary = (string) get_option( RR_OPT_LLMS_SUMMARY, '' );
+		if ( '' === trim( $summary ) ) {
+			$summary = (string) get_bloginfo( 'description' );
+		}
+
+		// About: only the dedicated LLMS_ABOUT option.
+		$about = (string) get_option( RR_OPT_LLMS_ABOUT, '' );
+
+		// Terms: the canonical Brand Terms list (already a getter).
+		$terms = self::get_brand_terms_list();
+
+		return array(
+			'name'    => trim( $name ),
+			'summary' => trim( $summary ),
+			'about'   => trim( $about ),
+			'terms'   => $terms,
+		);
+	}
+
+	/**
+	 * Brand identity sub-getters — convenience wrappers so callers don't have
+	 * to unpack the array. Returns empty string / array on miss, never null.
+	 *
+	 * @since 1.2.0-beta.4
+	 */
+	public static function get_brand_name(): string    { return (string) self::get_brand_identity()['name']; }
+	public static function get_brand_summary(): string { return (string) self::get_brand_identity()['summary']; }
+	public static function get_brand_about(): string   { return (string) self::get_brand_identity()['about']; }
 
 	private static function clean_text( string $text ): string {
 		$text = wp_strip_all_tags( $text );

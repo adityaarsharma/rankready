@@ -123,6 +123,15 @@ class RR_AI_Referral {
 			return;
 		}
 
+		// v1.2.0-beta.4 — honour Sec-GPC and DNT (the docblock previously
+		// claimed this without code support). Audit beta.3 #11.
+		if ( ! empty( $_SERVER['HTTP_SEC_GPC'] ) && '1' === (string) $_SERVER['HTTP_SEC_GPC'] ) {
+			return;
+		}
+		if ( ! empty( $_SERVER['HTTP_DNT'] ) && '1' === (string) $_SERVER['HTTP_DNT'] ) {
+			return;
+		}
+
 		// Skip admin, REST, AJAX, cron, CLI — we only want public front-end hits.
 		if ( is_admin() || wp_doing_ajax() || wp_doing_cron() ) {
 			return;

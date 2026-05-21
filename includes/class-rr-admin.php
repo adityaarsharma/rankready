@@ -2428,6 +2428,106 @@ class RR_Admin {
 		</div>
 		<!-- ── /Agent Visibility Status ───────────────────────────────────── -->
 
+		<!-- ── Brand Identity (v1.2.0-beta.4 — unified) ───────────────────── -->
+		<?php
+		$rr_brand           = RR_Llms_Txt::get_brand_identity();
+		$rr_brand_name      = (string) get_option( RR_OPT_LLMS_SITE_NAME, '' );  // raw value, not the fallback
+		$rr_brand_summary   = (string) get_option( RR_OPT_LLMS_SUMMARY, '' );
+		$rr_brand_about     = (string) get_option( RR_OPT_LLMS_ABOUT, '' );
+		$rr_brand_terms_raw = (string) get_option( RR_OPT_BRAND_TERMS, '' );
+		$rr_brand_complete  = ( '' !== trim( $rr_brand_name ) || '' !== trim( $rr_brand_summary ) )
+			&& '' !== trim( $rr_brand_terms_raw );
+		?>
+		<form method="post" action="options.php" novalidate="novalidate" class="rr-brand-form">
+			<?php settings_fields( self::LLMS_GROUP ); ?>
+
+			<div class="rr-card" style="margin-bottom:24px;border:1px solid var(--rr-color-border,#c3c4c7);">
+				<h2 class="rr-card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+					<?php esc_html_e( 'Brand Identity', 'rankready' ); ?>
+					<span style="font-size:11px;background:var(--rr-color-brand-soft,#f0f6fc);color:var(--rr-color-info-text,#135e96);padding:2px 8px;border-radius:9999px;font-weight:600;">
+						<?php esc_html_e( 'SINGLE SOURCE OF TRUTH', 'rankready' ); ?>
+					</span>
+					<?php if ( $rr_brand_complete ) : ?>
+						<span style="font-size:11px;background:var(--rr-color-success-bg,#d1ecdf);color:var(--rr-color-success-text,#0a6c39);padding:2px 8px;border-radius:9999px;font-weight:600;">✓ <?php esc_html_e( 'Complete', 'rankready' ); ?></span>
+					<?php else : ?>
+						<span style="font-size:11px;background:var(--rr-color-warning-bg,#fcf9e8);color:var(--rr-color-warning-text,#674c00);padding:2px 8px;border-radius:9999px;font-weight:600;">⚠ <?php esc_html_e( 'Incomplete', 'rankready' ); ?></span>
+					<?php endif; ?>
+				</h2>
+				<p class="rr-card-desc" style="margin-top:4px;">
+					<?php esc_html_e( 'How AI engines see your brand. Four fields, one place. Every consumer below reads the same values — fill these once and every llms.txt, robots.txt comment, FAQ prompt, AI summary prompt, MCP ability, and homepage Markdown stays consistent.', 'rankready' ); ?>
+				</p>
+
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><label for="rr_llms_site_name"><?php esc_html_e( 'Site / brand name', 'rankready' ); ?></label></th>
+						<td>
+							<input type="text" id="rr_llms_site_name" name="<?php echo esc_attr( RR_OPT_LLMS_SITE_NAME ); ?>"
+								   value="<?php echo esc_attr( $rr_brand_name ); ?>"
+								   class="regular-text"
+								   placeholder="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>" />
+							<p class="description"><?php esc_html_e( 'Canonical name. Used as the H1 in llms.txt and in the Brand line everywhere. Falls back to your WordPress site title when empty.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><label for="rr_llms_summary"><?php esc_html_e( 'One-line summary', 'rankready' ); ?></label></th>
+						<td>
+							<textarea id="rr_llms_summary" name="<?php echo esc_attr( RR_OPT_LLMS_SUMMARY ); ?>"
+									  rows="2" class="large-text"
+									  maxlength="160"
+									  placeholder="<?php esc_attr_e( 'The elevator pitch an AI engine quotes in 1 sentence. Max 160 chars.', 'rankready' ); ?>"
+							><?php echo esc_textarea( $rr_brand_summary ); ?></textarea>
+							<p class="description"><?php esc_html_e( 'Renders as the blockquote under the H1 in llms.txt + llms-full.txt. Keep it tight — this is the line AI engines repeat.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><label for="rr_llms_about"><?php esc_html_e( 'About', 'rankready' ); ?></label></th>
+						<td>
+							<textarea id="rr_llms_about" name="<?php echo esc_attr( RR_OPT_LLMS_ABOUT ); ?>"
+									  rows="4" class="large-text"
+									  maxlength="500"
+									  placeholder="<?php esc_attr_e( 'Longer description (≤ 500 chars). What is this site about? Who is it for? Markdown supported.', 'rankready' ); ?>"
+							><?php echo esc_textarea( $rr_brand_about ); ?></textarea>
+							<p class="description"><?php esc_html_e( 'Detailed context. Appears below the summary in llms.txt and llms-full.txt. Used by AI engines for deeper site comprehension.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row"><label for="rr_brand_terms"><?php esc_html_e( 'Canonical brand terms', 'rankready' ); ?></label></th>
+						<td>
+							<textarea id="rr_brand_terms"
+									  name="<?php echo esc_attr( RR_OPT_BRAND_TERMS ); ?>"
+									  rows="4"
+									  class="large-text"
+									  placeholder="<?php esc_attr_e( "One name per line. e.g.\nThe Plus Addons for Elementor\nNexterWP\nYour Brand Name", 'rankready' ); ?>"
+							><?php echo esc_textarea( $rr_brand_terms_raw ); ?></textarea>
+							<p class="description"><?php esc_html_e( 'Use the exact capitalisation and spacing you want AI engines to use. Each line is one canonical name — variants like "theplusaddons" vs "The Plus Addons for Elementor" become a single recognised entity.', 'rankready' ); ?></p>
+						</td>
+					</tr>
+				</table>
+
+				<div style="margin-top:14px;padding:12px 14px;background:var(--rr-color-surface-2,#f6f7f7);border-radius:var(--rr-radius-md,6px);font-size:12px;line-height:1.7;color:var(--rr-color-ink-soft,#3c434a);">
+					<strong style="display:block;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--rr-color-text-muted,#646970;">
+						<?php esc_html_e( 'Where these 4 fields are used', 'rankready' ); ?>
+					</strong>
+					<ul style="margin:0;padding-left:18px;list-style:disc;">
+						<li><code>/llms.txt</code> &mdash; <?php esc_html_e( 'H1 (name), blockquote (summary), about paragraph, Brand line (terms)', 'rankready' ); ?></li>
+						<li><code>/llms-full.txt</code> &mdash; <?php esc_html_e( 'same header block + every page below', 'rankready' ); ?></li>
+						<li><code>/robots.txt</code> &mdash; <?php esc_html_e( 'Brand comment inside RankReady AI block', 'rankready' ); ?></li>
+						<li><?php esc_html_e( 'AI Summary system prompt', 'rankready' ); ?> &mdash; <?php esc_html_e( 'canonical naming forced into every summary', 'rankready' ); ?></li>
+						<li><?php esc_html_e( 'FAQ generation prompt', 'rankready' ); ?> &mdash; <?php esc_html_e( 'brand context, deduped against per-FAQ legacy field', 'rankready' ); ?></li>
+						<li><code>rankready/get-site-info</code> &mdash; <?php esc_html_e( 'WebMCP ability returns name + brand_terms to Claude Desktop / Cursor / VS Code', 'rankready' ); ?></li>
+						<li><code>rankready/get-brand-terms</code> &mdash; <?php esc_html_e( 'WebMCP ability returns terms array directly', 'rankready' ); ?></li>
+						<li><?php esc_html_e( 'Homepage Markdown (Accept: text/markdown)', 'rankready' ); ?> &mdash; <?php esc_html_e( 'site overview uses name + summary', 'rankready' ); ?></li>
+					</ul>
+				</div>
+
+				<?php submit_button( __( 'Save Brand Identity', 'rankready' ) ); ?>
+			</div>
+		</form>
+		<!-- ── /Brand Identity ───────────────────────────────────────────── -->
+
 		<!-- ── AI Crawler Access Log ─────────────────────────────────────── -->
 		<?php
 		$ep_labels        = RR_Crawler_Log::ENDPOINT_LABELS;
@@ -2941,37 +3041,11 @@ class RR_Admin {
 				</table>
 
 				<div id="rr-llms-fields" class="rr-conditional-fields" <?php echo 'on' !== $llms_enable ? 'style="display:none;"' : ''; ?>>
+					<p class="description" style="margin:0 0 16px;padding:10px 12px;background:var(--rr-color-brand-soft,#f0f6fc);border-left:3px solid var(--rr-color-brand,#2271b1);border-radius:0 var(--rr-radius-md,6px) var(--rr-radius-md,6px) 0;font-size:12px;">
+						<strong><?php esc_html_e( 'Brand identity moved.', 'rankready' ); ?></strong>
+						<?php esc_html_e( 'Site Name (H1), Summary (blockquote), and About now live in one place — the Brand Identity card at the top of this tab — and feed into llms.txt, llms-full.txt, robots.txt, FAQ prompts, AI summary prompts, and the WebMCP manifest.', 'rankready' ); ?>
+					</p>
 					<table class="form-table rr-form-table">
-						<tr>
-							<th scope="row"><label for="rr_llms_site_name"><?php esc_html_e( 'Site Name (H1)', 'rankready' ); ?></label></th>
-							<td>
-								<input type="text" id="rr_llms_site_name" name="<?php echo esc_attr( RR_OPT_LLMS_SITE_NAME ); ?>"
-									   value="<?php echo esc_attr( (string) get_option( RR_OPT_LLMS_SITE_NAME, '' ) ); ?>"
-									   class="regular-text"
-									   placeholder="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>" />
-								<p class="description"><?php esc_html_e( 'The H1 heading in your llms.txt. Defaults to your site name.', 'rankready' ); ?></p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label for="rr_llms_summary"><?php esc_html_e( 'Site Summary', 'rankready' ); ?></label></th>
-							<td>
-								<textarea id="rr_llms_summary" name="<?php echo esc_attr( RR_OPT_LLMS_SUMMARY ); ?>"
-										  rows="3" class="large-text"
-										  placeholder="<?php esc_attr_e( 'Brief one-line summary of your site (appears as blockquote)', 'rankready' ); ?>"
-								><?php echo esc_textarea( (string) get_option( RR_OPT_LLMS_SUMMARY, '' ) ); ?></textarea>
-								<p class="description"><?php esc_html_e( 'Rendered as a blockquote below the H1. Keep it concise.', 'rankready' ); ?></p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label for="rr_llms_about"><?php esc_html_e( 'About Section', 'rankready' ); ?></label></th>
-							<td>
-								<textarea id="rr_llms_about" name="<?php echo esc_attr( RR_OPT_LLMS_ABOUT ); ?>"
-										  rows="5" class="large-text"
-										  placeholder="<?php esc_attr_e( 'Detailed description of your site, products, services. Markdown supported.', 'rankready' ); ?>"
-								><?php echo esc_textarea( (string) get_option( RR_OPT_LLMS_ABOUT, '' ) ); ?></textarea>
-								<p class="description"><?php esc_html_e( 'Detailed info about your site. Supports markdown. Appears after the summary.', 'rankready' ); ?></p>
-							</td>
-						</tr>
 						<tr>
 							<th scope="row"><?php esc_html_e( 'Include Post Types', 'rankready' ); ?></th>
 							<td>
@@ -3299,54 +3373,10 @@ class RR_Admin {
 			</div>
 
 
-			<!-- ── Brand Terms ───────────────────────────────────────────────── -->
-			<div class="rr-card">
-				<h2 class="rr-card-title">
-					<?php esc_html_e( 'Brand Terms', 'rankready' ); ?>
-					<span style="font-size:11px;background:var(--rr-color-info-bg,#e5f1f9);color:var(--rr-color-info-text,#135e96);padding:2px 8px;border-radius:9999px;margin-left:6px;vertical-align:middle;font-weight:600;">
-						<?php esc_html_e( 'WIRED EVERYWHERE', 'rankready' ); ?>
-					</span>
-				</h2>
-				<p class="rr-card-desc">
-					<?php esc_html_e( 'Canonical brand and product names for this site. One input field, five consumers — RankReady automatically applies these names anywhere AI engines and LLMs read your site.', 'rankready' ); ?>
-				</p>
-				<table class="form-table rr-form-table">
-					<tr>
-						<th scope="row"><label for="rr_brand_terms"><?php esc_html_e( 'Canonical Names', 'rankready' ); ?></label></th>
-						<td>
-							<textarea id="rr_brand_terms"
-							          name="<?php echo esc_attr( RR_OPT_BRAND_TERMS ); ?>"
-							          rows="4"
-							          class="large-text"
-							          placeholder="<?php esc_attr_e( "e.g.\nThe Plus Addons for Elementor\nNexterWP\nYour Brand Name", 'rankready' ); ?>"
-							><?php echo esc_textarea( (string) get_option( RR_OPT_BRAND_TERMS, '' ) ); ?></textarea>
-							<p class="description">
-								<?php esc_html_e( 'One canonical name per line. Use the exact capitalisation and spacing you want AI engines to recognise.', 'rankready' ); ?>
-							</p>
-
-							<?php $rr_bt_active = '' !== trim( (string) get_option( RR_OPT_BRAND_TERMS, '' ) ); ?>
-							<div style="margin-top:14px;padding:12px 14px;background:var(--rr-color-surface-2,#f6f7f7);border-radius:var(--rr-radius-md,6px);font-size:12px;line-height:1.7;color:var(--rr-color-ink-soft,#3c434a);">
-								<strong style="display:block;margin-bottom:6px;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--rr-color-text-muted,#646970);">
-									<?php esc_html_e( 'This one input wires into', 'rankready' ); ?>
-								</strong>
-								<ul style="margin:0;padding-left:18px;list-style:disc;">
-									<li><code>/llms.txt</code> &mdash; <?php esc_html_e( 'Brand line in site metadata header', 'rankready' ); ?></li>
-									<li><code>/llms-full.txt</code> &mdash; <?php esc_html_e( 'Brand line in site metadata header', 'rankready' ); ?></li>
-									<li><code>/robots.txt</code> &mdash; <?php esc_html_e( 'Brand comment line inside the RankReady AI block', 'rankready' ); ?></li>
-									<li><?php esc_html_e( 'FAQ generation prompt', 'rankready' ); ?> &mdash; <?php esc_html_e( 'canonical brand context injected before each AI call', 'rankready' ); ?></li>
-									<li><?php esc_html_e( 'AI Summary system prompt', 'rankready' ); ?> &mdash; <?php esc_html_e( 'forces consistent brand naming in every summary', 'rankready' ); ?></li>
-									<li><code>rankready/get-brand-terms</code> &mdash; <?php esc_html_e( 'exposed as a WebMCP ability to Claude Desktop / Cursor / VS Code', 'rankready' ); ?></li>
-								</ul>
-								<?php if ( ! $rr_bt_active ) : ?>
-									<p style="margin:8px 0 0;color:var(--rr-color-warning-text,#674c00);">
-										<?php esc_html_e( 'Currently empty — sites with no brand terms fall back to the WordPress site title. Set at least one name to drive entity consistency across all six surfaces above.', 'rankready' ); ?>
-									</p>
-								<?php endif; ?>
-							</div>
-						</td>
-					</tr>
-				</table>
-			</div>
+			<!-- Brand Terms moved to the unified "Brand Identity" card at top of tab. -->
+			<p class="description" style="margin:0 0 16px;padding:10px 12px;background:var(--rr-color-surface-2,#f6f7f7);border-radius:var(--rr-radius-md,6px);font-size:12px;color:var(--rr-color-text-muted,#646970);">
+				<?php esc_html_e( 'Looking for Brand Terms? It now lives in the unified Brand Identity card at the top of this tab — same field, same data, just grouped with site name / summary / about so you can fill them once and use them everywhere.', 'rankready' ); ?>
+			</p>
 
 			<?php submit_button( __( 'Save LLM Settings', 'rankready' ) ); ?>
 		</form>

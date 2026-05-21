@@ -87,6 +87,14 @@ class RR_Welcome {
 		if ( ! isset( $_POST['rr_welcome_submit'] ) ) {
 			return;
 		}
+		// v1.2.0-beta.4 — guard against AJAX / REST callers that happen to
+		// inherit a stale welcome form payload (e.g. welcome page open in
+		// another tab). admin_init runs in those contexts too. The
+		// wp_safe_redirect + exit would otherwise terminate a legitimate
+		// AJAX/REST response. (Audit beta.3 #12.)
+		if ( wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+			return;
+		}
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}

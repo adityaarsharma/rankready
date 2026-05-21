@@ -27,6 +27,46 @@ if ( ! $should_delete_all ) {
 
 // ── Delete options ────────────────────────────────────────────────────────────
 $options = array(
+	// Multi-LLM provider keys + models (v1.1.0+). MUST be in this list — opting
+	// into "delete all" for key rotation / GDPR compliance is meaningless if
+	// API keys survive uninstall. (Audit beta.3 finding #2.)
+	'rr_llm_provider',
+	'rr_anthropic_api_key',
+	'rr_anthropic_model',
+	'rr_gemini_api_key',
+	'rr_gemini_model',
+	'rr_deepseek_api_key',
+	'rr_deepseek_model',
+
+	// v1.2.0 — Agent Ready options.
+	'rr_brand_terms',
+	'rr_max_snippet_default',
+	'rr_ai_referral_stats',
+	'rr_ai_referral_enable',
+	'rr_mcp_enable',
+	'rr_md_hint_div',
+	'rr_md_bot_auto_serve',
+	'rr_welcome_completed',
+
+	// v1.1.x — Content Signals.
+	'rr_content_signals_enable',
+	'rr_content_signals_ai_train',
+	'rr_content_signals_search',
+	'rr_content_signals_ai_input',
+
+	// v1.1.x — Headless / Public API.
+	'rr_headless_enable',
+	'rr_headless_cors_origins',
+	'rr_headless_expose_meta',
+	'rr_headless_cache_ttl',
+	'rr_headless_rate_limit',
+	'rr_headless_revalidate_url',
+	'rr_headless_revalidate_secret',
+	'rr_headless_graphql',
+
+	// v1.1.1+ — "What's new" banner version tracker.
+	'rr_installed_version',
+
 	// AI Summary.
 	'rr_openai_api_key',
 	'rr_openai_model',
@@ -152,6 +192,9 @@ $meta_keys = array(
 	'_rr_faq_generated',
 	'_rr_faq_disable',
 	'_rr_faq_keyword',
+	'_rr_faq_last_failure',  // v1.1.3 circuit breaker timestamp
+	'_rr_max_snippet',       // v1.2.0 per-post max-snippet override
+	'_rr_llms_exclude',      // v1.2.0 per-post llms.txt exclusion
 	'_rr_tokens_used',
 	'_rr_schema_type',
 	'_rr_schema_data',
@@ -205,6 +248,11 @@ wp_clear_scheduled_hook( 'rr_schema_scan' );
 wp_clear_scheduled_hook( 'rr_cron_bulk_startover' );
 wp_clear_scheduled_hook( 'rr_cron_bulk_faq' );
 wp_clear_scheduled_hook( 'rr_cron_bulk_summary' );
+wp_clear_scheduled_hook( 'rr_crawler_log_prune' );  // v0.6.6 daily prune cron
+
+// ── Drop the crawler-log table (v0.6.6) ──────────────────────────────────────
+$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'rr_crawler_log' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
+delete_option( 'rr_crawler_log_db_version' );
 
 // ── Flush rewrite rules to clean up llms.txt and .md endpoints ───────────────
 flush_rewrite_rules( false );

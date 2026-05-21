@@ -160,6 +160,26 @@ class RR_MCP {
 
 	// ── Abilities API registration ────────────────────────────────────────
 
+	/**
+	 * Permission callback shared by every RankReady MCP ability.
+	 *
+	 * Read-only public — same trust level as `/.well-known/mcp.json` and
+	 * the headless REST surface — BUT gated by the master toggle so turning
+	 * MCP off in admin actually shuts off the abilities (audit beta.3 #3).
+	 *
+	 * @return true|WP_Error true when allowed, WP_Error 503 otherwise.
+	 */
+	public static function ability_permission() {
+		if ( ! self::is_enabled() ) {
+			return new WP_Error(
+				'rr_mcp_disabled',
+				__( 'WebMCP is disabled on this site.', 'rankready' ),
+				array( 'status' => 503 )
+			);
+		}
+		return true;
+	}
+
 	public static function register_abilities(): void {
 		if ( ! self::is_enabled() ) {
 			return; // Master toggle off — skip Abilities registration entirely.
@@ -183,7 +203,7 @@ class RR_MCP {
 				),
 			),
 			'execute_callback'    => array( self::class, 'ability_get_site_info' ),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array( self::class, 'ability_permission' ),
 		) );
 
 		wp_register_ability( self::NS . '/get-brand-terms', array(
@@ -195,7 +215,7 @@ class RR_MCP {
 				'properties' => array( 'brand_terms' => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ) ),
 			),
 			'execute_callback'    => array( self::class, 'ability_get_brand_terms' ),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array( self::class, 'ability_permission' ),
 		) );
 
 		wp_register_ability( self::NS . '/search-posts', array(
@@ -229,7 +249,7 @@ class RR_MCP {
 				),
 			),
 			'execute_callback'    => array( self::class, 'ability_search_posts' ),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array( self::class, 'ability_permission' ),
 		) );
 
 		wp_register_ability( self::NS . '/get-post-summary', array(
@@ -250,7 +270,7 @@ class RR_MCP {
 				),
 			),
 			'execute_callback'    => array( self::class, 'ability_get_post_summary' ),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array( self::class, 'ability_permission' ),
 		) );
 
 		wp_register_ability( self::NS . '/get-post-faq', array(
@@ -280,7 +300,7 @@ class RR_MCP {
 				),
 			),
 			'execute_callback'    => array( self::class, 'ability_get_post_faq' ),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array( self::class, 'ability_permission' ),
 		) );
 
 		wp_register_ability( self::NS . '/list-recent-posts', array(
@@ -312,19 +332,31 @@ class RR_MCP {
 				),
 			),
 			'execute_callback'    => array( self::class, 'ability_list_recent_posts' ),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array( self::class, 'ability_permission' ),
 		) );
 	}
 
 	// ── Ability implementations ───────────────────────────────────────────
 
 	public static function ability_get_site_info(): array {
+		// v1.2.0-beta.4 — return the unified Brand Identity so agents see
+		// the same canonical name + summary + about + terms that humans see.
+		$brand = class_exists( 'RR_Llms_Txt' )
+			? RR_Llms_Txt::get_brand_identity()
+			: array(
+				'name'    => (string) get_bloginfo( 'name' ),
+				'summary' => (string) get_bloginfo( 'description' ),
+				'about'   => '',
+				'terms'   => array(),
+			);
+
 		return array(
-			'name'        => (string) get_bloginfo( 'name' ),
-			'description' => (string) get_bloginfo( 'description' ),
+			'name'        => $brand['name'],
+			'description' => $brand['summary'],
+			'about'       => $brand['about'],
 			'url'         => home_url( '/' ),
 			'language'    => (string) get_bloginfo( 'language' ),
-			'brand_terms' => class_exists( 'RR_Llms_Txt' ) ? RR_Llms_Txt::get_brand_terms_list() : array(),
+			'brand_terms' => $brand['terms'],
 		);
 	}
 

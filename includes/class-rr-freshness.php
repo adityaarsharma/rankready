@@ -145,17 +145,40 @@ class RR_Freshness {
 						listEl.innerHTML = '<p style="color:var(--rr-color-text-muted,#646970);font-style:italic;font-size:var(--rr-text-sm,12px);padding:8px 0;">' + msg + '</p>';
 						return;
 					}
-					var html = '<ul>';
+					// v1.2.0-beta.4 — build via DOM APIs (not innerHTML) so any
+					// post title containing HTML/script characters is treated as
+					// text. Previous innerHTML concatenation was a stored XSS
+					// path (author writes malicious title -> admin viewing the
+					// dashboard executes it as admin). See bug audit beta.3 #1.
+					listEl.textContent = ''; // clear loading row
+					var ul = document.createElement( 'ul' );
 					data.posts.forEach( function( p ) {
-						html += '<li><label>'
-						     +   '<input type="checkbox" value="' + p.id + '" />'
-						     +   '<span class="rr-fw-title"><a href="' + p.edit + '" target="_blank">' + p.title + '</a></span>'
-						     + '</label>'
-						     + '<span class="rr-fw-age">' + p.age + 'd</span>'
-						     + '</li>';
+						var li      = document.createElement( 'li' );
+						var label   = document.createElement( 'label' );
+						var cb      = document.createElement( 'input' );
+						cb.type     = 'checkbox';
+						cb.value    = String( parseInt( p.id, 10 ) || 0 );
+						var titleEl = document.createElement( 'span' );
+						titleEl.className = 'rr-fw-title';
+						var link    = document.createElement( 'a' );
+						// p.edit can be null when the user lacks edit caps; coerce + validate scheme.
+						var editUrl = String( p.edit || '#' );
+						if ( ! /^https?:\/\//.test( editUrl ) && editUrl !== '#' ) { editUrl = '#'; }
+						link.href   = editUrl;
+						link.target = '_blank';
+						link.rel    = 'noopener noreferrer';
+						link.textContent = String( p.title || '(no title)' );
+						titleEl.appendChild( link );
+						label.appendChild( cb );
+						label.appendChild( titleEl );
+						var ageEl   = document.createElement( 'span' );
+						ageEl.className = 'rr-fw-age';
+						ageEl.textContent = ( parseInt( p.age, 10 ) || 0 ) + 'd';
+						li.appendChild( label );
+						li.appendChild( ageEl );
+						ul.appendChild( li );
 					} );
-					html += '</ul>';
-					listEl.innerHTML = html;
+					listEl.appendChild( ul );
 				} ).catch( function() {
 					listEl.innerHTML = '<p style="color:#d63638;font-size:12px;">Failed to load.</p>';
 				} );
@@ -261,30 +284,48 @@ class RR_Freshness {
 		$now_mysql_gmt = current_time( 'mysql', true );
 
 		$refreshed = 0;
-		// Suppress summary re-generation cascade — content didn't change, only modified date.
-		if ( class_exists( 'RR_Generator' ) ) {
+		$skipped   = 0;  // capability denied
+		$failed    = 0;  // wp_update_post returned WP_Error
+
+		// v1.2.0-beta.4 — save/restore the previous value instead of blanket
+		// reset to false. Two concurrent admin requests sharing a PHP-FPM
+		// worker would otherwise tear down each other's re-entrancy guard.
+		// (Audit beta.3 #10.)
+		$prev_generating = class_exists( 'RR_Generator' ) ? RR_Generator::$generating : null;
+		if ( null !== $prev_generating ) {
 			RR_Generator::$generating = true;
 		}
 
-		foreach ( $post_ids as $post_id ) {
-			if ( ! current_user_can( 'edit_post', $post_id ) ) {
-				continue;
+		try {
+			foreach ( $post_ids as $post_id ) {
+				if ( ! current_user_can( 'edit_post', $post_id ) ) {
+					$skipped++;
+					continue;
+				}
+				$result = wp_update_post( array(
+					'ID'                => $post_id,
+					'post_modified'     => $now_mysql,
+					'post_modified_gmt' => $now_mysql_gmt,
+				), true );
+				if ( is_wp_error( $result ) ) {
+					$failed++;
+				} else {
+					$refreshed++;
+				}
 			}
-			$result = wp_update_post( array(
-				'ID'                => $post_id,
-				'post_modified'     => $now_mysql,
-				'post_modified_gmt' => $now_mysql_gmt,
-			), true );
-			if ( ! is_wp_error( $result ) ) {
-				$refreshed++;
+		} finally {
+			if ( null !== $prev_generating ) {
+				RR_Generator::$generating = $prev_generating;
 			}
 		}
 
-		if ( class_exists( 'RR_Generator' ) ) {
-			RR_Generator::$generating = false;
-		}
-
-		return new WP_REST_Response( array( 'refreshed' => $refreshed, 'requested' => count( $post_ids ) ), 200 );
+		// Honest counts so the JS UI doesn't claim N refreshed when N were skipped.
+		return new WP_REST_Response( array(
+			'refreshed' => $refreshed,
+			'skipped'   => $skipped,
+			'failed'    => $failed,
+			'requested' => count( $post_ids ),
+		), 200 );
 	}
 
 	// ── Internal queries ──────────────────────────────────────────────────

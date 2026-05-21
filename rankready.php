@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – Get cited by ChatGPT & Perplexity
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.2.0-beta.3
+ * Version:           1.2.0-beta.4
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.2.0-beta.3' );
+	define( 'RR_VERSION',  '1.2.0-beta.4' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -792,6 +792,12 @@ register_deactivation_hook( RR_FILE, function (): void {
 	}
 	wp_clear_scheduled_hook( 'rr_async_faq_generate' );
 	wp_clear_scheduled_hook( RR_SCHEMA_CRON_HOOK );
+
+	// v1.2.0-beta.4 — clear cron hooks that were uncovered in beta.3 audit #9.
+	wp_clear_scheduled_hook( 'rr_crawler_log_prune' );  // daily prune was leaving zombie queries against a (possibly dropped) table.
+	wp_clear_scheduled_hook( RR_CRON_BULK_STARTOVER );
+	wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
+	wp_clear_scheduled_hook( RR_CRON_BULK_SUMMARY );
 	update_option( RR_BULK_RUNNING, false );
 	update_option( RR_BAC_RUNNING, false );
 	update_option( RR_FAQ_RUNNING, false );

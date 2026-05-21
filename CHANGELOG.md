@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-beta.4] - 2026-05-21 — "Brand Identity + Security Patch"
+
+Two themes: (1) consolidates 5 fragmented brand-related fields into ONE unified Brand Identity card at the top of the AI Crawlers tab; (2) patches the 2 HIGH and 6 MEDIUM/LOW severity bugs surfaced by the post-design-pass `/find-bugs` audit.
+
+### Added
+- **Unified Brand Identity card** — Single card at the top of the AI Crawlers tab containing site name, one-line summary, about, and canonical brand terms. All four fields feed into llms.txt, llms-full.txt, robots.txt, FAQ prompts, AI summary prompts, MCP `get-site-info` ability, MCP `get-brand-terms` ability, and homepage Markdown — one place to edit, one consistent record everywhere.
+- **`RR_Llms_Txt::get_brand_identity()`** — Unified getter returning `{name, summary, about, terms}`. Resolves through (1) new unified options → (2) legacy LLMS_SITE_NAME / LLMS_SUMMARY / LLMS_ABOUT / FAQ_BRAND_TERMS → (3) WordPress core fallbacks. Full backward compatibility — existing options still work; new code reads through the unified getter only.
+
+### Changed
+- **AI Crawlers tab IA** — LLMs.txt Generator card no longer has its own Site Name / Summary / About inputs (moved to the new Brand Identity card). Old "Brand Terms" standalone card removed. A breadcrumb note in the LLMs.txt card points users to the new home for those fields.
+- **MCP `get-site-info` ability** — Now returns `name + description + about + url + language + brand_terms` from the unified Brand Identity getter (was: bloginfo direct reads).
+- **llms.txt + llms-full.txt generators** — Both now read brand fields exclusively through `get_brand_identity()` (was: 3 separate `get_option()` calls each).
+
+### Security (HIGH severity, audit beta.3 #1 + #2)
+- **XSS hardening in Freshness dashboard widget** — Rebuilt the JS row renderer to use `createElement` + `textContent` instead of `innerHTML` string concatenation. Post titles authored by lower-privileged users could otherwise execute as admin in the WP dashboard (privilege escalation primitive).
+- **Uninstall now deletes multi-provider keys** — Anthropic, Gemini, DeepSeek API keys + models, all v1.2 options (Brand Terms, max-snippet, AI Referral stats, MCP toggle, Markdown sub-toggles, Welcome flag), Content Signals options, Headless API options, per-post `_rr_max_snippet` + `_rr_llms_exclude` + `_rr_faq_last_failure` meta — and drops the entire `wp_rr_crawler_log` table when the admin opts into "delete all data on uninstall". Critical for GDPR / key-rotation compliance.
+
+### Fixed (MEDIUM severity, audit beta.3)
+- **MCP ability permission callbacks no longer `__return_true`** — Now share `RR_MCP::ability_permission()` which honours the master enable toggle. Disabling WebMCP shuts off both the manifest and the 6 abilities (was: only the manifest 404'd, abilities still answered).
+- **`do_shortcode()` removed from FAQ cron path** — `RR_Faq::build_faq_prompt()` now uses `strip_shortcodes()` when running under `wp_doing_cron()` to avoid third-party shortcodes (Elementor / EDD / BBPress) executing in cron context without their expected frontend globals.
+- **Deactivation clears all v1.2-era crons** — `rr_crawler_log_prune` and the three bulk cron hooks (`rr_cron_bulk_startover/faq/summary`) are now properly cleared.
+- **Freshness refresh `$generating` race** — `RR_Freshness::rest_refresh()` now save/restores `RR_Generator::$generating` instead of blanket-resetting to false. Concurrent admin requests no longer tear down each other's re-entrancy guard. Response now reports honest `refreshed / skipped / failed` counts.
+- **AI Referral honours Sec-GPC and DNT** — `RR_AI_Referral::maybe_record_referral()` now actually checks the headers the class docblock claimed to honour. GDPR / CCPA compliance.
+- **Welcome submit guarded against AJAX / REST contexts** — `RR_Welcome::maybe_handle_submit()` early-returns when `wp_doing_ajax()` or `REST_REQUEST` is set, preventing the redirect-and-exit from terminating unrelated API responses that happen to inherit the welcome form payload.
+
+### Notes
+- The unified Brand Identity card is backward compatible: existing users keep their saved values from RR_OPT_LLMS_SITE_NAME / SUMMARY / ABOUT and continue editing them in the new card without losing data.
+- v1.2.0-beta.3 medium audit items #4 (double robots meta) and #5 (AI Referral race) deferred to beta.5 — both need design decisions, not just code fixes.
+- v1.2.0-beta.3 LOW audit items #13–#19 moved to the v1.2.0 stable QA checklist in ROADMAP.md.
+
 ## [1.2.0-beta.3] - 2026-05-21 — "Agent Ready: Insight Layer"
 
 Surfaces every v1.2 feature in the admin UI and turns the bot tracking data into an actionable insight (the real story behind the numbers).

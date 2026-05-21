@@ -860,8 +860,15 @@ class RR_Faq {
 		array $internal_links,
 		int $count
 	): string {
-		$title     = get_the_title( $post );
-		$content   = wp_strip_all_tags( do_shortcode( $post->post_content ) );
+		$title = get_the_title( $post );
+		// v1.2.0-beta.4 — under WP-Cron / async we must NOT execute shortcodes.
+		// Many shortcodes (Elementor, EDD, BBPress, JetEngine, MailPoet) assume
+		// a frontend / current_user context and either crash or trigger side
+		// effects when invoked from cron. Same pattern RR_Llms_Txt uses.
+		// (Audit beta.3 #8.)
+		$content = wp_doing_cron()
+			? wp_strip_all_tags( strip_shortcodes( $post->post_content ) )
+			: wp_strip_all_tags( do_shortcode( $post->post_content ) );
 		$page_type = self::detect_page_type( $post );
 
 		// Truncate content to ~3500 words to stay within token limits.

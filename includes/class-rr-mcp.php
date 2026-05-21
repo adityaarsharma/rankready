@@ -114,6 +114,21 @@ class RR_MCP {
 	}
 
 	private static function tool_descriptors(): array {
+		// v1.2.0-beta.6 — filter manifest to only include enabled abilities.
+		// Disabled abilities don't appear here, so Claude Desktop / Cursor
+		// don't show them as available tools at all.
+		$all = self::all_tool_descriptors();
+		$out = array();
+		foreach ( $all as $tool ) {
+			$bare = substr( $tool['name'], strlen( self::NS . '/' ) );
+			if ( self::is_ability_enabled( $bare ) ) {
+				$out[] = $tool;
+			}
+		}
+		return $out;
+	}
+
+	private static function all_tool_descriptors(): array {
 		return array(
 			array(
 				'name'        => 'rankready/get-site-info',
@@ -250,6 +265,140 @@ class RR_MCP {
 		return true;
 	}
 
+	/**
+	 * v1.2.0-beta.6 — Per-resource toggle check. Returns true when the
+	 * resource is opted in (defaults defined in admin.php registration).
+	 *
+	 * @param string $resource_option One of the RR_OPT_MCP_EXPOSE_* constants.
+	 */
+	public static function resource_enabled( string $resource_option ): bool {
+		// Defer to register_setting() defaults: WP returns the registered
+		// default when no row exists. We just check 'on' as the canonical
+		// enabled value.
+		return 'on' === (string) get_option( $resource_option, 'off' );
+	}
+
+	/**
+	 * Returns the full per-resource exposure state for the manifest +
+	 * admin UI. Used by both the JSON manifest and the WebMCP settings
+	 * card so the two always agree on what's exposed.
+	 */
+	public static function exposure_state(): array {
+		return array(
+			'posts'      => self::resource_enabled( RR_OPT_MCP_EXPOSE_POSTS )
+				|| ( null === get_option( RR_OPT_MCP_EXPOSE_POSTS, null )
+					? true : false ), // default ON
+			'pages'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_PAGES, 'on' ),
+			'authors'    => 'on' === get_option( RR_OPT_MCP_EXPOSE_AUTHORS, 'on' ),
+			'taxonomies' => 'on' === get_option( RR_OPT_MCP_EXPOSE_TAXONOMIES, 'on' ),
+			'sitemap'    => 'on' === get_option( RR_OPT_MCP_EXPOSE_SITEMAP, 'on' ),
+			'menus'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_MENUS, 'on' ),
+			'llms_txt'   => 'on' === get_option( RR_OPT_MCP_EXPOSE_LLMS_TXT, 'on' ),
+			'rr_ai'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_RR_AI, 'on' ),
+			'freshness'  => 'on' === get_option( RR_OPT_MCP_EXPOSE_FRESHNESS, 'on' ),
+			'cpts'       => (array) get_option( RR_OPT_MCP_EXPOSE_CPTS, array() ),
+			'comments'   => 'on' === get_option( RR_OPT_MCP_EXPOSE_COMMENTS, 'off' ),
+			'media'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_MEDIA, 'off' ),
+			'users'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_USERS, 'off' ),
+			'plugins'    => 'on' === get_option( RR_OPT_MCP_EXPOSE_PLUGINS, 'off' ),
+			'themes'     => 'on' === get_option( RR_OPT_MCP_EXPOSE_THEMES, 'off' ),
+			'settings'   => 'on' === get_option( RR_OPT_MCP_EXPOSE_SETTINGS, 'off' ),
+		);
+	}
+
+	/**
+	 * Auto-detect every public CPT (not posts/pages) so the UI can list
+	 * them as opt-in toggles. Returns slug => label.
+	 */
+	public static function detected_cpts(): array {
+		$out = array();
+		foreach ( get_post_types( array( 'public' => true ), 'objects' ) as $slug => $obj ) {
+			if ( in_array( $slug, array( 'post', 'page', 'attachment' ), true ) ) {
+				continue;
+			}
+			$out[ $slug ] = $obj->labels->name;
+		}
+		return $out;
+	}
+
+	/**
+	 * Per-ability gating map. Returns the list of exposure-state keys that
+	 * MUST all be true for the ability to be available. Empty array means
+	 * the ability is always available (e.g. site-info, content-types).
+	 *
+	 * @return array<string,string[]>
+	 */
+	public static function ability_gates(): array {
+		return array(
+			// Always-on essentials (site identity + content type catalog).
+			'get-site-info'      => array(),
+			'list-content-types' => array(),
+
+			// RankReady AI value-add data.
+			'get-brand-terms'    => array( 'rr_ai' ),
+			'get-post-summary'   => array( 'rr_ai', 'posts' ),
+			'get-post-faq'       => array( 'rr_ai', 'posts' ),
+
+			// Posts resource.
+			'search-posts'       => array( 'posts' ),
+			'list-recent-posts'  => array( 'posts' ),
+			'get-post'           => array( 'posts' ),
+			'get-post-by-url'    => array( 'posts' ),
+
+			// Pages resource.
+			'list-pages'         => array( 'pages' ),
+
+			// Taxonomies.
+			'list-categories'    => array( 'taxonomies' ),
+			'list-tags'          => array( 'taxonomies' ),
+
+			// Authors / EEAT.
+			'get-author'         => array( 'authors' ),
+
+			// AI-native primitives.
+			'get-llms-txt'       => array( 'llms_txt' ),
+			'get-sitemap'        => array( 'sitemap' ),
+			'get-fresh-content'  => array( 'freshness' ),
+		);
+	}
+
+	/**
+	 * Returns true when all gates for the named ability are open.
+	 *
+	 * @param string $name Bare ability name without namespace (e.g. 'get-post').
+	 */
+	public static function is_ability_enabled( string $name ): bool {
+		$gates  = self::ability_gates();
+		$needed = isset( $gates[ $name ] ) ? $gates[ $name ] : array();
+		if ( empty( $needed ) ) {
+			return true;
+		}
+		$state = self::exposure_state();
+		foreach ( $needed as $key ) {
+			if ( empty( $state[ $key ] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Execute-time guard. Returns a WP_Error array shape when the ability
+	 * is disabled at the resource level; null when it's allowed to proceed.
+	 *
+	 * @param string $name Bare ability name.
+	 * @return array|null
+	 */
+	private static function guard( string $name ): ?array {
+		if ( self::is_ability_enabled( $name ) ) {
+			return null;
+		}
+		return array(
+			'error'   => 'resource_disabled',
+			'message' => 'This ability is not exposed on this site. Enable the matching resource in RankReady → AI Crawlers → WebMCP to use it.',
+		);
+	}
+
 	public static function register_abilities(): void {
 		if ( ! self::is_enabled() ) {
 			return; // Master toggle off — skip Abilities registration entirely.
@@ -257,6 +406,10 @@ class RR_MCP {
 		if ( ! function_exists( 'wp_register_ability' ) ) {
 			return; // Abilities API plugin not active — graceful no-op.
 		}
+
+		// v1.2.0-beta.6 — fetch the per-resource exposure state once so each
+		// registration block can gate itself cleanly.
+		$expose = self::exposure_state();
 
 		wp_register_ability( self::NS . '/get-site-info', array(
 			'label'               => __( 'Get site info', 'rankready' ),
@@ -611,12 +764,14 @@ class RR_MCP {
 	}
 
 	public static function ability_get_brand_terms(): array {
+		if ( $g = self::guard( 'get-brand-terms' ) ) { return $g; }
 		return array(
 			'brand_terms' => class_exists( 'RR_Llms_Txt' ) ? RR_Llms_Txt::get_brand_terms_list() : array(),
 		);
 	}
 
 	public static function ability_search_posts( array $input ): array {
+		if ( $g = self::guard( 'search-posts' ) ) { return $g; }
 		$query = isset( $input['query'] ) ? (string) $input['query'] : '';
 		$limit = isset( $input['limit'] ) ? (int) $input['limit'] : 10;
 		$limit = max( 1, min( 20, $limit ) );
@@ -649,6 +804,7 @@ class RR_MCP {
 	}
 
 	public static function ability_get_post_summary( array $input ): array {
+		if ( $g = self::guard( 'get-post-summary' ) ) { return $g; }
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
@@ -673,6 +829,7 @@ class RR_MCP {
 	}
 
 	public static function ability_get_post_faq( array $input ): array {
+		if ( $g = self::guard( 'get-post-faq' ) ) { return $g; }
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
@@ -690,6 +847,7 @@ class RR_MCP {
 	}
 
 	public static function ability_list_recent_posts( array $input ): array {
+		if ( $g = self::guard( 'list-recent-posts' ) ) { return $g; }
 		$limit  = isset( $input['limit'] ) ? (int) $input['limit'] : 10;
 		$offset = isset( $input['offset'] ) ? (int) $input['offset'] : 0;
 		$limit  = max( 1, min( 50, $limit ) );
@@ -769,6 +927,7 @@ class RR_MCP {
 	}
 
 	public static function ability_get_post( array $input ): array {
+		if ( $g = self::guard( 'get-post' ) ) { return $g; }
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
@@ -779,6 +938,7 @@ class RR_MCP {
 	}
 
 	public static function ability_get_post_by_url( array $input ): array {
+		if ( $g = self::guard( 'get-post-by-url' ) ) { return $g; }
 		$url = isset( $input['url'] ) ? esc_url_raw( (string) $input['url'] ) : '';
 		if ( '' === $url ) {
 			return array( 'id' => 0 );
@@ -823,6 +983,7 @@ class RR_MCP {
 	}
 
 	public static function ability_list_pages( array $input ): array {
+		if ( $g = self::guard( 'list-pages' ) ) { return $g; }
 		$limit  = isset( $input['limit'] )  ? (int) $input['limit']  : 50;
 		$offset = isset( $input['offset'] ) ? (int) $input['offset'] : 0;
 		$limit  = max( 1, min( 100, $limit ) );
@@ -872,6 +1033,7 @@ class RR_MCP {
 	}
 
 	public static function ability_list_categories( array $input ): array {
+		if ( $g = self::guard( 'list-categories' ) ) { return $g; }
 		$limit = isset( $input['limit'] ) ? (int) $input['limit'] : 50;
 		$limit = max( 1, min( 200, $limit ) );
 
@@ -897,6 +1059,7 @@ class RR_MCP {
 	}
 
 	public static function ability_list_tags( array $input ): array {
+		if ( $g = self::guard( 'list-tags' ) ) { return $g; }
 		$limit = isset( $input['limit'] ) ? (int) $input['limit'] : 50;
 		$limit = max( 1, min( 200, $limit ) );
 
@@ -921,6 +1084,7 @@ class RR_MCP {
 	}
 
 	public static function ability_get_llms_txt( array $input ): array {
+		if ( $g = self::guard( 'get-llms-txt' ) ) { return $g; }
 		$full = ! empty( $input['full'] );
 		if ( ! class_exists( 'RR_Llms_Txt' ) ) {
 			return array( 'content' => '', 'enabled' => false );
@@ -947,6 +1111,7 @@ class RR_MCP {
 	}
 
 	public static function ability_get_author( array $input ): array {
+		if ( $g = self::guard( 'get-author' ) ) { return $g; }
 		$author_id = isset( $input['author_id'] ) ? (int) $input['author_id'] : 0;
 		$user      = $author_id ? get_userdata( $author_id ) : null;
 		if ( ! $user ) {
@@ -979,6 +1144,7 @@ class RR_MCP {
 	}
 
 	public static function ability_get_sitemap( array $input ): array {
+		if ( $g = self::guard( 'get-sitemap' ) ) { return $g; }
 		$limit = isset( $input['limit'] ) ? (int) $input['limit'] : 500;
 		$limit = max( 1, min( 2000, $limit ) );
 
@@ -1011,6 +1177,7 @@ class RR_MCP {
 	}
 
 	public static function ability_get_fresh_content( array $input ): array {
+		if ( $g = self::guard( 'get-fresh-content' ) ) { return $g; }
 		$days  = isset( $input['days'] )  ? (int) $input['days']  : 30;
 		$limit = isset( $input['limit'] ) ? (int) $input['limit'] : 25;
 		$days  = max( 1, min( 365, $days ) );

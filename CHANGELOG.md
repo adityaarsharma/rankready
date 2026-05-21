@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-beta.6] - 2026-05-21 — "Per-Resource Toggles"
+
+Pro-dev WebMCP redesign. Admins now choose, per WordPress resource, what AI agents can see. Safe defaults shipped; risky/PII resources opt-in with clear warnings. The manifest itself is filtered — disabled abilities don't appear in `/.well-known/mcp.json` at all, so Claude Desktop / Cursor never even know they exist.
+
+### Added — 13 per-resource exposure toggles (RR_OPT_MCP_EXPOSE_*)
+
+**Safe defaults (ON):**
+- `Posts`, `Pages`, `Authors (EEAT)`, `Categories & Tags`, `Sitemap`, `llms.txt inline`, `Freshness signal`, `RankReady AI data`
+
+**Custom Post Types — auto-detected, per-CPT opt-in:**
+- Plugin scans `get_post_types(['public' => true])` and lists every non-core CPT as an individual checkbox. User picks which Product / Doc / Event / etc. to expose.
+
+**Sensitive (OFF by default, opt-in with warning):**
+- `Comments` (caution — PII: author names, emails, IPs)
+- `Media library` (caution — heavy + may include non-attached uploads)
+- `Users (full list)` (risky — PII: emails, roles, last login)
+- `Installed plugins` (risky — reveals tech stack / attack surface)
+- `Themes` (risky — reveals stack)
+- `Site settings` (risky — may leak API keys, secrets)
+
+### Added — Defense-in-depth gating
+- **Manifest filtering:** `/.well-known/mcp.json` only lists abilities whose required toggles are all ON. Disabled abilities don't appear to clients at all.
+- **Execute-time guards:** Each ability method (`ability_get_post`, `ability_get_author`, etc.) calls `RR_MCP::guard($name)` first. If the toggle was flipped off after the manifest was cached, the ability still returns a clean `resource_disabled` error.
+- **`ability_gates()` map** — single source of truth mapping each ability name → required exposure-state keys. Manifest filter and execute guards both consult it.
+
+### Added — Pro-dev WebMCP card UI
+- **3-section accordion** in the WebMCP card: Safe (✓ green pill), Custom CPTs (auto-detected), Sensitive (⚠ yellow / 🔴 red pills).
+- Each toggle row shows: checkbox + name + tone pill + plain-English description of what the ability exposes.
+- "Risky" toggles labelled with explicit privacy/security reasoning — "PII risk: comment author names, emails, IPs" etc.
+- Status badge updated dynamically to "N abilities registered" reflecting the live filtered count.
+
+### Changed
+- WebMCP card description now leads with the principle: "Public content is safe to expose. PII / stack-revealing resources are OFF by default — opt in only if your use case requires it."
+- Active abilities list (the existing 4-category breakdown) now respects the toggle state — only enabled abilities show up.
+
+### Notes
+- Existing installs upgrade with all safe defaults ON (no behaviour change from beta.5 for the public surface).
+- `RR_OPT_MCP_EXPOSE_*` constants added to `uninstall.php` deletion list per audit policy.
+- The 6 "sensitive" abilities have toggles registered but **no live ability registrations yet** — the toggles control future capability; we haven't shipped `list-comments`, `list-media`, `list-users`, `list-plugins`, `list-themes`, `get-settings` abilities. Those land in beta.7 once we validate the toggle UX. The toggles ship now so users can opt in early.
+
 ## [1.2.0-beta.5] - 2026-05-21 — "WebMCP Expansion"
 
 WebMCP grew from 6 to **16 abilities**. The previous surface was a proof-of-concept — agents could search and get summaries but couldn't actually read post content. v1.2.0-beta.5 fills the gap: full post Markdown retrieval, URL resolution, taxonomy discovery, sitemap, content freshness, EEAT author data, and inline llms.txt — everything a Claude Desktop / Cursor / VS Code agent needs to navigate a WordPress site as a first-class tool source.

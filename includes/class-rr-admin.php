@@ -443,6 +443,50 @@ class RR_Admin {
 			'default'           => 'on',
 		) );
 
+		// v1.2.0-beta.6 — Per-resource MCP exposure toggles.
+		// Public-content defaults ON; PII / stack-reveal / heavy defaults OFF.
+		$rr_mcp_toggles_on  = array(
+			RR_OPT_MCP_EXPOSE_POSTS,
+			RR_OPT_MCP_EXPOSE_PAGES,
+			RR_OPT_MCP_EXPOSE_AUTHORS,
+			RR_OPT_MCP_EXPOSE_TAXONOMIES,
+			RR_OPT_MCP_EXPOSE_SITEMAP,
+			RR_OPT_MCP_EXPOSE_MENUS,
+			RR_OPT_MCP_EXPOSE_LLMS_TXT,
+			RR_OPT_MCP_EXPOSE_RR_AI,
+			RR_OPT_MCP_EXPOSE_FRESHNESS,
+		);
+		$rr_mcp_toggles_off = array(
+			RR_OPT_MCP_EXPOSE_COMMENTS,
+			RR_OPT_MCP_EXPOSE_MEDIA,
+			RR_OPT_MCP_EXPOSE_USERS,
+			RR_OPT_MCP_EXPOSE_PLUGINS,
+			RR_OPT_MCP_EXPOSE_THEMES,
+			RR_OPT_MCP_EXPOSE_SETTINGS,
+		);
+		foreach ( $rr_mcp_toggles_on as $opt ) {
+			register_setting( self::LLMS_GROUP, $opt, array(
+				'type'              => 'string',
+				'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+				'default'           => 'on',
+			) );
+		}
+		foreach ( $rr_mcp_toggles_off as $opt ) {
+			register_setting( self::LLMS_GROUP, $opt, array(
+				'type'              => 'string',
+				'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+				'default'           => 'off',
+			) );
+		}
+		// CPT opt-in list — array of slugs the user has explicitly enabled.
+		register_setting( self::LLMS_GROUP, RR_OPT_MCP_EXPOSE_CPTS, array(
+			'type'              => 'array',
+			'sanitize_callback' => function ( $value ) {
+				return is_array( $value ) ? array_values( array_filter( array_map( 'sanitize_key', $value ) ) ) : array();
+			},
+			'default'           => array(),
+		) );
+
 		// v1.2.0-beta.3 — Markdown sub-toggles.
 		register_setting( self::LLMS_GROUP, RR_OPT_MD_HINT_DIV, array(
 			'type'              => 'string',
@@ -2983,21 +3027,119 @@ class RR_Admin {
 						</td>
 					</tr>
 
-					<?php if ( 'on' === $rr_mcp_enable ) : ?>
+					<?php if ( 'on' === $rr_mcp_enable ) :
+						$rr_exposure   = class_exists( 'RR_MCP' ) ? RR_MCP::exposure_state() : array();
+						$rr_detected_cpts = class_exists( 'RR_MCP' ) ? RR_MCP::detected_cpts() : array();
+						$rr_enabled_cpts  = (array) get_option( RR_OPT_MCP_EXPOSE_CPTS, array() );
+
+						// Helper closure for rendering a single resource toggle row.
+						$render_toggle = function ( $opt, $label, $desc, $tone, $current ) {
+							$tones = array(
+								'safe'    => array( 'bg' => 'var(--rr-color-success-bg,#d1ecdf)', 'fg' => 'var(--rr-color-success-text,#0a6c39)', 'pill' => 'Safe' ),
+								'caution' => array( 'bg' => 'var(--rr-color-warning-bg,#fcf9e8)', 'fg' => 'var(--rr-color-warning-text,#674c00)', 'pill' => 'Caution' ),
+								'risky'   => array( 'bg' => 'var(--rr-color-danger-bg,#fcebe6)', 'fg' => 'var(--rr-color-danger-text,#a72e1f)', 'pill' => 'Risky' ),
+							);
+							$t = $tones[ $tone ] ?? $tones['safe'];
+							?>
+							<div style="display:grid;grid-template-columns:32px 1fr;gap:10px;padding:10px 12px;border-radius:var(--rr-radius-md,6px);background:var(--rr-color-surface-2,#f6f7f7);">
+								<label style="display:flex;align-items:center;cursor:pointer;">
+									<input type="checkbox" name="<?php echo esc_attr( $opt ); ?>" value="on" <?php checked( 'on', $current ); ?> />
+								</label>
+								<div>
+									<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+										<strong style="font-size:13px;"><?php echo esc_html( $label ); ?></strong>
+										<span style="display:inline-block;padding:1px 7px;border-radius:9999px;background:<?php echo esc_attr( $t['bg'] ); ?>;color:<?php echo esc_attr( $t['fg'] ); ?>;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;"><?php echo esc_html( $t['pill'] ); ?></span>
+									</div>
+									<p style="margin:0;font-size:12px;color:var(--rr-color-text-muted,#646970);line-height:1.5;"><?php echo esc_html( $desc ); ?></p>
+								</div>
+							</div>
+							<?php
+						};
+						?>
 						<tr>
 							<th scope="row"><?php esc_html_e( 'MCP manifest URL', 'rankready' ); ?></th>
 							<td>
 								<input type="text" readonly value="<?php echo esc_attr( $rr_manifest_url ); ?>" onclick="this.select();" style="width:100%;max-width:520px;font-family:monospace;font-size:12px;" />
 								<p class="description">
-									<?php esc_html_e( 'Paste this URL into Claude Desktop / Cursor / VS Code MCP settings to make your site discoverable as a tool source.', 'rankready' ); ?>
+									<?php esc_html_e( 'Paste this URL into Claude Desktop / Cursor / VS Code MCP settings.', 'rankready' ); ?>
 									<a href="<?php echo esc_url( $rr_manifest_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Open manifest →', 'rankready' ); ?></a>
 								</p>
 							</td>
 						</tr>
 
 						<tr>
-							<th scope="row"><?php esc_html_e( 'Exposed abilities', 'rankready' ); ?>
-								<br /><span style="font-weight:400;font-size:11px;color:var(--rr-color-text-muted,#646970);text-transform:uppercase;letter-spacing:0.04em;"><?php esc_html_e( '16 read-only', 'rankready' ); ?></span>
+							<th scope="row" style="vertical-align:top;">
+								<?php esc_html_e( 'Resources exposed', 'rankready' ); ?>
+								<br /><span style="font-weight:400;font-size:11px;color:var(--rr-color-text-muted,#646970);text-transform:uppercase;letter-spacing:0.04em;"><?php esc_html_e( 'Per-resource toggle', 'rankready' ); ?></span>
+							</th>
+							<td>
+								<p class="description" style="margin:0 0 12px;">
+									<?php esc_html_e( 'Choose what AI agents can see. Public content (posts, pages, authors, taxonomies) is safe to expose. PII / stack-revealing resources are OFF by default — opt in only if your use case requires it.', 'rankready' ); ?>
+								</p>
+
+								<details open style="margin-bottom:14px;">
+									<summary style="cursor:pointer;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--rr-color-success-text,#0a6c39);margin-bottom:8px;"><?php esc_html_e( '✓ Public content (safe defaults)', 'rankready' ); ?></summary>
+									<div style="display:flex;flex-direction:column;gap:6px;">
+										<?php
+										$render_toggle( RR_OPT_MCP_EXPOSE_POSTS,      __( 'Posts', 'rankready' ),         __( 'list-recent-posts, search-posts, get-post, get-post-by-url — full Markdown content + AI summary + FAQ.', 'rankready' ), 'safe', get_option( RR_OPT_MCP_EXPOSE_POSTS, 'on' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_PAGES,      __( 'Pages', 'rankready' ),         __( 'list-pages — static pages with parent hierarchy.', 'rankready' ), 'safe', get_option( RR_OPT_MCP_EXPOSE_PAGES, 'on' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_AUTHORS,    __( 'Authors (EEAT)', 'rankready' ), __( 'get-author — Person schema fields (bio, credentials, awards, socials). No emails or login info.', 'rankready' ), 'safe', get_option( RR_OPT_MCP_EXPOSE_AUTHORS, 'on' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_TAXONOMIES, __( 'Categories & tags', 'rankready' ), __( 'list-categories, list-tags — topical graph for agent navigation.', 'rankready' ), 'safe', get_option( RR_OPT_MCP_EXPOSE_TAXONOMIES, 'on' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_SITEMAP,    __( 'Sitemap', 'rankready' ),       __( 'get-sitemap — parsed URL + lastmod for cold crawls.', 'rankready' ), 'safe', get_option( RR_OPT_MCP_EXPOSE_SITEMAP, 'on' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_LLMS_TXT,   __( 'llms.txt inline', 'rankready' ), __( 'get-llms-txt — rendered llms.txt content without HTTP round-trip.', 'rankready' ), 'safe', get_option( RR_OPT_MCP_EXPOSE_LLMS_TXT, 'on' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_FRESHNESS,  __( 'Freshness signal', 'rankready' ), __( 'get-fresh-content — posts/pages modified in last N days.', 'rankready' ), 'safe', get_option( RR_OPT_MCP_EXPOSE_FRESHNESS, 'on' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_RR_AI,      __( 'RankReady AI data', 'rankready' ), __( 'get-post-summary, get-post-faq, get-brand-terms — the AI-citation surface RankReady generates.', 'rankready' ), 'safe', get_option( RR_OPT_MCP_EXPOSE_RR_AI, 'on' ) );
+										?>
+									</div>
+								</details>
+
+								<?php if ( ! empty( $rr_detected_cpts ) ) : ?>
+								<details style="margin-bottom:14px;">
+									<summary style="cursor:pointer;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--rr-color-info-text,#135e96);margin-bottom:8px;">
+										<?php esc_html_e( 'Custom post types — auto-detected', 'rankready' ); ?>
+										<span style="font-weight:400;font-size:11px;margin-left:6px;"><?php echo count( $rr_detected_cpts ); ?> <?php esc_html_e( 'found', 'rankready' ); ?></span>
+									</summary>
+									<p class="description" style="margin:6px 0 8px;font-size:12px;"><?php esc_html_e( 'Opt in per CPT. Posts and Pages are toggled above — these are extras your theme or plugins registered.', 'rankready' ); ?></p>
+									<div style="display:flex;flex-direction:column;gap:6px;">
+										<?php foreach ( $rr_detected_cpts as $slug => $label ) : ?>
+											<div style="display:grid;grid-template-columns:32px 1fr;gap:10px;padding:8px 12px;border-radius:var(--rr-radius-md,6px);background:var(--rr-color-surface-2,#f6f7f7);">
+												<label style="display:flex;align-items:center;cursor:pointer;">
+													<input type="checkbox" name="<?php echo esc_attr( RR_OPT_MCP_EXPOSE_CPTS ); ?>[]" value="<?php echo esc_attr( $slug ); ?>" <?php checked( in_array( $slug, $rr_enabled_cpts, true ) ); ?> />
+												</label>
+												<div>
+													<strong style="font-size:13px;"><?php echo esc_html( $label ); ?></strong>
+													<code style="font-size:11px;color:var(--rr-color-text-muted,#646970);margin-left:6px;"><?php echo esc_html( $slug ); ?></code>
+												</div>
+											</div>
+										<?php endforeach; ?>
+									</div>
+								</details>
+								<?php endif; ?>
+
+								<details style="margin-bottom:14px;">
+									<summary style="cursor:pointer;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--rr-color-warning-text,#674c00);margin-bottom:8px;"><?php esc_html_e( '⚠ Sensitive resources (off by default)', 'rankready' ); ?></summary>
+									<p class="description" style="margin:6px 0 8px;font-size:12px;color:var(--rr-color-warning-text,#674c00);"><strong><?php esc_html_e( 'Warning:', 'rankready' ); ?></strong> <?php esc_html_e( 'These expose PII, heavy content, or your tech stack. Only enable if your use case explicitly requires it. Off by default for a reason.', 'rankready' ); ?></p>
+									<div style="display:flex;flex-direction:column;gap:6px;">
+										<?php
+										$render_toggle( RR_OPT_MCP_EXPOSE_COMMENTS, __( 'Comments', 'rankready' ),  __( 'list-comments, get-comment — PII risk: comment author names, emails, IPs.', 'rankready' ), 'caution', get_option( RR_OPT_MCP_EXPOSE_COMMENTS, 'off' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_MEDIA,    __( 'Media library', 'rankready' ), __( 'list-media — heavy + may contain non-attached private uploads.', 'rankready' ), 'caution', get_option( RR_OPT_MCP_EXPOSE_MEDIA, 'off' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_USERS,    __( 'Users (full list)', 'rankready' ),  __( 'list-users — PII risk: email addresses, roles, last login. Note: get-author already covers display names + bios safely.', 'rankready' ), 'risky', get_option( RR_OPT_MCP_EXPOSE_USERS, 'off' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_PLUGINS,  __( 'Installed plugins', 'rankready' ), __( 'list-plugins — reveals your tech stack and possible attack surface.', 'rankready' ), 'risky', get_option( RR_OPT_MCP_EXPOSE_PLUGINS, 'off' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_THEMES,   __( 'Themes', 'rankready' ),   __( 'list-themes — reveals your tech stack.', 'rankready' ), 'risky', get_option( RR_OPT_MCP_EXPOSE_THEMES, 'off' ) );
+										$render_toggle( RR_OPT_MCP_EXPOSE_SETTINGS, __( 'Site settings', 'rankready' ), __( 'get-settings — may leak API keys, secrets, internal URLs. Strongly discouraged.', 'rankready' ), 'risky', get_option( RR_OPT_MCP_EXPOSE_SETTINGS, 'off' ) );
+										?>
+									</div>
+								</details>
+
+								<p style="margin:0;padding:10px 12px;background:var(--rr-color-brand-soft,#f0f6fc);border-left:3px solid var(--rr-color-brand,#2271b1);border-radius:0 var(--rr-radius-md,6px) var(--rr-radius-md,6px) 0;font-size:11px;color:var(--rr-color-info-text,#135e96);line-height:1.5;">
+									<strong><?php esc_html_e( 'Write abilities', 'rankready' ); ?></strong> &mdash; <?php esc_html_e( 'create / update / delete operations are not yet exposed. v1.4 will add governed write abilities (draft-faq, refresh-post) with capability checks, nonce verification, audit log, and rate limiting per action.', 'rankready' ); ?>
+								</p>
+							</td>
+						</tr>
+
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Active abilities', 'rankready' ); ?>
+								<br /><span style="font-weight:400;font-size:11px;color:var(--rr-color-text-muted,#646970);text-transform:uppercase;letter-spacing:0.04em;"><?php esc_html_e( 'live in manifest', 'rankready' ); ?></span>
 							</th>
 							<td>
 								<details style="margin-bottom:8px;" open>

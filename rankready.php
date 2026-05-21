@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – Get cited by ChatGPT & Perplexity
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.2.0-beta.5
+ * Version:           1.2.0-beta.6
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.2.0-beta.5' );
+	define( 'RR_VERSION',  '1.2.0-beta.6' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -212,6 +212,25 @@ if ( ! defined( 'RR_VERSION' ) ) {
 
 	// WebMCP — master toggle for /.well-known/mcp.json + Abilities API registration.
 	define( 'RR_OPT_MCP_ENABLE',            'rr_mcp_enable' );          // 'on' | 'off'
+
+	// WebMCP — per-resource exposure toggles (v1.2.0-beta.6).
+	// Sensible defaults: public content ON, PII/heavy/stack-reveal resources OFF.
+	define( 'RR_OPT_MCP_EXPOSE_POSTS',      'rr_mcp_expose_posts' );      // ON  — core public content
+	define( 'RR_OPT_MCP_EXPOSE_PAGES',      'rr_mcp_expose_pages' );      // ON  — static pages
+	define( 'RR_OPT_MCP_EXPOSE_AUTHORS',    'rr_mcp_expose_authors' );    // ON  — EEAT signal
+	define( 'RR_OPT_MCP_EXPOSE_TAXONOMIES', 'rr_mcp_expose_taxonomies' ); // ON  — discovery graph
+	define( 'RR_OPT_MCP_EXPOSE_SITEMAP',    'rr_mcp_expose_sitemap' );    // ON  — cold-crawl seed
+	define( 'RR_OPT_MCP_EXPOSE_MENUS',      'rr_mcp_expose_menus' );      // ON  — public anyway
+	define( 'RR_OPT_MCP_EXPOSE_LLMS_TXT',   'rr_mcp_expose_llms_txt' );   // ON  — content already public
+	define( 'RR_OPT_MCP_EXPOSE_RR_AI',      'rr_mcp_expose_rr_ai' );      // ON  — summaries / FAQs / brand
+	define( 'RR_OPT_MCP_EXPOSE_FRESHNESS',  'rr_mcp_expose_freshness' );  // ON  — public surface
+	define( 'RR_OPT_MCP_EXPOSE_CPTS',       'rr_mcp_expose_cpts' );       // array — opt-in per CPT
+	define( 'RR_OPT_MCP_EXPOSE_COMMENTS',   'rr_mcp_expose_comments' );   // OFF — PII (author names/emails)
+	define( 'RR_OPT_MCP_EXPOSE_MEDIA',      'rr_mcp_expose_media' );      // OFF — heavy + non-attached uploads
+	define( 'RR_OPT_MCP_EXPOSE_USERS',      'rr_mcp_expose_users' );      // OFF — PII (full user list)
+	define( 'RR_OPT_MCP_EXPOSE_PLUGINS',    'rr_mcp_expose_plugins' );    // OFF — reveals stack / attack surface
+	define( 'RR_OPT_MCP_EXPOSE_THEMES',     'rr_mcp_expose_themes' );     // OFF — reveals stack
+	define( 'RR_OPT_MCP_EXPOSE_SETTINGS',   'rr_mcp_expose_settings' );   // OFF — may leak secrets
 
 	// Markdown layer sub-toggles (controlled inside the Markdown Endpoints card).
 	define( 'RR_OPT_MD_HINT_DIV',           'rr_md_hint_div' );         // 'on' | 'off' — hidden AI-hint div in body

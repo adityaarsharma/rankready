@@ -999,6 +999,7 @@ class RR_Admin {
 			'content'   => __( 'Content AI', 'rankready' ),
 			'authority' => __( 'Authority', 'rankready' ),
 			'crawlers'  => __( 'AI Crawlers', 'rankready' ),
+			'insights'  => __( 'Insights', 'rankready' ),  // v1.2.0-beta.7 — Bot Activity / Citation / Referral / Freshness
 			'settings'  => __( 'Settings', 'rankready' ),
 			'advanced'  => __( 'Advanced', 'rankready' ),
 		);
@@ -1039,6 +1040,9 @@ class RR_Admin {
 						break;
 					case 'crawlers':
 						self::render_tab_llm();
+						break;
+					case 'insights':
+						self::render_tab_insights();
 						break;
 					case 'settings':
 						self::render_tab_api();
@@ -1459,6 +1463,318 @@ class RR_Admin {
 	// ═══════════════════════════════════════════════════════════════════════════
 	// TAB: Advanced — Headless + Tools + Info merged
 	// ═══════════════════════════════════════════════════════════════════════════
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// TAB: Insights — Bot Activity / AI Citation / AI Referral / Freshness
+	// ══════════════════════════════════════════════════════════════════════════
+	// v1.2.0-beta.7 — Splits the three signals that were conflated on the
+	// AI Crawlers tab:
+	//   • Training-bot crawl  (inbound, slow — GPTBot/Google-Extended/ClaudeBot
+	//     indexing for future model training)
+	//   • Citation-bot crawl  (inbound, live — ChatGPT-User/OAI-SearchBot/
+	//     PerplexityBot fetching to answer a real user query NOW)
+	//   • AI Referral traffic (outbound — users clicking from ChatGPT.com /
+	//     Perplexity.ai / etc. back to your site)
+	// Each has its own sub-section header explaining the stage of the funnel.
+
+	private static function render_tab_insights(): void {
+		$sub = isset( $_GET['sub'] ) ? sanitize_key( wp_unslash( $_GET['sub'] ) ) : 'bot-activity';
+		$sub_tabs = array(
+			'bot-activity' => __( 'Bot Activity', 'rankready' ),
+			'citation'     => __( 'AI Citation Candidates', 'rankready' ),
+			'referral'     => __( 'AI Referral Traffic', 'rankready' ),
+			'freshness'    => __( 'Content Freshness', 'rankready' ),
+		);
+		if ( ! isset( $sub_tabs[ $sub ] ) ) {
+			$sub = 'bot-activity';
+		}
+		?>
+		<style>
+			.rr-insights-funnel { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin:0 0 20px; padding:14px; background:linear-gradient(135deg,var(--rr-color-surface,#fff) 0%,var(--rr-color-brand-soft,#f0f6fc) 100%); border:1px solid var(--rr-color-border,#c3c4c7); border-radius:var(--rr-radius-md,6px); }
+			.rr-insights-funnel__step { padding:8px 12px; border-radius:var(--rr-radius-md,6px); background:rgba(255,255,255,0.7); font-size:11px; line-height:1.45; }
+			.rr-insights-funnel__step strong { display:block; font-size:12px; color:var(--rr-color-ink,#1d2327); margin-bottom:2px; }
+			.rr-insights-funnel__arrow { display:flex; align-items:center; justify-content:center; color:var(--rr-color-text-muted,#646970); font-size:18px; }
+			.rr-insights-subnav { display:flex; gap:0; border-bottom:1px solid var(--rr-color-border,#c3c4c7); margin:0 0 20px; }
+			.rr-insights-subnav a { padding:10px 16px; text-decoration:none; color:var(--rr-color-text-muted,#646970); font-size:13px; font-weight:500; border-bottom:2px solid transparent; }
+			.rr-insights-subnav a.is-active { color:var(--rr-color-brand,#2271b1); border-bottom-color:var(--rr-color-brand,#2271b1); font-weight:600; }
+			.rr-insights-subnav a:hover { background:var(--rr-color-surface-2,#f6f7f7); }
+			.rr-insights-section-header { margin:0 0 16px; padding:12px 16px; background:var(--rr-color-surface-2,#f6f7f7); border-left:4px solid var(--rr-color-brand,#2271b1); border-radius:0 var(--rr-radius-md,6px) var(--rr-radius-md,6px) 0; }
+			.rr-insights-section-header h3 { margin:0 0 4px; font-size:15px; }
+			.rr-insights-section-header p { margin:0; font-size:12px; color:var(--rr-color-text-muted,#646970); line-height:1.5; }
+			.rr-insights-section-header--training { border-left-color:var(--rr-color-info,#3582c4); }
+			.rr-insights-section-header--citation { border-left-color:var(--rr-color-success,#00a32a); }
+			.rr-insights-section-header--referral { border-left-color:var(--rr-color-warning,#dba617); }
+		</style>
+
+		<?php settings_errors(); ?>
+
+		<!-- Funnel explainer — visualises the 3 stages so users know which sub-tab to use -->
+		<div class="rr-insights-funnel">
+			<div class="rr-insights-funnel__step">
+				<strong>① Training crawl</strong>
+				<?php esc_html_e( 'GPTBot / ClaudeBot / Google-Extended index your site for future training.', 'rankready' ); ?>
+			</div>
+			<div class="rr-insights-funnel__arrow" aria-hidden="true">→</div>
+			<div class="rr-insights-funnel__step">
+				<strong>② Citation crawl</strong>
+				<?php esc_html_e( 'ChatGPT-User / PerplexityBot / OAI-SearchBot fetch your page to answer a live user query.', 'rankready' ); ?>
+			</div>
+			<div class="rr-insights-funnel__arrow" aria-hidden="true">→</div>
+			<div class="rr-insights-funnel__step">
+				<strong>③ Referral click</strong>
+				<?php esc_html_e( 'User reads the AI answer, clicks through to your site.', 'rankready' ); ?>
+			</div>
+			<div class="rr-insights-funnel__arrow" aria-hidden="true">→</div>
+			<div class="rr-insights-funnel__step">
+				<strong>④ Conversion</strong>
+				<?php esc_html_e( '23× higher than non-cited visits (Seer Interactive 2026).', 'rankready' ); ?>
+			</div>
+		</div>
+
+		<!-- Sub-tab navigation -->
+		<nav class="rr-insights-subnav">
+			<?php foreach ( $sub_tabs as $slug => $label ) : ?>
+				<a href="<?php echo esc_url( add_query_arg( array( 'page' => self::MENU_SLUG, 'tab' => 'insights', 'sub' => $slug ), admin_url( 'admin.php' ) ) ); ?>"
+				   class="<?php echo $sub === $slug ? 'is-active' : ''; ?>">
+					<?php echo esc_html( $label ); ?>
+				</a>
+			<?php endforeach; ?>
+		</nav>
+
+		<?php
+		switch ( $sub ) {
+			case 'bot-activity':   self::render_insights_bot_activity();   break;
+			case 'citation':       self::render_insights_citation();        break;
+			case 'referral':       self::render_insights_referral();        break;
+			case 'freshness':      self::render_insights_freshness();       break;
+		}
+	}
+
+	/**
+	 * Insights → Bot Activity sub-tab.
+	 *
+	 * Splits the existing Crawler Log into TWO clearly-labelled panels:
+	 *   • Training (inbound, slow, model-training value)
+	 *   • Citation (inbound, live, ~1:1 with AI answer citations)
+	 * so users can finally tell which signal matters for which goal.
+	 */
+	private static function render_insights_bot_activity(): void {
+		$total_30d     = RR_Crawler_Log::get_total( 30 );
+		$citation_hits = RR_Crawler_Log::get_citation_hits_total( 30 );
+		$training_hits = RR_Crawler_Log::get_training_hits_total( 30 );
+		$unique_pages  = RR_Crawler_Log::get_unique_pages( 30 );
+		$bot_stats     = RR_Crawler_Log::get_bot_stats( 30 );
+		?>
+		<div class="rr-insights-section-header rr-insights-section-header--citation">
+			<h3>🎯 <?php esc_html_e( 'Citation crawl — live AI answer fetches', 'rankready' ); ?></h3>
+			<p><?php esc_html_e( 'OAI-SearchBot, ChatGPT-User, PerplexityBot, Claude-Web, DuckAssistBot. Every hit ≈ one live AI response that retrieved your content as a source. Optimise these first — they\'re winning right now.', 'rankready' ); ?></p>
+		</div>
+		<div class="rr-card" style="margin-bottom:24px;background:linear-gradient(135deg,var(--rr-color-success-bg,#d1ecdf) 0%,var(--rr-color-brand-soft,#f0f6fc) 100%);border:1px solid var(--rr-color-success,#00a32a);">
+			<div style="display:flex;align-items:baseline;gap:12px;">
+				<div style="font-size:42px;font-weight:700;color:var(--rr-color-success-text,#0a6c39);line-height:1;"><?php echo esc_html( number_format( $citation_hits ) ); ?></div>
+				<div style="font-size:13px;color:var(--rr-color-success-text,#0a6c39);">
+					<?php esc_html_e( 'citation hits — last 30 days', 'rankready' ); ?><br />
+					<span style="opacity:0.75;font-size:11px;"><?php esc_html_e( 'fetched by ', 'rankready' ); ?><strong><?php
+						$cit_bots = array_filter( $bot_stats, function ( $r ) { return 'citation' === RR_Crawler_Log::bot_intent( $r['bot_name'] ); } );
+						echo esc_html( count( $cit_bots ) );
+					?></strong> <?php esc_html_e( 'unique citation bots', 'rankready' ); ?></span>
+				</div>
+			</div>
+		</div>
+
+		<div class="rr-insights-section-header rr-insights-section-header--training">
+			<h3>📚 <?php esc_html_e( 'Training crawl — for future model training', 'rankready' ); ?></h3>
+			<p><?php esc_html_e( 'GPTBot, ClaudeBot, Google-Extended, Bytespider, CCBot. Content ingested today may surface in model weights months later. Higher volume than citation crawl by 10-100×; lower immediate ROI.', 'rankready' ); ?></p>
+		</div>
+		<div class="rr-card" style="margin-bottom:24px;background:linear-gradient(135deg,var(--rr-color-info-bg,#e5f1f9) 0%,var(--rr-color-brand-soft,#f0f6fc) 100%);border:1px solid var(--rr-color-info,#3582c4);">
+			<div style="display:flex;align-items:baseline;gap:12px;">
+				<div style="font-size:42px;font-weight:700;color:var(--rr-color-info-text,#135e96);line-height:1;"><?php echo esc_html( number_format( $training_hits ) ); ?></div>
+				<div style="font-size:13px;color:var(--rr-color-info-text,#135e96);">
+					<?php esc_html_e( 'training hits — last 30 days', 'rankready' ); ?><br />
+					<span style="opacity:0.75;font-size:11px;"><?php
+						$train_bots = array_filter( $bot_stats, function ( $r ) { return 'training' === RR_Crawler_Log::bot_intent( $r['bot_name'] ); } );
+						echo esc_html( count( $train_bots ) );
+					?></strong> <?php esc_html_e( 'unique training bots', 'rankready' ); ?></span>
+				</div>
+			</div>
+		</div>
+
+		<div class="rr-card" style="margin-bottom:24px;background:var(--rr-color-surface-2,#f6f7f7);">
+			<h4 style="margin:0 0 10px;font-size:13px;color:var(--rr-color-text-muted,#646970);text-transform:uppercase;letter-spacing:0.04em;">
+				<?php esc_html_e( 'Combined activity', 'rankready' ); ?>
+			</h4>
+			<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
+				<div style="text-align:center;padding:10px;background:#fff;border-radius:6px;">
+					<div style="font-size:24px;font-weight:700;"><?php echo esc_html( number_format( $total_30d ) ); ?></div>
+					<div style="font-size:11px;color:var(--rr-color-text-muted,#646970);"><?php esc_html_e( 'Total hits — 30 days', 'rankready' ); ?></div>
+				</div>
+				<div style="text-align:center;padding:10px;background:#fff;border-radius:6px;">
+					<div style="font-size:24px;font-weight:700;"><?php echo esc_html( number_format( $unique_pages ) ); ?></div>
+					<div style="font-size:11px;color:var(--rr-color-text-muted,#646970);"><?php esc_html_e( 'Unique pages read', 'rankready' ); ?></div>
+				</div>
+				<div style="text-align:center;padding:10px;background:#fff;border-radius:6px;">
+					<div style="font-size:24px;font-weight:700;"><?php echo esc_html( count( $bot_stats ) ); ?></div>
+					<div style="font-size:11px;color:var(--rr-color-text-muted,#646970);"><?php esc_html_e( 'Unique bots', 'rankready' ); ?></div>
+				</div>
+			</div>
+		</div>
+
+		<?php if ( empty( $bot_stats ) ) : ?>
+			<p style="padding:24px;text-align:center;color:var(--rr-color-text-muted,#646970);font-style:italic;background:var(--rr-color-surface-2,#f6f7f7);border-radius:var(--rr-radius-md,6px);">
+				<?php esc_html_e( 'No AI bot visits recorded yet. Once GPTBot, ChatGPT-User, PerplexityBot, ClaudeBot, or any of the other 20 tracked AI crawlers hits your llms.txt, .md, or homepage endpoints, activity will appear here automatically. Typical first hit: 24–72 hours after enabling llms.txt.', 'rankready' ); ?>
+			</p>
+		<?php else : ?>
+			<p class="description" style="margin-top:8px;">
+				<?php esc_html_e( 'Full breakdown by bot, with intent badges and top-page drill-down, lives on the AI Crawlers tab → AI Crawler Access Log card (until beta.8 consolidates it here).', 'rankready' ); ?>
+			</p>
+		<?php endif; ?>
+		<?php
+	}
+
+	private static function render_insights_citation(): void {
+		$citation_pages = RR_Crawler_Log::get_citation_top_pages( 30, 25 );
+		?>
+		<div class="rr-insights-section-header rr-insights-section-header--citation">
+			<h3>🎯 <?php esc_html_e( 'AI Citation Candidates — last 30 days', 'rankready' ); ?></h3>
+			<p><?php esc_html_e( 'Pages most fetched by citation-intent bots. Each hit is a live AI answer that retrieved this page as a source. Optimise these first — they\'re already winning. Refresh their content, expand the FAQ, set max-snippet to allow full quoting.', 'rankready' ); ?></p>
+		</div>
+
+		<?php if ( empty( $citation_pages ) ) : ?>
+			<div class="rr-card" style="text-align:center;padding:32px;color:var(--rr-color-text-muted,#646970);">
+				<p style="margin:0 0 6px;font-size:14px;font-weight:600;color:var(--rr-color-ink,#1d2327);">
+					<?php esc_html_e( 'No citation bot hits yet', 'rankready' ); ?>
+				</p>
+				<p style="margin:0 0 8px;font-size:12px;line-height:1.6;max-width:520px;margin-left:auto;margin-right:auto;">
+					<?php esc_html_e( 'ChatGPT-User, OAI-SearchBot, PerplexityBot, Claude-Web, and DuckAssistBot only fetch your pages when a real user asks the AI something your content might answer.', 'rankready' ); ?>
+				</p>
+				<p style="margin:0;font-size:12px;line-height:1.6;max-width:520px;margin-left:auto;margin-right:auto;">
+					<?php esc_html_e( 'Typical first citation: 2–6 weeks after enabling RankReady. Speed it up by adding FAQs to your top 10 posts and keeping content fresh.', 'rankready' ); ?>
+				</p>
+			</div>
+		<?php else : ?>
+			<table class="wp-list-table widefat striped">
+				<thead>
+					<tr>
+						<th style="width:55%;"><?php esc_html_e( 'Page', 'rankready' ); ?></th>
+						<th style="width:80px;text-align:center;"><?php esc_html_e( 'Hits', 'rankready' ); ?></th>
+						<th style="width:80px;text-align:center;"><?php esc_html_e( 'Bots', 'rankready' ); ?></th>
+						<th style="width:150px;"><?php esc_html_e( 'Last fetched', 'rankready' ); ?></th>
+						<th style="width:80px;"><?php esc_html_e( 'Edit', 'rankready' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ( $citation_pages as $cp ) :
+						$cp_post_id = (int) ( $cp['post_id'] ?? 0 );
+						$cp_title   = (string) ( $cp['post_title'] ?? '(no title)' );
+						$cp_type    = (string) ( $cp['post_type'] ?? '' );
+						$cp_path    = (string) ( $cp['url_path'] ?? '' );
+						$cp_hits    = (int) ( $cp['hits'] ?? 0 );
+						$cp_bots    = (int) ( $cp['unique_bots'] ?? 0 );
+						$cp_seen    = (string) ( $cp['last_seen'] ?? '' );
+						$cp_seen_ts = $cp_seen ? strtotime( $cp_seen ) : 0;
+						?>
+						<tr>
+							<td>
+								<strong><?php echo esc_html( $cp_title ); ?></strong>
+								<?php if ( $cp_type ) : ?>
+									<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:var(--rr-color-surface-3,#f0f0f1);border-radius:3px;font-size:10px;color:var(--rr-color-text-muted,#646970);"><?php echo esc_html( $cp_type ); ?></span>
+								<?php endif; ?>
+								<br />
+								<code style="font-size:10px;color:var(--rr-color-text-muted,#646970);"><?php echo esc_html( $cp_path ); ?></code>
+							</td>
+							<td style="text-align:center;font-weight:700;color:var(--rr-color-success-text,#0a6c39);"><?php echo esc_html( number_format( $cp_hits ) ); ?></td>
+							<td style="text-align:center;"><?php echo esc_html( $cp_bots ); ?></td>
+							<td style="font-size:11px;color:var(--rr-color-text-muted,#646970);"><?php echo $cp_seen_ts ? esc_html( human_time_diff( $cp_seen_ts ) . ' ' . __( 'ago', 'rankready' ) ) : '—'; ?></td>
+							<td>
+								<?php if ( $cp_post_id > 0 ) : ?>
+									<a href="<?php echo esc_url( get_edit_post_link( $cp_post_id ) ); ?>" class="button button-small">Edit</a>
+								<?php endif; ?>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		<?php endif;
+	}
+
+	private static function render_insights_referral(): void {
+		$counts = class_exists( 'RR_AI_Referral' ) ? RR_AI_Referral::aggregate_last_n_days( 30 ) : array();
+		$total  = (int) array_sum( $counts );
+		?>
+		<div class="rr-insights-section-header rr-insights-section-header--referral">
+			<h3>👥 <?php esc_html_e( 'AI Referral Traffic — outbound (users clicking from AI)', 'rankready' ); ?></h3>
+			<p><strong><?php esc_html_e( 'Different from bot hits above.', 'rankready' ); ?></strong> <?php esc_html_e( 'This measures real humans who read an AI answer and clicked through to your site. Counted via Referer header — 100% server-side, no third-party scripts.', 'rankready' ); ?></p>
+		</div>
+
+		<div class="rr-card" style="margin-bottom:24px;">
+			<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:16px;">
+				<div style="font-size:42px;font-weight:700;color:var(--rr-color-warning-text,#674c00);line-height:1;"><?php echo esc_html( number_format( $total ) ); ?></div>
+				<div style="font-size:13px;color:var(--rr-color-text-muted,#646970);">
+					<?php esc_html_e( 'AI-sourced visits — last 30 days', 'rankready' ); ?><br />
+					<span style="opacity:0.75;font-size:11px;"><?php esc_html_e( 'across ChatGPT, Perplexity, Gemini, Claude, Copilot', 'rankready' ); ?></span>
+				</div>
+			</div>
+
+			<?php if ( $total > 0 ) : ?>
+				<ul style="margin:0;padding:0;list-style:none;">
+					<?php
+					$max = max( $counts ) ?: 1;
+					$colours = array(
+						'chatgpt'    => 'var(--rr-source-chatgpt,#10a37f)',
+						'perplexity' => 'var(--rr-source-perplexity,#21808d)',
+						'gemini'     => 'var(--rr-source-gemini,#4285f4)',
+						'claude'     => 'var(--rr-source-claude,#cc785c)',
+						'copilot'    => 'var(--rr-source-copilot,#0078d4)',
+					);
+					foreach ( $counts as $source => $count ) :
+						$pct = $max > 0 ? (int) round( ( $count / $max ) * 100 ) : 0;
+						?>
+						<li style="margin-bottom:8px;">
+							<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+								<span><?php echo esc_html( class_exists( 'RR_AI_Referral' ) ? RR_AI_Referral::source_label( $source ) : ucfirst( $source ) ); ?></span>
+								<strong><?php echo esc_html( number_format( $count ) ); ?></strong>
+							</div>
+							<div style="background:#f0f0f1;height:8px;border-radius:4px;overflow:hidden;">
+								<div style="background:<?php echo esc_attr( $colours[ $source ] ?? '#646970' ); ?>;height:100%;width:<?php echo (int) $pct; ?>%;"></div>
+							</div>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+
+				<p style="margin-top:14px;padding:10px;background:var(--rr-color-success-bg,#d1ecdf);border-radius:6px;font-size:12px;color:var(--rr-color-success-text,#0a6c39);">
+					<strong><?php esc_html_e( '23× conversion lift', 'rankready' ); ?></strong> &mdash;
+					<?php esc_html_e( 'cited brands convert at 23× the rate of non-cited competitors (Seer Interactive 2026). Each visitor here arrived via an AI citation.', 'rankready' ); ?>
+				</p>
+			<?php else : ?>
+				<p style="color:var(--rr-color-text-muted,#646970);font-style:italic;font-size:13px;margin:0;">
+					<?php esc_html_e( 'No AI-sourced visits yet. Tracking is live — counters fill in as ChatGPT, Perplexity, Gemini, Claude, or Copilot send their first visitor. Typical first citation: 2–6 weeks after enabling RankReady.', 'rankready' ); ?>
+				</p>
+			<?php endif; ?>
+		</div>
+
+		<details>
+			<summary style="cursor:pointer;font-size:12px;color:var(--rr-color-text-muted,#646970);"><?php esc_html_e( 'How is this different from Bot Activity?', 'rankready' ); ?></summary>
+			<div style="padding:12px;background:var(--rr-color-surface-2,#f6f7f7);border-radius:6px;margin-top:8px;font-size:12px;line-height:1.6;">
+				<p style="margin:0 0 6px;"><strong><?php esc_html_e( 'Bot Activity', 'rankready' ); ?></strong> = <?php esc_html_e( 'AI engines crawling your site (server logs). No human involved. Measures whether your site is in the AI\'s index/retrieval pool.', 'rankready' ); ?></p>
+				<p style="margin:0;"><strong><?php esc_html_e( 'AI Referral Traffic', 'rankready' ); ?></strong> = <?php esc_html_e( 'Humans who read the AI\'s answer, saw your site listed as a source, and clicked through. Measures whether the AI is sending real users your way.', 'rankready' ); ?></p>
+			</div>
+		</details>
+		<?php
+	}
+
+	private static function render_insights_freshness(): void {
+		?>
+		<div class="rr-insights-section-header">
+			<h3>🕒 <?php esc_html_e( 'Content Freshness', 'rankready' ); ?></h3>
+			<p><?php esc_html_e( 'Fresh content earns 28% more AI citations (multiple 2026 studies). Pages refreshed within 60 days are prioritised by ChatGPT, Perplexity, and Gemini. Use the dashboard widget below for daily monitoring; full controls live on the WP Dashboard.', 'rankready' ); ?></p>
+		</div>
+		<?php
+		if ( class_exists( 'RR_Freshness' ) ) {
+			RR_Freshness::render_widget();
+		} else {
+			echo '<p>' . esc_html__( 'Freshness module unavailable.', 'rankready' ) . '</p>';
+		}
+	}
 
 	private static function render_tab_advanced(): void {
 		// Order (per UX feedback): Bulk generation operations come first

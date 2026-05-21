@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-beta.7] - 2026-05-21 — "Insights Tab"
+
+The architectural debt cleanup begins. Three signals that were conflated on the AI Crawlers tab — **training bot crawl**, **citation bot crawl**, and **AI referral traffic** — now have their own home with explicit headers explaining what each measures. Plus a Content Freshness sub-section so all AI-feedback data lives in one place.
+
+### Added
+- **New "Insights" tab** between AI Crawlers and Settings. The first step in the planned 6-tab final IA (Dashboard / Visibility / Content / Authority / Insights / Developer).
+- **AI funnel explainer** at the top of Insights — 4-step visual (Training crawl → Citation crawl → Referral click → Conversion 23×) so users know which sub-tab measures which stage.
+- **4 sub-tabs in Insights:**
+  - `Bot Activity` — splits Training (blue panel, GPTBot / Google-Extended / ClaudeBot) from Citation (green panel, OAI-SearchBot / ChatGPT-User / PerplexityBot) with separate headline numbers + bot counts
+  - `AI Citation Candidates` — full table of top citation-fetched pages with Edit shortcuts
+  - `AI Referral Traffic` — outbound visits with per-source bar chart, 23× conversion stat, and "how is this different from Bot Activity?" expander
+  - `Content Freshness` — embeds the 3-tab widget with explainer about the 28% citation lift
+
+### Why this matters
+The user-visible bug fixed by this beta: today's UI shows "Citation Hits 0 · Training Hits 0 · No AI referral visits yet" on the same screen, making the three numbers look like one thing. They're three different stages of the AI funnel with completely different decisions attached:
+- **Training hits going up?** → Your site is being indexed for future models. Multi-month payoff.
+- **Citation hits going up?** → Your site is being cited in live AI answers RIGHT NOW. Optimise these pages.
+- **Referral traffic going up?** → AI is converting users for you. Track conversions.
+
+Splitting them into named sub-tabs with explainers stops users guessing.
+
+### Notes
+- The original AI Crawlers tab still shows the AI Crawler Access Log + AI Referral Traffic cards (temporary duplication during the IA migration). Beta.8 removes those cards from AI Crawlers and renames the tab to "Visibility."
+- Sub-tab routing via `?sub=` query parameter — bookmarkable, refresh-stable.
+- No new options added in this beta. Pure UI restructure on top of existing data.
+
 ## [1.2.0-beta.6] - 2026-05-21 — "Per-Resource Toggles"
 
 Pro-dev WebMCP redesign. Admins now choose, per WordPress resource, what AI agents can see. Safe defaults shipped; risky/PII resources opt-in with clear warnings. The manifest itself is filtered — disabled abilities don't appear in `/.well-known/mcp.json` at all, so Claude Desktop / Cursor never even know they exist.

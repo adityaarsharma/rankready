@@ -131,6 +131,62 @@
 	text-wrap: pretty;
 }
 
+/* ── v1.2.0-rc.7 — Universal locked-state card pattern ────────────────────── */
+/* "Goal line" — one-line outcome promise under every card title. */
+.rr-card-goal {
+	margin: 4px 0 14px;
+	font-size: 13px;
+	color: #646970;
+	font-style: italic;
+	text-wrap: pretty;
+}
+
+/* Locked-preview body — replaces the settings controls when the card's
+   master toggle is OFF. Bullet list of what the user gets + Enable button. */
+.rr-card-locked {
+	padding: 16px 20px;
+	background: #fbfbfc;
+	border: 1px dashed #c3c4c7;
+	border-radius: 6px;
+}
+.rr-card-locked__heading {
+	margin: 0 0 8px;
+	font-size: 13px;
+	color: #1d2327;
+}
+.rr-card-locked__bullets {
+	margin: 0 0 14px 18px;
+	padding: 0;
+	color: #50575e;
+	font-size: 13px;
+	list-style: disc;
+}
+.rr-card-locked__bullets li {
+	margin: 4px 0;
+}
+.rr-card-locked__form {
+	margin: 0;
+}
+.rr-card-locked__btn {
+	min-width: 140px;
+}
+
+/* Inline info callout used by the SEO Plugin Compatibility 1-liner. */
+.rr-info-callout {
+	background: #f0f6fc;
+	border-left: 3px solid #2271b1;
+	padding: 8px 12px;
+	margin: 0 0 14px;
+	font-size: 13px;
+	color: #1d2327;
+	border-radius: 3px;
+}
+.rr-info-callout .dashicons {
+	color: #2271b1;
+	margin-right: 4px;
+	vertical-align: middle;
+}
+
 /* ── Collapsible details ───────────────────────────────────────────────────── */
 
 .rr-details {

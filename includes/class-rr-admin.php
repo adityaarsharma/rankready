@@ -36,6 +36,10 @@ class RR_Admin {
 		add_action( 'admin_init',            array( self::class, 'register_settings' ) );
 		add_action( 'admin_init',            array( self::class, 'handle_dismiss_actions' ) );
 		add_action( 'admin_init',            array( self::class, 'track_installed_version' ) );
+		// v1.2.0-rc.7 — Quick-enable POST handler for locked-state cards.
+		// Runs early on admin_init so the wp_safe_redirect() fires before
+		// any output. See render_locked_preview() / handle_quick_enable().
+		add_action( 'admin_init',            array( self::class, 'handle_quick_enable' ) );
 		add_action( 'admin_notices',         array( self::class, 'connection_notice' ) );
 		add_action( 'admin_notices',         array( self::class, 'permalink_notice' ) );
 		add_action( 'admin_enqueue_scripts', array( self::class, 'enqueue_admin_assets' ) );
@@ -1048,6 +1052,10 @@ class RR_Admin {
 
 			<div class="rr-tab-content">
 				<?php
+				// v1.2.0-rc.7 — Show one-time success notice after a quick-enable POST.
+				self::render_quick_enable_banner();
+				?>
+				<?php
 				switch ( $active_tab ) {
 					case 'dashboard':
 						self::render_tab_dashboard();
@@ -1572,6 +1580,7 @@ class RR_Admin {
 		?>
 		<div class="rr-card rr-scorecard" style="margin-bottom:24px;">
 			<h2 class="rr-card-title">🎯 <?php esc_html_e( 'Agentic Ready Scorecard', 'rankready' ); ?></h2>
+			<p class="rr-card-goal"><?php esc_html_e( '22 signals across 6 groups — your site\'s AI-readiness at a glance.', 'rankready' ); ?></p>
 			<p class="rr-card-desc">
 				<?php esc_html_e( 'Every signal RankReady ships, at a glance. Tick = active. Click any row to jump straight to the setting.', 'rankready' ); ?>
 			</p>
@@ -1705,6 +1714,7 @@ class RR_Admin {
 		         a one-click jump to Settings to change provider/key. */ ?>
 		<div class="rr-card" style="margin-bottom:20px;background:linear-gradient(135deg,#f6f7f7 0%,#eef0f2 100%);">
 			<h2 class="rr-card-title"><?php esc_html_e( 'Active AI Provider', 'rankready' ); ?></h2>
+			<p class="rr-card-goal"><?php esc_html_e( 'The LLM that powers Summary + FAQ generation.', 'rankready' ); ?></p>
 			<p class="rr-card-desc" style="margin-bottom:8px;">
 				<?php
 				$provider_label = RR_LLM::get_provider_label( RR_LLM::get_active_provider() );
@@ -2158,6 +2168,7 @@ class RR_Admin {
 			<!-- LLM Provider Picker -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'AI Provider', 'rankready' ); ?></h2>
+				<p class="rr-card-goal"><?php esc_html_e( 'Pick the LLM that powers Summary + FAQ. Switch any time. Only the selected provider needs a key.', 'rankready' ); ?></p>
 				<p class="rr-card-desc"><?php esc_html_e( 'Pick which AI powers Summary + FAQ generation. Switch any time. Only the selected provider needs an API key — the others stay dormant.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
@@ -2208,6 +2219,7 @@ class RR_Admin {
 			     Outer .rr-provider-card class dropped → .rr-provider-card-inner. -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'Provider Configuration', 'rankready' ); ?></h2>
+				<p class="rr-card-goal"><?php esc_html_e( 'Pick the LLM that powers Summary + FAQ. Switch any time. Only the selected provider needs a key.', 'rankready' ); ?></p>
 				<p class="rr-card-desc"><?php esc_html_e( 'API key and model selection for the active provider. Switching providers above swaps this panel.', 'rankready' ); ?></p>
 
 			<!-- OpenAI -->
@@ -2369,6 +2381,7 @@ class RR_Admin {
 			<!-- DataForSEO -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'DataForSEO', 'rankready' ); ?></h2>
+				<p class="rr-card-goal"><?php esc_html_e( 'Question discovery for FAQ generation. Optional — only needed if FAQ is on.', 'rankready' ); ?></p>
 				<p class="rr-card-desc"><?php esc_html_e( 'Powers FAQ question discovery via keyword suggestions and related keywords. Sign up at dataforseo.com.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
@@ -2409,6 +2422,7 @@ class RR_Admin {
 		<!-- Connection Status -->
 		<div class="rr-card rr-card--subtle">
 			<h3 class="rr-card-title" style="font-size:14px;"><?php esc_html_e( 'Status', 'rankready' ); ?></h3>
+			<p class="rr-card-goal"><?php esc_html_e( 'Live verification — AI key, DataForSEO key, and the active model in one glance.', 'rankready' ); ?></p>
 			<div class="rr-stats-row" style="margin-top:12px;">
 				<div class="rr-stat">
 					<span class="rr-stat-number"><?php echo RR_LLM::active_provider_ready() ? '&#10003;' : '&#10007;'; ?></span>
@@ -2451,6 +2465,7 @@ class RR_Admin {
 			     (Generation + Display). All form-field names preserved verbatim. -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'AI Summary', 'rankready' ); ?></h2>
+				<p class="rr-card-goal"><?php esc_html_e( 'Auto-generate AI-readable Key Takeaways for every post. AI engines quote these directly.', 'rankready' ); ?></p>
 				<p class="rr-card-desc"><?php esc_html_e( 'Configure which posts get AI summaries, how they are generated, and how they appear on the frontend.', 'rankready' ); ?></p>
 
 				<h3 class="rr-subsection-title"><?php esc_html_e( 'Generation', 'rankready' ); ?></h3>
@@ -2604,9 +2619,7 @@ class RR_Admin {
 			     Intro card prose → .rr-card-desc. All option keys preserved verbatim. -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'Author Box (E-E-A-T)', 'rankready' ); ?></h2>
-				<p class="rr-card-desc">
-					<?php esc_html_e( 'RankReady adds a full EEAT author profile section to every WordPress user. Every field maps to Schema.org Person data (sameAs, knowsAbout, hasCredential, memberOf, award, worksFor) so AI systems can verify authorship and cite your content. Fill author data in Users → Profile → "RankReady Author Box".', 'rankready' ); ?>
-				</p>
+				<p class="rr-card-goal"><?php esc_html_e( 'Show real people behind your content. E-E-A-T signals AI engines check before citing your site.', 'rankready' ); ?></p>
 				<?php if ( $seo_plugin ) : ?>
 					<div style="background:#f0f6fc;border-left:4px solid #2271b1;padding:12px 16px;margin-top:12px;">
 						<strong><?php echo esc_html( $seo_plugin ); ?></strong> <?php esc_html_e( 'is active. RankReady will not emit a duplicate Person node. Instead, it enhances the existing Person schema in', 'rankready' ); ?> <?php echo esc_html( $seo_plugin ); ?> <?php esc_html_e( 'with RankReady data via the plugin\'s filter hooks. Zero conflict.', 'rankready' ); ?>
@@ -2624,6 +2637,24 @@ class RR_Admin {
 							</label>
 						</td>
 					</tr>
+					<?php if ( 'on' !== $enable ) : ?>
+					<tr>
+						<td colspan="2">
+							<?php
+							self::render_locked_preview( array(
+								'option_key'   => 'rr_author_enable',
+								'enable_label' => __( 'Enable Author Box', 'rankready' ),
+								'bullets'      => array(
+									__( 'Person JSON-LD with bio, expertise, sameAs (Wikidata, ORCID, LinkedIn)', 'rankready' ),
+									__( 'Display via Gutenberg block / Elementor widget', 'rankready' ),
+									__( 'Pulls existing WP user profile + RankReady-specific fields', 'rankready' ),
+									__( 'E-E-A-T trust signals AI engines weight heavily', 'rankready' ),
+								),
+							) );
+							?>
+						</td>
+					</tr>
+					<?php endif; ?>
 					<tr>
 						<th><label for="rr_author_auto_display"><?php esc_html_e( 'Auto-display', 'rankready' ); ?></label></th>
 						<td>
@@ -2763,17 +2794,43 @@ class RR_Admin {
 		$speakable = (string) get_option( RR_OPT_SCHEMA_SPEAKABLE, 'on' );
 
 		// Detect active SEO plugins.
-		$has_rankmath = defined( 'RANK_MATH_VERSION' );
-		$has_yoast    = defined( 'WPSEO_VERSION' );
-		$has_aioseo   = defined( 'AIOSEO_VERSION' );
-		$seo_plugin   = '';
-		if ( $has_rankmath ) $seo_plugin = 'Rank Math';
-		elseif ( $has_yoast ) $seo_plugin = 'Yoast SEO';
-		elseif ( $has_aioseo ) $seo_plugin = 'AIOSEO';
+		// Detect SEO plugin (expanded list per rc.7 — also covers SEOPress + TSF).
+		$has_rankmath  = defined( 'RANK_MATH_VERSION' );
+		$has_yoast     = defined( 'WPSEO_VERSION' );
+		$has_aioseo    = defined( 'AIOSEO_VERSION' );
+		$has_seopress  = defined( 'SEOPRESS_VERSION' );
+		$has_tsf       = defined( 'THE_SEO_FRAMEWORK_VERSION' );
+		$seo_plugin    = '';
+		if ( $has_rankmath )     $seo_plugin = 'Rank Math';
+		elseif ( $has_yoast )    $seo_plugin = 'Yoast SEO';
+		elseif ( $has_aioseo )   $seo_plugin = 'All in One SEO';
+		elseif ( $has_seopress ) $seo_plugin = 'SEOPress';
+		elseif ( $has_tsf )      $seo_plugin = 'The SEO Framework';
 		?>
 			<!-- SEO Plugin Detection -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'SEO Plugin Compatibility', 'rankready' ); ?></h2>
+				<p class="rr-card-goal"><?php esc_html_e( 'RankReady detects your active SEO plugin and merges schema — never duplicate tags.', 'rankready' ); ?></p>
+
+				<?php
+				// v1.2.0-rc.7 — Inline 1-liner replacing the deleted "How Schema
+				// Works" card. Stays in DOM regardless of plugin presence so the
+				// user always sees what's happening.
+				if ( $seo_plugin ) {
+					printf(
+						'<p class="rr-info-callout"><span class="dashicons dashicons-info"></span> %s</p>',
+						esc_html( sprintf(
+							/* translators: %s: detected SEO plugin name */
+							__( '%s detected — RankReady merges schema into its graph. No duplicate tags.', 'rankready' ),
+							$seo_plugin
+						) )
+					);
+				} else {
+					echo '<p class="rr-info-callout"><span class="dashicons dashicons-info"></span> '
+						. esc_html__( 'No SEO plugin detected — RankReady emits standalone Article + Speakable schema.', 'rankready' )
+						. '</p>';
+				}
+				?>
 				<?php if ( ! empty( $seo_plugin ) ) : ?>
 					<div style="background:#f0f6fc;border-left:4px solid #2271b1;padding:12px 16px;margin-bottom:16px;">
 						<strong><?php echo esc_html( $seo_plugin ); ?></strong> <?php esc_html_e( 'is active.', 'rankready' ); ?>
@@ -2793,9 +2850,33 @@ class RR_Admin {
 			</div>
 
 			<!-- Schema Toggles -->
+			<?php
+			// v1.2.0-rc.7 — "All-off" master gate: if every schema toggle is OFF
+			// the card body becomes a locked preview prompting the user to
+			// enable at least Article. Otherwise the full schema-types table
+			// renders unchanged.
+			$rr_any_schema_on = ( 'on' === $article )
+				|| ( 'on' === $faq )
+				|| ( 'on' === $howto )
+				|| ( 'on' === $itemlist )
+				|| ( 'on' === $speakable );
+			?>
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'Schema Types', 'rankready' ); ?></h2>
-				<p class="rr-card-desc"><?php esc_html_e( 'Enable or disable individual schema types. All schema is auto-detected from your existing content — no manual setup required.', 'rankready' ); ?></p>
+				<p class="rr-card-goal"><?php esc_html_e( 'Auto-emit Article + Speakable + HowTo + ItemList JSON-LD. No manual schema work.', 'rankready' ); ?></p>
+
+				<?php if ( ! $rr_any_schema_on ) :
+					self::render_locked_preview( array(
+						'option_key'   => 'rr_schema_article',
+						'enable_label' => __( 'Enable Article schema', 'rankready' ),
+						'bullets'      => array(
+							__( 'Article JSON-LD on every post — required by AI engines for attribution', 'rankready' ),
+							__( 'Speakable schema for Alexa, Assistant, Siri voice answers', 'rankready' ),
+							__( 'HowTo auto-detection from tutorial content', 'rankready' ),
+							__( 'ItemList auto-detection from listicles', 'rankready' ),
+						),
+					) );
+				else : ?>
 
 				<table class="form-table rr-form-table">
 
@@ -2930,6 +3011,7 @@ class RR_Admin {
 					</tr>
 					<?php endif; // is_pro — ItemList ?>
 				</table>
+				<?php endif; /* /rr_any_schema_on locked-state gate (rc.7) */ ?>
 			</div>
 
 			<?php if ( ! $is_pro ) : ?>
@@ -2946,30 +3028,11 @@ class RR_Admin {
 			</div>
 			<?php endif; ?>
 
-			<!-- How Schema Decision Works -->
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'How Schema Detection Works', 'rankready' ); ?></h2>
-				<p class="rr-card-desc"><?php esc_html_e( 'RankReady reads each post and automatically decides which schema to inject. No manual setup needed.', 'rankready' ); ?></p>
-				<div style="padding:16px;background:#f9f9f9;border-radius:4px;font-family:monospace;font-size:13px;line-height:1.8;">
-					<?php esc_html_e( 'Post loads on frontend', 'rankready' ); ?><br>
-					&nbsp;&nbsp;|<br>
-					&nbsp;&nbsp;|-- <?php esc_html_e( 'Article schema?', 'rankready' ); ?><br>
-					<?php if ( ! empty( $seo_plugin ) ) : ?>
-					&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?php echo esc_html( sprintf( __( 'Skipped (%s active)', 'rankready' ), $seo_plugin ) ); ?><br>
-					<?php else : ?>
-					&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?php esc_html_e( 'YES — injected on all posts/pages', 'rankready' ); ?><br>
-					<?php endif; ?>
-					&nbsp;&nbsp;|<br>
-					&nbsp;&nbsp;|-- <?php esc_html_e( 'FAQPage schema?', 'rankready' ); ?><br>
-					&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?php esc_html_e( 'Only if RankReady FAQ data exists AND no SEO plugin FAQ block in content', 'rankready' ); ?><br>
-					&nbsp;&nbsp;|<br>
-					&nbsp;&nbsp;|-- <?php esc_html_e( 'HowTo schema?', 'rankready' ); ?><br>
-					&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?php esc_html_e( 'Only if title has "how to/tutorial/step by step" AND 2+ steps detected', 'rankready' ); ?><br>
-					&nbsp;&nbsp;|<br>
-					&nbsp;&nbsp;|-- <?php esc_html_e( 'ItemList schema?', 'rankready' ); ?><br>
-					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<?php esc_html_e( 'Only if title has "Best N/Top N/N Plugins" AND 3+ items AND NOT a HowTo post', 'rankready' ); ?>
-				</div>
-			</div>
+			<?php
+			// v1.2.0-rc.7 — "How Schema Detection Works" card removed; replaced
+			// by the inline 1-line conditional callout at the top of the SEO
+			// Plugin Compatibility card above.
+			?>
 
 		<?php
 	}
@@ -3040,6 +3103,7 @@ class RR_Admin {
 			<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;">
 				<div>
 					<h2 class="rr-card-title" style="margin:0;"><?php esc_html_e( 'Agent Visibility', 'rankready' ); ?></h2>
+					<p class="rr-card-goal" style="margin:4px 0 0;"><?php esc_html_e( 'Coverage check — how many AI-readable signals are active on your site.', 'rankready' ); ?></p>
 					<p class="rr-card-desc" style="margin:4px 0 0;">
 						<?php
 						printf(
@@ -3105,6 +3169,7 @@ class RR_Admin {
 						<span style="font-size:11px;background:var(--rr-color-warning-bg,#fcf9e8);color:var(--rr-color-warning-text,#674c00);padding:2px 8px;border-radius:9999px;font-weight:600;">⚠ <?php esc_html_e( 'Incomplete', 'rankready' ); ?></span>
 					<?php endif; ?>
 				</h2>
+				<p class="rr-card-goal"><?php esc_html_e( 'Tell AI engines who you are — once. Powers llms.txt, robots.txt comment, FAQ prompt, AI summary prompt, MCP abilities, homepage markdown.', 'rankready' ); ?></p>
 				<p class="rr-card-desc" style="margin-top:4px;">
 					<?php esc_html_e( 'How AI engines see your brand. Four fields, one place. Every consumer below reads the same values — fill these once and every llms.txt, robots.txt comment, FAQ prompt, AI summary prompt, MCP ability, and homepage Markdown stays consistent.', 'rankready' ); ?>
 				</p>
@@ -3540,9 +3605,7 @@ class RR_Admin {
 			?>
 			<div class="rr-card" style="margin-bottom:24px;">
 				<h2 class="rr-card-title"><?php esc_html_e( 'AI Referral Traffic', 'rankready' ); ?></h2>
-				<p class="rr-card-desc">
-					<?php esc_html_e( 'Tracks visitors arriving from ChatGPT, Perplexity, Gemini, Claude, and Copilot. 100% server-side, no third-party scripts, no JS. Updates daily, retains 30 days.', 'rankready' ); ?>
-				</p>
+				<p class="rr-card-goal"><?php esc_html_e( 'Count visits from chatgpt.com, perplexity.ai, claude.ai, gemini.google.com, copilot.microsoft.com — privacy-respecting.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
 					<tr>
@@ -3556,6 +3619,19 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
+
+				<?php if ( 'on' !== $rr_referral_enable ) :
+					self::render_locked_preview( array(
+						'option_key'   => 'rr_ai_referral_enable',
+						'enable_label' => __( 'Enable AI Referral Tracking', 'rankready' ),
+						'bullets'      => array(
+							__( 'Count visits from chatgpt.com, perplexity.ai, claude.ai, gemini.google.com, copilot.microsoft.com', 'rankready' ),
+							__( 'Privacy-respecting — Sec-GPC + DNT headers honored', 'rankready' ),
+							__( 'Race-safe counter with shutdown-batched DB writes', 'rankready' ),
+							__( 'Insights → AI Referral Traffic dashboard', 'rankready' ),
+						),
+					) );
+				endif; ?>
 
 				<?php if ( 'on' === $rr_referral_enable && $rr_ref_total > 0 ) : ?>
 					<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
@@ -3596,9 +3672,7 @@ class RR_Admin {
 					<?php esc_html_e( 'WebMCP — Agent Tooling', 'rankready' ); ?>
 					<span style="font-size:11px;background:var(--rr-color-info-bg,#e5f1f9);color:var(--rr-color-info-text,#135e96);padding:2px 8px;border-radius:9999px;margin-left:6px;vertical-align:middle;font-weight:600;">NEW</span>
 				</h2>
-				<p class="rr-card-desc">
-					<?php esc_html_e( 'Exposes your site to AI agents via Model Context Protocol. Claude Desktop, Cursor, and VS Code can discover and call your site\'s content as typed tools — not just scrape HTML.', 'rankready' ); ?>
-				</p>
+				<p class="rr-card-goal"><?php esc_html_e( 'Expose 16 read-only abilities at /.well-known/mcp.json — Claude Desktop, Cursor, VS Code read your site.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
 					<tr>
@@ -3796,19 +3870,32 @@ class RR_Admin {
 						</tr>
 					<?php endif; ?>
 				</table>
+
+				<?php if ( 'on' !== $rr_mcp_enable ) :
+					self::render_locked_preview( array(
+						'option_key'   => 'rr_mcp_enable',
+						'enable_label' => __( 'Enable WebMCP', 'rankready' ),
+						'bullets'      => array(
+							__( '/.well-known/mcp.json manifest endpoint', 'rankready' ),
+							__( '16 read-only abilities (get-site-info, search-posts, get-post, list-pages, get-author, ...)', 'rankready' ),
+							__( 'Per-ability toggle controls — keep sensitive resources gated', 'rankready' ),
+							__( 'Cache-busted on toggle changes', 'rankready' ),
+						),
+					) );
+				endif; ?>
 			</div>
 			<!-- ── /WebMCP ──────────────────────────────────────────────────────── -->
 
 			<!-- LLMs.txt -->
+			<?php $llms_enable = (string) get_option( RR_OPT_LLMS_ENABLE, 'off' ); ?>
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'LLMs.txt Generator', 'rankready' ); ?></h2>
-				<p class="rr-card-desc"><?php esc_html_e( 'Generate a /llms.txt file following the llmstxt.org specification. Helps AI models understand your site.', 'rankready' ); ?></p>
+				<p class="rr-card-goal"><?php esc_html_e( 'Serve the llmstxt.org site index at /llms.txt and /llms-full.txt for AI engines.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Enable LLMs.txt', 'rankready' ); ?></th>
 						<td>
-							<?php $llms_enable = (string) get_option( RR_OPT_LLMS_ENABLE, 'off' ); ?>
 							<label class="rr-toggle">
 								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_LLMS_ENABLE ); ?>"
 									   value="on" <?php checked( $llms_enable, 'on' ); ?>
@@ -3824,6 +3911,19 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
+
+				<?php if ( 'on' !== $llms_enable ) :
+					self::render_locked_preview( array(
+						'option_key'   => 'rr_llms_enable',
+						'enable_label' => __( 'Enable LLMs.txt', 'rankready' ),
+						'bullets'      => array(
+							__( '/llms.txt serves your site index in the llmstxt.org spec', 'rankready' ),
+							__( '/llms-full.txt dumps every post in one AI-readable file', 'rankready' ),
+							__( 'Brand Identity values render in both files automatically', 'rankready' ),
+							__( 'Cache-friendly with bypass rules for 10 page-cache plugins', 'rankready' ),
+						),
+					) );
+				endif; ?>
 
 				<div id="rr-llms-fields" class="rr-conditional-fields" <?php echo 'on' !== $llms_enable ? 'style="display:none;"' : ''; ?>>
 					<p class="description" style="margin:0 0 16px;padding:10px 12px;background:var(--rr-color-brand-soft,#f0f6fc);border-left:3px solid var(--rr-color-brand,#2271b1);border-radius:0 var(--rr-radius-md,6px) var(--rr-radius-md,6px) 0;font-size:12px;">
@@ -3954,15 +4054,15 @@ class RR_Admin {
 			</div>
 
 			<!-- Markdown Endpoints -->
+			<?php $md_enable = (string) get_option( RR_OPT_MD_ENABLE, 'off' ); ?>
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'Markdown Endpoints', 'rankready' ); ?></h2>
-				<p class="rr-card-desc"><?php esc_html_e( 'Serve every post as clean Markdown at its URL + .md suffix. LLM crawlers get structured content.', 'rankready' ); ?></p>
+				<p class="rr-card-goal"><?php esc_html_e( 'Every post as clean Markdown for AI bots — via .md URL or Accept: text/markdown.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Enable .md Endpoints', 'rankready' ); ?></th>
 						<td>
-							<?php $md_enable = (string) get_option( RR_OPT_MD_ENABLE, 'off' ); ?>
 							<label class="rr-toggle">
 								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_MD_ENABLE ); ?>"
 									   value="on" <?php checked( $md_enable, 'on' ); ?>
@@ -3978,6 +4078,19 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
+
+				<?php if ( 'on' !== $md_enable ) :
+					self::render_locked_preview( array(
+						'option_key'   => 'rr_md_enable',
+						'enable_label' => __( 'Enable Markdown Endpoints', 'rankready' ),
+						'bullets'      => array(
+							__( 'Every post available at /post-slug.md', 'rankready' ),
+							__( 'Content negotiation via Accept: text/markdown', 'rankready' ),
+							__( 'YAML frontmatter (title, author, date, taxonomies) for AI agents', 'rankready' ),
+							__( 'AI bot auto-serve when User-Agent matches GPTBot, ClaudeBot, PerplexityBot, etc.', 'rankready' ),
+						),
+					) );
+				endif; ?>
 
 				<div id="rr-md-fields" class="rr-conditional-fields" <?php echo 'on' !== $md_enable ? 'style="display:none;"' : ''; ?>>
 					<table class="form-table rr-form-table">
@@ -4036,17 +4149,15 @@ class RR_Admin {
 			</div>
 
 			<!-- LLM Crawler Access (robots.txt) -->
+			<?php $robots_enable = (string) get_option( RR_OPT_ROBOTS_ENABLE, 'on' ); ?>
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'LLM Crawler Access (robots.txt)', 'rankready' ); ?></h2>
-				<p class="rr-card-desc">
-					<?php esc_html_e( 'Control which AI crawlers can access your content via robots.txt. Enabled crawlers get explicit Allow rules appended — never modifies existing rules from Rank Math, Yoast, or any other plugin.', 'rankready' ); ?>
-				</p>
+				<p class="rr-card-goal"><?php esc_html_e( 'Allow or block 31 named AI crawlers — auto-syncs to physical /robots.txt.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Enable Crawler Rules', 'rankready' ); ?></th>
 						<td>
-							<?php $robots_enable = (string) get_option( RR_OPT_ROBOTS_ENABLE, 'on' ); ?>
 							<label class="rr-toggle">
 								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_ROBOTS_ENABLE ); ?>"
 									   value="on" <?php checked( $robots_enable, 'on' ); ?>
@@ -4057,6 +4168,19 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
+
+				<?php if ( 'on' !== $robots_enable ) :
+					self::render_locked_preview( array(
+						'option_key'   => 'rr_robots_enable',
+						'enable_label' => __( 'Enable Crawler Rules', 'rankready' ),
+						'bullets'      => array(
+							__( '31 named AI crawler directives (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot-Extended, ...)', 'rankready' ),
+							__( 'Allow/block per-bot toggle for fine-grained control', 'rankready' ),
+							__( 'Brand block comment with canonical site name + summary', 'rankready' ),
+							__( 'Auto-syncs to physical /robots.txt (diff-before-write)', 'rankready' ),
+						),
+					) );
+				endif; ?>
 
 				<div id="rr-robots-fields" class="rr-conditional-fields" <?php echo 'on' !== $robots_enable ? 'style="display:none;"' : ''; ?>>
 					<table class="form-table rr-form-table">
@@ -4101,17 +4225,15 @@ class RR_Admin {
 			</div>
 
 			<!-- Content Signals -->
+			<?php $signals_enable = (string) get_option( RR_OPT_CONTENT_SIGNALS_ENABLE, 'off' ); ?>
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'Content Signals', 'rankready' ); ?></h2>
-				<p class="rr-card-desc">
-					<?php esc_html_e( 'Declare AI usage preferences in robots.txt via the Content Signals standard (contentsignals.org). Tells AI systems whether your content may be used for training, search, or AI-generated responses.', 'rankready' ); ?>
-				</p>
+				<p class="rr-card-goal"><?php esc_html_e( 'Tell AI engines what your content may be used for (ai-train / search / ai-input).', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Enable Content Signals', 'rankready' ); ?></th>
 						<td>
-							<?php $signals_enable = (string) get_option( RR_OPT_CONTENT_SIGNALS_ENABLE, 'off' ); ?>
 							<label class="rr-toggle">
 								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_CONTENT_SIGNALS_ENABLE ); ?>"
 									   value="on" <?php checked( $signals_enable, 'on' ); ?>
@@ -4121,6 +4243,19 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
+
+				<?php if ( 'on' !== $signals_enable ) :
+					self::render_locked_preview( array(
+						'option_key'   => 'rr_content_signals_enable',
+						'enable_label' => __( 'Enable Content Signals', 'rankready' ),
+						'bullets'      => array(
+							__( 'ai-train directive — control whether AI engines train on your content', 'rankready' ),
+							__( 'search directive — control inclusion in AI search results', 'rankready' ),
+							__( 'ai-input directive — control runtime prompt use by AI engines', 'rankready' ),
+							__( 'Per contentsignals.org spec', 'rankready' ),
+						),
+					) );
+				endif; ?>
 
 				<div id="rr-content-signals-fields" class="rr-conditional-fields" <?php echo 'on' !== $signals_enable ? 'style="display:none;"' : ''; ?>>
 					<table class="form-table rr-form-table">
@@ -4169,6 +4304,7 @@ class RR_Admin {
 		<!-- Cache Controls (outside form) -->
 		<div class="rr-card rr-card--subtle">
 			<h3 class="rr-card-title" style="font-size:14px;"><?php esc_html_e( 'Cache Management', 'rankready' ); ?></h3>
+			<p class="rr-card-goal"><?php esc_html_e( 'Flush the llms.txt cache + any page-cache plugin entries when content changes.', 'rankready' ); ?></p>
 			<p class="description"><?php esc_html_e( 'Clear cached LLMs.txt output to regenerate with latest content.', 'rankready' ); ?></p>
 			<p style="margin-top:10px;">
 				<button id="rr-flush-llms-cache" class="button button-secondary">
@@ -4192,6 +4328,7 @@ class RR_Admin {
 			     (Generation + Display). All form-field names preserved verbatim. -->
 			<div class="rr-card">
 				<h2 class="rr-card-title"><?php esc_html_e( 'FAQ Generator', 'rankready' ); ?></h2>
+				<p class="rr-card-goal"><?php esc_html_e( 'Discover real user questions + answer with AI. Outputs FAQPage schema that AI engines preferentially cite.', 'rankready' ); ?></p>
 				<p class="rr-card-desc"><?php esc_html_e( 'Configure how FAQs are generated and displayed. Uses DataForSEO for question discovery and your active AI provider for answers with brand entity injection.', 'rankready' ); ?></p>
 
 				<h3 class="rr-subsection-title"><?php esc_html_e( 'Generation', 'rankready' ); ?></h3>
@@ -4544,6 +4681,7 @@ class RR_Admin {
 		<!-- Bulk Regenerate AI Summaries — PRO -->
 		<div class="rr-card">
 			<h2 class="rr-card-title"><?php esc_html_e( 'Bulk Regenerate — AI Summaries', 'rankready' ); ?></h2>
+			<p class="rr-card-goal"><?php esc_html_e( 'Run summaries across every published post in one job. Resumable, skip-on-unchanged.', 'rankready' ); ?></p>
 			<p class="rr-card-desc">
 				<?php esc_html_e( 'Generate AI summaries across all existing published posts. Skips posts with unchanged content. Processes 5 posts at a time.', 'rankready' ); ?>
 			</p>
@@ -4615,6 +4753,7 @@ class RR_Admin {
 		     are content-generation operations, grouped per UX feedback). -->
 		<div class="rr-card">
 			<h2 class="rr-card-title"><?php esc_html_e( 'Bulk Generate FAQs', 'rankready' ); ?></h2>
+			<p class="rr-card-goal"><?php esc_html_e( 'Generate FAQ Q&A pairs for every existing post. Requires DataForSEO + AI provider keys.', 'rankready' ); ?></p>
 			<p class="rr-card-desc">
 				<?php esc_html_e( 'Generate FAQ Q&A pairs for all existing published posts using DataForSEO + your active AI provider. Requires both API keys to be configured.', 'rankready' ); ?>
 			</p>
@@ -4660,6 +4799,7 @@ class RR_Admin {
 		<!-- Bulk Author Changer -->
 		<div class="rr-card">
 			<h2 class="rr-card-title"><?php esc_html_e( 'Bulk Author Changer', 'rankready' ); ?></h2>
+			<p class="rr-card-goal"><?php esc_html_e( 'Reassign authors across any post type — preview count before executing.', 'rankready' ); ?></p>
 			<p class="rr-card-desc">
 				<?php esc_html_e( 'Reassign authors across any post type. Preview the affected count before executing.', 'rankready' ); ?>
 			</p>
@@ -4786,7 +4926,8 @@ class RR_Admin {
 		$dfs_cost  = isset( $dfs_usage['total_cost'] ) ? (float) $dfs_usage['total_cost'] : 0;
 		?>
 		<div class="rr-card">
-			<h2 class="rr-card-title"><?php esc_html_e( 'API Usage', 'rankready' ); ?></h2>
+			<h2 class="rr-card-title"><?php esc_html_e( 'Cost & Tokens Burned', 'rankready' ); ?></h2>
+			<p class="rr-card-goal"><?php esc_html_e( 'How much you\'ve spent on AI generations. Estimated from token counts × blended provider rates.', 'rankready' ); ?></p>
 			<p class="rr-card-desc"><?php esc_html_e( 'Cumulative API usage tracked since this feature was enabled.', 'rankready' ); ?></p>
 
 			<div style="margin-top:12px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap;">
@@ -4924,6 +5065,7 @@ class RR_Admin {
 		     for support. JS handler lives in assets/admin.js. -->
 		<div class="rr-card" id="rr-diagnostics-card">
 			<h2 class="rr-card-title"><?php esc_html_e( 'Diagnostics', 'rankready' ); ?></h2>
+			<p class="rr-card-goal"><?php esc_html_e( 'Live probes that actually fetch your endpoints + detect plugin conflicts. Every failure ships with a fix.', 'rankready' ); ?></p>
 			<p class="rr-card-desc">
 				<?php esc_html_e( 'Live probes that actually fetch /llms.txt, /robots.txt, /.well-known/mcp.json and every Markdown route — then detect cache/builder/SEO plugin conflicts. Every failure ships with a one-line fix.', 'rankready' ); ?>
 			</p>
@@ -4985,6 +5127,7 @@ class RR_Admin {
 		<!-- Error Log -->
 		<div class="rr-card">
 			<h2 class="rr-card-title"><?php esc_html_e( 'Error Log', 'rankready' ); ?></h2>
+			<p class="rr-card-goal"><?php esc_html_e( 'Recent API errors from OpenAI, Anthropic, Gemini, DeepSeek, DataForSEO. Last 50 entries.', 'rankready' ); ?></p>
 			<p class="rr-card-desc"><?php esc_html_e( 'Recent API errors from OpenAI and DataForSEO. Shows the last 50 entries.', 'rankready' ); ?></p>
 			<p>
 				<button type="button" id="rr-errors-load" class="button button-secondary"><?php esc_html_e( 'Load Error Log', 'rankready' ); ?></button>
@@ -5018,6 +5161,7 @@ class RR_Admin {
 
 			<div class="rr-card" style="margin-bottom:24px;">
 				<h2 class="rr-card-title"><?php esc_html_e( 'Data Retention', 'rankready' ); ?></h2>
+				<p class="rr-card-goal"><?php esc_html_e( 'Choose what happens to RankReady data when the plugin is uninstalled. Default keeps everything.', 'rankready' ); ?></p>
 				<p class="rr-card-desc">
 					<?php esc_html_e( 'Control what happens to your RankReady data when the plugin is deleted.', 'rankready' ); ?>
 				</p>
@@ -5651,5 +5795,183 @@ class RR_Admin {
 			'order'    => 'ASC',
 			'fields'   => array( 'ID', 'display_name', 'user_login' ),
 		) );
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// v1.2.0-rc.7 — Universal locked-state pattern.
+	// Every togglable card uses the same UX: header + toggle + goal line always
+	// visible. When the master toggle is OFF, the card body shows a "locked
+	// preview" — bullet list of what the feature delivers + an Enable button
+	// that POSTs the toggle to 'on' via handle_quick_enable().
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Render the "locked preview" body for a togglable card.
+	 *
+	 * Shown when a card's master toggle is OFF. Lists what the feature delivers
+	 * + offers an Enable button. The button is a nonce-protected GET link to
+	 * the same admin page (NOT a nested <form>, which is invalid HTML when
+	 * the card sits inside the tab's outer settings form). The handler runs
+	 * on admin_init via handle_quick_enable().
+	 *
+	 * @param array $config {
+	 *     @type string $option_key   Option name to flip (e.g. 'rr_llms_enable').
+	 *     @type string $on_value     Value to write when enabling (default 'on').
+	 *     @type string $enable_label Button label (default "Enable").
+	 *     @type array  $bullets      Plain-text bullet list of what the user gets.
+	 * }
+	 */
+	private static function render_locked_preview( array $config ): void {
+		$option_key = $config['option_key'] ?? '';
+		$on_value   = $config['on_value'] ?? 'on';
+		$btn_label  = $config['enable_label'] ?? __( 'Enable', 'rankready' );
+		$bullets    = $config['bullets'] ?? array();
+
+		// Build the nonce-protected enable URL. GET-based so it nests safely
+		// inside the outer settings form without producing invalid HTML.
+		$enable_url = wp_nonce_url(
+			add_query_arg(
+				array(
+					'rr_enable_action' => $option_key,
+					'rr_enable_value'  => $on_value,
+				),
+				admin_url( 'admin.php' )
+			),
+			'rr_enable_' . $option_key,
+			'_rr_enable_nonce'
+		);
+		// Preserve current admin context (page=rankready&tab=...).
+		$enable_url = add_query_arg(
+			array(
+				'page' => self::MENU_SLUG,
+				'tab'  => isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'dashboard',
+			),
+			$enable_url
+		);
+		?>
+		<div class="rr-card-locked">
+			<p class="rr-card-locked__heading">
+				<strong><?php esc_html_e( 'What you get when enabled:', 'rankready' ); ?></strong>
+			</p>
+			<ul class="rr-card-locked__bullets">
+				<?php foreach ( $bullets as $b ) : ?>
+					<li><?php echo esc_html( $b ); ?></li>
+				<?php endforeach; ?>
+			</ul>
+			<p class="rr-card-locked__form" style="margin:0;">
+				<a href="<?php echo esc_url( $enable_url ); ?>" class="button button-primary rr-card-locked__btn">
+					<?php echo esc_html( $btn_label ); ?>
+				</a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Handles the Enable click from a locked-preview card.
+	 *
+	 * GET-based: the locked preview emits a nonce-protected link rather than
+	 * a nested <form> (which would be invalid HTML inside the tab's outer
+	 * settings form). Wired to admin_init so wp_safe_redirect() fires before
+	 * any output. Validates: capability, per-option nonce, whitelisted option
+	 * key. Then writes the option and redirects to ?rr_enabled=<key> for a
+	 * one-time success notice.
+	 */
+	public static function handle_quick_enable(): void {
+		if ( empty( $_GET['rr_enable_action'] ) || empty( $_GET['_rr_enable_nonce'] ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		$option_key = sanitize_key( wp_unslash( $_GET['rr_enable_action'] ) );
+		$nonce_raw  = isset( $_GET['_rr_enable_nonce'] ) ? wp_unslash( $_GET['_rr_enable_nonce'] ) : '';
+		if ( ! wp_verify_nonce( $nonce_raw, 'rr_enable_' . $option_key ) ) {
+			return;
+		}
+		// Whitelist — only these options can be flipped via the Enable buttons.
+		$allowed = array(
+			'rr_llms_enable',
+			'rr_md_enable',
+			'rr_robots_enable',
+			'rr_content_signals_enable',
+			'rr_mcp_enable',
+			'rr_auto_generate',
+			'rr_faq_auto_generate',
+			'rr_schema_article',
+			'rr_schema_faq',
+			'rr_schema_howto',
+			'rr_schema_itemlist',
+			'rr_schema_speakable',
+			'rr_ai_referral_enable',
+			'rr_max_snippet_default',
+			'rr_author_enable',
+		);
+		if ( ! in_array( $option_key, $allowed, true ) ) {
+			return;
+		}
+		$value = isset( $_GET['rr_enable_value'] )
+			? sanitize_text_field( wp_unslash( $_GET['rr_enable_value'] ) )
+			: 'on';
+		update_option( $option_key, $value );
+
+		// Redirect back to the current admin page (drops nonce + action args),
+		// keeping the active tab and adding ?rr_enabled=<key> for the banner.
+		$tab      = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'dashboard';
+		$redirect = add_query_arg(
+			array(
+				'page'       => self::MENU_SLUG,
+				'tab'        => $tab,
+				'rr_enabled' => $option_key,
+			),
+			admin_url( 'admin.php' )
+		);
+		wp_safe_redirect( $redirect );
+		exit;
+	}
+
+	/**
+	 * Human-readable labels for the quick-enable success banner.
+	 * Maps whitelisted option key → translated feature name.
+	 */
+	private static function get_quick_enable_labels(): array {
+		return array(
+			'rr_llms_enable'             => __( 'LLMs.txt', 'rankready' ),
+			'rr_md_enable'               => __( 'Markdown Endpoints', 'rankready' ),
+			'rr_robots_enable'           => __( 'LLM Crawler Access (robots.txt)', 'rankready' ),
+			'rr_content_signals_enable'  => __( 'Content Signals', 'rankready' ),
+			'rr_mcp_enable'              => __( 'WebMCP Manifest', 'rankready' ),
+			'rr_auto_generate'           => __( 'AI Summary auto-generation', 'rankready' ),
+			'rr_faq_auto_generate'       => __( 'FAQ auto-generation', 'rankready' ),
+			'rr_schema_article'          => __( 'Article schema', 'rankready' ),
+			'rr_schema_faq'              => __( 'FAQPage schema', 'rankready' ),
+			'rr_schema_howto'            => __( 'HowTo schema', 'rankready' ),
+			'rr_schema_itemlist'         => __( 'ItemList schema', 'rankready' ),
+			'rr_schema_speakable'        => __( 'Speakable schema', 'rankready' ),
+			'rr_ai_referral_enable'      => __( 'AI Referral Tracking', 'rankready' ),
+			'rr_max_snippet_default'     => __( 'max-snippet:-1 default', 'rankready' ),
+			'rr_author_enable'           => __( 'Author Box (E-E-A-T)', 'rankready' ),
+		);
+	}
+
+	/**
+	 * Renders the one-time success banner after a quick-enable redirect.
+	 * Called from render_page() right after the tab nav.
+	 */
+	private static function render_quick_enable_banner(): void {
+		if ( empty( $_GET['rr_enabled'] ) ) {
+			return;
+		}
+		$enabled_key = sanitize_key( wp_unslash( $_GET['rr_enabled'] ) );
+		$labels      = self::get_quick_enable_labels();
+		if ( ! isset( $labels[ $enabled_key ] ) ) {
+			return;
+		}
+		$label = $labels[ $enabled_key ];
+		printf(
+			'<div class="notice notice-success is-dismissible"><p><strong>%s</strong> %s</p></div>',
+			esc_html( $label ),
+			esc_html__( 'enabled. Scroll down to configure.', 'rankready' )
+		);
 	}
 }

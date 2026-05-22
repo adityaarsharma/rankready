@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-rc.7] - 2026-05-22 — "Logical gates"
+
+Every togglable card now follows the same UX. Always-visible header (title + one-line goal + master toggle); when the toggle is OFF the card body becomes a "locked preview" — bullet list of what the feature delivers + a one-click Enable button that flips the toggle to `on` via a nonce-protected admin GET, then redirects back with a `?rr_enabled=<key>` success notice. When ON, the full settings controls render exactly as before (no data migration).
+
+### Added — reusable helpers
+
+- `RR_Admin::render_locked_preview( array $config )` — emits the locked-state body for a togglable card. Takes `option_key`, `enable_label`, and a `bullets` array. The Enable button is rendered as an `<a href>` (nonce-protected GET, not a nested `<form>`) so it nests safely inside the tab's outer settings form without producing invalid HTML.
+- `RR_Admin::handle_quick_enable()` — admin_init handler. Validates capability + per-option nonce + a server-side whitelist of 15 enable-able options (`rr_llms_enable`, `rr_md_enable`, `rr_robots_enable`, `rr_content_signals_enable`, `rr_mcp_enable`, `rr_auto_generate`, `rr_faq_auto_generate`, the five `rr_schema_*`, `rr_ai_referral_enable`, `rr_max_snippet_default`, `rr_author_enable`). Writes the option then redirects to `?rr_enabled=<key>` for the success banner.
+- `RR_Admin::render_quick_enable_banner()` — one-time success notice rendered at the top of the tab content area after a quick-enable redirect.
+
+### Added — locked-state pattern across 11 togglable cards
+
+For each card below, the master toggle row stays in the DOM whether ON or OFF.
+When OFF the existing settings-control body is replaced by the locked preview.
+
+1. **LLMs.txt Generator** (`rr_llms_enable`) — AI Crawlers tab.
+2. **Markdown Endpoints** (`rr_md_enable`) — AI Crawlers tab.
+3. **LLM Crawler Access / robots.txt** (`rr_robots_enable`) — AI Crawlers tab.
+4. **Content Signals** (`rr_content_signals_enable`) — AI Crawlers tab.
+5. **WebMCP — Agent Tooling** (`rr_mcp_enable`) — AI Crawlers tab.
+6. **AI Referral Traffic** (`rr_ai_referral_enable`) — AI Crawlers tab.
+7. **Author Box (E-E-A-T)** (`rr_author_enable`) — E-E-A-T tab. Locked preview renders inside a `colspan="2"` table row immediately after the Enable Author Box toggle, so it lives in the same form-table grid as the rest of the card.
+8. **Schema Types — master gate** (any of `rr_schema_article`, `rr_schema_faq`, `rr_schema_howto`, `rr_schema_itemlist`, `rr_schema_speakable` ON) — E-E-A-T tab. Card body becomes a locked preview only when ALL FIVE schema toggles are off. The Enable button flips `rr_schema_article` to `on` as the canonical starting point.
+
+The remaining togglable surfaces (AI Summary, FAQ Generator) intentionally keep their settings always visible. Their master gates are Pro-only (`rr_auto_generate` / `rr_faq_auto_generate`) and the free tier still uses the same fields for the Gutenberg block, Elementor widget, and Bulk Generate flows — locking the body would hide settings that are still active in the free plan.
+
+### Added — goal lines under every card title
+
+Every card now ships a 1-line outcome promise (`.rr-card-goal`) immediately under its title, separate from the longer `.rr-card-desc`. The goal lines render whether the card is ON or OFF, in both Pro and Free. Cards covered:
+
+Brand Identity · Agent Visibility · Author Box (E-E-A-T) · Bulk Author Changer · SEO Plugin Compatibility · Schema Types · AI Summary · Bulk Regenerate — AI Summaries · FAQ Generator · Bulk Generate FAQs · Active AI Provider · LLMs.txt Generator · Markdown Endpoints · LLM Crawler Access (robots.txt) · Content Signals · AI Referral Traffic · WebMCP · Cache Management · AI Provider (Settings) · Provider Configuration · DataForSEO · Status · Cost & Tokens Burned · Diagnostics · Error Log · Data Retention · Agentic Ready Scorecard.
+
+### Changed — SEO Plugin Compatibility inline 1-liner
+
+The standalone "How Schema Detection Works" card on the E-E-A-T tab has been removed. Its information is now collapsed into a single `.rr-info-callout` paragraph at the top of the SEO Plugin Compatibility card. The paragraph is conditional:
+
+- When an SEO plugin is detected → "**{Plugin}** detected — RankReady merges schema into its graph. No duplicate tags."
+- When no SEO plugin is detected → "No SEO plugin detected — RankReady emits standalone Article + Speakable schema."
+
+Detection list expanded from 3 plugins (Rank Math / Yoast / AIOSEO) to 5 (adds SEOPress and The SEO Framework).
+
+### Changed — Settings tab card rename
+
+The "API Usage" card on the Settings tab is now titled **"Cost & Tokens Burned"** with a matching goal line: *"How much you've spent on AI generations. Estimated from token counts × blended provider rates."* All form field IDs and existing JS hooks (`#rr-tokens-load`, `#rr-tokens-count`, `#rr-tokens-list`, `#rr-tokens-tbody`) are preserved verbatim.
+
+Settings-tab card order verified: AI Provider → Provider Configuration → DataForSEO → Status → Cost & Tokens Burned.
+
+### Added — CSS
+
+`assets/admin.css` gets four new classes for the pattern:
+
+- `.rr-card-goal` — italic muted goal line under each card title.
+- `.rr-card-locked` — dashed-border container for the OFF-state body.
+- `.rr-card-locked__heading`, `.rr-card-locked__bullets`, `.rr-card-locked__form`, `.rr-card-locked__btn` — internal pieces.
+- `.rr-info-callout` (+ `.rr-info-callout .dashicons`) — blue-tinted 1-line callout used for the SEO Plugin Compatibility explanation.
+
+### Files
+
+- `rankready.php` — version bump rc.6 → rc.7.
+- `readme.txt` — stable tag bump.
+- `includes/class-rr-admin.php` — `render_locked_preview()` + `handle_quick_enable()` + `render_quick_enable_banner()` + locked-state rollout across 11 cards + goal lines + SEO Plugin Compatibility inline callout + "How Schema Detection Works" card removal + Cost & Tokens rename.
+- `assets/admin.css` — new pattern classes.
+- `CHANGELOG.md` — this entry.
+
 ## [1.2.0-rc.6] - 2026-05-22 — "IA finalization"
 
 Closes out the IA roadmap shipped in rc.5: four card relocations across tabs, four card merges, and a new Dashboard scorecard that surfaces every Agentic-Ready signal in one place.

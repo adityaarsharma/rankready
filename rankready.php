@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – Get cited by ChatGPT & Perplexity
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.2.0-beta.7
+ * Version:           1.2.0-rc.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.2.0-beta.7' );
+	define( 'RR_VERSION',  '1.2.0-rc.1' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -537,6 +537,27 @@ add_action( 'plugins_loaded', function (): void {
 	// Auto-flush rewrite rules after plugin update (activation hook doesn't fire on updates).
 	$stored_version = get_option( 'rr_installed_version', '' );
 	if ( $stored_version !== RR_VERSION ) {
+		// v1.2.0-rc.1 — silent-upgrade safety. Existing v1.1.x installs
+		// should NOT auto-flip new behaviour-changing toggles on. The
+		// register_setting() defaults make these ON for fresh installs;
+		// for upgrades, we explicitly seed 'off' if the option row is
+		// missing AND the previous version is v1.1.x or earlier.
+		// (Audit beta.3 #7.)
+		if ( '' !== $stored_version && version_compare( $stored_version, '1.2.0-beta.1', '<' ) ) {
+			$upgrade_safe_off = array(
+				'rr_max_snippet_default',  // emits <meta robots> sitewide
+				'rr_ai_referral_enable',   // tracks Referer on every pageview (privacy)
+				'rr_mcp_enable',           // publishes /.well-known/mcp.json
+				'rr_md_hint_div',          // injects hidden div on every post
+				'rr_md_bot_auto_serve',    // UA-based markdown switching
+			);
+			foreach ( $upgrade_safe_off as $opt ) {
+				if ( false === get_option( $opt, false ) ) {
+					update_option( $opt, 'off', false );
+				}
+			}
+		}
+
 		update_option( 'rr_installed_version', RR_VERSION );
 		// Defer rewrite rule registration + flush to 'init' — $wp_rewrite is not
 		// ready at plugins_loaded and calling add_rewrite_rule() before init causes

@@ -277,20 +277,23 @@ class RR_Welcome {
 						autofocus
 					><?php echo esc_textarea( $default_brand ); ?></textarea>
 
+					<!-- v1.2.0-rc.1 — disclosure moved ABOVE the submit so users
+					     pressing Enter inside the textarea don't miss what
+					     they're consenting to. (Audit beta.3 #6.) -->
+					<div class="rr-welcome__includes" style="margin-top:14px;">
+						<strong><?php esc_html_e( 'When you submit, this will automatically enable', 'rankready' ); ?></strong>
+						<?php esc_html_e( 'llms.txt at /llms.txt — Markdown routes on every post (/post-slug.md) — AI crawler allowlist for GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot, Google-Extended + 13 others — WebMCP manifest at /.well-known/mcp.json.', 'rankready' ); ?>
+					</div>
+
 					<div class="rr-welcome__actions">
 						<button type="submit" name="rr_welcome_submit" value="1" class="rr-welcome__primary">
-							<?php esc_html_e( 'Make my site Agent Ready →', 'rankready' ); ?>
+							<?php esc_html_e( 'Enable & make my site Agent Ready →', 'rankready' ); ?>
 						</button>
 						<a class="rr-welcome__skip" href="<?php echo esc_url( admin_url( 'admin.php?page=rankready' ) ); ?>">
 							<?php esc_html_e( 'Skip — go straight to settings', 'rankready' ); ?>
 						</a>
 					</div>
 				</form>
-
-				<div class="rr-welcome__includes">
-					<strong><?php esc_html_e( 'This will automatically enable', 'rankready' ); ?></strong>
-					<?php esc_html_e( 'llms.txt at /llms.txt — Markdown routes on every post (/post-slug.md) — AI crawler allowlist for GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot, Google-Extended + 13 others — WebMCP manifest at /.well-known/mcp.json.', 'rankready' ); ?>
-				</div>
 			</div>
 		</div>
 		<?php

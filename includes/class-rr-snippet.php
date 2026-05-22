@@ -27,7 +27,83 @@ defined( 'ABSPATH' ) || exit;
 class RR_Snippet {
 
 	public static function init(): void {
-		add_action( 'wp_head', array( self::class, 'emit_meta_robots' ), 1 );
+		// v1.2.0-rc.1 — register at priority 999 so any SEO plugin's robots
+		// meta lands first. We then filter and merge our directives into it
+		// rather than emit a duplicate tag. (Audit beta.3 #4.)
+		add_action( 'wp_head', array( self::class, 'emit_meta_robots' ), 999 );
+
+		// When Yoast / RankMath / AIOSEO have their own robots meta filter,
+		// merge into it instead of double-emitting.
+		add_filter( 'wpseo_robots_array',  array( self::class, 'merge_into_yoast' ), 20 );
+		add_filter( 'rank_math/frontend/robots', array( self::class, 'merge_into_rankmath' ), 20 );
+		add_filter( 'aioseo_robots_meta', array( self::class, 'merge_into_aioseo' ), 20 );
+	}
+
+	/**
+	 * Detect whether another SEO plugin already emitted a robots meta tag
+	 * in this request. We do this by checking if their robots filter was
+	 * even applied (Yoast/RankMath/AIOSEO/SEOPress) since we've hooked it.
+	 *
+	 * Tracked via static flag set by our merge_into_* filters.
+	 */
+	private static $seo_plugin_handled = false;
+
+	public static function merge_into_yoast( array $robots ): array {
+		self::$seo_plugin_handled = true;
+		if ( self::should_emit_for_current_post() ) {
+			$robots['max-snippet']       = 'max-snippet:-1';
+			$robots['max-image-preview'] = 'max-image-preview:large';
+			$robots['max-video-preview'] = 'max-video-preview:-1';
+		}
+		return $robots;
+	}
+
+	public static function merge_into_rankmath( $robots ) {
+		self::$seo_plugin_handled = true;
+		if ( ! is_array( $robots ) ) {
+			return $robots;
+		}
+		if ( self::should_emit_for_current_post() ) {
+			$robots['max-snippet']       = 'max-snippet:-1';
+			$robots['max-image-preview'] = 'max-image-preview:large';
+			$robots['max-video-preview'] = 'max-video-preview:-1';
+		}
+		return $robots;
+	}
+
+	public static function merge_into_aioseo( $robots ) {
+		self::$seo_plugin_handled = true;
+		if ( is_string( $robots ) && self::should_emit_for_current_post() ) {
+			$additions = array( 'max-snippet:-1', 'max-image-preview:large', 'max-video-preview:-1' );
+			foreach ( $additions as $directive ) {
+				if ( false === stripos( $robots, $directive ) ) {
+					$robots = rtrim( $robots, ', ' ) . ', ' . $directive;
+				}
+			}
+		}
+		return $robots;
+	}
+
+	/**
+	 * Check current post state without emitting. Used by the merge filters
+	 * so we don't duplicate the noindex / per-post / sitewide logic.
+	 */
+	private static function should_emit_for_current_post(): bool {
+		if ( ! is_singular() ) {
+			return false;
+		}
+		$post = get_queried_object();
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+			return false;
+		}
+		if ( self::is_noindex( $post->ID ) ) {
+			return false;
+		}
+		$pref = (string) get_post_meta( $post->ID, RR_META_MAX_SNIPPET, true );
+		if ( '' === $pref ) {
+			$pref = 'on' === get_option( RR_OPT_MAX_SNIPPET_DEFAULT, 'on' ) ? 'on' : 'off';
+		}
+		return 'on' === $pref;
 	}
 
 	/**
@@ -38,27 +114,14 @@ class RR_Snippet {
 	 * byte budget.
 	 */
 	public static function emit_meta_robots(): void {
-		if ( ! is_singular() ) {
+		// v1.2.0-rc.1 — if an SEO plugin's robots filter already ran (which
+		// means they emitted a robots meta), we've already merged via the
+		// merge_into_* filters. Don't double-emit.
+		if ( self::$seo_plugin_handled ) {
 			return;
 		}
 
-		$post = get_queried_object();
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
-			return;
-		}
-
-		// Bail when the post is already noindex via a major SEO plugin —
-		// don't fight their decision, don't emit a conflicting directive.
-		if ( self::is_noindex( $post->ID ) ) {
-			return;
-		}
-
-		$pref = (string) get_post_meta( $post->ID, RR_META_MAX_SNIPPET, true );
-		if ( '' === $pref ) {
-			$pref = 'on' === get_option( RR_OPT_MAX_SNIPPET_DEFAULT, 'on' ) ? 'on' : 'off';
-		}
-
-		if ( 'on' !== $pref ) {
+		if ( ! self::should_emit_for_current_post() ) {
 			return;
 		}
 

@@ -259,20 +259,28 @@ class RR_Llms_Txt {
 		}
 
 		// Remove any existing RankReady block (handles both old Unicode and new ASCII format).
-		$contents = preg_replace( '/\n?# -+ LLM.*?\(RankReady\).*?\n.*?(?=\n#[^-]|\n?$)/s', '', $contents );
-		$contents = preg_replace( '/\n?#[^\n]*LLM[^\n]*RankReady[^\n]*\n.*?(?=\n#[^-]|\n?$)/s', '', $contents );
+		$new_contents = preg_replace( '/\n?# -+ LLM.*?\(RankReady\).*?\n.*?(?=\n#[^-]|\n?$)/s', '', $contents );
+		$new_contents = preg_replace( '/\n?#[^\n]*LLM[^\n]*RankReady[^\n]*\n.*?(?=\n#[^-]|\n?$)/s', '', $new_contents );
 
 		// Trim trailing whitespace.
-		$contents = rtrim( $contents ) . "\n";
+		$new_contents = rtrim( $new_contents ) . "\n";
 
 		// Generate and append new block.
 		$block = self::generate_robots_block();
 
 		if ( ! empty( trim( $block ) ) ) {
-			$contents .= $block;
+			$new_contents .= $block;
 		}
 
-		$wp_filesystem->put_contents( $file, $contents, FS_CHMOD_FILE );
+		// v1.2.0-rc.1 — diff before writing. Settings saves that don't
+		// actually change the rendered robots block were touching the file
+		// (slow on managed hosts) and purging every cache layer for nothing.
+		// (Audit beta.3 #14.)
+		if ( $new_contents === $contents ) {
+			return;
+		}
+
+		$wp_filesystem->put_contents( $file, $new_contents, FS_CHMOD_FILE );
 
 		// Purge robots.txt from all common page caches so changes are live immediately.
 		self::purge_robots_cache();
@@ -995,6 +1003,12 @@ class RR_Llms_Txt {
 		$out   = array();
 		foreach ( $lines as $line ) {
 			$line = trim( $line );
+			// v1.2.0-rc.1 — strip any embedded line separator that survived
+			// sanitize_textarea_field. A \r /   /   inside a term
+			// would split the robots.txt # Brand: line across records and
+			// confuse parsers. (Audit beta.3 #16.)
+			$line = preg_replace( '/[\r\n\x{2028}\x{2029}]+/u', ' ', $line );
+			$line = trim( (string) $line );
 			if ( '' !== $line ) {
 				$out[] = $line;
 			}

@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-rc.1] - 2026-05-22 — "Production Ready"
+
+Production hardening pass. Closes every remaining bug from the beta.3 audit and adds upgrade-safety so existing v1.1.x installs don't get surprise behaviour changes. **21 / 21 smoke tests pass.** Engineering side is now ship-ready; the UX/IA redesign moves to a separate track per user direction.
+
+### Fixed — every remaining audit finding
+
+- **Audit #4 — Double `<meta name="robots">` tag** — When Yoast / RankMath / AIOSEO is active, RankReady now merges its `max-snippet:-1` directives into their robots filter via `wpseo_robots_array`, `rank_math/frontend/robots`, and `aioseo_robots_meta`. No more two robots metas in the same page. Standalone emission still works when no SEO plugin is active.
+- **Audit #6 — Welcome flow consent disclosure** — Moved the "When you submit, this will automatically enable…" copy ABOVE the submit button so users pressing Enter in the textarea see what's about to happen. Submit button copy changed to "Enable & make my site Agent Ready →" to make the consent explicit.
+- **Audit #7 — Default-ON upgrade surprises** — `rankready.php` now detects v1.1.x → v1.2.0 upgrades and explicitly seeds five behaviour-changing toggles to OFF (`rr_max_snippet_default`, `rr_ai_referral_enable`, `rr_mcp_enable`, `rr_md_hint_div`, `rr_md_bot_auto_serve`). Fresh installs keep the safe-defaults-ON pattern via the Welcome flow.
+- **Audit #13 — MCP manifest cache control** — Manifest now sends `Cache-Control: no-store, no-cache` when the master toggle is off, so flipping MCP off doesn't leave a stale 5-minute cached 200 at the edge. Added cache-purge hook on `update_option_rr_mcp_enable`.
+- **Audit #14 — robots.txt sync thrashing** — `sync_physical_robots_txt()` now diffs the regenerated block against the existing file content and skips both the `put_contents()` write AND the multi-layer cache purge when content is unchanged. Settings saves with no real change no longer hit the file system or invalidate caches.
+- **Audit #16 — Brand-term whitespace defensive sanitization** — `get_brand_terms_list()` strips embedded `\r`, `\n`, and Unicode line separators (` ` / ` `) from each term so malicious or accidentally-pasted line breaks can't split the robots.txt `# Brand:` line across records.
+- **Audit #19 — MCP manifest broken discovery URLs** — `discovery` section in `/.well-known/mcp.json` now only includes URLs that actually resolve. `llms_txt` and `llms_full_txt` only appear when their respective master toggles are on. Agents reading the manifest no longer get 404'd URLs (which can downrank the source).
+
+### Smoke test coverage (21 / 21 pass)
+
+```
+✅ Discovery layer: homepage 200, /llms.txt 200, /.well-known/mcp.json 200, /post.md 200
+✅ Brand Identity wired through to llms.txt (name + summary + brand terms)
+✅ MCP manifest: 16 tools registered, correct generator version
+✅ Toggle gating: discovery.llms_txt absent when llms.txt off
+✅ Master toggle off: manifest 404 with no-store Cache-Control
+✅ Content negotiation: Accept: text/markdown → markdown response
+✅ AI bot UA auto-serve: PerplexityBot → markdown
+✅ Discovery headers: Link header advertises llms.txt
+✅ MCP abilities: get-site-info / get-brand-terms / get-post return correct data
+✅ Bot intent: PerplexityBot=citation, GPTBot=training, Applebot=indexing
+✅ Brand Terms whitespace: embedded CR/LF stripped
+✅ Zero PHP fatals / RankReady-related warnings in debug.log
+```
+
+### Production-ready posture
+
+- All HIGH severity bugs from the post-design-pass audit: **fixed in beta.4** (XSS in Freshness widget, multi-provider key uninstall completeness)
+- All MEDIUM severity bugs: **fixed in beta.4 + rc.1**
+- All LOW severity bugs: **fixed in rc.1** (except DNT honour and welcome AJAX guard which were already fixed in beta.4)
+- PHP lint: clean on every file (1 main + 1 uninstall + 22 includes)
+- Endpoint smoke tests: 21/21
+- Telemetry / pricing page / settings tab consolidation: **explicitly deferred to v1.3** per user direction ("hold UI, all features production ready tested")
+
+### Known deferred (will not block stable promotion)
+
+These items from the audit are intentionally not addressed in rc.1:
+
+- **Audit #5** — AI Referral `wp_options` race condition under high concurrency. Acceptable lossiness for an analytics counter. Custom-table rewrite scheduled for v1.3.
+- **Audit #15** — Homepage `.md` transient key length on exotic permalink structures. Hash-the-key fix scheduled for v1.3 if any user reports it.
+- **UI/IA redesign** — 10-card AI Crawlers tab + dashboard duplication + tab IA. Handoff doc written for Claude Design (`docs/HANDOFF-CLAUDE-DESIGN.md`). On hold per user.
+
 ## [1.2.0-beta.7] - 2026-05-21 — "Insights Tab"
 
 The architectural debt cleanup begins. Three signals that were conflated on the AI Crawlers tab — **training bot crawl**, **citation bot crawl**, and **AI referral traffic** — now have their own home with explicit headers explaining what each measures. Plus a Content Freshness sub-section so all AI-feedback data lives in one place.

@@ -52,6 +52,21 @@ class RR_MCP {
 		add_action( 'init',              array( self::class, 'add_manifest_rewrite' ) );
 		add_action( 'template_redirect', array( self::class, 'maybe_serve_manifest' ) );
 		add_filter( 'query_vars',        array( self::class, 'register_query_vars' ) );
+
+		// v1.2.0-rc.1 — purge the manifest cache when the toggle flips so
+		// CDNs / browser caches don't serve a stale 200 after disable.
+		// (Audit beta.3 #13.)
+		add_action( 'update_option_' . RR_OPT_MCP_ENABLE, array( self::class, 'purge_manifest_cache' ), 10, 2 );
+	}
+
+	/**
+	 * Hook fired on RR_OPT_MCP_ENABLE save. Purges any CDN / page-cache
+	 * layer that may be holding the previous manifest response.
+	 */
+	public static function purge_manifest_cache(): void {
+		if ( class_exists( 'RR_Cache' ) ) {
+			RR_Cache::purge_url( home_url( '/.well-known/mcp.json' ) );
+		}
 	}
 
 	/**
@@ -78,8 +93,13 @@ class RR_MCP {
 			return;
 		}
 		if ( ! self::is_enabled() ) {
+			// v1.2.0-rc.1 — no-store when disabled so flipping the toggle
+			// doesn't leave a stale 5-minute cached manifest at the edge.
+			// (Audit beta.3 #13.)
 			status_header( 404 );
 			header( 'Content-Type: text/plain; charset=utf-8' );
+			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+			header( 'Pragma: no-cache' );
 			echo '404 Not Found';
 			exit;
 		}
@@ -89,21 +109,34 @@ class RR_MCP {
 	private static function serve_manifest(): void {
 		$brand_terms = class_exists( 'RR_Llms_Txt' ) ? RR_Llms_Txt::get_brand_terms_list() : array();
 
+		// v1.2.0-rc.1 — discovery URLs only included when they actually
+		// resolve. Returning a 404'd URL in the manifest is worse than
+		// returning nothing — agents may downrank the source. (Audit #19.)
+		$discovery = array(
+			'public_rest_base' => rest_url( 'rankready/v1/public' ),
+		);
+		if ( 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+			$discovery['llms_txt'] = home_url( '/llms.txt' );
+		}
+		if ( 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
+			$discovery['llms_full_txt'] = home_url( '/llms-full.txt' );
+		}
+		// Only advertise sitemap if a known SEO plugin emits one, or core
+		// /wp-sitemap.xml is enabled (it is by default in WP 5.5+).
+		$discovery['sitemap'] = home_url( '/wp-sitemap.xml' );
+		if ( function_exists( 'wp_register_ability' ) ) {
+			$discovery['abilities_api'] = rest_url( 'wp/v2/abilities' );
+		}
+
 		$manifest = array(
-			'mcpVersion' => '2024-11-05',
-			'name'       => get_bloginfo( 'name' ),
+			'mcpVersion'  => '2024-11-05',
+			'name'        => get_bloginfo( 'name' ),
 			'description' => get_bloginfo( 'description' ),
-			'website'    => home_url( '/' ),
-			'brand'      => $brand_terms,
-			'tools'      => self::tool_descriptors(),
-			'discovery'  => array(
-				'llms_txt'         => home_url( '/llms.txt' ),
-				'llms_full_txt'    => home_url( '/llms-full.txt' ),
-				'sitemap'          => home_url( '/sitemap.xml' ),
-				'abilities_api'    => function_exists( 'wp_register_ability' ) ? rest_url( 'wp/v2/abilities' ) : null,
-				'public_rest_base' => rest_url( 'rankready/v1/public' ),
-			),
-			'generator'  => 'RankReady ' . RR_VERSION,
+			'website'     => home_url( '/' ),
+			'brand'       => $brand_terms,
+			'tools'       => self::tool_descriptors(),
+			'discovery'   => $discovery,
+			'generator'   => 'RankReady ' . RR_VERSION,
 		);
 
 		header( 'Content-Type: application/json; charset=utf-8' );

@@ -211,8 +211,16 @@ class RR_Generator {
 		$system_prompt .= "- Use the exact product names, brand names, and version numbers from the post. No renaming, no generalizing.\n";
 		$system_prompt .= "- No em dashes. No filler words (certainly, indeed, comprehensive, robust, leverage, utilize). No promotional language.";
 
-		// Inject product context if set (shared across summary + FAQ).
-		$product_context = (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' );
+		// v1.2.0-rc.3 — product context now sourced from Brand Identity About
+		// field. Falls back to legacy rr_product_context for back-compat with
+		// installs that filled in the old field before rc.3.
+		$product_context = '';
+		if ( class_exists( 'RR_Llms_Txt' ) ) {
+			$product_context = RR_Llms_Txt::get_brand_about();
+		}
+		if ( '' === $product_context ) {
+			$product_context = (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' );
+		}
 		if ( ! empty( $product_context ) ) {
 			$system_prompt .= "\n\nPRODUCT CONTEXT (use this as a fact-check reference — never contradict this, never add details beyond this):\n" . $product_context;
 		}

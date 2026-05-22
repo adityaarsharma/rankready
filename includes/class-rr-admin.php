@@ -17,6 +17,9 @@ class RR_Admin {
 	// Identity" form doesn't trigger options.php to null-out every other
 	// LLMS_GROUP option that isn't in this form.
 	private const BRAND_GROUP      = 'rr_brand_group';     // Brand Identity card only
+	// v1.2.0-rc.3 — Data Retention has its own group too, for the same reason:
+	// a small isolated form must not null out unrelated options when saved.
+	private const DATA_GROUP       = 'rr_data_group';      // Data Retention card on Advanced tab
 	private const AUTHORITY_GROUP  = 'rr_authority_group'; // Authority tab (author + schema)
 	private const LLMS_GROUP       = 'rr_llms_group';      // AI Crawlers tab
 	private const HEADLESS_GROUP   = 'rr_headless_group';  // Advanced tab
@@ -249,6 +252,11 @@ class RR_Admin {
 			'default'           => '',
 		) );
 
+		// v1.2.0-rc.3 — Product Context kept registered for back-compat reads,
+		// but the input field is removed from the UI. The "About" field on
+		// the Brand Identity card now serves both llms.txt content AND prompt
+		// injection (RR_Generator + RR_Faq read RR_Llms_Txt::get_brand_about()
+		// with rr_product_context as legacy fallback).
 		register_setting( self::SETTINGS_GROUP, RR_OPT_PRODUCT_CONTEXT, array(
 			'type'              => 'string',
 			'sanitize_callback' => 'sanitize_textarea_field',
@@ -261,7 +269,11 @@ class RR_Admin {
 			'default'           => 'off',
 		) );
 
-		register_setting( self::SETTINGS_GROUP, RR_OPT_DELETE_ON_UNINSTALL, array(
+		// v1.2.0-rc.3 — Data Retention moved to its own group so the "Save
+		// Data Retention" form on the Advanced tab can save just one toggle
+		// without nullifying other Settings options. Same isolation pattern
+		// Brand Identity uses.
+		register_setting( self::DATA_GROUP, RR_OPT_DELETE_ON_UNINSTALL, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
 			'default'           => 'off',
@@ -2027,24 +2039,10 @@ class RR_Admin {
 			})();
 			</script>
 
-			<!-- Product Context -->
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Product Context', 'rankready' ); ?></h2>
-				<p class="rr-card-desc"><?php esc_html_e( 'Describe your product/brand so the AI knows what it is writing about. This is injected into both Key Takeaways and FAQ prompts to prevent hallucination.', 'rankready' ); ?></p>
-
-				<table class="form-table rr-form-table">
-					<tr>
-						<th scope="row"><label for="rr_product_context"><?php esc_html_e( 'Product / Brand Info', 'rankready' ); ?></label></th>
-						<td>
-							<textarea name="<?php echo esc_attr( RR_OPT_PRODUCT_CONTEXT ); ?>" id="rr_product_context"
-									  rows="6" class="large-text"
-									  placeholder="<?php esc_attr_e( 'Example: Acme SEO Plugin is a WordPress plugin that helps site owners improve their search rankings. It does NOT work with page builders other than Gutenberg. Our brand name is Acme. Website: acmeplugin.com', 'rankready' ); ?>"
-							><?php echo esc_textarea( (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' ) ); ?></textarea>
-							<p class="description"><?php esc_html_e( 'Tell the AI what your product is, what it does, what it does NOT do, brand names, and any facts it must get right. Used in both Summary and FAQ generation.', 'rankready' ); ?></p>
-						</td>
-					</tr>
-				</table>
-			</div>
+			<!-- Product Context — REMOVED in rc.3.
+			     The "About" field on the Brand Identity card (AI Crawlers tab) now serves
+			     this purpose. RR_Generator + RR_Faq inject Brand Identity About into the
+			     AI prompts, so admins only fill in one place. -->
 
 			<!-- DataForSEO -->
 			<div class="rr-card">
@@ -2081,45 +2079,7 @@ class RR_Admin {
 				</table>
 			</div>
 
-			<!-- Data Retention -->
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Data Retention', 'rankready' ); ?></h2>
-				<p class="rr-card-desc">
-					<?php esc_html_e( 'Control what happens to your RankReady data when the plugin is deleted.', 'rankready' ); ?>
-				</p>
-				<table class="form-table rr-form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'On Deactivate', 'rankready' ); ?></th>
-						<td>
-							<p style="margin:0;">
-								<span class="dashicons dashicons-shield" style="color:#46b450;"></span>
-								<strong><?php esc_html_e( 'Nothing is deleted on deactivation.', 'rankready' ); ?></strong>
-							</p>
-							<p class="description" style="margin-top:6px;">
-								<?php esc_html_e( 'Deactivating RankReady only pauses its hooks and clears scheduled cron jobs. All settings, API keys, AI summaries, FAQ data, Author Box profiles, freshness history, and post meta stay exactly where they are. You can reactivate any time and pick up where you left off.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'On Uninstall (Delete)', 'rankready' ); ?></th>
-						<td>
-							<?php $delete_on_uninstall = (string) get_option( RR_OPT_DELETE_ON_UNINSTALL, 'off' ); ?>
-							<label>
-								<input type="hidden" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="off" />
-								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="on" <?php checked( $delete_on_uninstall, 'on' ); ?> />
-								<?php esc_html_e( 'Delete all RankReady data when the plugin is uninstalled', 'rankready' ); ?>
-							</label>
-							<p class="description" style="margin-top:6px;">
-								<?php esc_html_e( 'OFF by default. Uninstalling preserves all your data — API keys, settings, every AI Summary, every FAQ, every Author Box profile, all post meta. Reinstalling RankReady brings everything back automatically.', 'rankready' ); ?>
-							</p>
-							<p class="description" style="margin-top:6px;color:#d63638;">
-								<strong><?php esc_html_e( 'Warning:', 'rankready' ); ?></strong>
-								<?php esc_html_e( 'When ON, uninstall permanently removes every RankReady option, post meta, and user meta. Cannot be undone. Leave OFF unless you need a completely clean slate.', 'rankready' ); ?>
-							</p>
-						</td>
-					</tr>
-				</table>
-			</div>
+			<!-- Data Retention card — MOVED to Advanced tab in rc.3 (renders inside render_tab_advanced). -->
 
 			<?php submit_button( __( 'Save Settings', 'rankready' ) ); ?>
 		</form>
@@ -4636,18 +4596,50 @@ class RR_Admin {
 			</div>
 		</div>
 
-		<!-- Data Retention info (settings are on the Settings tab) -->
-		<div class="rr-card">
-			<h2 class="rr-card-title"><?php esc_html_e( 'Data Retention', 'rankready' ); ?></h2>
-			<p class="rr-card-desc">
-				<?php esc_html_e( 'Data retention settings (including the "Delete all data on uninstall" toggle) are on the Settings tab.', 'rankready' ); ?>
-			</p>
-			<p>
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready&tab=settings' ) ); ?>" class="button button-secondary">
-					<?php esc_html_e( 'Go to Settings', 'rankready' ); ?>
-				</a>
-			</p>
-		</div>
+		<!-- ── Data Retention (moved here from Settings tab in rc.3) ──────── -->
+		<form method="post" action="options.php" novalidate="novalidate" class="rr-data-form">
+			<?php settings_fields( self::DATA_GROUP ); /* Isolated group — saves only the uninstall toggle. */ ?>
+
+			<div class="rr-card" style="margin-bottom:24px;">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Data Retention', 'rankready' ); ?></h2>
+				<p class="rr-card-desc">
+					<?php esc_html_e( 'Control what happens to your RankReady data when the plugin is deleted.', 'rankready' ); ?>
+				</p>
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'On Deactivate', 'rankready' ); ?></th>
+						<td>
+							<p style="margin:0;">
+								<span class="dashicons dashicons-shield" style="color:#46b450;"></span>
+								<strong><?php esc_html_e( 'Nothing is deleted on deactivation.', 'rankready' ); ?></strong>
+							</p>
+							<p class="description" style="margin-top:6px;">
+								<?php esc_html_e( 'Deactivating RankReady only pauses its hooks and clears scheduled cron jobs. All settings, API keys, AI summaries, FAQ data, Author Box profiles, freshness history, and post meta stay exactly where they are. You can reactivate any time and pick up where you left off.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'On Uninstall (Delete)', 'rankready' ); ?></th>
+						<td>
+							<?php $delete_on_uninstall = (string) get_option( RR_OPT_DELETE_ON_UNINSTALL, 'off' ); ?>
+							<label>
+								<input type="hidden" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_DELETE_ON_UNINSTALL ); ?>" value="on" <?php checked( $delete_on_uninstall, 'on' ); ?> />
+								<?php esc_html_e( 'Delete all RankReady data when the plugin is uninstalled', 'rankready' ); ?>
+							</label>
+							<p class="description" style="margin-top:6px;">
+								<?php esc_html_e( 'OFF by default. Uninstalling preserves all your data — API keys, settings, every AI Summary, every FAQ, every Author Box profile, all post meta. Reinstalling RankReady brings everything back automatically.', 'rankready' ); ?>
+							</p>
+							<p class="description" style="margin-top:6px;color:var(--rr-color-danger,#d63638);">
+								<strong><?php esc_html_e( 'Warning:', 'rankready' ); ?></strong>
+								<?php esc_html_e( 'When ON, uninstall permanently removes every RankReady option, post meta, and user meta. Cannot be undone. Leave OFF unless you need a completely clean slate.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button( __( 'Save Data Retention', 'rankready' ) ); ?>
+			</div>
+		</form>
 		<?php
 	}
 

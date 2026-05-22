@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-rc.4] - 2026-05-22 — "Settings de-duplication"
+
+Two redundancy fixes flagged by production user review.
+
+### Changed
+- **Product Context removed from Settings tab** — the field was duplicating Brand Identity's "About" field. `RR_Generator` and `RR_Faq` now read `RR_Llms_Txt::get_brand_about()` for prompt injection. Existing `rr_product_context` values are kept as a legacy fallback so installs that filled the old field before rc.4 don't lose prompt context. Admins fill in About once on the AI Crawlers → Brand Identity card; both the public llms.txt header AND the AI generation prompts read it.
+- **Data Retention moved from Settings → Advanced tab** — the "Delete all data on uninstall" toggle now lives on the Advanced tab in its own form, replacing the previous "Go to Settings" placeholder card. The Settings tab is simpler; the Advanced tab is where you'd expect destructive controls to live.
+
+### Added
+- **`DATA_GROUP` isolated settings group** — Data Retention's "Save Data Retention" button posts to its own settings group, same isolation pattern used by `BRAND_GROUP` in rc.3. Cannot accidentally null other Settings options.
+
+### Notes
+- Existing data preserved: rr_product_context option still readable as fallback; rr_delete_on_uninstall option behaviour unchanged.
+
 ## [1.2.0-rc.3] - 2026-05-22 — "CRITICAL: Brand Identity form isolation"
 
 🚨 **Critical data-loss bug fix.** rc.2's Brand Identity card was registered under the same `LLMS_GROUP` options group as every other AI Crawlers tab setting. When a user clicked "Save Brand Identity" — a form that only POSTs 4 fields (site name, summary, about, brand terms) — WordPress's `options.php` iterated **every** registered option in `LLMS_GROUP` (~30 of them) and called `sanitize_*()` with `null` for fields not in POST. `sanitize_on_off(null)` returns `'off'`, so every toggle on the AI Crawlers tab silently flipped to OFF on each Brand Identity save.

@@ -691,7 +691,14 @@ class RR_Faq {
 		$faq_system .= "- Edge cases: 'Does X work on mobile/tablet?', 'What about RTL layouts?'\n";
 		$faq_system .= "- Common mistakes: 'What do most people get wrong when setting up X?'\n";
 
-		$product_context = (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' );
+		// v1.2.0-rc.3 — Brand Identity About first, legacy product context fallback.
+		$product_context = '';
+		if ( class_exists( 'RR_Llms_Txt' ) ) {
+			$product_context = RR_Llms_Txt::get_brand_about();
+		}
+		if ( '' === $product_context ) {
+			$product_context = (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' );
+		}
 		if ( ! empty( $product_context ) ) {
 			$faq_system .= "\n\nPRODUCT CONTEXT (fact-check reference — never contradict this, never add details beyond what the page says):\n" . $product_context;
 		}

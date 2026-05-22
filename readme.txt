@@ -1,4 +1,4 @@
-=== RankReady – Get cited by ChatGPT & Perplexity ===
+=== RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI ===
 Contributors: posimyth, adityaarsharma
 Tags: ai seo, llms.txt, chatgpt, perplexity, agent ready
 Requires at least: 6.0

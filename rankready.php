@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name:       RankReady – Get cited by ChatGPT & Perplexity
+ * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
  * Version:           1.2.0-rc.2

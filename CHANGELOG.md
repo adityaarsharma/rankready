@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-rc.3] - 2026-05-22 — "CRITICAL: Brand Identity form isolation"
+
+🚨 **Critical data-loss bug fix.** rc.2's Brand Identity card was registered under the same `LLMS_GROUP` options group as every other AI Crawlers tab setting. When a user clicked "Save Brand Identity" — a form that only POSTs 4 fields (site name, summary, about, brand terms) — WordPress's `options.php` iterated **every** registered option in `LLMS_GROUP` (~30 of them) and called `sanitize_*()` with `null` for fields not in POST. `sanitize_on_off(null)` returns `'off'`, so every toggle on the AI Crawlers tab silently flipped to OFF on each Brand Identity save.
+
+### Fixed
+- **New `BRAND_GROUP` options group** for the 4 Brand Identity fields. The Brand Identity form now uses `settings_fields( self::BRAND_GROUP )` — completely isolated from the LLMs.txt / robots / Content Signals / max-snippet / MCP / AI Referral / Markdown settings form. Saving brand fields no longer touches any other option.
+
+### Migration for users hit by this bug
+Affected users see "0 of 11 agent signals active" after clicking Save Brand Identity in rc.1 or rc.2. To recover:
+1. Update to rc.3
+2. Visit **RankReady → AI Crawlers** tab
+3. Re-toggle the features you previously had on (LLMs.txt, Markdown, robots, Content Signals, max-snippet default, MCP, AI Referral) — they were defaulted off by the bug
+4. Save the **LLMs.txt / Crawlers / Content Signals / Markdown form** (the one with "Save LLM Settings" button)
+5. Brand Identity values (Slift name, brand terms etc.) you set in rc.2 are preserved in the database — they save correctly
+
+### Apologies
+This bug was introduced in beta.4 when Brand Identity was unified into one card. The two-form pattern wasn't caught by Docker tests because the tests verified individual operations, not the cross-form interaction. rc.3 adds a regression test to the Docker suite.
+
 ## [1.2.0-rc.2] - 2026-05-22 — "Cache + Page-Builder Compat"
 
 Directly addresses the production site failure pattern: WP 7.0 + PHP 8.3 + Bricks Builder theme + LiteSpeed server + LiteSpeed Cache plugin → llms.txt + robots toggles "not loading."

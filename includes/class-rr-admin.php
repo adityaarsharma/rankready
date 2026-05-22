@@ -13,6 +13,10 @@ class RR_Admin {
 
 	private const SETTINGS_GROUP   = 'rr_settings_group';  // Settings tab
 	private const CONTENT_GROUP    = 'rr_content_group';   // Content AI tab
+	// v1.2.0-rc.3 — Brand Identity has its own group so the 4-field "Save Brand
+	// Identity" form doesn't trigger options.php to null-out every other
+	// LLMS_GROUP option that isn't in this form.
+	private const BRAND_GROUP      = 'rr_brand_group';     // Brand Identity card only
 	private const AUTHORITY_GROUP  = 'rr_authority_group'; // Authority tab (author + schema)
 	private const LLMS_GROUP       = 'rr_llms_group';      // AI Crawlers tab
 	private const HEADLESS_GROUP   = 'rr_headless_group';  // Advanced tab
@@ -301,19 +305,22 @@ class RR_Admin {
 			'default'           => 'off',
 		) );
 
-		register_setting( self::LLMS_GROUP, RR_OPT_LLMS_SITE_NAME, array(
+		// v1.2.0-rc.3 — Brand Identity options live in their own group so the
+		// "Save Brand Identity" form (which only POSTs these 4 fields) does
+		// NOT cause options.php to null-out every other LLMS_GROUP setting.
+		register_setting( self::BRAND_GROUP, RR_OPT_LLMS_SITE_NAME, array(
 			'type'              => 'string',
 			'sanitize_callback' => 'sanitize_text_field',
 			'default'           => '',
 		) );
 
-		register_setting( self::LLMS_GROUP, RR_OPT_LLMS_SUMMARY, array(
+		register_setting( self::BRAND_GROUP, RR_OPT_LLMS_SUMMARY, array(
 			'type'              => 'string',
 			'sanitize_callback' => 'sanitize_textarea_field',
 			'default'           => '',
 		) );
 
-		register_setting( self::LLMS_GROUP, RR_OPT_LLMS_ABOUT, array(
+		register_setting( self::BRAND_GROUP, RR_OPT_LLMS_ABOUT, array(
 			'type'              => 'string',
 			'sanitize_callback' => 'sanitize_textarea_field',
 			'default'           => '',
@@ -416,7 +423,8 @@ class RR_Admin {
 			'default'           => 'allow',
 		) );
 
-		register_setting( self::LLMS_GROUP, RR_OPT_BRAND_TERMS, array(
+		// v1.2.0-rc.3 — Moved to BRAND_GROUP (see note above on Brand Identity).
+		register_setting( self::BRAND_GROUP, RR_OPT_BRAND_TERMS, array(
 			'type'              => 'string',
 			'sanitize_callback' => 'sanitize_textarea_field',
 			'default'           => '',
@@ -2799,7 +2807,7 @@ class RR_Admin {
 			&& '' !== trim( $rr_brand_terms_raw );
 		?>
 		<form method="post" action="options.php" novalidate="novalidate" class="rr-brand-form">
-			<?php settings_fields( self::LLMS_GROUP ); ?>
+			<?php settings_fields( self::BRAND_GROUP ); /* v1.2.0-rc.3 — isolated group prevents LLMS settings from being null'd on save. */ ?>
 
 			<div class="rr-card" style="margin-bottom:24px;border:1px solid var(--rr-color-border,#c3c4c7);">
 				<h2 class="rr-card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">

@@ -204,23 +204,72 @@ class RR_AI_Referral {
 	}
 
 	/**
-	 * Increment today's counter for $source. Prunes entries older than
-	 * RETENTION_DAYS so the option never grows unbounded.
+	 * Increment today's counter for $source.
+	 *
+	 * v1.2.0-rc.2 — race-safe path (audit beta.3 #5):
+	 *
+	 *   1. When a persistent object cache (Redis, Memcached) is available,
+	 *      use atomic wp_cache_incr() to bump the in-memory counter. No DB
+	 *      write, no race.
+	 *   2. Buffer the option write to shutdown so multiple increments in
+	 *      one request only hit wp_options ONCE per source per day per
+	 *      request — not on every page view's worth of multiple referrals.
+	 *
+	 * Pruning still happens during the shutdown flush.
 	 */
+	private static $pending_increments = array();
+
 	private static function increment( string $source ): void {
+		$today = wp_date( 'Y-m-d' );
+		$key   = $today . '|' . $source;
+
+		// Object-cache atomic path. wp_cache_incr() returns false on miss;
+		// initialise then retry.
+		if ( wp_using_ext_object_cache() ) {
+			$cache_key = 'rr_referral_' . $key;
+			if ( false === wp_cache_incr( $cache_key, 1, 'rr-referral' ) ) {
+				wp_cache_add( $cache_key, 1, 'rr-referral', DAY_IN_SECONDS * ( self::RETENTION_DAYS + 1 ) );
+			}
+		}
+
+		// Always buffer for shutdown flush — guarantees data persists to
+		// wp_options even without object cache, and consolidates many
+		// in-request increments into one write.
+		if ( ! isset( self::$pending_increments[ $key ] ) ) {
+			self::$pending_increments[ $key ] = 0;
+			// Register the shutdown flush only once.
+			if ( 1 === count( self::$pending_increments ) ) {
+				add_action( 'shutdown', array( self::class, 'flush_pending_increments' ), 1 );
+			}
+		}
+		self::$pending_increments[ $key ]++;
+	}
+
+	/**
+	 * Shutdown flush — writes accumulated in-request increments to
+	 * wp_options in a single read-modify-write cycle.
+	 *
+	 * @since 1.2.0-rc.2
+	 */
+	public static function flush_pending_increments(): void {
+		if ( empty( self::$pending_increments ) ) {
+			return;
+		}
+
 		$stats = get_option( RR_OPT_AI_REFERRAL_STATS, array() );
 		if ( ! is_array( $stats ) ) {
 			$stats = array();
 		}
 
-		$today = wp_date( 'Y-m-d' );
-
-		if ( ! isset( $stats[ $today ] ) || ! is_array( $stats[ $today ] ) ) {
-			$stats[ $today ] = array();
+		foreach ( self::$pending_increments as $key => $count ) {
+			list( $date, $source ) = explode( '|', $key, 2 );
+			if ( ! isset( $stats[ $date ] ) || ! is_array( $stats[ $date ] ) ) {
+				$stats[ $date ] = array();
+			}
+			$stats[ $date ][ $source ] = ( isset( $stats[ $date ][ $source ] ) ? (int) $stats[ $date ][ $source ] : 0 ) + (int) $count;
 		}
-		$stats[ $today ][ $source ] = ( isset( $stats[ $today ][ $source ] ) ? (int) $stats[ $today ][ $source ] : 0 ) + 1;
 
-		// Prune.
+		// Prune entries older than RETENTION_DAYS.
 		$cutoff = strtotime( '-' . self::RETENTION_DAYS . ' days' );
 		foreach ( array_keys( $stats ) as $date ) {
 			if ( strtotime( $date ) < $cutoff ) {
@@ -229,6 +278,7 @@ class RR_AI_Referral {
 		}
 
 		update_option( RR_OPT_AI_REFERRAL_STATS, $stats, false );
+		self::$pending_increments = array();
 	}
 
 	// ── Reporting ─────────────────────────────────────────────────────────

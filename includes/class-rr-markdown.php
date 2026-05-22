@@ -29,10 +29,13 @@ class RR_Markdown {
 
 	public static function init(): void {
 		add_action( 'init',              array( self::class, 'add_rewrite_rules' ) );
-		add_action( 'template_redirect', array( self::class, 'handle_request' ) );
+		// v1.2.0-rc.2 — priority 1 beats page builders (Bricks ~ default 10).
+		add_action( 'template_redirect', array( self::class, 'handle_request' ), 1 );
 
 		// Content negotiation: serve markdown when Accept: text/markdown is sent.
-		add_action( 'template_redirect', array( self::class, 'handle_accept_header' ), 5 );
+		// Priority 2 — still before page builders but AFTER the explicit
+		// .md URL handler at priority 1.
+		add_action( 'template_redirect', array( self::class, 'handle_accept_header' ), 2 );
 
 		// Emit Vary: Accept on all HTML pages so caches store markdown and HTML separately.
 		add_action( 'send_headers', array( self::class, 'add_vary_header' ) );
@@ -287,7 +290,11 @@ class RR_Markdown {
 	 * Cached for 1 hour and bust on post publish/update.
 	 */
 	private static function serve_homepage_markdown(): void {
-		$cache_key = 'rr_md_homepage_' . get_option( 'permalink_structure', '' );
+		// v1.2.0-rc.2 — hash the permalink structure so the transient name
+		// stays under WordPress's 172-char limit on exotic configurations
+		// (multilingual prefixes, custom CPT date paths, etc.).
+		// Audit beta.3 #15.
+		$cache_key = 'rr_md_homepage_' . md5( (string) get_option( 'permalink_structure', '' ) );
 		$markdown  = get_transient( $cache_key );
 
 		if ( false === $markdown ) {

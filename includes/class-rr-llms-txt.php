@@ -26,7 +26,16 @@ class RR_Llms_Txt {
 
 	public static function init(): void {
 		add_action( 'init',             array( self::class, 'add_rewrite_rules' ) );
-		add_action( 'template_redirect', array( self::class, 'handle_request' ) );
+		// v1.2.0-rc.2 — priority 1 so page builders (Bricks, Elementor Pro
+		// templates) can't intercept /llms.txt + /llms-full.txt before we
+		// respond. Our handler exit()s when matched.
+		add_action( 'template_redirect', array( self::class, 'handle_request' ), 1 );
+
+		// v1.2.0-rc.2 — tell every WP page-cache plugin to never cache the
+		// llms.txt endpoints. RankReady already caches the response in a
+		// 1-hour transient and sets Cache-Control: public, max-age=3600.
+		// Layered page-cache would stomp the dynamic header.
+		add_action( 'init', array( self::class, 'register_cache_exclusions' ), 11 );
 
 		// Prevent WordPress from adding trailing slash to .txt URLs.
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_txt_trailing_slash' ), 10, 2 );
@@ -415,12 +424,41 @@ class RR_Llms_Txt {
 	}
 
 	private static function output_txt( string $content ): void {
+		// v1.2.0-rc.2 — bypass WP page-cache plugins (LiteSpeed Cache, WP Rocket,
+		// W3TC, etc.) but keep our public 1-hour cache header for browsers / CDNs.
+		// RankReady manages its own caching via wp_transient.
+		if ( class_exists( 'RR_Cache' ) ) {
+			RR_Cache::bypass_page_cache_plugins_only();
+		}
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/plain; charset=utf-8' );
 		header( 'Cache-Control: public, max-age=3600' );
 
 		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		exit;
+	}
+
+	/**
+	 * Register URL patterns with WP page-cache plugins so they don't cache
+	 * the endpoints RankReady manages itself.
+	 *
+	 * Hooked at init priority 11 so cache plugins have already registered
+	 * their filters when we add ours.
+	 *
+	 * @since 1.2.0-rc.2
+	 */
+	public static function register_cache_exclusions(): void {
+		if ( ! class_exists( 'RR_Cache' ) ) {
+			return;
+		}
+		$patterns = array( '/llms.txt', '/llms-full.txt' );
+		// Add per-post .md when markdown is on (RR_Markdown registers its own
+		// exclusions; we list here so a misconfigured cache plugin still
+		// honours at least one filter).
+		if ( 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+			$patterns[] = '.md';
+		}
+		RR_Cache::exclude_url_patterns( $patterns );
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════

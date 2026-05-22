@@ -50,8 +50,18 @@ class RR_MCP {
 		// is active, so agents can still discover the site even on older WP.
 		// The handler bails on 404 when the master toggle is off.
 		add_action( 'init',              array( self::class, 'add_manifest_rewrite' ) );
-		add_action( 'template_redirect', array( self::class, 'maybe_serve_manifest' ) );
+		// v1.2.0-rc.2 — priority 1 beats page builders for /.well-known/mcp.json.
+		add_action( 'template_redirect', array( self::class, 'maybe_serve_manifest' ), 1 );
 		add_filter( 'query_vars',        array( self::class, 'register_query_vars' ) );
+
+		// Tell page-cache plugins to never cache the MCP manifest.
+		// 5-minute Cache-Control: public on the response handles CDN/browser
+		// layer; we just need the WP page-cache layer out of the way.
+		add_action( 'init', function () {
+			if ( class_exists( 'RR_Cache' ) ) {
+				RR_Cache::exclude_url_patterns( array( '/.well-known/mcp.json' ) );
+			}
+		}, 11 );
 
 		// v1.2.0-rc.1 — purge the manifest cache when the toggle flips so
 		// CDNs / browser caches don't serve a stale 200 after disable.
@@ -139,6 +149,10 @@ class RR_MCP {
 			'generator'   => 'RankReady ' . RR_VERSION,
 		);
 
+		// Bypass WP page-cache plugins; keep our 5-minute browser/CDN cache header.
+		if ( class_exists( 'RR_Cache' ) ) {
+			RR_Cache::bypass_page_cache_plugins_only();
+		}
 		header( 'Content-Type: application/json; charset=utf-8' );
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Cache-Control: public, max-age=300' );

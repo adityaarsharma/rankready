@@ -60,6 +60,117 @@ class RR_Cache {
 	 * Safe to call multiple times — headers_sent() and defined() guards
 	 * prevent duplicate headers and constant re-declaration errors.
 	 */
+	/**
+	 * Tell every page-cache plugin to never cache the listed URL patterns.
+	 *
+	 * Unlike no_cache_headers() — which forces no-store on a single response —
+	 * this method hooks each cache plugin's "reject URI" filter so the URLs
+	 * are excluded BEFORE they hit the disk cache. Use for endpoints that
+	 * RankReady caches itself (llms.txt has its own transient + Cache-Control:
+	 * public, max-age=3600) and where the WP page-cache layer would otherwise
+	 * stomp the response.
+	 *
+	 * Page builders like Bricks also leave these endpoints alone because the
+	 * template_redirect handlers (registered at priority 1 in v1.2.0-rc.2)
+	 * exit() before the theme runs.
+	 *
+	 * @param string[] $patterns Path prefixes ('/llms.txt', '/llms-full.txt', '/.well-known/mcp.json') or regex fragments.
+	 * @since 1.2.0-rc.2
+	 */
+	public static function exclude_url_patterns( array $patterns ): void {
+		$patterns = array_values( array_filter( array_map( 'strval', $patterns ) ) );
+		if ( empty( $patterns ) ) {
+			return;
+		}
+
+		// LiteSpeed Cache — array of URI fragments.
+		add_filter( 'litespeed_excluded_url', function ( $existing ) use ( $patterns ) {
+			return array_values( array_unique( array_merge( (array) $existing, $patterns ) ) );
+		} );
+		// Defense in depth — LiteSpeed also reads a control filter.
+		add_action( 'litespeed_control_set_nocache', function ( $reason = '' ) {
+			// no-op — just gives LS a signal RankReady is in charge.
+		} );
+
+		// WP Rocket — reject URI regex array.
+		add_filter( 'rocket_cache_reject_uri', function ( $existing ) use ( $patterns ) {
+			$regex = array_map( function ( $p ) { return '(' . preg_quote( $p, '/' ) . ')'; }, $patterns );
+			return array_values( array_unique( array_merge( (array) $existing, $regex ) ) );
+		} );
+
+		// W3 Total Cache — page cache reject URI array.
+		add_filter( 'w3tc_pagecache_reject_uri', function ( $existing ) use ( $patterns ) {
+			return array_values( array_unique( array_merge( (array) $existing, $patterns ) ) );
+		} );
+
+		// WP Super Cache — uri reject patterns.
+		add_filter( 'wp_cache_get_cookies_values', function ( $string ) use ( $patterns ) {
+			// WPSC excludes any URI that contains its `cache_rejected_uri`.
+			// Add ours via the option side-effect filter on first read.
+			global $cache_rejected_uri;
+			if ( is_array( $cache_rejected_uri ) ) {
+				$cache_rejected_uri = array_values( array_unique( array_merge( $cache_rejected_uri, $patterns ) ) );
+			}
+			return $string;
+		} );
+
+		// WP Fastest Cache — rule array.
+		add_filter( 'wpfc_exclude_url', function ( $excluded ) use ( $patterns ) {
+			return array_values( array_unique( array_merge( (array) $excluded, $patterns ) ) );
+		} );
+
+		// SG Optimizer — uses `sg_optimizer_dynamic_cache_excluded_urls`.
+		add_filter( 'sg_optimizer_dynamic_cache_excluded_urls', function ( $excluded ) use ( $patterns ) {
+			return array_values( array_unique( array_merge( (array) $excluded, $patterns ) ) );
+		} );
+
+		// Breeze (Cloudways) — reject URI option filter.
+		add_filter( 'breeze_rules_cache_excluded_url', function ( $excluded ) use ( $patterns ) {
+			return array_values( array_unique( array_merge( (array) $excluded, $patterns ) ) );
+		} );
+
+		// Cache Enabler — also reads URI exclusion.
+		add_filter( 'cache_enabler_bypass_cache', function ( $bypass ) use ( $patterns ) {
+			if ( $bypass ) {
+				return $bypass;
+			}
+			$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
+			foreach ( $patterns as $p ) {
+				if ( false !== strpos( $uri, $p ) ) {
+					return true;
+				}
+			}
+			return $bypass;
+		} );
+	}
+
+	/**
+	 * Lightweight variant of no_cache_headers() — sets page-cache bypass
+	 * constants WITHOUT overriding Cache-Control. Use when RankReady wants
+	 * to control its own caching via response headers (llms.txt at 1h, mcp
+	 * manifest at 5min) but doesn't want WP page-cache plugins to layer
+	 * their own cache on top.
+	 *
+	 * @since 1.2.0-rc.2
+	 */
+	public static function bypass_page_cache_plugins_only(): void {
+		// Tell every plugin that respects DONOTCACHEPAGE / LSCWP_NO_CACHE to
+		// skip this response. We're NOT setting Cache-Control here — that's
+		// the caller's responsibility.
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+		if ( ! defined( 'DONOTCACHEOBJECT' ) ) {
+			define( 'DONOTCACHEOBJECT', true );
+		}
+		if ( ! defined( 'DONOTCACHEDB' ) ) {
+			define( 'DONOTCACHEDB', true );
+		}
+		if ( ! defined( 'LSCWP_NO_CACHE' ) ) {
+			define( 'LSCWP_NO_CACHE', true );
+		}
+	}
+
 	public static function no_cache_headers(): void {
 		if ( headers_sent() ) {
 			return;

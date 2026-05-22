@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-rc.2] - 2026-05-22 — "Cache + Page-Builder Compat"
+
+Directly addresses the production site failure pattern: WP 7.0 + PHP 8.3 + Bricks Builder theme + LiteSpeed server + LiteSpeed Cache plugin → llms.txt + robots toggles "not loading."
+
+### Fixed — page-builder interception
+- **`template_redirect` priority 1** for all three endpoint handlers (`RR_Llms_Txt::handle_request`, `RR_Markdown::handle_request`, `RR_Markdown::handle_accept_header`, `RR_MCP::maybe_serve_manifest`). Page builders like Bricks, Elementor Pro templates, and Divi register their template_redirect handlers at default priority 10 — RankReady now runs first and `exit()`s before they can intercept `/llms.txt`, `/llms-full.txt`, `/.well-known/mcp.json`, or `/post-slug.md`.
+- **Verified with Docker test case**: a "fake-bricks" mu-plugin registered at priority 10 intercepting matching URLs. Before rc.2: builder captured all 3 endpoints. After rc.2: 0/3 intercepts. RankReady wins.
+
+### Added — Cache plugin compatibility (broad coverage)
+- **`RR_Cache::exclude_url_patterns()`** — single helper that registers URL exclusions across:
+  - LiteSpeed Cache (`litespeed_excluded_url` filter)
+  - WP Rocket (`rocket_cache_reject_uri` regex)
+  - W3 Total Cache (`w3tc_pagecache_reject_uri`)
+  - WP Super Cache (`cache_rejected_uri` global)
+  - WP Fastest Cache (`wpfc_exclude_url`)
+  - SG Optimizer (`sg_optimizer_dynamic_cache_excluded_urls`)
+  - Breeze / Cloudways (`breeze_rules_cache_excluded_url`)
+  - Cache Enabler (`cache_enabler_bypass_cache`)
+
+  Auto-registered on init for `/llms.txt`, `/llms-full.txt`, `.md`, and `/.well-known/mcp.json` — so cache plugins never serve stale 404s or cached HTML on RankReady's dynamic endpoints.
+
+- **`RR_Cache::bypass_page_cache_plugins_only()`** — lightweight constant-only bypass (no Cache-Control override). Used by `output_txt()` and `serve_manifest()` so the public `Cache-Control: public, max-age=…` headers RankReady sends remain intact for browsers / CDNs, while the WP page-cache layer stays out of the way.
+
+### Fixed — Audit deferred items closed
+- **Audit #5 (AI Referral race)** — `RR_AI_Referral::increment()` rewritten with a 2-tier path:
+  - Object cache (Redis/Memcached) → atomic `wp_cache_incr()` per source per day
+  - Buffered shutdown flush → multiple in-request increments coalesce into a SINGLE `wp_options` read-modify-write at request end, eliminating the race entirely. Pruning still happens once per shutdown.
+  - Verified with Docker test: 5 sequential increments → exactly 5 counted, 1 wp_options write.
+- **Audit #15 (transient key length)** — Homepage `.md` transient key now `md5()` hashes the permalink structure: `rr_md_homepage_` + 32-char hex = 47 chars total, well under WP's 172-char transient limit even on exotic permalink configs (multilingual prefixes, custom CPT date paths).
+
+### Notes
+- All known audit findings (19/19) now closed. Two were deferred from rc.1; this beta closes them.
+- WP 7.0 + PHP 8.3 + Bricks + LiteSpeed combo: all 4 RankReady endpoints verified resolving correctly with a page-builder shim active.
+- Cache exclusion happens on `init` priority 11 — gives cache plugins time to register their filters first.
+- Object-cache path is opportunistic: works on Redis-backed sites but isn't required.
+
 ## [1.2.0-rc.1] - 2026-05-22 — "Production Ready"
 
 Production hardening pass. Closes every remaining bug from the beta.3 audit and adds upgrade-safety so existing v1.1.x installs don't get surprise behaviour changes. **21 / 21 smoke tests pass.** Engineering side is now ship-ready; the UX/IA redesign moves to a separate track per user direction.

@@ -1244,6 +1244,14 @@ class RR_Admin {
 			</div>
 		</div>
 
+		<?php
+		// ── 🎯 Agentic Ready Scorecard (rc.6) ────────────────────────────────
+		// Feature-inventory of every Agentic-Ready signal RankReady ships, with
+		// tick/cross + deep-link CTAs. Lets a 30-second glance answer "what am
+		// I missing?" before diving into individual tabs.
+		self::render_card_scorecard();
+		?>
+
 		<!-- ── Quick navigation ──────────────────────────────────────────── -->
 		<div class="rr-info-grid" style="margin-bottom:28px;">
 			<div class="rr-info-item rr-dash-feature">
@@ -1324,6 +1332,299 @@ class RR_Admin {
 
 		<?php endif; ?>
 
+		<?php
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// Dashboard: Agentic Ready Scorecard (rc.6)
+	// ═══════════════════════════════════════════════════════════════════════════
+	//
+	// 22 binary signals across 6 groups (Discovery, Content AI, Brand Authority,
+	// Provider, Engagement, Tracking). Each row deep-links to the tab that
+	// configures it. Progress bar shows % active. Purely read-only — no
+	// settings persisted here.
+
+	/**
+	 * Build the list of scorecard signals.
+	 *
+	 * Each row: ['group' => str, 'label' => str, 'active' => bool,
+	 *           'deeplink' => str (relative to admin.php?page=rankready),
+	 *           'cta' => str (button label)]
+	 *
+	 * @return array<int,array<string,mixed>>
+	 */
+	private static function get_scorecard_signals(): array {
+		global $wpdb;
+
+		// Cached existence checks so this method runs O(few queries) max.
+		$has_any_summary = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != '' LIMIT 1",
+				RR_META_SUMMARY
+			)
+		) > 0;
+		$has_any_faq = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != '' LIMIT 1",
+				RR_META_FAQ
+			)
+		) > 0;
+
+		// Crawler-log existence + totals (graceful if table absent).
+		$crawler_table  = $wpdb->prefix . 'rr_crawler_log';
+		$crawler_exists = (bool) $wpdb->get_var( $wpdb->prepare(
+			'SHOW TABLES LIKE %s',
+			$crawler_table
+		) );
+		$citation_hits = 0;
+		$training_hits = 0;
+		$crawler_rows  = 0;
+		if ( $crawler_exists && class_exists( 'RR_Crawler_Log' ) ) {
+			$citation_hits = RR_Crawler_Log::get_citation_hits_total( 365 );
+			$training_hits = RR_Crawler_Log::get_training_hits_total( 365 );
+			$crawler_rows  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$crawler_table} LIMIT 1" );
+		}
+
+		// Freshness ever scanned — option set by RR_Freshness once a scan completes.
+		$freshness_scanned = (bool) get_option( 'rr_freshness_last_run', 0 );
+
+		// Tab deep-links.
+		$tab_crawlers = '?page=rankready&tab=crawlers';
+		$tab_content  = '?page=rankready&tab=content';
+		$tab_authority = '?page=rankready&tab=authority';
+		$tab_settings  = '?page=rankready&tab=settings';
+		$tab_insights_freshness = '?page=rankready&tab=insights&sub=freshness';
+		$tab_insights_bot       = '?page=rankready&tab=insights&sub=bot-activity';
+		$tab_insights_citation  = '?page=rankready&tab=insights&sub=citation';
+		$tab_insights_referral  = '?page=rankready&tab=insights&sub=referral';
+
+		return array(
+			// ── Discovery (5) ────────────────────────────────────────────────
+			array(
+				'group'    => __( 'Discovery', 'rankready' ),
+				'label'    => __( 'llms.txt', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ),
+				'deeplink' => $tab_crawlers,
+			),
+			array(
+				'group'    => __( 'Discovery', 'rankready' ),
+				'label'    => __( 'llms-full.txt', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ),
+				'deeplink' => $tab_crawlers,
+			),
+			array(
+				'group'    => __( 'Discovery', 'rankready' ),
+				'label'    => __( '.md routes', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ),
+				'deeplink' => $tab_crawlers,
+			),
+			array(
+				'group'    => __( 'Discovery', 'rankready' ),
+				'label'    => __( 'robots.txt rules', 'rankready' ),
+				'active'   => (bool) get_option( RR_OPT_ROBOTS_ENABLE, false ),
+				'deeplink' => $tab_crawlers,
+			),
+			array(
+				'group'    => __( 'Discovery', 'rankready' ),
+				'label'    => __( 'WebMCP manifest', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_MCP_ENABLE, 'off' ),
+				'deeplink' => $tab_crawlers,
+			),
+
+			// ── Content AI (4) ───────────────────────────────────────────────
+			array(
+				'group'    => __( 'Content AI', 'rankready' ),
+				'label'    => __( 'AI Summary', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_AUTO_GENERATE, 'off' ) || $has_any_summary,
+				'deeplink' => $tab_content,
+			),
+			array(
+				'group'    => __( 'Content AI', 'rankready' ),
+				'label'    => __( 'FAQ Generation', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_FAQ_AUTO_GENERATE, 'off' ) || $has_any_faq,
+				'deeplink' => $tab_content,
+			),
+			array(
+				'group'    => __( 'Content AI', 'rankready' ),
+				'label'    => __( 'Content Signals', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_CONTENT_SIGNALS_ENABLE, 'off' ),
+				'deeplink' => $tab_crawlers,
+			),
+			array(
+				'group'    => __( 'Content AI', 'rankready' ),
+				'label'    => __( 'max-snippet:-1 default', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_MAX_SNIPPET_DEFAULT, 'on' ),
+				'deeplink' => $tab_crawlers,
+			),
+
+			// ── Brand Authority (4) ──────────────────────────────────────────
+			array(
+				'group'    => __( 'Brand Authority', 'rankready' ),
+				'label'    => __( 'Site name set', 'rankready' ),
+				'active'   => '' !== trim( (string) get_option( RR_OPT_LLMS_SITE_NAME, '' ) ),
+				'deeplink' => $tab_crawlers,
+			),
+			array(
+				'group'    => __( 'Brand Authority', 'rankready' ),
+				'label'    => __( 'Summary set', 'rankready' ),
+				'active'   => '' !== trim( (string) get_option( RR_OPT_LLMS_SUMMARY, '' ) ),
+				'deeplink' => $tab_crawlers,
+			),
+			array(
+				'group'    => __( 'Brand Authority', 'rankready' ),
+				'label'    => __( 'About set', 'rankready' ),
+				'active'   => '' !== trim( (string) get_option( RR_OPT_LLMS_ABOUT, '' ) ),
+				'deeplink' => $tab_crawlers,
+			),
+			array(
+				'group'    => __( 'Brand Authority', 'rankready' ),
+				'label'    => __( 'Brand terms set', 'rankready' ),
+				'active'   => '' !== trim( (string) get_option( RR_OPT_BRAND_TERMS, '' ) ),
+				'deeplink' => $tab_crawlers,
+			),
+
+			// ── Provider (2) ─────────────────────────────────────────────────
+			array(
+				'group'    => __( 'Provider', 'rankready' ),
+				'label'    => __( 'Active AI provider key', 'rankready' ),
+				'active'   => class_exists( 'RR_LLM' ) && RR_LLM::active_provider_ready(),
+				'deeplink' => $tab_settings,
+			),
+			array(
+				'group'    => __( 'Provider', 'rankready' ),
+				'label'    => __( 'DataForSEO credentials', 'rankready' ),
+				'active'   => '' !== (string) get_option( RR_OPT_DFS_LOGIN, '' )
+				            && '' !== (string) get_option( RR_OPT_DFS_PASSWORD, '' ),
+				'deeplink' => $tab_settings,
+			),
+
+			// ── Engagement (3) ───────────────────────────────────────────────
+			array(
+				'group'    => __( 'Engagement', 'rankready' ),
+				'label'    => __( 'AI Referral tracking', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_AI_REFERRAL_ENABLE, 'off' ),
+				'deeplink' => $tab_crawlers,
+			),
+			array(
+				'group'    => __( 'Engagement', 'rankready' ),
+				'label'    => __( 'Author Box', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_AUTHOR_ENABLE, 'on' ),
+				'deeplink' => $tab_authority,
+			),
+			array(
+				'group'    => __( 'Engagement', 'rankready' ),
+				'label'    => __( 'Article schema', 'rankready' ),
+				'active'   => 'on' === get_option( RR_OPT_SCHEMA_ARTICLE, 'on' ),
+				'deeplink' => $tab_authority,
+			),
+
+			// ── Tracking (4) ─────────────────────────────────────────────────
+			array(
+				'group'    => __( 'Tracking', 'rankready' ),
+				'label'    => __( 'Citation hits > 0', 'rankready' ),
+				'active'   => $citation_hits > 0,
+				'deeplink' => $tab_insights_citation,
+				'cta_kind' => 'tracking',
+			),
+			array(
+				'group'    => __( 'Tracking', 'rankready' ),
+				'label'    => __( 'Training hits > 0', 'rankready' ),
+				'active'   => $training_hits > 0,
+				'deeplink' => $tab_insights_bot,
+				'cta_kind' => 'tracking',
+			),
+			array(
+				'group'    => __( 'Tracking', 'rankready' ),
+				'label'    => __( 'Crawler log live', 'rankready' ),
+				'active'   => $crawler_rows > 0,
+				'deeplink' => $tab_insights_bot,
+				'cta_kind' => 'tracking',
+			),
+			array(
+				'group'    => __( 'Tracking', 'rankready' ),
+				'label'    => __( 'Freshness scanned', 'rankready' ),
+				'active'   => $freshness_scanned,
+				'deeplink' => $tab_insights_freshness,
+				'cta_kind' => 'freshness',
+			),
+		);
+	}
+
+	/**
+	 * Render the Agentic Ready Scorecard card (Dashboard tab, rc.6).
+	 */
+	private static function render_card_scorecard(): void {
+		$signals = self::get_scorecard_signals();
+		$total   = count( $signals );
+		$active  = 0;
+		foreach ( $signals as $s ) {
+			if ( ! empty( $s['active'] ) ) {
+				$active++;
+			}
+		}
+		$pct = $total > 0 ? (int) round( ( $active / $total ) * 100 ) : 0;
+
+		// Group signals.
+		$groups = array();
+		foreach ( $signals as $s ) {
+			$groups[ $s['group'] ][] = $s;
+		}
+		?>
+		<div class="rr-card rr-scorecard" style="margin-bottom:24px;">
+			<h2 class="rr-card-title">🎯 <?php esc_html_e( 'Agentic Ready Scorecard', 'rankready' ); ?></h2>
+			<p class="rr-card-desc">
+				<?php esc_html_e( 'Every signal RankReady ships, at a glance. Tick = active. Click any row to jump straight to the setting.', 'rankready' ); ?>
+			</p>
+
+			<div class="rr-scorecard-progress" style="position:relative;height:10px;background:#e5e5e7;border-radius:6px;overflow:hidden;margin:10px 0 6px;">
+				<div class="rr-scorecard-bar" style="height:100%;width:<?php echo (int) $pct; ?>%;background:linear-gradient(90deg,#00a32a 0%,#2271b1 100%);transition:width 0.4s ease;"></div>
+			</div>
+			<p class="rr-scorecard-meta" style="margin:0 0 16px;font-size:13px;color:#646970;">
+				<?php
+				echo esc_html( sprintf(
+					/* translators: 1: active count, 2: total count, 3: percentage */
+					__( '%1$d of %2$d signals active — %3$d%%', 'rankready' ),
+					$active,
+					$total,
+					$pct
+				) );
+				?>
+			</p>
+
+			<div class="rr-scorecard-groups" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
+				<?php foreach ( $groups as $group_label => $group_signals ) : ?>
+					<div class="rr-scorecard-group">
+						<h3 style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1d2327;text-transform:uppercase;letter-spacing:0.04em;"><?php echo esc_html( $group_label ); ?></h3>
+						<ul style="margin:0;padding:0;list-style:none;font-size:13px;line-height:1.7;">
+							<?php foreach ( $group_signals as $s ) :
+								$is_on    = ! empty( $s['active'] );
+								$icon     = $is_on ? '✓' : '○';
+								$icon_col = $is_on ? '#00a32a' : '#a7aaad';
+								$cta_kind = isset( $s['cta_kind'] ) ? $s['cta_kind'] : 'config';
+								if ( 'tracking' === $cta_kind ) {
+									$cta_label = $is_on ? __( 'View →', 'rankready' ) : __( 'View →', 'rankready' );
+								} elseif ( 'freshness' === $cta_kind ) {
+									$cta_label = $is_on ? __( 'View →', 'rankready' ) : __( 'Scan →', 'rankready' );
+								} else {
+									$cta_label = $is_on ? __( 'Configure →', 'rankready' ) : __( 'Enable →', 'rankready' );
+								}
+								$href = admin_url( 'admin.php' . $s['deeplink'] );
+								?>
+								<li style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;">
+									<span>
+										<span class="rr-tick" style="display:inline-block;width:18px;color:<?php echo esc_attr( $icon_col ); ?>;font-weight:700;"><?php echo esc_html( $icon ); ?></span>
+										<?php echo esc_html( $s['label'] ); ?>
+									</span>
+									<a href="<?php echo esc_url( $href ); ?>" style="font-size:12px;color:#2271b1;text-decoration:none;white-space:nowrap;">
+										<?php echo esc_html( $cta_label ); ?>
+									</a>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					</div>
+				<?php endforeach; ?>
+			</div>
+		</div>
 		<?php
 	}
 
@@ -1448,6 +1749,14 @@ class RR_Admin {
 
 			<?php submit_button( __( 'Save Content AI Settings', 'rankready' ) ); ?>
 		</form>
+
+		<?php
+		// ── Bulk tools (relocated from Advanced tab in rc.6) ───────────────
+		// These are AJAX-driven JS UIs, not settings forms — safe to render
+		// outside the form wrapper above. Field/ID preservation from rc.5.
+		self::render_card_bulk_summary();
+		self::render_card_bulk_faq();
+		?>
 		<?php
 	}
 
@@ -1477,6 +1786,12 @@ class RR_Admin {
 
 			<?php submit_button( __( 'Save Authority Settings', 'rankready' ) ); ?>
 		</form>
+
+		<?php
+		// ── Bulk Author Changer (relocated from Advanced tab in rc.6) ──────
+		// AJAX-driven, no form wrapper needed. All field IDs preserved.
+		self::render_card_bulk_author();
+		?>
 		<?php
 	}
 
@@ -1786,9 +2101,14 @@ class RR_Admin {
 		?>
 		<div class="rr-insights-section-header">
 			<h3>🕒 <?php esc_html_e( 'Content Freshness', 'rankready' ); ?></h3>
-			<p><?php esc_html_e( 'Fresh content earns 28% more AI citations (multiple 2026 studies). Pages refreshed within 60 days are prioritised by ChatGPT, Perplexity, and Gemini. Use the dashboard widget below for daily monitoring; full controls live on the WP Dashboard.', 'rankready' ); ?></p>
+			<p><?php esc_html_e( 'Fresh content earns 28% more AI citations (multiple 2026 studies). Pages refreshed within 60 days are prioritised by ChatGPT, Perplexity, and Gemini. Use the scan tool below to surface stale posts, then the widget for daily monitoring.', 'rankready' ); ?></p>
 		</div>
 		<?php
+		// ── Freshness scan trigger (relocated from Advanced tab in rc.6) ───
+		// AJAX-driven UI — all JS hook IDs (#rr-freshness-scan,
+		// #rr-freshness-days, #rr-freshness-tbody, etc.) preserved from rc.5.
+		self::render_card_freshness_alerts();
+
 		if ( class_exists( 'RR_Freshness' ) ) {
 			RR_Freshness::render_widget();
 		} else {
@@ -1882,9 +2202,17 @@ class RR_Admin {
 			};
 			?>
 
+			<!-- Merged in rc.6: 4 provider detail cards → 1 outer card.
+			     Inner divs keep [data-rr-provider="..."] so the existing
+			     JS visibility selector (lines below) continues to toggle them.
+			     Outer .rr-provider-card class dropped → .rr-provider-card-inner. -->
+			<div class="rr-card">
+				<h2 class="rr-card-title"><?php esc_html_e( 'Provider Configuration', 'rankready' ); ?></h2>
+				<p class="rr-card-desc"><?php esc_html_e( 'API key and model selection for the active provider. Switching providers above swaps this panel.', 'rankready' ); ?></p>
+
 			<!-- OpenAI -->
-			<div class="rr-card rr-provider-card" data-rr-provider="openai" <?php echo 'openai' === $active_provider ? '' : 'style="display:none;"'; ?>>
-				<h2 class="rr-card-title"><?php esc_html_e( 'OpenAI', 'rankready' ); ?></h2>
+			<div class="rr-provider-card-inner" data-rr-provider="openai" <?php echo 'openai' === $active_provider ? '' : 'style="display:none;"'; ?>>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'OpenAI', 'rankready' ); ?></h3>
 				<p class="rr-card-desc"><?php esc_html_e( 'Powers AI Summary generation and FAQ answer writing.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
@@ -1917,8 +2245,8 @@ class RR_Admin {
 			</div>
 
 			<!-- Anthropic (Claude) -->
-			<div class="rr-card rr-provider-card" data-rr-provider="anthropic" <?php echo 'anthropic' === $active_provider ? '' : 'style="display:none;"'; ?>>
-				<h2 class="rr-card-title"><?php esc_html_e( 'Claude (Anthropic)', 'rankready' ); ?></h2>
+			<div class="rr-provider-card-inner" data-rr-provider="anthropic" <?php echo 'anthropic' === $active_provider ? '' : 'style="display:none;"'; ?>>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'Claude (Anthropic)', 'rankready' ); ?></h3>
 				<p class="rr-card-desc"><?php esc_html_e( 'Claude is exceptional at following content rules and producing factual, citation-quality output for AI summaries and FAQs.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
@@ -1951,8 +2279,8 @@ class RR_Admin {
 			</div>
 
 			<!-- Gemini -->
-			<div class="rr-card rr-provider-card" data-rr-provider="gemini" <?php echo 'gemini' === $active_provider ? '' : 'style="display:none;"'; ?>>
-				<h2 class="rr-card-title"><?php esc_html_e( 'Gemini (Google)', 'rankready' ); ?></h2>
+			<div class="rr-provider-card-inner" data-rr-provider="gemini" <?php echo 'gemini' === $active_provider ? '' : 'style="display:none;"'; ?>>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'Gemini (Google)', 'rankready' ); ?></h3>
 				<p class="rr-card-desc"><?php esc_html_e( 'Gemini is the cheapest of the major providers and ships native JSON output. Great default for high-volume sites.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
@@ -1985,8 +2313,8 @@ class RR_Admin {
 			</div>
 
 			<!-- DeepSeek -->
-			<div class="rr-card rr-provider-card" data-rr-provider="deepseek" <?php echo 'deepseek' === $active_provider ? '' : 'style="display:none;"'; ?>>
-				<h2 class="rr-card-title"><?php esc_html_e( 'DeepSeek', 'rankready' ); ?></h2>
+			<div class="rr-provider-card-inner" data-rr-provider="deepseek" <?php echo 'deepseek' === $active_provider ? '' : 'style="display:none;"'; ?>>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'DeepSeek', 'rankready' ); ?></h3>
 				<p class="rr-card-desc"><?php esc_html_e( 'Cost-efficient open-source models. V4 Flash for everyday generation, V4 Pro when you need higher quality. (The legacy `deepseek-chat` and `deepseek-reasoner` aliases are being retired by DeepSeek — switch to V4 IDs.)', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
@@ -2016,10 +2344,12 @@ class RR_Admin {
 					</tr>
 				</table>
 			</div>
+			</div><!-- /.rr-card "Provider Configuration" -->
 
 			<script>
 			(function(){
 				// Hide non-selected provider cards on radio change.
+				// Selector matches the 4 .rr-provider-card-inner divs created in rc.6.
 				const radios = document.querySelectorAll('[data-rr-provider-radio]');
 				const cards  = document.querySelectorAll('[data-rr-provider]');
 				const sync = () => {
@@ -2100,6 +2430,14 @@ class RR_Admin {
 				</div>
 			</div>
 		</div>
+
+		<?php
+		// ── API Usage card (relocated from Advanced tab in rc.6) ───────────
+		// Read-only stats panel — no settings form needed. All option keys
+		// (rr_token_usage, rr_dfs_usage) and JS hooks (#rr-tokens-load,
+		// #rr-tokens-tbody, etc.) preserved verbatim from rc.5.
+		self::render_card_api_usage();
+		?>
 		<?php
 	}
 
@@ -2109,10 +2447,13 @@ class RR_Admin {
 
 	private static function render_tab_summary(): void {
 		?>
-			<!-- Post Types & Prompt -->
+			<!-- Merged in rc.6: single "AI Summary" card containing two H3 subsections
+			     (Generation + Display). All form-field names preserved verbatim. -->
 			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Summary Generation', 'rankready' ); ?></h2>
-				<p class="rr-card-desc"><?php esc_html_e( 'Configure which posts get AI summaries and how they are generated.', 'rankready' ); ?></p>
+				<h2 class="rr-card-title"><?php esc_html_e( 'AI Summary', 'rankready' ); ?></h2>
+				<p class="rr-card-desc"><?php esc_html_e( 'Configure which posts get AI summaries, how they are generated, and how they appear on the frontend.', 'rankready' ); ?></p>
+
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'Generation', 'rankready' ); ?></h3>
 
 				<table class="form-table rr-form-table">
 					<tr>
@@ -2158,18 +2499,15 @@ class RR_Admin {
 					</tr>
 					<?php endif; ?>
 				</table>
-			</div>
 
-			<?php if ( ! ( function_exists( 'rr_is_pro' ) && rr_is_pro() ) ) : ?>
-			<?php self::render_pro_gate(
-				__( 'Auto-Generate Summary on Publish', 'rankready' ),
-				__( 'Save time on every publish — RankReady generates the AI Summary the moment you hit Publish. Pro feature.', 'rankready' )
-			); ?>
-			<?php endif; ?>
+				<?php if ( ! ( function_exists( 'rr_is_pro' ) && rr_is_pro() ) ) : ?>
+				<?php self::render_pro_gate(
+					__( 'Auto-Generate Summary on Publish', 'rankready' ),
+					__( 'Save time on every publish — RankReady generates the AI Summary the moment you hit Publish. Pro feature.', 'rankready' )
+				); ?>
+				<?php endif; ?>
 
-			<!-- Summary Display — single flat card, matches FAQ Display pattern -->
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Summary Display', 'rankready' ); ?></h2>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'Display', 'rankready' ); ?></h3>
 				<p class="rr-card-desc"><?php esc_html_e( 'Control how AI Summaries appear on the frontend. Can also use the Gutenberg block or Elementor widget instead.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
@@ -2262,8 +2600,10 @@ class RR_Admin {
 
 		$all_post_types = get_post_types( array( 'public' => true ), 'objects' );
 		?>
+			<!-- Merged in rc.6: single "Author Box (E-E-A-T)" card with 4 H3 subsections.
+			     Intro card prose → .rr-card-desc. All option keys preserved verbatim. -->
 			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Author Box — EEAT Signals for AI Citation', 'rankready' ); ?></h2>
+				<h2 class="rr-card-title"><?php esc_html_e( 'Author Box (E-E-A-T)', 'rankready' ); ?></h2>
 				<p class="rr-card-desc">
 					<?php esc_html_e( 'RankReady adds a full EEAT author profile section to every WordPress user. Every field maps to Schema.org Person data (sameAs, knowsAbout, hasCredential, memberOf, award, worksFor) so AI systems can verify authorship and cite your content. Fill author data in Users → Profile → "RankReady Author Box".', 'rankready' ); ?>
 				</p>
@@ -2272,10 +2612,8 @@ class RR_Admin {
 						<strong><?php echo esc_html( $seo_plugin ); ?></strong> <?php esc_html_e( 'is active. RankReady will not emit a duplicate Person node. Instead, it enhances the existing Person schema in', 'rankready' ); ?> <?php echo esc_html( $seo_plugin ); ?> <?php esc_html_e( 'with RankReady data via the plugin\'s filter hooks. Zero conflict.', 'rankready' ); ?>
 					</div>
 				<?php endif; ?>
-			</div>
 
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'General', 'rankready' ); ?></h2>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'General', 'rankready' ); ?></h3>
 				<table class="form-table rr-form-table">
 					<tr>
 						<th><?php esc_html_e( 'Enable Author Box', 'rankready' ); ?></th>
@@ -2334,14 +2672,12 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
-			</div>
 
-			<?php
-			$_author_is_pro = function_exists( 'rr_is_pro' ) && rr_is_pro();
-			if ( $_author_is_pro ) :
-			?>
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Schema', 'rankready' ); ?></h2>
+				<?php
+				$_author_is_pro = function_exists( 'rr_is_pro' ) && rr_is_pro();
+				if ( $_author_is_pro ) :
+				?>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'Schema', 'rankready' ); ?></h3>
 				<table class="form-table rr-form-table">
 					<tr>
 						<th><?php esc_html_e( 'Emit Person Schema', 'rankready' ); ?></th>
@@ -2370,10 +2706,8 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
-			</div>
 
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'Author Trust Panel (optional)', 'rankready' ); ?></h2>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'Trust Panel (optional)', 'rankready' ); ?></h3>
 				<table class="form-table rr-form-table">
 					<tr>
 						<th><?php esc_html_e( 'Enable Trust Panel', 'rankready' ); ?></th>
@@ -2388,26 +2722,24 @@ class RR_Admin {
 						</td>
 					</tr>
 				</table>
-			</div>
-			<?php else : ?>
-			<?php
-				self::render_pro_gate(
-					__( 'Person Schema (EEAT)', 'rankready' ),
-					__( 'Emit Person JSON-LD with sameAs, knowsAbout, credentials, memberOf, and awards — the schema fields AI systems use to verify authorship and increase citation probability.', 'rankready' )
-				);
-				self::render_pro_gate(
-					__( 'Editorial & Fact-Check Policy URLs', 'rankready' ),
-					__( 'Link your editorial standards and fact-check policy pages into the schema graph. The Healthline / WebMD EEAT pattern — signals editorial integrity to Google and LLMs.', 'rankready' )
-				);
-				self::render_pro_gate(
-					__( 'Author Trust Panel (Reviewed By)', 'rankready' ),
-					__( 'Add "Fact-checked by" and "Reviewed by" fields to every post editor. Emits as Article.reviewedBy[] and Article.lastReviewed — the full medical/legal EEAT pattern.', 'rankready' )
-				);
-			?>
-			<?php endif; ?>
+				<?php else : ?>
+				<?php
+					self::render_pro_gate(
+						__( 'Person Schema (EEAT)', 'rankready' ),
+						__( 'Emit Person JSON-LD with sameAs, knowsAbout, credentials, memberOf, and awards — the schema fields AI systems use to verify authorship and increase citation probability.', 'rankready' )
+					);
+					self::render_pro_gate(
+						__( 'Editorial & Fact-Check Policy URLs', 'rankready' ),
+						__( 'Link your editorial standards and fact-check policy pages into the schema graph. The Healthline / WebMD EEAT pattern — signals editorial integrity to Google and LLMs.', 'rankready' )
+					);
+					self::render_pro_gate(
+						__( 'Author Trust Panel (Reviewed By)', 'rankready' ),
+						__( 'Add "Fact-checked by" and "Reviewed by" fields to every post editor. Emits as Article.reviewedBy[] and Article.lastReviewed — the full medical/legal EEAT pattern.', 'rankready' )
+					);
+				?>
+				<?php endif; ?>
 
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'How to Use', 'rankready' ); ?></h2>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'How to use', 'rankready' ); ?></h3>
 				<ol style="margin-left:18px;">
 					<li><?php esc_html_e( 'Go to Users → your profile and fill in the "RankReady Author Box" section — Bio, headshot, job title, and year started are free.', 'rankready' ); ?></li>
 					<li><?php esc_html_e( 'Add the "RankReady Author Box" Gutenberg block to posts, or use the Elementor widget, or enable auto-display above.', 'rankready' ); ?></li>
@@ -3856,10 +4188,13 @@ class RR_Admin {
 
 	private static function render_tab_faq(): void {
 		?>
-			<!-- FAQ Generation -->
+			<!-- Merged in rc.6: single "FAQ Generator" card containing two H3 subsections
+			     (Generation + Display). All form-field names preserved verbatim. -->
 			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'FAQ Generation', 'rankready' ); ?></h2>
-				<p class="rr-card-desc"><?php esc_html_e( 'Configure how FAQs are generated. Uses DataForSEO for question discovery and OpenAI for answers with brand entity injection.', 'rankready' ); ?></p>
+				<h2 class="rr-card-title"><?php esc_html_e( 'FAQ Generator', 'rankready' ); ?></h2>
+				<p class="rr-card-desc"><?php esc_html_e( 'Configure how FAQs are generated and displayed. Uses DataForSEO for question discovery and your active AI provider for answers with brand entity injection.', 'rankready' ); ?></p>
+
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'Generation', 'rankready' ); ?></h3>
 
 				<table class="form-table rr-form-table">
 					<tr>
@@ -3911,18 +4246,15 @@ class RR_Admin {
 					</tr>
 					<?php endif; ?>
 				</table>
-			</div>
 
-			<?php if ( ! ( function_exists( 'rr_is_pro' ) && rr_is_pro() ) ) : ?>
-			<?php self::render_pro_gate(
-				__( 'Auto-Generate FAQ on Publish', 'rankready' ),
-				__( 'Save time on every publish — RankReady generates FAQ schema the moment you hit Publish. Pro feature.', 'rankready' )
-			); ?>
-			<?php endif; ?>
+				<?php if ( ! ( function_exists( 'rr_is_pro' ) && rr_is_pro() ) ) : ?>
+				<?php self::render_pro_gate(
+					__( 'Auto-Generate FAQ on Publish', 'rankready' ),
+					__( 'Save time on every publish — RankReady generates FAQ schema the moment you hit Publish. Pro feature.', 'rankready' )
+				); ?>
+				<?php endif; ?>
 
-			<!-- FAQ Display -->
-			<div class="rr-card">
-				<h2 class="rr-card-title"><?php esc_html_e( 'FAQ Display', 'rankready' ); ?></h2>
+				<h3 class="rr-subsection-title"><?php esc_html_e( 'Display', 'rankready' ); ?></h3>
 				<p class="rr-card-desc"><?php esc_html_e( 'Control how FAQs appear on the frontend. Can also use the Gutenberg block or Elementor widget instead.', 'rankready' ); ?></p>
 
 				<table class="form-table rr-form-table">
@@ -4187,9 +4519,23 @@ class RR_Admin {
 	// TAB: Tools
 	// ═══════════════════════════════════════════════════════════════════════════
 
+	// ═══════════════════════════════════════════════════════════════════════════
+	// TAB: Advanced — Tools (refactored into named card helpers in rc.6).
+	// Each card is now an independent render_card_*() method so it can be
+	// relocated to its proper tab (Content AI / E-E-A-T / Settings / Insights)
+	// without duplicating HTML. Field names, JS hook IDs, and option keys
+	// are preserved verbatim from rc.5 — no data migration required.
+	// ═══════════════════════════════════════════════════════════════════════════
+
 	private static function render_tab_tools(): void {
-		$post_types = self::get_allowed_post_types();
-		$users      = self::get_authors();
+		self::render_card_diagnostics();
+		self::render_card_error_log();
+		self::render_card_data_retention();
+	}
+
+	// ── Bulk Regenerate — AI Summaries (Content AI tab in rc.6) ────────────
+	private static function render_card_bulk_summary(): void {
+		$post_types   = self::get_allowed_post_types();
 		$tools_is_pro = function_exists( 'rr_is_pro' ) && rr_is_pro();
 		?>
 
@@ -4239,22 +4585,31 @@ class RR_Admin {
 
 		<?php else : ?>
 
-		<!-- FREE: locked Pro gate cards for bulk operations (kept separate per feature) -->
+		<!-- FREE: locked Pro gate for Bulk Summary -->
 		<?php
 			self::render_pro_gate(
 				__( 'Bulk Regenerate — AI Summaries', 'rankready' ),
 				__( 'Generate AI summaries across all existing published posts in one run. Free plan is limited to 5 manual summaries per month — bulk processing is a Pro feature.', 'rankready' )
 			);
+		?>
+
+		<?php endif; ?>
+		<?php
+	}
+
+	// ── Bulk Generate FAQs (Content AI tab in rc.6) ────────────────────────
+	private static function render_card_bulk_faq(): void {
+		$post_types   = self::get_allowed_post_types();
+		$tools_is_pro = function_exists( 'rr_is_pro' ) && rr_is_pro();
+
+		// Free-tier locked preview (same pattern as Bulk Summary above).
+		if ( ! $tools_is_pro ) {
 			self::render_pro_gate(
 				__( 'Bulk Regenerate — FAQ', 'rankready' ),
 				__( 'Generate FAQ schema across all existing published posts in one run. Free plan is limited to 5 manual FAQ generations per month — bulk processing is a Pro feature.', 'rankready' )
 			);
-			// Start Over Pro gates removed in v1.1.1-beta.1 alongside the
-			// Pro card itself — Bulk Regenerate already handles re-running
-			// the prompt over existing posts.
+		}
 		?>
-
-		<?php endif; ?>
 
 		<!-- Bulk Generate FAQs (placed adjacent to Bulk AI Summaries — both
 		     are content-generation operations, grouped per UX feedback). -->
@@ -4294,6 +4649,13 @@ class RR_Admin {
 				<p id="rr-faq-bulk-status" class="rr-progress-label"><?php esc_html_e( 'Preparing...', 'rankready' ); ?></p>
 			</div>
 		</div>
+		<?php
+	}
+
+	// ── Bulk Author Changer (E-E-A-T tab in rc.6) ──────────────────────────
+	private static function render_card_bulk_author(): void {
+		$users = self::get_authors();
+		?>
 
 		<!-- Bulk Author Changer -->
 		<div class="rr-card">
@@ -4393,9 +4755,12 @@ class RR_Admin {
 			<!-- Done -->
 			<div id="rr-bac-done" style="display:none;" class="rr-notice rr-notice--success"></div>
 		</div>
-
-		<!-- Token Usage -->
 		<?php
+	}
+
+	// ── API Usage (Settings tab in rc.6) ───────────────────────────────────
+	private static function render_card_api_usage(): void {
+		// Token Usage data
 		$token_usage = (array) get_option( 'rr_token_usage', array(
 			'summary_tokens' => 0,
 			'faq_tokens'     => 0,
@@ -4493,6 +4858,12 @@ class RR_Admin {
 				</table>
 			</div>
 		</div>
+		<?php
+	}
+
+	// ── Content Freshness Alerts (Insights → Freshness sub-tab in rc.6) ────
+	private static function render_card_freshness_alerts(): void {
+		?>
 
 		<!-- Content Freshness Alerts -->
 		<div class="rr-card">
@@ -4541,6 +4912,12 @@ class RR_Admin {
 				</table>
 			</div>
 		</div>
+		<?php
+	}
+
+	// ── Diagnostics (stays in Advanced) ────────────────────────────────────
+	private static function render_card_diagnostics(): void {
+		?>
 
 		<!-- Diagnostics — replaced legacy Health Check in v1.2.0-rc.5.
 		     22 real endpoint probes + conflict detection + 1-click copy report
@@ -4598,6 +4975,12 @@ class RR_Admin {
 				</details>
 			</div>
 		</div>
+		<?php
+	}
+
+	// ── Error Log (stays in Advanced) ──────────────────────────────────────
+	private static function render_card_error_log(): void {
+		?>
 
 		<!-- Error Log -->
 		<div class="rr-card">
@@ -4622,6 +5005,12 @@ class RR_Admin {
 				</table>
 			</div>
 		</div>
+		<?php
+	}
+
+	// ── Data Retention (stays in Advanced — isolated DATA_GROUP form) ──────
+	private static function render_card_data_retention(): void {
+		?>
 
 		<!-- ── Data Retention (moved here from Settings tab in rc.3) ──────── -->
 		<form method="post" action="options.php" novalidate="novalidate" class="rr-data-form">

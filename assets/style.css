@@ -418,3 +418,35 @@
 	margin-top: 0;
 	margin-bottom: 0;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   v1.2.0-rc.6 — IA finalization
+   - .rr-subsection-title: H3 divider used inside merged cards
+     (AI Summary, FAQ Generator, Author Box, Provider Configuration).
+   - .rr-provider-card-inner: renamed from .rr-provider-card after the
+     4 provider cards merged into one outer .rr-card.
+   - .rr-scorecard: Dashboard "Agentic Ready Scorecard" container.
+   ───────────────────────────────────────────────────────────────────── */
+
+.rr-card .rr-subsection-title {
+	margin: 22px 0 10px;
+	padding: 6px 0 4px;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--rr-color-ink, #1d2327);
+	border-bottom: 1px solid var(--rr-color-border, #e5e5e7);
+	letter-spacing: 0.01em;
+}
+
+.rr-card > .rr-subsection-title:first-of-type {
+	margin-top: 8px;
+}
+
+.rr-provider-card-inner {
+	padding-top: 6px;
+}
+
+.rr-scorecard .rr-scorecard-group ul li:hover {
+	background: var(--rr-color-surface-2, #f6f7f7);
+	border-radius: 4px;
+}

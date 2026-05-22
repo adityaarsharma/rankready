@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-rc.6] - 2026-05-22 — "IA finalization"
+
+Closes out the IA roadmap shipped in rc.5: four card relocations across tabs, four card merges, and a new Dashboard scorecard that surfaces every Agentic-Ready signal in one place.
+
+### Changed — tab moves
+
+Each relocated card was extracted into a named `render_card_*()` helper so it
+can be invoked from any tab without HTML duplication. Field names, JS hook IDs,
+and option keys are preserved verbatim from rc.5 — **no data migration is
+required**.
+
+- **Bulk Regenerate AI Summaries** → Content AI tab (was Advanced). Renders below the Save button as a standalone AJAX tool. `#rr-bulk-start`, `#rr-bulk-resume`, `#rr-bulk-stop`, `#rr-bulk-bar`, `#rr-bulk-status`, `.rr-bulk-type` all preserved.
+- **Bulk Generate FAQs** → Content AI tab. `#rr-faq-bulk-start`, `#rr-faq-bulk-resume`, `#rr-faq-bulk-stop`, `#rr-faq-bulk-bar`, `#rr-faq-bulk-status`, `.rr-faq-bulk-type` all preserved.
+- **Bulk Author Changer** → E-E-A-T tab (was Advanced). `#rr-bac-from`, `#rr-bac-to`, `#rr-bac-date-from`, `#rr-bac-date-to`, `#rr-bac-preview`, `#rr-bac-execute`, `#rr-bac-stop`, `#rr-bac-bar`, `#rr-bac-status`, `#rr-bac-preview-result`, `#rr-bac-done`, `.rr-bac-pt` all preserved.
+- **API Usage** (Token Usage + DataForSEO cost panel) → Settings tab. `#rr-tokens-load`, `#rr-tokens-count`, `#rr-tokens-list`, `#rr-tokens-tbody` preserved. Reads `rr_token_usage` + `rr_dfs_usage` options unchanged.
+- **Content Freshness Alerts scan trigger** → Insights → Freshness sub-tab. `#rr-freshness-scan`, `#rr-freshness-days`, `#rr-freshness-status`, `#rr-freshness-summary`, `#rr-freshness-results`, `#rr-freshness-tbody` preserved. Renders above the existing freshness widget so users see both the scan trigger and the live status in one place.
+
+Advanced tab now hosts only the three Tools-that-fit: Diagnostics, Error Log,
+Data Retention. `render_tab_tools()` body collapsed to three method calls.
+
+### Changed — card merges
+
+- **AI Summary**: 2 cards (Summary Generation + Summary Display) → 1 card with H3 subsections "Generation" + "Display". `rr_post_types`, `rr_custom_prompt`, `rr_auto_generate`, `rr_auto_display`, `rr_display_position`, `rr_default_heading_tag`, `rr_default_show_label`, `rr_default_label` all preserved.
+- **FAQ Generator**: 2 cards (FAQ Generation + FAQ Display) → 1 card with H3 subsections "Generation" + "Display". `rr_faq_post_types`, `rr_faq_count`, `rr_faq_brand_terms`, `rr_faq_auto_generate`, `rr_faq_auto_display`, `rr_faq_position`, `rr_faq_heading_tag`, `rr_faq_show_reviewed` all preserved.
+- **Author Box (E-E-A-T)**: 5 sub-cards (intro + General + Schema + Trust Panel + How to Use) → 1 card with intro prose as `.rr-card-desc` and 4 H3 subsections (General, Schema, Trust Panel optional, How to use). Every `rr_author_*` option key preserved.
+- **Provider Configuration**: 4 provider detail cards (OpenAI / Claude / Gemini / DeepSeek) → 1 outer card containing 4 inner `.rr-provider-card-inner[data-rr-provider]` divs. JS visibility toggle in the inline script continues to match `[data-rr-provider]` so the provider switcher works identically. The provider picker (radio selector) remains its own card above. `rr_openai_*`, `rr_anthropic_*`, `rr_gemini_*`, `rr_deepseek_*` option keys preserved.
+
+### Added — Dashboard
+
+- **🎯 Agentic Ready Scorecard** — new card at the top of the Dashboard tab. Audits 22 binary signals across 6 groups (Discovery / Content AI / Brand Authority / Provider / Engagement / Tracking). Progress bar + "X of Y signals active — Z%" + per-row CTA buttons that deep-link directly to the tab and sub-tab where the signal is configured. Built from two new helpers: `RR_Admin::get_scorecard_signals()` (returns the signal array) and `RR_Admin::render_card_scorecard()` (renders it). The existing 6-hub navigation grid stays below the scorecard.
+
+### Added — CSS
+
+- `assets/style.css`: `.rr-subsection-title` (H3 divider for merged cards), `.rr-provider-card-inner`, and `.rr-scorecard` hover state. ~30 lines appended; existing tokens used throughout.
+
+### Files changed
+
+- `rankready.php` — version bump rc.5 → rc.6 (header + `RR_VERSION` constant).
+- `readme.txt` — stable tag bump.
+- `includes/class-rr-admin.php` — `render_tab_tools()` collapsed; 8 new `render_card_*()` helpers (bulk_summary, bulk_faq, bulk_author, api_usage, freshness_alerts, diagnostics, error_log, data_retention); 4 card-merge refactors in `render_tab_summary`, `render_tab_faq`, `render_tab_author`, `render_tab_api`; 2 new dashboard helpers (`get_scorecard_signals`, `render_card_scorecard`); render-callers wired in `render_tab_content_ai`, `render_tab_authority`, `render_tab_api`, `render_insights_freshness`, `render_tab_dashboard`.
+- `assets/style.css` — rc.6 styles appended.
+- `CHANGELOG.md` — this entry.
+
+### Field-preservation guarantee
+
+All form field names, option keys, and JS hook IDs are preserved exactly as
+they were in rc.5. Existing settings remain accessible at the same option
+keys; no data migration is required when upgrading from rc.5 to rc.6.
+
 ## [1.2.0-rc.5] - 2026-05-22 — "Live Diagnostics + IA prep"
 
 Three changes, big diagnostic upgrade.

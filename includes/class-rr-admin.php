@@ -1017,7 +1017,7 @@ class RR_Admin {
 		$tabs = array(
 			'dashboard' => __( 'Dashboard', 'rankready' ),
 			'content'   => __( 'Content AI', 'rankready' ),
-			'authority' => __( 'Authority', 'rankready' ),
+			'authority' => __( 'E-E-A-T', 'rankready' ),
 			'crawlers'  => __( 'AI Crawlers', 'rankready' ),
 			'insights'  => __( 'Insights', 'rankready' ),  // v1.2.0-beta.7 — Bot Activity / Citation / Referral / Freshness
 			'settings'  => __( 'Settings', 'rankready' ),
@@ -1797,27 +1797,19 @@ class RR_Admin {
 	}
 
 	private static function render_tab_advanced(): void {
-		// Order (per UX feedback): Bulk generation operations come first
-		// because they're the most-used tools; Headless / Public API is
-		// dev-focused and lives lower on the page.
+		// v1.2.0-rc.5 — Advanced tab simplified.
+		// REMOVED: Headless / Public API section (Dashboard explains plugin scope).
+		// REMOVED: How It Works + Quick Stats cards (Dashboard already shows tab purposes).
+		// REPLACED: Health Check card → new live 22-probe Diagnostics card.
+		// KEPT IN PLACE FOR rc.5: Bulk Summary, Bulk FAQ, Bulk Author, API Usage,
+		// Freshness Alerts — these will relocate to their proper tabs in rc.6
+		// alongside the card-merge refactor (preserving form field names + data).
 		?>
 		<div class="rr-section-header">
 			<h2 class="rr-section-title"><?php esc_html_e( 'Tools', 'rankready' ); ?></h2>
-			<p class="rr-section-desc"><?php esc_html_e( 'Bulk operations, health check, freshness alerts, API usage, and data retention.', 'rankready' ); ?></p>
+			<p class="rr-section-desc"><?php esc_html_e( 'Bulk operations, diagnostics, error log, API usage, and data retention.', 'rankready' ); ?></p>
 		</div>
 		<?php self::render_tab_tools(); ?>
-
-		<div class="rr-section-divider"></div>
-
-		<div class="rr-section-header">
-			<h2 class="rr-section-title"><?php esc_html_e( 'Headless / Public API', 'rankready' ); ?></h2>
-			<p class="rr-section-desc"><?php esc_html_e( 'REST endpoints, CORS, rate limiting, and on-demand revalidation for Next.js, Nuxt, and Astro sites. Off by default — flip the toggle inside the card to reveal settings.', 'rankready' ); ?></p>
-		</div>
-		<?php self::render_tab_headless(); ?>
-
-		<div class="rr-section-divider"></div>
-
-		<?php self::render_tab_info(); ?>
 		<?php
 	}
 
@@ -4550,25 +4542,60 @@ class RR_Admin {
 			</div>
 		</div>
 
-		<!-- Health Check -->
-		<div class="rr-card">
-			<h2 class="rr-card-title"><?php esc_html_e( 'Health Check', 'rankready' ); ?></h2>
-			<p class="rr-card-desc"><?php esc_html_e( 'Run a diagnostic scan to verify all RankReady features are configured and working correctly.', 'rankready' ); ?></p>
-			<p>
-				<button type="button" id="rr-health-check" class="button button-primary"><?php esc_html_e( 'Run Health Check', 'rankready' ); ?></button>
-				<span id="rr-health-status" style="margin-left:10px;font-size:13px;display:none;"></span>
+		<!-- Diagnostics — replaced legacy Health Check in v1.2.0-rc.5.
+		     22 real endpoint probes + conflict detection + 1-click copy report
+		     for support. JS handler lives in assets/admin.js. -->
+		<div class="rr-card" id="rr-diagnostics-card">
+			<h2 class="rr-card-title"><?php esc_html_e( 'Diagnostics', 'rankready' ); ?></h2>
+			<p class="rr-card-desc">
+				<?php esc_html_e( 'Live probes that actually fetch /llms.txt, /robots.txt, /.well-known/mcp.json and every Markdown route — then detect cache/builder/SEO plugin conflicts. Every failure ships with a one-line fix.', 'rankready' ); ?>
 			</p>
-			<div id="rr-health-results" style="display:none;margin-top:16px;">
-				<table class="widefat" style="margin:0;">
+
+			<p>
+				<button type="button" id="rr-diag-run" class="button button-primary">
+					<?php esc_html_e( 'Run Diagnostics', 'rankready' ); ?>
+				</button>
+				<label style="margin-left:14px;font-size:13px;color:#646970;">
+					<input type="checkbox" id="rr-diag-include-api" />
+					<?php esc_html_e( 'Also test LLM provider keys (uses 1 API call per provider)', 'rankready' ); ?>
+				</label>
+				<span id="rr-diag-status" style="margin-left:10px;font-size:13px;display:none;"></span>
+			</p>
+
+			<!-- Summary chips (filled after first run) -->
+			<div id="rr-diag-summary" style="display:none;margin-top:12px;font-size:13px;"></div>
+
+			<!-- Results table -->
+			<div id="rr-diag-results" style="display:none;margin-top:16px;">
+				<table class="widefat striped" style="margin:0;">
 					<thead>
 						<tr>
 							<th style="width:5%;"></th>
-							<th style="width:30%;"><?php esc_html_e( 'Check', 'rankready' ); ?></th>
-							<th><?php esc_html_e( 'Result', 'rankready' ); ?></th>
+							<th style="width:28%;"><?php esc_html_e( 'Check', 'rankready' ); ?></th>
+							<th><?php esc_html_e( 'Result + Fix', 'rankready' ); ?></th>
 						</tr>
 					</thead>
-					<tbody id="rr-health-tbody"></tbody>
+					<tbody id="rr-diag-tbody"></tbody>
 				</table>
+			</div>
+
+			<!-- Copy support report -->
+			<div id="rr-diag-copy-row" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #e5e5e5;">
+				<p style="margin:0 0 6px;font-size:13px;color:#1d2327;">
+					<strong><?php esc_html_e( 'Need help?', 'rankready' ); ?></strong>
+					<?php esc_html_e( 'Click below to copy a full diagnostic report with active plugins, versions, and conflict details — then paste into our Discord or support email.', 'rankready' ); ?>
+				</p>
+				<button type="button" id="rr-diag-copy" class="button button-secondary">
+					<span class="dashicons dashicons-clipboard" style="vertical-align:middle;margin-top:-2px;"></span>
+					<?php esc_html_e( 'Copy Diagnostic Report', 'rankready' ); ?>
+				</button>
+				<span id="rr-diag-copy-status" style="margin-left:10px;font-size:13px;display:none;"></span>
+				<details style="margin-top:10px;">
+					<summary style="cursor:pointer;font-size:12px;color:#646970;">
+						<?php esc_html_e( 'Preview report (plaintext)', 'rankready' ); ?>
+					</summary>
+					<textarea id="rr-diag-report-preview" readonly style="width:100%;height:220px;font-family:Menlo,Consolas,monospace;font-size:11px;margin-top:8px;background:#f6f7f7;border:1px solid #c3c4c7;border-radius:4px;padding:10px;" placeholder="<?php esc_attr_e( 'Run diagnostics, then click Copy to see report here.', 'rankready' ); ?>"></textarea>
+				</details>
 			</div>
 		</div>
 

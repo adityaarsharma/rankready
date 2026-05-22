@@ -1150,6 +1150,154 @@
 	}
 
 	/* ═══════════════════════════════════════════════════════════════════════
+	 * DIAGNOSTICS (v1.2.0-rc.5)
+	 * ─────────────────────────────────────────────────────────────────────
+	 * Live endpoint probes + conflict detection + 1-click copy report.
+	 * Endpoint: GET /rankready/v1/diagnostics?include_api=0|1
+	 *           GET /rankready/v1/diagnostics/report?include_api=0|1
+	 * ═══════════════════════════════════════════════════════════════════════ */
+
+	var diagRunBtn       = document.getElementById( 'rr-diag-run' );
+	var diagIncludeApi   = document.getElementById( 'rr-diag-include-api' );
+	var diagStatus       = document.getElementById( 'rr-diag-status' );
+	var diagSummary      = document.getElementById( 'rr-diag-summary' );
+	var diagResults      = document.getElementById( 'rr-diag-results' );
+	var diagTbody        = document.getElementById( 'rr-diag-tbody' );
+	var diagCopyRow      = document.getElementById( 'rr-diag-copy-row' );
+	var diagCopyBtn      = document.getElementById( 'rr-diag-copy' );
+	var diagCopyStatus   = document.getElementById( 'rr-diag-copy-status' );
+	var diagReportPreview = document.getElementById( 'rr-diag-report-preview' );
+
+	if ( diagRunBtn ) {
+		diagRunBtn.addEventListener( 'click', function () {
+			var includeApi = diagIncludeApi && diagIncludeApi.checked ? 1 : 0;
+
+			diagRunBtn.disabled    = true;
+			diagRunBtn.textContent = 'Probing endpoints…';
+			diagStatus.style.display = 'none';
+			diagSummary.style.display = 'none';
+			diagResults.style.display = 'none';
+			diagCopyRow.style.display = 'none';
+
+			rrFetch( '/diagnostics?include_api=' + includeApi, 'GET' ).then( function ( data ) {
+				diagRunBtn.disabled    = false;
+				diagRunBtn.textContent = 'Run Diagnostics';
+
+				if ( ! data.checks || ! data.checks.length ) {
+					diagStatus.textContent   = 'No results.';
+					diagStatus.style.color   = '#999';
+					diagStatus.style.display = 'inline';
+					return;
+				}
+
+				var t = data.totals || { pass: 0, warn: 0, fail: 0, info: 0 };
+
+				// Summary chips
+				diagSummary.innerHTML =
+					'<span style="display:inline-block;padding:4px 12px;background:#d1ecdf;color:#0a6c39;border-radius:12px;font-weight:600;margin-right:8px;">✓ ' + t.pass + ' pass</span>' +
+					( t.warn ? '<span style="display:inline-block;padding:4px 12px;background:#fcf4d6;color:#7a5d00;border-radius:12px;font-weight:600;margin-right:8px;">⚠ ' + t.warn + ' warn</span>' : '' ) +
+					( t.fail ? '<span style="display:inline-block;padding:4px 12px;background:#f9d7d8;color:#8a1f1f;border-radius:12px;font-weight:600;margin-right:8px;">✗ ' + t.fail + ' fail</span>' : '' ) +
+					( t.info ? '<span style="display:inline-block;padding:4px 12px;background:#e5f1f9;color:#0b4b75;border-radius:12px;font-weight:600;margin-right:8px;">ℹ ' + t.info + ' info</span>' : '' );
+				diagSummary.style.display = 'block';
+
+				// Results table
+				var rows = '';
+				data.checks.forEach( function ( c ) {
+					var icon, rowStyle = '';
+					if ( c.status === 'pass' ) {
+						icon = '<span style="color:#00a32a;font-size:18px;">✓</span>';
+					} else if ( c.status === 'warn' ) {
+						icon = '<span style="color:#dba617;font-size:18px;">⚠</span>';
+						rowStyle = 'background:#fffbe6;';
+					} else if ( c.status === 'fail' ) {
+						icon = '<span style="color:#d63638;font-size:18px;">✗</span>';
+						rowStyle = 'background:#fef0f0;';
+					} else {
+						icon = '<span style="color:#646970;font-size:18px;">ℹ</span>';
+					}
+
+					rows += '<tr style="' + rowStyle + '">';
+					rows += '<td style="text-align:center;vertical-align:top;padding-top:10px;">' + icon + '</td>';
+					rows += '<td style="font-weight:600;vertical-align:top;padding-top:10px;">' + escHtml( c.label ) + '</td>';
+					rows += '<td>';
+					rows += '<div>' + escHtml( c.detail ) + '</div>';
+					if ( c.fix ) {
+						rows += '<div style="margin-top:4px;font-size:12px;color:#5d6770;"><strong>Fix:</strong> ' + escHtml( c.fix ) + '</div>';
+					}
+					if ( c.meta && c.meta.url ) {
+						rows += '<div style="margin-top:4px;font-size:11px;color:#8c8f94;font-family:Menlo,Consolas,monospace;">' + escHtml( c.meta.url ) + '</div>';
+					}
+					rows += '</td></tr>';
+				} );
+
+				diagTbody.innerHTML       = rows;
+				diagResults.style.display = 'block';
+				diagCopyRow.style.display = 'block';
+
+				var summaryColor = t.fail > 0 ? '#d63638' : ( t.warn > 0 ? '#dba617' : '#00a32a' );
+				diagStatus.textContent   = 'Completed.';
+				diagStatus.style.color   = summaryColor;
+				diagStatus.style.display = 'inline';
+			} ).catch( function () {
+				diagRunBtn.disabled    = false;
+				diagRunBtn.textContent = 'Run Diagnostics';
+				diagStatus.textContent   = 'Request failed.';
+				diagStatus.style.color   = '#d63638';
+				diagStatus.style.display = 'inline';
+			} );
+		} );
+	}
+
+	if ( diagCopyBtn ) {
+		diagCopyBtn.addEventListener( 'click', function () {
+			var includeApi = diagIncludeApi && diagIncludeApi.checked ? 1 : 0;
+			diagCopyBtn.disabled = true;
+			diagCopyStatus.style.display = 'none';
+
+			rrFetch( '/diagnostics/report?include_api=' + includeApi, 'GET' ).then( function ( data ) {
+				diagCopyBtn.disabled = false;
+				var report = data.report || '';
+				if ( diagReportPreview ) {
+					diagReportPreview.value = report;
+				}
+
+				// Copy to clipboard
+				if ( navigator.clipboard && navigator.clipboard.writeText ) {
+					navigator.clipboard.writeText( report ).then( function () {
+						diagCopyStatus.textContent   = '✓ Copied ' + data.length + ' chars';
+						diagCopyStatus.style.color   = '#00a32a';
+						diagCopyStatus.style.display = 'inline';
+					} ).catch( function () {
+						fallbackCopy();
+					} );
+				} else {
+					fallbackCopy();
+				}
+
+				function fallbackCopy() {
+					if ( diagReportPreview ) {
+						diagReportPreview.select();
+						try {
+							document.execCommand( 'copy' );
+							diagCopyStatus.textContent   = '✓ Copied (fallback)';
+							diagCopyStatus.style.color   = '#00a32a';
+						} catch ( e ) {
+							diagCopyStatus.textContent   = 'Copy failed — select text manually from preview.';
+							diagCopyStatus.style.color   = '#d63638';
+						}
+						diagCopyStatus.style.display = 'inline';
+					}
+				}
+			} ).catch( function () {
+				diagCopyBtn.disabled = false;
+				diagCopyStatus.textContent   = 'Report generation failed.';
+				diagCopyStatus.style.color   = '#d63638';
+				diagCopyStatus.style.display = 'inline';
+			} );
+		} );
+	}
+
+	/* ═══════════════════════════════════════════════════════════════════════
 	 * CONTENT FRESHNESS ALERTS
 	 * ═══════════════════════════════════════════════════════════════════════ */
 

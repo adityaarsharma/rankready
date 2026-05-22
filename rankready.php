@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.2.0-rc.4
+ * Version:           1.2.0-rc.5
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.2.0-rc.4' );
+	define( 'RR_VERSION',  '1.2.0-rc.5' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -703,6 +703,7 @@ add_action( 'plugins_loaded', function (): void {
 	RR_Freshness::init();        // REST + bulk dateModified refresh.
 	RR_Agent_Dashboard::init();  // Unified dashboard widget (consolidates AI Referral + Freshness).
 	RR_MCP::init();              // WebMCP — WordPress Abilities API + /.well-known/mcp.json.
+	RR_Diagnostics::init();      // v1.2.0-rc.5 — Live endpoint probes + conflict detection.
 
 	// Free tier limits — REST endpoint for admin JS usage display.
 	add_action( 'rest_api_init', array( 'RR_Limits', 'register_rest' ) );

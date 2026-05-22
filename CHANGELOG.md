@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0-rc.5] - 2026-05-22 — "Live Diagnostics + IA prep"
+
+Three changes, big diagnostic upgrade.
+
+### Added
+- **`RR_Diagnostics` class — live 22-probe diagnostic engine** (`includes/class-rr-diagnostics.php`). Replaces the option-only "Health Check" with actual probes:
+  - Fetches `/llms.txt`, `/llms-full.txt`, `/robots.txt`, `/.well-known/mcp.json`, homepage `.md`, and a real post `.md` route via `wp_remote_get` loopback. Detects HTML interception by page builders (Bricks/Elementor/Oxygen/Divi/Breakdance/Beaver), 503 from MCP-disabled state, missing rewrite rules.
+  - Conflict detection across **10 cache plugins** (LiteSpeed, WP Rocket, W3TC, WP Super Cache, Autoptimize, WP Fastest Cache, SG Optimizer, Hummingbird, NitroPack, Perfmatters) and **6 page builders**.
+  - SEO plugin detection (Yoast/RankMath/AIOSEO/SEOPress/TSF) with schema-merge status.
+  - WordPress runtime checks: rewrite rules flushed, WP cron live, crawler-log DB table present, WP Abilities API (6.9+).
+  - Opt-in LLM provider reachability tests — when enabled, actually hits OpenAI/Anthropic/Gemini/DeepSeek/DataForSEO endpoints with the configured keys and reports 200/401/429.
+  - Every fail ships with a one-line **fix**: "Settings → Permalinks → Save", "Disable theme temporarily", "Page builder priority conflict", etc.
+- **One-click "Copy Diagnostic Report" button** — calls `/rankready/v1/diagnostics/report` and writes a full plaintext support dump to clipboard: site URL, plugin/WP/PHP/MySQL versions, every probe result with fixes, full active plugins list (name + version), constants (WP_CACHE, DONOTCACHEPAGE, DISABLE_WP_CRON). Paste straight into support tickets.
+- **REST endpoints**:
+  - `GET /wp-json/rankready/v1/diagnostics?include_api=0|1`
+  - `GET /wp-json/rankready/v1/diagnostics/report?include_api=0|1`
+  Both `manage_options`-gated.
+
+### Changed
+- **Tab rename: Authority → E-E-A-T** — clearer naming for the tab that holds Brand Identity, Author Box, Schema, SEO Plugin Compatibility. Tab slug stays `authority` so existing bookmarks still work.
+- **Advanced tab cleanup**:
+  - REMOVED *"Headless / Public API"* section header + render call from Advanced. The Headless feature itself is unchanged (toggle + REST routes still work); only the marketing/docs panel was removed from the admin UI.
+  - REMOVED *"How It Works"* card from Advanced — Dashboard already explains each tab's purpose.
+  - REMOVED *"Quick Stats"* card from Advanced — Insights tab is the canonical home for stats.
+  - REPLACED legacy *"Health Check"* card with new *"Diagnostics"* card pointing at `RR_Diagnostics`. Old `rr-health-check` JS handler kept for backward compat (no-ops when its DOM elements are absent).
+
+### Roadmap (rc.6 follow-up)
+- Bulk Author Changer → E-E-A-T tab
+- Bulk Regenerate Summaries + Bulk Generate FAQs → Content AI tab
+- API Usage card → Settings tab
+- Content Freshness Alerts (Advanced) → Insights tab → Freshness sub-tab (with scan trigger)
+- Card merges: Author sub-cards (5→1), Summary Gen+Display (2→1), FAQ Gen+Display (2→1), Provider cards (4→1 dynamic)
+- Dashboard Agentic Ready scorecard with click-to-configure deep links
+
+These moves require form-field migration to preserve user data — deferred from rc.5 to ship Diagnostics + cleanup safely first.
+
 ## [1.2.0-rc.4] - 2026-05-22 — "Settings de-duplication"
 
 Two redundancy fixes flagged by production user review.

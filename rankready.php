@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.2.0-rc.12
+ * Version:           1.2.0-rc.13
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.2.0-rc.12' );
+	define( 'RR_VERSION',  '1.2.0-rc.13' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );

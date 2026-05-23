@@ -23,6 +23,7 @@ class RR_Admin {
 	private const AUTHORITY_GROUP  = 'rr_authority_group'; // Authority tab (author + schema)
 	private const LLMS_GROUP       = 'rr_llms_group';      // AI Crawlers tab
 	private const HEADLESS_GROUP   = 'rr_headless_group';  // Advanced tab
+	private const SANDBOX_GROUP    = 'rr_sandbox_group';   // rc.13 — Developer Mode (sandbox only)
 	// Legacy aliases kept for any saved nonces in flight during upgrade.
 	private const FAQ_GROUP        = 'rr_content_group';
 	private const SCHEMA_GROUP     = 'rr_authority_group';
@@ -281,6 +282,13 @@ class RR_Admin {
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
 			'default'           => 'off',
+		) );
+
+		// rc.13 — Developer Mode (sandbox-only Pro simulation toggle)
+		register_setting( self::SANDBOX_GROUP, RR_OPT_SANDBOX_PRO, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',  // dev convenience — devs usually want Pro to test
 		) );
 
 		register_setting( self::SETTINGS_GROUP, RR_OPT_AUTO_DISPLAY, array(
@@ -4668,7 +4676,78 @@ class RR_Admin {
 		self::render_card_diagnostics();
 		self::render_card_error_log();
 		self::render_card_branding();   // rc.11 — Pro coming soon stub
+		self::render_card_developer_mode();  // rc.13 — sandbox Free/Pro toggle (dev only)
 		self::render_card_data_retention();
+	}
+
+	// ── Developer Mode — sandbox Free/Pro toggle (rc.13) ────────────────────
+	//
+	// Only renders on sandbox sites (localhost, *.local, *.test, *.docker,
+	// 192.168.x, WP_ENVIRONMENT_TYPE=local|development, or RR_SANDBOX_MODE
+	// constant). On production this card is invisible — no risk of someone
+	// accidentally unlocking Pro without a license.
+	//
+	// One toggle: simulate Pro license active.
+	// Default ON for dev convenience (devs usually want Pro behaviour to test).
+	//
+	// Companion form group + sanitiser registered in init_settings().
+	private static function render_card_developer_mode(): void {
+		if ( ! function_exists( 'rr_is_sandbox' ) || ! rr_is_sandbox() ) {
+			return; // production — never show this card
+		}
+
+		$current = (string) get_option( RR_OPT_SANDBOX_PRO, 'on' );
+		$is_pro  = function_exists( 'rr_is_pro' ) && rr_is_pro();
+		?>
+		<div class="rr-card" id="rr-developer-mode-card" style="border: 1px dashed #ff9800;">
+			<h2 class="rr-card-title" style="display:flex;align-items:center;gap:8px;">
+				<span class="dashicons dashicons-admin-tools" style="color:#ff9800;"></span>
+				<?php esc_html_e( 'Developer Mode (Sandbox)', 'rankready' ); ?>
+				<span style="background:#ff9800;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.5px;">
+					<?php esc_html_e( 'DEV ONLY', 'rankready' ); ?>
+				</span>
+			</h2>
+			<p class="rr-card-goal">
+				<?php esc_html_e( 'Toggle Pro license simulation on this local/dev site. Invisible on production.', 'rankready' ); ?>
+			</p>
+			<p class="rr-card-desc">
+				<?php
+				printf(
+					/* translators: %s = currently-active mode (PRO / FREE) */
+					esc_html__( 'This site is detected as a sandbox environment (localhost / .local / .test / Docker / WP_ENVIRONMENT_TYPE=local). Currently simulating: %s', 'rankready' ),
+					$is_pro
+						? '<strong style="color:#00a32a;">PRO</strong> (all Pro features unlocked for testing)'
+						: '<strong style="color:#646970;">FREE</strong> (Pro features show locked previews)'
+				);
+				?>
+			</p>
+
+			<form method="post" action="options.php" novalidate="novalidate" style="margin-top:14px;">
+				<?php settings_fields( self::SANDBOX_GROUP ); ?>
+				<table class="form-table rr-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Simulate Pro license', 'rankready' ); ?></th>
+						<td>
+							<label>
+								<input type="hidden" name="<?php echo esc_attr( RR_OPT_SANDBOX_PRO ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RR_OPT_SANDBOX_PRO ); ?>"
+									   value="on" <?php checked( $current, 'on' ); ?> />
+								<?php esc_html_e( 'Treat this site as if it had an active Pro license', 'rankready' ); ?>
+							</label>
+							<p class="description" style="margin-top:6px;">
+								<?php esc_html_e( 'When ON: rr_is_pro() returns true — all 12 Pro features unlock for testing. When OFF: site behaves as Free tier — locked previews + Enable buttons appear on Pro cards. Default: ON (dev convenience).', 'rankready' ); ?>
+							</p>
+							<p class="description" style="margin-top:6px;color:#ff9800;">
+								<strong><?php esc_html_e( 'Safety:', 'rankready' ); ?></strong>
+								<?php esc_html_e( 'This toggle is IGNORED on production sites. The only way to unlock Pro on a real domain is a legitimate EDD-issued license.', 'rankready' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button( __( 'Save Developer Mode', 'rankready' ) ); ?>
+			</form>
+		</div>
+		<?php
 	}
 
 	// ── Branding (Pro feature stub — added in rc.11) ────────────────────────

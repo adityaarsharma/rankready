@@ -11,39 +11,106 @@
 defined( 'ABSPATH' ) || exit;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+//
+// rc.13 change — Free and Pro now ship as the same zip. Pro features unlock
+// only when a valid license is active OR sandbox simulation is on (dev sites
+// only). This file always loads now — it no longer marks the zip as "beta".
 
-if ( ! defined( 'RR_BETA_BUILD' ) ) {
-	define( 'RR_BETA_BUILD', true );
-}
-
-// Pre-issued beta license key — used for auto-updates & status checks.
-// Hardcoded so beta testers never see a license field; activation happens
-// silently on first wp_loaded so the EDD store registers each install and
-// auto-updates flow without user interaction.
-if ( ! defined( 'RR_BETA_LICENSE' ) ) {
-	define( 'RR_BETA_LICENSE', 'fe7f1e5173f7b8c20f9e139067ddd628' );
-}
-
-// EDD store item ID for RankReady Pro.
+// EDD store item ID for RankReady Pro (used by RR_SL_Plugin_Updater).
 if ( ! defined( 'RR_EDD_ITEM_ID' ) ) {
 	define( 'RR_EDD_ITEM_ID', 463989 );
+}
+
+// Sandbox-mode option key — local/dev sites can flip Pro on without a license.
+if ( ! defined( 'RR_OPT_SANDBOX_PRO' ) ) {
+	define( 'RR_OPT_SANDBOX_PRO', 'rr_sandbox_simulate_pro' );
+}
+
+// ── rr_is_sandbox() — detect local / dev environments ───────────────────────
+
+if ( ! function_exists( 'rr_is_sandbox' ) ) {
+	/**
+	 * Returns true when the site is clearly NOT production.
+	 *
+	 * We respect this check ONLY for the sandbox-Pro toggle — production sites
+	 * can never accidentally enable Pro without a license.
+	 *
+	 * Detection chain (any one match → sandbox):
+	 *   1. RR_SANDBOX_MODE constant defined and true
+	 *   2. WP_ENVIRONMENT_TYPE === 'local' or 'development' (WP 5.5+ standard)
+	 *   3. Host = localhost / 127.0.0.1 / ::1
+	 *   4. Host TLD in .local / .test / .localhost / .docker / .wp-env
+	 *   5. Host is RFC1918 private IP (10.x, 172.16-31.x, 192.168.x)
+	 *
+	 * @since 1.2.0-rc.13
+	 */
+	function rr_is_sandbox(): bool {
+		// 1. Explicit constant override
+		if ( defined( 'RR_SANDBOX_MODE' ) && RR_SANDBOX_MODE ) {
+			return true;
+		}
+
+		// 2. WP environment type (WP 5.5+)
+		if ( function_exists( 'wp_get_environment_type' ) ) {
+			$env = wp_get_environment_type();
+			if ( 'local' === $env || 'development' === $env ) {
+				return true;
+			}
+		}
+
+		// 3-5. Host-based detection
+		$host = parse_url( home_url(), PHP_URL_HOST );
+		if ( ! $host ) {
+			return false;
+		}
+
+		// Strip port if present
+		$host = strtok( $host, ':' );
+
+		// Loopback addresses
+		if ( in_array( $host, array( 'localhost', '127.0.0.1', '::1' ), true ) ) {
+			return true;
+		}
+
+		// Dev TLDs
+		if ( preg_match( '/\.(local|test|localhost|docker|wp-env)$/i', $host ) ) {
+			return true;
+		}
+
+		// RFC1918 private IP ranges
+		if ( preg_match( '/^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/', $host ) ) {
+			return true;
+		}
+
+		return false;
+	}
 }
 
 // ── rr_is_pro() ───────────────────────────────────────────────────────────────
 
 if ( ! function_exists( 'rr_is_pro' ) ) {
 	/**
-	 * Returns true when a valid Pro (or beta) license is active on this site.
+	 * Returns true when Pro features should be active on this site.
 	 *
-	 * For beta builds: the pre-issued beta key is always considered valid so
-	 * testers never hit the free-tier limits. A real license check against the
-	 * EDD store still runs in the background (via rr_beta_check_license) to keep
-	 * the stored status current; it does not gate feature access during beta.
+	 * Activation rules (any one match → Pro):
+	 *   1. Sandbox site + sandbox-Pro toggle is on → simulate Pro for dev work
+	 *   2. EDD-issued license is valid (production path)
+	 *
+	 * Sandbox mode CANNOT enable Pro on production sites — rr_is_sandbox()
+	 * gates the toggle so the only way to unlock Pro on a real site is a
+	 * legitimate license.
+	 *
+	 * @since   1.2.0-rc.13 (rewritten — single zip, license-driven, sandbox-aware)
+	 * @return  bool
 	 */
 	function rr_is_pro(): bool {
-		if ( defined( 'RR_BETA_BUILD' ) && RR_BETA_BUILD ) {
-			return true; // Beta: all features unlocked.
+		// Sandbox / dev override (default ON for dev convenience; can be toggled
+		// off in Advanced → Developer Mode card)
+		if ( rr_is_sandbox() && 'on' === get_option( RR_OPT_SANDBOX_PRO, 'on' ) ) {
+			return true;
 		}
+
+		// Production path — real EDD license
 		return 'valid' === get_option( 'rr_license_status', '' );
 	}
 }

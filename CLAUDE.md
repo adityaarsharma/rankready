@@ -277,19 +277,52 @@ After uploading to the store:
 
 ## Bug classes already fixed — DO NOT REINTRODUCE
 
-These bugs have all been fixed in 1.1.1–1.1.2 betas. The fixes are non-obvious — if you "refactor" them without understanding the why, the bugs come back.
+These bugs have all been fixed across v1.1.x and v1.2.0 development. The fixes are non-obvious — if you "refactor" them without understanding the why, the bugs come back. Sorted by when they were caught.
+
+### Caught in v1.1.x beta cycle
 
 | Bug | Wrong | Right | Location |
 |-----|-------|-------|----------|
 | Shortcode side-effects under WP-Cron | `do_shortcode( $post->post_content )` in helpers that run via cron — fires WooCommerce queries, form submissions | `strip_shortcodes( $post->post_content )` then `wp_strip_all_tags()` | `RR_Generator::get_content_string()` |
 | Multi-byte token undercount | `strlen( $markdown )` for token-count header | `mb_strlen( $markdown, 'UTF-8' )` — handles CJK/Arabic/Hindi | `RR_Markdown::handle_request()` (X-Markdown-Tokens) |
 | Homepage markdown title double-encoded | Raw `&#8211;` in title output | `html_entity_decode( $title, ENT_QUOTES, 'UTF-8' )` | `RR_Markdown::serve_homepage_markdown()` |
-| `.md` URL serving homepage instead of post | `is_home()` returns true before query resolution → wrong template | Check `rr_md_path` query var first, return early if set | `RR_Markdown::handle_accept_header()` (issue #1 by @rohitposimyth-seo) |
+| `.md` URL serving homepage instead of post | `is_home()` returns true before query resolution → wrong template | Check `rr_md_path` query var first, return early if set | `RR_Markdown::handle_accept_header()` (issue #1) |
 | Generator PHP notice on unexpected API response | Direct access `$result['provider']` | `$result['provider'] ?? null` (null-coalescing) | `RR_Generator::run_generation()` |
 | Wrong text domain in EDD updater | `'nexter-pro-extensions'` (4 strings, copied from sister product) | `'rankready'` | `RR_SL_Plugin_Updater.php` |
 | EDD Version Number mismatch on beta uploads | Version Number = `1.1.2` but file is `rankready-1.1.2-beta.4.zip` → update loop confusion | Version Number must match plugin header **exactly** including `-beta.N` suffix | EDD store config (not code) |
 | Missing Link header on homepage for agent discovery | No `Link:` response header on `/` → fails isitagentready.com check | `Link: </llms.txt>; rel="describedby"; type="text/plain"` when llms.txt enabled | `RR_Markdown::add_homepage_link_headers()` |
 | Missing `X-AEO-Version` on `.md` responses | Removed during AEO cleanup but it's a spec marker, not a feature | `header( 'X-AEO-Version: 1.0' )` alongside other `.md` response headers | `RR_Markdown::handle_request()` |
+
+### Caught in v1.2.0 rc cycle (rc.3 → rc.12) — slift.co compat investigation
+
+These are the **highest-impact lessons**. The v1.2.0 cycle exposed 15 distinct bug classes, all caused by assumptions that don't hold across real-world plugin matrices. Read carefully.
+
+| # | Bug class | Wrong | Right | First caught |
+|---|-----------|-------|-------|--------------|
+| 1 | **Settings group cross-contamination** | Two forms sharing the same `register_setting()` group. Posting form A nulls every option in group A that wasn't in POST → sanitize_on_off(null) returns 'off' → silent toggle-off for unrelated settings | One isolated group per form. We now have 6: `SETTINGS_GROUP` (API), `CONTENT_GROUP` (Summary+FAQ), `LLMS_GROUP` (Crawlers), `BRAND_GROUP` (4 brand fields), `DATA_GROUP` (uninstall), `EEAT_SCHEMA_GROUP` | rc.3 — Brand Identity save wiped 11 AI Crawlers toggles |
+| 2 | **Plugin presence ≠ feature enabled** | `if ( defined( 'SEOPRESS_VERSION' ) ) return;` — assumes SEOPress is serving llms.txt just because it's installed. AIOSEO had the same pattern | Check the actual feature option: `! empty( $seopress['seopress_pro_llms_txt'] )`. If we can't verify the feature is on, RankReady serves | rc.8 — slift.co's SEOPress 9.8.5 installed but llms.txt feature off → 404 |
+| 3 | **Reading naked constants** | `$plugin = 'SEOPress ' . SEOPRESS_VERSION;` — fatals under PHP 8+ if only `SEOPRESS_PRO_VERSION` is defined | Ternary fallback: `defined('SEOPRESS_VERSION') ? SEOPRESS_VERSION : ( defined('SEOPRESS_PRO_VERSION') ? SEOPRESS_PRO_VERSION : '?' )` | rc.12 — caught by Docker matrix test with SEOPress Pro standalone |
+| 4 | **Filter priority races** | `add_filter( 'robots_txt', $cb, 10 )` — SEOPress / Yoast / RankMath robots editors overwrite at higher priority | `PHP_INT_MAX` so we always run LAST and **append** (never replace). For `template_redirect`: priority **1** to beat page builders (Bricks/Elementor default = 10) | rc.2 (template_redirect) + rc.8 (robots_txt) |
+| 5 | **Robots.txt interceptor bypass** | Even at PHP_INT_MAX, SEOPress Pro's robots module registers a custom `/robots.txt` rewrite that bypasses WP's `robots_txt` filter entirely | Detect interceptor (`RR_Llms_Txt::detect_robots_txt_interceptor()`) → write a physical `/robots.txt` file. Physical files win at the webserver level before WP routing runs | rc.9 |
+| 6 | **Hard-coded post type defaults** | `array( 'post' )` as default for `RR_OPT_LLMS_POST_TYPES` — sites without any posts (slift.co was 1 page, 0 posts) get empty llms.txt | Default to `array( 'post', 'page' )`. Never assume "post" exists; always read the option | rc.8 — slift.co had 1 page only |
+| 7 | **Visible branding in machine output** | `'Generated by RankReady v1.2.0-rc.4 (https://github.com/...)'` in llms.txt footer | One unbranded line: `'Generated from RankReady'`. No URL, no version. Gated behind `RR_OPT_HIDE_BRANDING` (Pro toggle, hides even that line) | rc.11 |
+| 8 | **Branded structural markers** | `# -- LLM & AI Crawler Rules (RankReady) --` as the robots.txt block header. Sync regex matched the visible text — change the wording, regex breaks | Functional markers separate from visible content: `# BEGIN RankReady` / `# END RankReady` (like `# BEGIN WordPress`). Sync regex matches BEGIN/END only | rc.11 |
+| 9 | **Nested forms = invalid HTML** | Pro "Enable" button rendered as `<form method="post">` inside the tab's outer settings form. Browsers silently drop the inner form | Use `wp_nonce_url() + add_query_arg()` GET link, handle via `admin_init` server-side. Capability check + per-option nonce + server-side whitelist of allowed options | rc.7 |
+| 10 | **Schema defer without escape hatch** | `if ( defined( 'WPSEO_VERSION' ) ) return;` in `RR_Block::maybe_inject_schema()` — skips standalone schema even if Yoast's schema feature is disabled | Provide `rankready_force_standalone_schema` filter (default false for back-compat). Users with SEO plugin schema turned off can opt back in | rc.9 |
+| 11 | **Sync triggered only on settings change** | `sync_physical_robots_txt()` fires only on `update_option_*` hooks. Plugin upgrades / fresh activations don't trigger it → physical file never written | Also run on plugin activation, on rewrite-rule flush, on detection of robots.txt interceptor (auto-write file when SEOPress robots module turns on) | rc.9 |
+| 12 | **Loopback assumptions in Docker** | Diagnostics' `wp_remote_get( home_url('/llms.txt') )` from inside a wp-env container fails with cURL error 7 — the container can't reach its own published port | Documented quirk, not a code bug. In production loopback works. For Docker dev, run probes from the host. Future: add a `WP_HOME_INTERNAL` override constant the probes can fall back to | rc.10 (observation) |
+| 13 | **Health Check trusted options instead of probing** | "LLMs.txt enabled" displayed just because the option is 'on' — doesn't catch interception, rewrite failures, or empty body | Live 22-probe Diagnostics that **actually fetches** each endpoint, checks status code, body content, headers, and reports specific conflicts (which plugin is intercepting, what to disable) | rc.5 |
+| 14 | **Forensic Diagnostics missing key dumps** | Initial report had pass/fail but no "why" — support couldn't debug without follow-up | Copy Diagnostic Report now includes: every hook on `robots_txt` + their priorities, every `template_redirect` callback at priority ≤5, SEO plugin actual option dump (which features are on), per-cache-plugin exclusion verification, physical files in webroot, response headers from every endpoint, mu-plugins list. One paste = full debug context | rc.10 |
+| 15 | **Pro toggle gating** | A Pro toggle that's wired up but stored option works for everyone, leaking Pro functionality to Free | Toggle stored but only effective when `rr_is_pro() === true`. Free tier shows the toggle disabled with "Pro Coming Soon" badge + locked-preview body explaining what they'll get | rc.11 |
+
+### Universal pattern: the locked-preview UX
+
+When a Pro-only feature has a free-tier card, never render the controls when off. Render:
+1. Card title (always visible)
+2. Goal line (1-sentence outcome promise, always visible)
+3. Locked preview body: "What you get when enabled:" bullet list + Enable button (free shows disabled state + Pro Coming Soon badge)
+
+Implemented via `RR_Admin::render_locked_preview()` + `RR_Admin::handle_quick_enable()` (rc.7).
 
 ## What NOT to do
 

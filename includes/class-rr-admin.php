@@ -50,6 +50,103 @@ class RR_Admin {
 
 		// Defer column registration to 'wp_loaded' so all CPTs are registered.
 		add_action( 'wp_loaded', array( self::class, 'register_status_columns' ) );
+
+		// rc.14 — Admin bar Pro/Free indicator + 1-click sandbox toggle (dev only).
+		add_action( 'admin_bar_menu', array( self::class, 'admin_bar_pro_indicator' ), 999 );
+		add_action( 'admin_init',     array( self::class, 'handle_sandbox_toggle' ) );
+	}
+
+	/**
+	 * Admin bar indicator — shows current Pro/Free state with 1-click toggle.
+	 *
+	 * Renders ONLY on sandbox sites. Production sites never see this.
+	 * Click toggles rr_sandbox_simulate_pro and reloads the current page.
+	 *
+	 * @since 1.2.0-rc.14
+	 */
+	public static function admin_bar_pro_indicator( $wp_admin_bar ): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( ! function_exists( 'rr_is_sandbox' ) || ! rr_is_sandbox() ) {
+			return; // production — never show
+		}
+
+		$is_pro      = function_exists( 'rr_is_pro' ) && rr_is_pro();
+		$badge_color = $is_pro ? '#00a32a' : '#646970';
+		$label       = $is_pro ? 'PRO' : 'FREE';
+		$icon        = $is_pro ? '🔓' : '🔒';
+		$next_label  = $is_pro ? 'Switch to FREE' : 'Switch to PRO';
+
+		$toggle_url = wp_nonce_url(
+			add_query_arg(
+				array( 'rr_toggle_sandbox' => '1', '_t' => time() ),
+				admin_url()
+			),
+			'rr_toggle_sandbox'
+		);
+
+		// Parent node — colored badge
+		$wp_admin_bar->add_node( array(
+			'id'    => 'rr-pro-indicator',
+			'title' => sprintf(
+				'<span style="background:%s;color:#fff;padding:2px 10px;border-radius:11px;font-weight:700;font-size:11px;letter-spacing:.5px;">%s RankReady · %s</span>',
+				esc_attr( $badge_color ),
+				esc_html( $icon ),
+				esc_html( $label )
+			),
+			'href'  => admin_url( 'admin.php?page=rankready&tab=advanced' ),
+			'meta'  => array( 'title' => 'RankReady is currently in ' . $label . ' mode (sandbox)' ),
+		) );
+
+		// Submenu — quick toggle
+		$wp_admin_bar->add_node( array(
+			'parent' => 'rr-pro-indicator',
+			'id'     => 'rr-pro-toggle',
+			'title'  => '⚡ ' . $next_label,
+			'href'   => $toggle_url,
+		) );
+
+		// Submenu — open Developer Mode card
+		$wp_admin_bar->add_node( array(
+			'parent' => 'rr-pro-indicator',
+			'id'     => 'rr-pro-settings',
+			'title'  => '⚙ Developer Mode settings',
+			'href'   => admin_url( 'admin.php?page=rankready&tab=advanced#rr-developer-mode-card' ),
+		) );
+	}
+
+	/**
+	 * Handle the admin-bar Free/Pro toggle click.
+	 *
+	 * @since 1.2.0-rc.14
+	 */
+	public static function handle_sandbox_toggle(): void {
+		if ( empty( $_GET['rr_toggle_sandbox'] ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( ! function_exists( 'rr_is_sandbox' ) || ! rr_is_sandbox() ) {
+			return;
+		}
+		if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( wp_unslash( $_GET['_wpnonce'] ), 'rr_toggle_sandbox' ) ) {
+			return;
+		}
+
+		$current = (string) get_option( RR_OPT_SANDBOX_PRO, 'on' );
+		$new     = ( 'on' === $current ) ? 'off' : 'on';
+		update_option( RR_OPT_SANDBOX_PRO, $new );
+
+		// Redirect back to admin without the query args
+		$referer = wp_get_referer();
+		if ( ! $referer ) {
+			$referer = admin_url();
+		}
+		$referer = remove_query_arg( array( 'rr_toggle_sandbox', '_wpnonce', '_t' ), $referer );
+		wp_safe_redirect( add_query_arg( 'rr_sandbox_flipped', $new, $referer ) );
+		exit;
 	}
 
 	// ── "What's new" banner + tutorial dismiss handlers ─────────────────────────
@@ -1832,11 +1929,13 @@ class RR_Admin {
 
 	private static function render_tab_insights(): void {
 		$sub = isset( $_GET['sub'] ) ? sanitize_key( wp_unslash( $_GET['sub'] ) ) : 'bot-activity';
+		$is_pro = function_exists( 'rr_is_pro' ) && rr_is_pro();
 		$sub_tabs = array(
 			'bot-activity' => __( 'Bot Activity', 'rankready' ),
 			'citation'     => __( 'AI Citation Candidates', 'rankready' ),
 			'referral'     => __( 'AI Referral Traffic', 'rankready' ),
 			'freshness'    => __( 'Content Freshness', 'rankready' ),
+			'mentions'     => __( 'AI Mention Tracker', 'rankready' ) . ( $is_pro ? '' : ' 🔒' ),
 		);
 		if ( ! isset( $sub_tabs[ $sub ] ) ) {
 			$sub = 'bot-activity';
@@ -1900,7 +1999,80 @@ class RR_Admin {
 			case 'citation':       self::render_insights_citation();        break;
 			case 'referral':       self::render_insights_referral();        break;
 			case 'freshness':      self::render_insights_freshness();       break;
+			case 'mentions':       self::render_insights_mention_tracker(); break;
 		}
+	}
+
+	/**
+	 * Insights → AI Mention Tracker (Pro feature, locked preview when Free)
+	 *
+	 * The headline Pro wedge. DataForSEO LLM SERP integration — actively
+	 * checks whether ChatGPT/Perplexity/Claude/Gemini mention the brand for
+	 * target queries. Full build ships in v1.3.0.
+	 *
+	 * @since 1.2.0-rc.14
+	 */
+	private static function render_insights_mention_tracker(): void {
+		$is_pro = function_exists( 'rr_is_pro' ) && rr_is_pro();
+		?>
+		<div class="rr-insights-section-header" style="border-left-color:#8b5cf6;">
+			<h3>🎯 <?php esc_html_e( 'AI Mention Tracker', 'rankready' ); ?>
+				<?php if ( ! $is_pro ) : ?>
+					<span style="background:#8b5cf6;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.5px;margin-left:8px;">PRO</span>
+				<?php endif; ?>
+			</h3>
+			<p><?php esc_html_e( 'Actively monitor brand mentions across ChatGPT, Perplexity, Claude, and Gemini. Ask each LLM your target queries weekly and track position changes over time.', 'rankready' ); ?></p>
+		</div>
+
+		<?php if ( $is_pro ) : ?>
+			<div class="rr-card" style="text-align:center;padding:40px;">
+				<p style="font-size:14px;font-weight:600;margin:0 0 8px;">
+					<?php esc_html_e( '🚀 AI Mention Tracker — Coming in v1.3.0', 'rankready' ); ?>
+				</p>
+				<p style="font-size:12px;color:#646970;margin:0;">
+					<?php esc_html_e( 'You have Pro unlocked. The tracker UI ships in the next minor release — DataForSEO integration in build.', 'rankready' ); ?>
+				</p>
+			</div>
+		<?php else : ?>
+			<div class="rr-card" style="background:linear-gradient(135deg,#f5f3ff 0%,#fff 100%);border:1px solid #ddd6fe;padding:32px;text-align:center;">
+				<div style="font-size:48px;margin-bottom:12px;">🔒</div>
+				<h3 style="margin:0 0 8px;font-size:18px;color:#1d2327;"><?php esc_html_e( 'Unlock AI Mention Tracker', 'rankready' ); ?></h3>
+				<p style="margin:0 0 20px;color:#646970;max-width:540px;margin-left:auto;margin-right:auto;font-size:13px;line-height:1.6;">
+					<?php esc_html_e( 'Stop guessing whether AI is recommending your brand. Track real mentions across all major LLMs every week, see position changes, and beat competitors who don\'t know they\'re being out-cited.', 'rankready' ); ?>
+				</p>
+
+				<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;max-width:760px;margin:0 auto 22px;text-align:left;">
+					<div style="padding:14px;background:#fff;border-radius:8px;border:1px solid #ede9fe;">
+						<div style="font-size:24px;margin-bottom:4px;">📊</div>
+						<strong style="font-size:13px;display:block;margin-bottom:4px;">Track unlimited queries</strong>
+						<span style="font-size:12px;color:#646970;line-height:1.5;">"best WordPress AI SEO plugin" → are we in the answer?</span>
+					</div>
+					<div style="padding:14px;background:#fff;border-radius:8px;border:1px solid #ede9fe;">
+						<div style="font-size:24px;margin-bottom:4px;">🤖</div>
+						<strong style="font-size:13px;display:block;margin-bottom:4px;">Across all major LLMs</strong>
+						<span style="font-size:12px;color:#646970;line-height:1.5;">ChatGPT-4o · Claude Sonnet 4.6 · Gemini 2.5 · DeepSeek V4</span>
+					</div>
+					<div style="padding:14px;background:#fff;border-radius:8px;border:1px solid #ede9fe;">
+						<div style="font-size:24px;margin-bottom:4px;">📈</div>
+						<strong style="font-size:13px;display:block;margin-bottom:4px;">Position tracking + alerts</strong>
+						<span style="font-size:12px;color:#646970;line-height:1.5;">Weekly cron + email when position drops</span>
+					</div>
+					<div style="padding:14px;background:#fff;border-radius:8px;border:1px solid #ede9fe;">
+						<div style="font-size:24px;margin-bottom:4px;">🥊</div>
+						<strong style="font-size:13px;display:block;margin-bottom:4px;">Competitor comparison</strong>
+						<span style="font-size:12px;color:#646970;line-height:1.5;">See who AI mentions instead of you</span>
+					</div>
+				</div>
+
+				<a href="https://store.posimyth.com/plugins/rank-ready" target="_blank" rel="noopener" style="display:inline-block;padding:10px 24px;background:#8b5cf6;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
+					<?php esc_html_e( 'Get RankReady Pro →', 'rankready' ); ?>
+				</a>
+				<p style="margin:14px 0 0;font-size:11px;color:#9ca3af;">
+					<?php esc_html_e( 'Already have a license? Activate it in Settings → Provider Configuration.', 'rankready' ); ?>
+				</p>
+			</div>
+		<?php endif; ?>
+		<?php
 	}
 
 	/**

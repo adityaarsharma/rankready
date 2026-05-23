@@ -470,10 +470,30 @@ class RR_Diagnostics {
 		$has_agent   = false !== strpos( $body, 'User-agent:' );
 
 		if ( ! $has_marker ) {
+			// rc.9 — Detect SEO plugins that intercept /robots.txt via
+			// custom rewrite (bypasses WP's robots_txt filter entirely).
+			$interceptor = '';
+			if ( class_exists( 'RR_Llms_Txt' ) && method_exists( 'RR_Llms_Txt', 'detect_robots_txt_interceptor' ) ) {
+				$interceptor = RR_Llms_Txt::detect_robots_txt_interceptor();
+			}
+			$has_physical = file_exists( ABSPATH . 'robots.txt' );
+
+			$detail = 'RankReady block missing from /robots.txt response.';
+			$fix    = 'Re-save AI Crawlers → LLM Crawler Access to trigger a physical robots.txt write.';
+
+			if ( $interceptor ) {
+				$detail = "RankReady block missing — {$interceptor} is intercepting /robots.txt via custom rewrite, so the robots_txt filter never fires.";
+				$fix    = $has_physical
+					? "Disable {$interceptor}'s robots.txt feature, OR delete the physical robots.txt at /robots.txt — RankReady's filter (priority PHP_INT_MAX) will then win."
+					: "Disable {$interceptor}'s robots.txt feature in its settings — RankReady will then take over via filter, OR re-save AI Crawlers → LLM Crawler Access to write a physical robots.txt that wins at the webserver level.";
+			} elseif ( $has_physical ) {
+				$detail = 'RankReady block missing from physical robots.txt at ' . ABSPATH . 'robots.txt.';
+				$fix    = 'Re-save AI Crawlers → LLM Crawler Access — sync_physical_robots_txt() will rewrite the file with the RankReady block appended.';
+			}
+
 			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'fail',
-				'RankReady block missing from /robots.txt response.',
-				'Another plugin is filtering robots_txt at lower priority. RankReady uses priority 99. Clear all SEO plugin caches.',
-				array( 'url' => $url )
+				$detail, $fix,
+				array( 'url' => $url, 'interceptor' => $interceptor, 'has_physical' => $has_physical )
 			);
 		}
 

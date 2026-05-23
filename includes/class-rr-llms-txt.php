@@ -49,7 +49,11 @@ class RR_Llms_Txt {
 		add_action( 'deleted_post',           array( self::class, 'bust_cache' ) );
 
 		// Add llms.txt reference to robots.txt so AI crawlers discover it.
-		add_filter( 'robots_txt', array( self::class, 'add_to_robots_txt' ), 100, 2 );
+		// rc.8 fix: bump priority to PHP_INT_MAX so RankReady's block
+		// survives SEOPress / Yoast / RankMath overwriting the entire
+		// robots_txt output at high priority. We APPEND to whatever
+		// the earlier filter left in $output — we don't replace.
+		add_filter( 'robots_txt', array( self::class, 'add_to_robots_txt' ), PHP_INT_MAX, 2 );
 
 		// Emit Link: headers and <link> tags for AI discovery on every front-end page.
 		add_action( 'send_headers', array( self::class, 'add_discovery_link_headers' ) );
@@ -253,8 +257,33 @@ class RR_Llms_Txt {
 			return;
 		}
 
+		// v1.2.0-rc.9 — Write a physical robots.txt when one doesn't exist
+		// AND another plugin is intercepting the URL via custom rewrite.
+		// Without a physical file, plugins like SEOPress can register their
+		// own /robots.txt rewrite that bypasses both WP's virtual robots_txt
+		// filter AND our PHP_INT_MAX-priority append. A physical file wins
+		// at the webserver level (nginx/Apache) before WP routing runs.
+		//
+		// We only create the file when robots toggle is ON and we have a
+		// non-empty block to write — otherwise we'd leave an empty file
+		// around that could surprise users.
 		if ( ! $wp_filesystem->exists( $file ) ) {
-			// No physical file — the `robots_txt` filter handles it.
+			$robots_on = (bool) get_option( RR_OPT_ROBOTS_ENABLE, false );
+			$block     = self::generate_robots_block();
+			if ( ! $robots_on || empty( trim( $block ) ) ) {
+				// Filter handles it — no need for physical file.
+				return;
+			}
+			// Detect another plugin actively claiming /robots.txt.
+			$intercepting = self::detect_robots_txt_interceptor();
+			if ( ! $intercepting ) {
+				// WP serves virtual robots.txt — our filter at PHP_INT_MAX wins.
+				return;
+			}
+			// Write a fresh physical robots.txt — block-only is fine; it
+			// reads as a normal robots.txt with comments + directives.
+			$wp_filesystem->put_contents( $file, ltrim( $block ) . "\n", FS_CHMOD_FILE );
+			self::purge_robots_cache();
 			return;
 		}
 
@@ -306,6 +335,45 @@ class RR_Llms_Txt {
 		RR_Cache::purge_url( home_url( '/robots.txt' ) );
 	}
 
+	/**
+	 * Detect another plugin actively serving /robots.txt via custom rewrite.
+	 *
+	 * If detected, the `robots_txt` filter NEVER fires (interceptor exits
+	 * before WP's template router reaches the virtual robots.txt). We
+	 * detect this so sync_physical_robots_txt() knows to create a physical
+	 * file that wins at the webserver level.
+	 *
+	 * @since 1.2.0-rc.9
+	 * @return string Plugin name if detected, empty string otherwise.
+	 */
+	public static function detect_robots_txt_interceptor(): string {
+		// SEOPress Pro has its own /robots.txt rewrite when the feature is on.
+		if ( defined( 'SEOPRESS_VERSION' ) ) {
+			$seopress = get_option( 'seopress_pro_option_name', array() );
+			if ( is_array( $seopress ) && ! empty( $seopress['seopress_pro_robots'] ) ) {
+				return 'SEOPress (robots module on)';
+			}
+		}
+
+		// Rank Math: their robots editor sets a transient when active.
+		if ( defined( 'RANK_MATH_VERSION' ) ) {
+			$rm_general = (array) get_option( 'rank-math-options-general', array() );
+			if ( ! empty( $rm_general['robots_txt_content'] ) ) {
+				return 'Rank Math (custom robots.txt set)';
+			}
+		}
+
+		// Yoast: editor stored in option `wpseo_robots`.
+		if ( defined( 'WPSEO_VERSION' ) ) {
+			$yoast_robots = get_option( 'wpseo_robots' );
+			if ( ! empty( $yoast_robots ) ) {
+				return 'Yoast SEO (robots editor used)';
+			}
+		}
+
+		return '';
+	}
+
 	// ── Rewrite rules ─────────────────────────────────────────────────────────
 
 	public static function add_rewrite_rules(): void {
@@ -354,14 +422,35 @@ class RR_Llms_Txt {
 			}
 		}
 
-		// AIOSEO llms.txt.
+		// AIOSEO llms.txt (v1.2.0-rc.8 fix: was unconditionally true, broke
+		// sites where AIOSEO is installed but llms.txt feature is off).
+		// AIOSEO stores its toggles under `aioseo_options` JSON; check the
+		// llms.txt key explicitly. If we can't verify it's ON, we serve.
 		if ( defined( 'AIOSEO_VERSION' ) ) {
-			return true; // AIOSEO enables llms.txt by default when active.
+			$aio = get_option( 'aioseo_options', '' );
+			if ( is_string( $aio ) && $aio ) {
+				$decoded = json_decode( $aio, true );
+				if ( is_array( $decoded ) && ! empty( $decoded['llmsTxt']['enable'] ) ) {
+					return true;
+				}
+			}
+			// AIOSEO present but feature not verified on → RankReady serves.
 		}
 
-		// SEOPress llms.txt (v9.5+).
+		// SEOPress llms.txt (v1.2.0-rc.8 fix: was unconditionally true for
+		// 9.5+, broke slift.co where SEOPress 9.8.5 is installed but the
+		// llms.txt feature wasn't enabled in SEOPress settings).
+		// Check the SEOPress option explicitly. If we can't verify it's on,
+		// we serve our own /llms.txt — RankReady's rewrite rule uses 'top'
+		// priority so it wins anyway if both register.
 		if ( defined( 'SEOPRESS_VERSION' ) && version_compare( SEOPRESS_VERSION, '9.5', '>=' ) ) {
-			return true;
+			// SEOPress Pro stores llms.txt config under
+			// `seopress_pro_option_name` array, key `seopress_pro_llms_txt`.
+			$seopress = get_option( 'seopress_pro_option_name', array() );
+			if ( is_array( $seopress ) && ! empty( $seopress['seopress_pro_llms_txt'] ) ) {
+				return true;
+			}
+			// SEOPress present but llms.txt not verified on → RankReady serves.
 		}
 
 		return false;

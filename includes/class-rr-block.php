@@ -536,17 +536,33 @@ class RR_Block {
 	public static function maybe_inject_schema(): void {
 		if ( 'on' !== get_option( RR_OPT_SCHEMA_ARTICLE, 'on' ) ) return;
 
-		// These plugins have dedicated merge filters registered in init().
-		if ( defined( 'RANK_MATH_VERSION' ) )  return;
-		if ( defined( 'WPSEO_VERSION' ) )      return;
-		if ( defined( 'AIOSEO_VERSION' ) )     return;
-		if ( defined( 'SEOPRESS_VERSION' ) )   return;
+		// v1.2.0-rc.9 — Escape hatch: users can force standalone schema even
+		// when an SEO plugin is active. Same pattern as `rankready_force_llms_txt`.
+		// Default false (keep merge-via-filter behaviour for compatibility).
+		// Flip to true if SEO plugin's schema feature is disabled and you
+		// still want RankReady's Article + Speakable JSON-LD on the page.
+		$force_standalone = (bool) apply_filters( 'rankready_force_standalone_schema', false );
 
-		// The SEO Framework.
-		if ( function_exists( 'the_seo_framework' ) ) return;
+		if ( ! $force_standalone ) {
+			// These plugins have dedicated merge filters registered in init().
+			// NOTE: this is a SIMPLIFICATION — we assume each plugin's schema
+			// feature is active when the plugin is installed. If a user has
+			// (e.g.) Yoast installed but their schema graph disabled in Yoast's
+			// settings, RankReady's merge filter won't land anywhere AND we
+			// won't fall back to standalone. In that case the user should
+			// either enable Yoast's schema OR enable the filter above.
+			// Surfaced in the Diagnostics card via the SEO plugin probe.
+			if ( defined( 'RANK_MATH_VERSION' ) )  return;
+			if ( defined( 'WPSEO_VERSION' ) )      return;
+			if ( defined( 'AIOSEO_VERSION' ) )     return;
+			if ( defined( 'SEOPRESS_VERSION' ) )   return;
 
-		// Slim SEO.
-		if ( defined( 'SLIM_SEO_VER' ) ) return;
+			// The SEO Framework.
+			if ( function_exists( 'the_seo_framework' ) ) return;
+
+			// Slim SEO.
+			if ( defined( 'SLIM_SEO_VER' ) ) return;
+		}
 
 		if ( ! is_singular() ) return;
 		if ( ! apply_filters( 'rankready_inject_schema', true ) ) return;

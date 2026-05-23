@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.2.0-rc.14
+ * Version:           1.2.0-rc.15
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RR_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RR_VERSION' ) ) {
-	define( 'RR_VERSION',  '1.2.0-rc.14' );
+	define( 'RR_VERSION',  '1.2.0-rc.15' );
 	define( 'RR_FILE',     __FILE__ );
 	define( 'RR_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RR_URL',      plugin_dir_url( __FILE__ ) );
@@ -349,11 +349,12 @@ add_action( 'admin_init', function (): void {
 // ═════════════════════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Beta build auto-updates via EDD Software Licensing on store.posimyth.com.
-// This block only runs when class-rr-pro-beta.php is present (beta zip only).
-// The WP.org free zip never includes that file so RR_BETA_BUILD is never set.
+// EDD Software Licensing auto-updates (rc.15 — license-driven, not beta-flag).
+// Bootstraps the updater whenever the EDD updater class is shipped. License
+// key is read from the rr_license_key option (set via Settings → License once
+// EDD UI ships, or via wp-cli for now).
 // ─────────────────────────────────────────────────────────────────────────────
-if ( defined( 'RR_BETA_BUILD' ) && is_admin() ) {
+if ( is_admin() && file_exists( RR_DIR . 'includes/RR_SL_Plugin_Updater.php' ) ) {
 	if ( ! class_exists( 'RR_SL_Plugin_Updater' ) ) {
 		require_once RR_DIR . 'includes/RR_SL_Plugin_Updater.php';
 	}
@@ -362,11 +363,11 @@ if ( defined( 'RR_BETA_BUILD' ) && is_admin() ) {
 		__FILE__,
 		array(
 			'version' => RR_VERSION,
-			'license' => defined( 'RR_BETA_LICENSE' ) ? RR_BETA_LICENSE : get_option( 'rr_license_key', '' ),
-			'item_id' => 463989,
+			'license' => (string) get_option( 'rr_license_key', '' ),
+			'item_id' => defined( 'RR_EDD_ITEM_ID' ) ? RR_EDD_ITEM_ID : 463989,
 			'author'  => 'POSIMYTH Inc.',
 			'url'     => home_url(),
-			'beta'    => true,
+			'beta'    => false,
 		)
 	);
 }

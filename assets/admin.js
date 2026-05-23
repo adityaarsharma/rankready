@@ -1074,80 +1074,9 @@
 		} );
 	}
 
-	/* ═══════════════════════════════════════════════════════════════════════
-	 * HEALTH CHECK
-	 * ═══════════════════════════════════════════════════════════════════════ */
-
-	var healthBtn    = document.getElementById( 'rr-health-check' );
-	var healthStatus = document.getElementById( 'rr-health-status' );
-	var healthResults = document.getElementById( 'rr-health-results' );
-	var healthTbody  = document.getElementById( 'rr-health-tbody' );
-
-	if ( healthBtn ) {
-		healthBtn.addEventListener( 'click', function () {
-			healthBtn.disabled    = true;
-			healthBtn.textContent = 'Scanning...';
-			healthStatus.style.display = 'none';
-
-			rrFetch( '/health-check', 'GET' ).then( function ( data ) {
-				healthBtn.disabled    = false;
-				healthBtn.textContent = 'Run Health Check';
-
-				if ( ! data.checks || ! data.checks.length ) {
-					healthStatus.textContent   = 'No results.';
-					healthStatus.style.color   = '#999';
-					healthStatus.style.display = 'inline';
-					return;
-				}
-
-				var html = '';
-				var passCount = 0;
-				var warnCount = 0;
-				var failCount = 0;
-
-				data.checks.forEach( function ( check ) {
-					var icon = '';
-					var rowStyle = '';
-					if ( check.status === 'pass' ) {
-						icon = '<span style="color:#00a32a;font-size:16px;">&#10003;</span>';
-						passCount++;
-					} else if ( check.status === 'warn' ) {
-						icon = '<span style="color:#dba617;font-size:16px;">&#9888;</span>';
-						rowStyle = 'background:#fffbe6;';
-						warnCount++;
-					} else if ( check.status === 'fail' ) {
-						icon = '<span style="color:#d63638;font-size:16px;">&#10007;</span>';
-						rowStyle = 'background:#fef0f0;';
-						failCount++;
-					} else {
-						icon = '<span style="color:#646970;font-size:16px;">&#8505;</span>';
-					}
-
-					html += '<tr style="' + rowStyle + '">';
-					html += '<td style="text-align:center;">' + icon + '</td>';
-					html += '<td style="font-weight:600;">' + escHtml( check.label ) + '</td>';
-					html += '<td>' + escHtml( check.detail ) + '</td>';
-					html += '</tr>';
-				} );
-
-				healthTbody.innerHTML      = html;
-				healthResults.style.display = 'block';
-
-				var summary = passCount + ' passed';
-				if ( warnCount > 0 ) summary += ', ' + warnCount + ' warnings';
-				if ( failCount > 0 ) summary += ', ' + failCount + ' issues';
-				healthStatus.textContent   = summary;
-				healthStatus.style.color   = failCount > 0 ? '#d63638' : ( warnCount > 0 ? '#dba617' : '#00a32a' );
-				healthStatus.style.display = 'inline';
-			} ).catch( function () {
-				healthBtn.disabled    = false;
-				healthBtn.textContent = 'Run Health Check';
-				healthStatus.textContent   = 'Request failed.';
-				healthStatus.style.color   = '#d63638';
-				healthStatus.style.display = 'inline';
-			} );
-		} );
-	}
+	/* Old "Health Check" handler removed in rc.15 — replaced by the live
+	 * 22-probe Diagnostics handler below. The rr-health-check DOM element
+	 * was removed in rc.5; the JS handler became orphan code. */
 
 	/* ═══════════════════════════════════════════════════════════════════════
 	 * DIAGNOSTICS (v1.2.0-rc.5)

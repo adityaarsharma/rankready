@@ -5507,96 +5507,9 @@ class RR_Admin {
 		<?php
 	}
 
-	// ═══════════════════════════════════════════════════════════════════════════
-	// TAB: Info
-	// ═══════════════════════════════════════════════════════════════════════════
-
-	private static function render_tab_info(): void {
-		$summary_count = 0;
-		$enabled_types = (array) get_option( RR_OPT_POST_TYPES, array( 'post' ) );
-
-		if ( ! empty( $enabled_types ) ) {
-			global $wpdb;
-			$summary_count = (int) $wpdb->get_var( $wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
-				RR_META_SUMMARY
-			) );
-		}
-
-		$faq_count = 0;
-		global $wpdb;
-		$faq_count = (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
-			RR_META_FAQ
-		) );
-		?>
-		<div class="rr-card">
-			<h2 class="rr-card-title"><?php esc_html_e( 'How It Works', 'rankready' ); ?></h2>
-
-			<div class="rr-info-grid">
-				<div class="rr-info-item">
-					<span class="dashicons dashicons-update rr-info-icon"></span>
-					<h3><?php esc_html_e( 'AI Summary', 'rankready' ); ?></h3>
-					<p><?php esc_html_e( 'On publish/update, the plugin generates an AI summary in the background. The API is only called when content changes (verified via content hash).', 'rankready' ); ?></p>
-				</div>
-				<div class="rr-info-item">
-					<span class="dashicons dashicons-editor-code rr-info-icon"></span>
-					<h3><?php esc_html_e( 'Schema Markup', 'rankready' ); ?></h3>
-					<p><?php esc_html_e( 'Article JSON-LD schema with speakable markup is injected automatically. Skips if Yoast, Rank Math, or AIOSEO is active.', 'rankready' ); ?></p>
-				</div>
-				<div class="rr-info-item">
-					<span class="dashicons dashicons-media-text rr-info-icon"></span>
-					<h3><?php esc_html_e( 'LLMs.txt', 'rankready' ); ?></h3>
-					<p><?php esc_html_e( 'Generates a /llms.txt file following the llmstxt.org spec. Lists your content for AI models to understand your site structure.', 'rankready' ); ?></p>
-				</div>
-				<div class="rr-info-item">
-					<span class="dashicons dashicons-editor-paste-text rr-info-icon"></span>
-					<h3><?php esc_html_e( 'Markdown Endpoints', 'rankready' ); ?></h3>
-					<p><?php esc_html_e( 'Appending .md to any post URL serves clean Markdown with YAML frontmatter. Ideal for LLM crawlers and AI agents.', 'rankready' ); ?></p>
-				</div>
-			</div>
-		</div>
-
-		<div class="rr-card">
-			<h2 class="rr-card-title"><?php esc_html_e( 'Quick Stats', 'rankready' ); ?></h2>
-			<div class="rr-stats-row">
-				<div class="rr-stat">
-					<span class="rr-stat-number"><?php echo esc_html( number_format_i18n( $summary_count ) ); ?></span>
-					<span class="rr-stat-label"><?php esc_html_e( 'AI Summaries Generated', 'rankready' ); ?></span>
-				</div>
-				<div class="rr-stat">
-					<span class="rr-stat-number"><?php echo 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) ? '&#10003;' : '&#10007;'; ?></span>
-					<span class="rr-stat-label"><?php esc_html_e( 'LLMs.txt', 'rankready' ); ?></span>
-				</div>
-				<div class="rr-stat">
-					<span class="rr-stat-number"><?php echo 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ) ? '&#10003;' : '&#10007;'; ?></span>
-					<span class="rr-stat-label"><?php esc_html_e( 'Markdown Endpoints', 'rankready' ); ?></span>
-				</div>
-				<div class="rr-stat">
-					<span class="rr-stat-number"><?php echo ! empty( get_option( RR_OPT_KEY, '' ) ) ? '&#10003;' : '&#10007;'; ?></span>
-					<span class="rr-stat-label"><?php esc_html_e( 'API Key', 'rankready' ); ?></span>
-				</div>
-				<div class="rr-stat">
-					<span class="rr-stat-number"><?php echo esc_html( number_format_i18n( $faq_count ) ); ?></span>
-					<span class="rr-stat-label"><?php esc_html_e( 'FAQs Generated', 'rankready' ); ?></span>
-				</div>
-			</div>
-		</div>
-
-		<div class="rr-card rr-card--subtle">
-			<p style="margin:0;font-size:13px;color:#646970;">
-				<?php
-				printf(
-					/* translators: 1: plugin version, 2: company link */
-					esc_html__( 'RankReady v%1$s by %2$s', 'rankready' ),
-					esc_html( RR_VERSION ),
-					'<a href="https://store.posimyth.com/plugins/rankready/" target="_blank" rel="noopener">POSIMYTH Innovations</a>'
-				);
-				?>
-			</p>
-		</div>
-		<?php
-	}
+	// (TAB: Info removed in rc.15 — "How It Works" + "Quick Stats" cards were
+	// moved to Dashboard scorecard in rc.5/rc.6. The old render_tab_info()
+	// method was orphan code with no callers — full removal here.)
 
 	// ── Per-post meta box ─────────────────────────────────────────────────────
 

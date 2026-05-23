@@ -1,12 +1,19 @@
 <?php
 /**
- * RankReady Pro Beta — license bootstrap.
+ * RankReady Pro — license + sandbox bootstrap (single-zip distribution).
  *
- * Loaded by rankready.php when this file is present (beta zip only).
- * Defines RR_BETA_BUILD, RR_BETA_LICENSE, and rr_is_pro().
- * Registers EDD SL license activate / deactivate / check hooks.
+ * Defines rr_is_sandbox(), rr_is_pro(), and the EDD Software Licensing
+ * helpers (rr_edd_api_request, rr_activate_license, rr_deactivate_license,
+ * rr_beta_check_license).
+ *
+ * rc.15 cleanup: removed the RR_BETA_BUILD always-true gate and the
+ * auto-activation block that hardcoded a shared beta license. Pro now
+ * unlocks only via:
+ *   1. Sandbox sites + rr_sandbox_simulate_pro = 'on' (dev only)
+ *   2. EDD-issued license stored in rr_license_key option (production)
  *
  * @package RankReady
+ * @since   1.2.0-rc.13 (single-zip rewrite)
  */
 defined( 'ABSPATH' ) || exit;
 
@@ -204,7 +211,7 @@ function rr_deactivate_license() {
  * Re-check stored license status against EDD store (run by cron / admin load).
  */
 function rr_beta_check_license(): void {
-	$license = defined( 'RR_BETA_LICENSE' ) ? RR_BETA_LICENSE : (string) get_option( 'rr_license_key', '' );
+	$license = (string) get_option( 'rr_license_key', '' );
 	if ( '' === $license ) {
 		return;
 	}
@@ -242,37 +249,12 @@ function rr_license_error_message( string $code ): string {
 	);
 }
 
-// ── Silent auto-activation on first load ─────────────────────────────────────
-// The beta build never shows a license UI. The pre-issued RR_BETA_LICENSE is
-// auto-activated against the EDD store the first time wp_loaded fires after
-// install (and re-tried daily until EDD reports `valid`). Once activated, the
-// EDD SL Plugin Updater can fetch updates without any user interaction.
-
-add_action( 'wp_loaded', 'rr_beta_auto_activate' );
-
-function rr_beta_auto_activate(): void {
-	// Only beta builds carry RR_BETA_LICENSE; production WP.org zip never enters this branch.
-	if ( ! defined( 'RR_BETA_LICENSE' ) || '' === RR_BETA_LICENSE ) {
-		return;
-	}
-
-	$status = (string) get_option( 'rr_license_status', '' );
-	if ( 'valid' === $status ) {
-		return; // Already activated — daily cron keeps it warm.
-	}
-
-	// Throttle retries to one attempt per hour so a flapping store doesn't
-	// hammer EDD on every page load.
-	$last_try = (int) get_option( 'rr_license_last_attempt', 0 );
-	if ( ( time() - $last_try ) < HOUR_IN_SECONDS ) {
-		return;
-	}
-	update_option( 'rr_license_last_attempt', time(), false );
-
-	rr_activate_license( RR_BETA_LICENSE );
-}
-
 // ── Cron: daily license re-check ─────────────────────────────────────────────
+// rc.15 — removed the rr_beta_auto_activate() block (was auto-activating a
+// hardcoded shared license key on every install). License entry now requires
+// either the EDD Settings UI (ships in v1.3) or wp-cli:
+//   wp option update rr_license_key <KEY>
+//   wp eval 'rr_activate_license( get_option("rr_license_key") );'
 
 add_action( 'rr_daily_license_check', 'rr_beta_check_license' );
 

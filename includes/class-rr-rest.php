@@ -1701,8 +1701,8 @@ class RR_Rest {
 			$seo_plugin = 'Yoast SEO ' . WPSEO_VERSION;
 		} elseif ( defined( 'AIOSEO_VERSION' ) ) {
 			$seo_plugin = 'All in One SEO ' . AIOSEO_VERSION;
-		} elseif ( defined( 'SEOPRESS_VERSION' ) ) {
-			$seo_plugin = 'SEOPress ' . SEOPRESS_VERSION;
+		} elseif ( ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) ) ) {
+			$seo_plugin = 'SEOPress ' . ( defined( 'SEOPRESS_VERSION' ) ? SEOPRESS_VERSION : SEOPRESS_PRO_VERSION );
 		} elseif ( defined( 'THE_SEO_FRAMEWORK_VERSION' ) ) {
 			$seo_plugin = 'The SEO Framework ' . THE_SEO_FRAMEWORK_VERSION;
 		}

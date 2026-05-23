@@ -716,7 +716,7 @@ class RR_Diagnostics {
 		if ( defined( 'RANK_MATH_VERSION' ) )         $plugin = 'Rank Math ' . RANK_MATH_VERSION;
 		elseif ( defined( 'WPSEO_VERSION' ) )         $plugin = 'Yoast SEO ' . WPSEO_VERSION;
 		elseif ( defined( 'AIOSEO_VERSION' ) )        $plugin = 'All in One SEO ' . AIOSEO_VERSION;
-		elseif ( defined( 'SEOPRESS_VERSION' ) )      $plugin = 'SEOPress ' . SEOPRESS_VERSION;
+		elseif ( ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) ) )      $plugin = 'SEOPress ' . ( defined( 'SEOPRESS_VERSION' ) ? SEOPRESS_VERSION : SEOPRESS_PRO_VERSION );
 		elseif ( defined( 'THE_SEO_FRAMEWORK_VERSION' ) ) $plugin = 'The SEO Framework ' . THE_SEO_FRAMEWORK_VERSION;
 
 		if ( '' === $plugin ) {
@@ -1194,7 +1194,7 @@ class RR_Diagnostics {
 			);
 		}
 
-		if ( defined( 'SEOPRESS_VERSION' ) ) {
+		if ( ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) ) ) {
 			$sp_pro = (array) get_option( 'seopress_pro_option_name', array() );
 			$sp_tit = (array) get_option( 'seopress_titles_option_name', array() );
 			$out['SEOPress ' . SEOPRESS_VERSION] = array(

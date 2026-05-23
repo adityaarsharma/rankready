@@ -555,7 +555,7 @@ class RR_Block {
 			if ( defined( 'RANK_MATH_VERSION' ) )  return;
 			if ( defined( 'WPSEO_VERSION' ) )      return;
 			if ( defined( 'AIOSEO_VERSION' ) )     return;
-			if ( defined( 'SEOPRESS_VERSION' ) )   return;
+			if ( ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) ) )   return;
 
 			// The SEO Framework.
 			if ( function_exists( 'the_seo_framework' ) ) return;

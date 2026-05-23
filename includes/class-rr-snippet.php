@@ -140,7 +140,7 @@ class RR_Snippet {
 		if ( defined( 'AIOSEO_VERSION' ) && '1' === (string) get_post_meta( $post_id, '_aioseo_noindex', true ) ) {
 			return true;
 		}
-		if ( defined( 'SEOPRESS_VERSION' ) && 'yes' === (string) get_post_meta( $post_id, '_seopress_robots_index', true ) ) {
+		if ( ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) ) && 'yes' === (string) get_post_meta( $post_id, '_seopress_robots_index', true ) ) {
 			return true;
 		}
 		if ( defined( 'RANK_MATH_VERSION' ) ) {

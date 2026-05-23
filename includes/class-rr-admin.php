@@ -2798,7 +2798,7 @@ class RR_Admin {
 		$has_rankmath  = defined( 'RANK_MATH_VERSION' );
 		$has_yoast     = defined( 'WPSEO_VERSION' );
 		$has_aioseo    = defined( 'AIOSEO_VERSION' );
-		$has_seopress  = defined( 'SEOPRESS_VERSION' );
+		$has_seopress  = ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) );
 		$has_tsf       = defined( 'THE_SEO_FRAMEWORK_VERSION' );
 		$seo_plugin    = '';
 		if ( $has_rankmath )     $seo_plugin = 'Rank Math';
@@ -4667,7 +4667,60 @@ class RR_Admin {
 	private static function render_tab_tools(): void {
 		self::render_card_diagnostics();
 		self::render_card_error_log();
+		self::render_card_branding();   // rc.11 — Pro coming soon stub
 		self::render_card_data_retention();
+	}
+
+	// ── Branding (Pro feature stub — added in rc.11) ────────────────────────
+	private static function render_card_branding(): void {
+		$is_pro     = function_exists( 'rr_is_pro' ) && rr_is_pro();
+		$hide_value = (string) get_option( RR_OPT_HIDE_BRANDING, 'off' );
+		?>
+		<div class="rr-card" id="rr-branding-card">
+			<h2 class="rr-card-title" style="display:flex;align-items:center;gap:8px;">
+				<?php esc_html_e( 'Branding', 'rankready' ); ?>
+				<?php if ( ! $is_pro ) : ?>
+					<span style="background:#2271b1;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;letter-spacing:.5px;">
+						<?php esc_html_e( 'PRO COMING SOON', 'rankready' ); ?>
+					</span>
+				<?php endif; ?>
+			</h2>
+			<p class="rr-card-goal">
+				<?php esc_html_e( 'Hide the "Generated from RankReady" credit line on /llms.txt and /llms-full.txt.', 'rankready' ); ?>
+			</p>
+			<p class="rr-card-desc">
+				<?php esc_html_e( 'The credit line is a single unbranded sentence — no URL, no version, no marketing. It appears at the bottom of /llms.txt and /llms-full.txt only (robots.txt has technical BEGIN/END markers that stay regardless, similar to "# BEGIN WordPress").', 'rankready' ); ?>
+			</p>
+
+			<table class="form-table rr-form-table">
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Hide RankReady credit', 'rankready' ); ?></th>
+					<td>
+						<label style="<?php echo $is_pro ? '' : 'opacity:0.5;'; ?>">
+							<input type="checkbox"
+							       name="<?php echo esc_attr( RR_OPT_HIDE_BRANDING ); ?>"
+							       value="on"
+							       <?php checked( $hide_value, 'on' ); ?>
+							       <?php disabled( ! $is_pro ); ?> />
+							<?php esc_html_e( 'Remove "Generated from RankReady" line from llms.txt + llms-full.txt', 'rankready' ); ?>
+						</label>
+						<p class="description" style="margin-top:6px;">
+							<?php if ( $is_pro ) : ?>
+								<?php esc_html_e( 'Pro feature — enabled. The credit line will be omitted from generated files.', 'rankready' ); ?>
+							<?php else : ?>
+								<?php esc_html_e( 'Reserved for the upcoming Pro release. The Free vs Pro split is being finalized — this toggle is shown here so the location is consistent across releases.', 'rankready' ); ?>
+							<?php endif; ?>
+						</p>
+					</td>
+				</tr>
+			</table>
+
+			<div style="background:#f0f6fc;border-left:3px solid #2271b1;padding:10px 14px;margin-top:8px;font-size:13px;color:#1d2327;border-radius:3px;">
+				<strong><?php esc_html_e( 'Note:', 'rankready' ); ?></strong>
+				<?php esc_html_e( 'A formal Free vs Pro feature split is coming. This card will activate once Pro launches. Until then, the credit line ("Generated from RankReady") shows on /llms.txt and /llms-full.txt and contains no URL, version number, or marketing.', 'rankready' ); ?>
+			</div>
+		</div>
+		<?php
 	}
 
 	// ── Bulk Regenerate — AI Summaries (Content AI tab in rc.6) ────────────

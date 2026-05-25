@@ -4,7 +4,7 @@
  *
  * Single entry point for every AI call in the plugin (summary + FAQ + future
  * features). Dispatches to one of four providers based on the
- * `rr_llm_provider` option: OpenAI, Anthropic (Claude), Google (Gemini),
+ * `rnrd_llm_provider` option: OpenAI, Anthropic (Claude), Google (Gemini),
  * or DeepSeek.
  *
  * Every provider implementation follows the same contract:
@@ -31,7 +31,7 @@
  */
 defined( 'ABSPATH' ) || exit;
 
-class RR_LLM {
+class RNRD_LLM {
 
 	/** Provider IDs — keep in sync with the provider radio in admin. */
 	const PROVIDER_OPENAI    = 'openai';
@@ -44,7 +44,7 @@ class RR_LLM {
 	 * known list. Falls back to OpenAI if a stale/unknown value is stored.
 	 */
 	public static function get_active_provider(): string {
-		$provider = (string) get_option( 'rr_llm_provider', self::PROVIDER_OPENAI );
+		$provider = (string) get_option( 'rnrd_llm_provider', self::PROVIDER_OPENAI );
 		$valid    = array(
 			self::PROVIDER_OPENAI,
 			self::PROVIDER_ANTHROPIC,
@@ -59,11 +59,11 @@ class RR_LLM {
 	 */
 	public static function get_api_key( string $provider ): string {
 		switch ( $provider ) {
-			case self::PROVIDER_ANTHROPIC: return (string) get_option( 'rr_anthropic_api_key', '' );
-			case self::PROVIDER_GEMINI:    return (string) get_option( 'rr_gemini_api_key', '' );
-			case self::PROVIDER_DEEPSEEK:  return (string) get_option( 'rr_deepseek_api_key', '' );
+			case self::PROVIDER_ANTHROPIC: return (string) get_option( 'rnrd_anthropic_api_key', '' );
+			case self::PROVIDER_GEMINI:    return (string) get_option( 'rnrd_gemini_api_key', '' );
+			case self::PROVIDER_DEEPSEEK:  return (string) get_option( 'rnrd_deepseek_api_key', '' );
 			case self::PROVIDER_OPENAI:
-			default:                       return (string) get_option( RR_OPT_KEY, '' );
+			default:                       return (string) get_option( RNRD_OPT_KEY, '' );
 		}
 	}
 
@@ -89,11 +89,11 @@ class RR_LLM {
 	 */
 	public static function get_model( string $provider ): string {
 		switch ( $provider ) {
-			case self::PROVIDER_ANTHROPIC: return (string) get_option( 'rr_anthropic_model', 'claude-haiku-4-5' );
-			case self::PROVIDER_GEMINI:    return (string) get_option( 'rr_gemini_model',    'gemini-2.5-flash' );
-			case self::PROVIDER_DEEPSEEK:  return (string) get_option( 'rr_deepseek_model',  'deepseek-v4-flash' );
+			case self::PROVIDER_ANTHROPIC: return (string) get_option( 'rnrd_anthropic_model', 'claude-haiku-4-5' );
+			case self::PROVIDER_GEMINI:    return (string) get_option( 'rnrd_gemini_model',    'gemini-2.5-flash' );
+			case self::PROVIDER_DEEPSEEK:  return (string) get_option( 'rnrd_deepseek_model',  'deepseek-v4-flash' );
 			case self::PROVIDER_OPENAI:
-			default:                       return (string) get_option( RR_OPT_MODEL,         'gpt-4o-mini' );
+			default:                       return (string) get_option( RNRD_OPT_MODEL,         'gpt-4o-mini' );
 		}
 	}
 
@@ -111,11 +111,11 @@ class RR_LLM {
 	 */
 	public static function get_provider_label( string $provider ): string {
 		switch ( $provider ) {
-			case self::PROVIDER_ANTHROPIC: return __( 'Claude (Anthropic)', 'rankready' );
-			case self::PROVIDER_GEMINI:    return __( 'Gemini (Google)', 'rankready' );
-			case self::PROVIDER_DEEPSEEK:  return __( 'DeepSeek', 'rankready' );
+			case self::PROVIDER_ANTHROPIC: return __( 'Claude (Anthropic)', 'rankready-ai-llm-seo' );
+			case self::PROVIDER_GEMINI:    return __( 'Gemini (Google)', 'rankready-ai-llm-seo' );
+			case self::PROVIDER_DEEPSEEK:  return __( 'DeepSeek', 'rankready-ai-llm-seo' );
 			case self::PROVIDER_OPENAI:
-			default:                       return __( 'OpenAI', 'rankready' );
+			default:                       return __( 'OpenAI', 'rankready-ai-llm-seo' );
 		}
 	}
 
@@ -141,25 +141,25 @@ class RR_LLM {
 		switch ( $provider ) {
 			case self::PROVIDER_OPENAI:
 				return array(
-					'gpt-4o-mini'   => __( 'GPT-4o mini (fast, cheapest)', 'rankready' ),
-					'gpt-4o'        => __( 'GPT-4o (best quality)', 'rankready' ),
+					'gpt-4o-mini'   => __( 'GPT-4o mini (fast, cheapest)', 'rankready-ai-llm-seo' ),
+					'gpt-4o'        => __( 'GPT-4o (best quality)', 'rankready-ai-llm-seo' ),
 				);
 			case self::PROVIDER_ANTHROPIC:
 				return array(
-					'claude-haiku-4-5'  => __( 'Claude Haiku 4.5 (fast, cheap)', 'rankready' ),
-					'claude-sonnet-4-6' => __( 'Claude Sonnet 4.6 (balanced)', 'rankready' ),
-					'claude-opus-4-7'   => __( 'Claude Opus 4.7 (highest quality)', 'rankready' ),
+					'claude-haiku-4-5'  => __( 'Claude Haiku 4.5 (fast, cheap)', 'rankready-ai-llm-seo' ),
+					'claude-sonnet-4-6' => __( 'Claude Sonnet 4.6 (balanced)', 'rankready-ai-llm-seo' ),
+					'claude-opus-4-7'   => __( 'Claude Opus 4.7 (highest quality)', 'rankready-ai-llm-seo' ),
 				);
 			case self::PROVIDER_GEMINI:
 				return array(
-					'gemini-2.5-flash'      => __( 'Gemini 2.5 Flash (fast, cheap)', 'rankready' ),
-					'gemini-2.5-flash-lite' => __( 'Gemini 2.5 Flash Lite (lowest cost)', 'rankready' ),
-					'gemini-2.5-pro'        => __( 'Gemini 2.5 Pro (highest quality)', 'rankready' ),
+					'gemini-2.5-flash'      => __( 'Gemini 2.5 Flash (fast, cheap)', 'rankready-ai-llm-seo' ),
+					'gemini-2.5-flash-lite' => __( 'Gemini 2.5 Flash Lite (lowest cost)', 'rankready-ai-llm-seo' ),
+					'gemini-2.5-pro'        => __( 'Gemini 2.5 Pro (highest quality)', 'rankready-ai-llm-seo' ),
 				);
 			case self::PROVIDER_DEEPSEEK:
 				return array(
-					'deepseek-v4-flash' => __( 'DeepSeek V4 Flash (fast, cheap)', 'rankready' ),
-					'deepseek-v4-pro'   => __( 'DeepSeek V4 Pro (highest quality)', 'rankready' ),
+					'deepseek-v4-flash' => __( 'DeepSeek V4 Flash (fast, cheap)', 'rankready-ai-llm-seo' ),
+					'deepseek-v4-pro'   => __( 'DeepSeek V4 Pro (highest quality)', 'rankready-ai-llm-seo' ),
 				);
 		}
 		return array();
@@ -185,7 +185,7 @@ class RR_LLM {
 				$provider,
 				sprintf(
 					/* translators: %s: provider label */
-					__( 'No %s API key configured. Add one in RankReady → Settings.', 'rankready' ),
+					__( 'No %s API key configured. Add one in RankReady → Settings.', 'rankready-ai-llm-seo' ),
 					self::get_provider_label( $provider )
 				)
 			);
@@ -199,11 +199,11 @@ class RR_LLM {
 		) );
 
 		switch ( $provider ) {
-			case self::PROVIDER_ANTHROPIC: return RR_LLM_Anthropic::generate( $system, $user, $opts );
-			case self::PROVIDER_GEMINI:    return RR_LLM_Gemini::generate( $system, $user, $opts );
-			case self::PROVIDER_DEEPSEEK:  return RR_LLM_DeepSeek::generate( $system, $user, $opts );
+			case self::PROVIDER_ANTHROPIC: return RNRD_LLM_Anthropic::generate( $system, $user, $opts );
+			case self::PROVIDER_GEMINI:    return RNRD_LLM_Gemini::generate( $system, $user, $opts );
+			case self::PROVIDER_DEEPSEEK:  return RNRD_LLM_DeepSeek::generate( $system, $user, $opts );
 			case self::PROVIDER_OPENAI:
-			default:                       return RR_LLM_OpenAI::generate( $system, $user, $opts );
+			default:                       return RNRD_LLM_OpenAI::generate( $system, $user, $opts );
 		}
 	}
 

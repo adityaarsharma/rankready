@@ -18,15 +18,15 @@
  */
 defined( 'ABSPATH' ) || exit;
 
-class RR_LLM_Anthropic {
+class RNRD_LLM_Anthropic {
 
 	const ENDPOINT = 'https://api.anthropic.com/v1/messages';
 	const VERSION  = '2023-06-01';
 
 	public static function generate( string $system, string $user, array $opts ): array {
-		$provider = RR_LLM::PROVIDER_ANTHROPIC;
-		$model    = RR_LLM::get_model( $provider );
-		$api_key  = RR_LLM::get_api_key( $provider );
+		$provider = RNRD_LLM::PROVIDER_ANTHROPIC;
+		$model    = RNRD_LLM::get_model( $provider );
+		$api_key  = RNRD_LLM::get_api_key( $provider );
 
 		// Claude has no native JSON mode — bias toward JSON-only output via
 		// system prompt when caller asks for json.
@@ -46,7 +46,7 @@ class RR_LLM_Anthropic {
 
 		$response = wp_remote_post( self::ENDPOINT, array(
 			'timeout'    => (int) $opts['timeout'],
-			'user-agent' => 'RankReady/' . RR_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
+			'user-agent' => 'RankReady/' . RNRD_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
 			'headers'    => array(
 				'x-api-key'         => $api_key,
 				'anthropic-version' => self::VERSION,
@@ -56,13 +56,13 @@ class RR_LLM_Anthropic {
 		) );
 
 		if ( is_wp_error( $response ) ) {
-			return RR_LLM::error_response( $provider, 'Anthropic HTTP error: ' . $response->get_error_message(), $model );
+			return RNRD_LLM::error_response( $provider, 'Anthropic HTTP error: ' . $response->get_error_message(), $model );
 		}
 
 		$http = (int) wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $http ) {
 			$err = wp_remote_retrieve_body( $response );
-			return RR_LLM::error_response( $provider, 'Anthropic HTTP ' . $http . ': ' . mb_substr( (string) $err, 0, 300 ), $model );
+			return RNRD_LLM::error_response( $provider, 'Anthropic HTTP ' . $http . ': ' . mb_substr( (string) $err, 0, 300 ), $model );
 		}
 
 		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
@@ -79,7 +79,7 @@ class RR_LLM_Anthropic {
 		$content = trim( $content );
 
 		if ( '' === $content ) {
-			return RR_LLM::error_response( $provider, 'Anthropic returned empty content.', $model );
+			return RNRD_LLM::error_response( $provider, 'Anthropic returned empty content.', $model );
 		}
 
 		// Defensive: when JSON was requested but the model wrapped output in
@@ -92,7 +92,7 @@ class RR_LLM_Anthropic {
 		$tokens_in  = isset( $decoded['usage']['input_tokens'] ) ? (int) $decoded['usage']['input_tokens'] : 0;
 		$tokens_out = isset( $decoded['usage']['output_tokens'] ) ? (int) $decoded['usage']['output_tokens'] : 0;
 
-		return RR_LLM::success_response( $provider, $model, $content, $tokens_in, $tokens_out );
+		return RNRD_LLM::success_response( $provider, $model, $content, $tokens_in, $tokens_out );
 	}
 
 	/**

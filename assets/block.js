@@ -26,12 +26,12 @@
 	var useSelect         = wp.data.useSelect;
 	var apiFetch          = wp.apiFetch;
 
-	var defaults = ( window.rrBlockData && window.rrBlockData.defaults ) ? window.rrBlockData.defaults : {
+	var defaults = ( window.rnrdBlockData && window.rnrdBlockData.defaults ) ? window.rnrdBlockData.defaults : {
 		label: 'Key Takeaways', showLabel: true, headingTag: 'h4'
 	};
 
 	// ── Global fonts (theme.json → Nexter Theme / Nexter Blocks / Kadence / core) ─
-	function rrGlobalFontOptions() {
+	function rnrdGlobalFontOptions() {
 		var opts = [ { label: '— Theme default —', value: '' } ];
 		try {
 			var settings = wp.data.select( 'core/block-editor' ).getSettings();
@@ -57,7 +57,7 @@
 		return opts;
 	}
 
-	var rrWeightOptions = [
+	var rnrdWeightOptions = [
 		{ label: '— Inherit —', value: '' },
 		{ label: '100 Thin', value: '100' },
 		{ label: '200 Extra Light', value: '200' },
@@ -70,7 +70,7 @@
 		{ label: '900 Black', value: '900' },
 	];
 
-	var rrTransformOptions = [
+	var rnrdTransformOptions = [
 		{ label: '— Inherit —', value: '' },
 		{ label: 'None', value: 'none' },
 		{ label: 'UPPERCASE', value: 'uppercase' },
@@ -206,7 +206,7 @@
 					} )
 					.catch( function ( err ) {
 						var msg = ( err && err.message ) ? err.message : 'Generation failed.';
-						if ( err && err.code === 'rr_rate_limited' ) {
+						if ( err && err.code === 'rnrd_rate_limited' ) {
 							var seconds = parseInt( msg.match( /\d+/ ) );
 							if ( seconds ) setCooldown( seconds );
 						}
@@ -233,7 +233,7 @@
 			}
 			if ( attrs.boxBorderRadius ) boxStyle.borderRadius = attrs.boxBorderRadius + 'px';
 			if ( attrs.boxPadding ) boxStyle.padding = attrs.boxPadding + 'px';
-			if ( attrs.bulletMarkerColor ) boxStyle['--rr-marker-color'] = attrs.bulletMarkerColor;
+			if ( attrs.bulletMarkerColor ) boxStyle['--rnrd-marker-color'] = attrs.bulletMarkerColor;
 
 			var labelStyle = {};
 			if ( attrs.labelColor )          labelStyle.color = attrs.labelColor;
@@ -253,7 +253,7 @@
 			if ( attrs.bulletLetterSpacing )  bulletStyle.letterSpacing = attrs.bulletLetterSpacing + 'px';
 			if ( attrs.bulletSpacing )        bulletStyle.marginBottom = attrs.bulletSpacing + 'px';
 
-			var blockProps = useBlockProps( { className: 'rr-summary rr-editor-preview', style: boxStyle } );
+			var blockProps = useBlockProps( { className: 'rnrd-summary rnrd-editor-preview', style: boxStyle } );
 
 			return el( Fragment, null,
 
@@ -361,7 +361,7 @@
 							label: 'Font Family',
 							help: 'Pulls from your theme.json fonts (Nexter Theme, Nexter Blocks, Kadence, any block theme). Leave blank to inherit from theme.',
 							value: attrs.labelFontFamily || '',
-							options: rrGlobalFontOptions(),
+							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { labelFontFamily: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
@@ -370,7 +370,7 @@
 							label: 'Font Weight',
 							help: 'Leave blank to inherit.',
 							value: attrs.labelFontWeight || '',
-							options: rrWeightOptions,
+							options: rnrdWeightOptions,
 							onChange: function ( v ) { setAttrs( { labelFontWeight: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
@@ -405,7 +405,7 @@
 						el( SelectControl, {
 							label: 'Text Transform',
 							value: attrs.labelTextTransform || '',
-							options: rrTransformOptions,
+							options: rnrdTransformOptions,
 							onChange: function ( v ) { setAttrs( { labelTextTransform: v } ); },
 							__nextHasNoMarginBottom: true,
 						} )
@@ -420,7 +420,7 @@
 							label: 'Font Family',
 							help: 'Pulls from your theme.json fonts. Leave blank to inherit from theme.',
 							value: attrs.bulletFontFamily || '',
-							options: rrGlobalFontOptions(),
+							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { bulletFontFamily: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
@@ -428,7 +428,7 @@
 						el( SelectControl, {
 							label: 'Font Weight',
 							value: attrs.bulletFontWeight || '',
-							options: rrWeightOptions,
+							options: rnrdWeightOptions,
 							onChange: function ( v ) { setAttrs( { bulletFontWeight: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
@@ -473,7 +473,7 @@
 				// ── Editor Preview ────────────────────────────────────────────
 				el( 'div', blockProps,
 
-					effectiveShowLabel && el( HeadingTag, { className: 'rr-label', style: labelStyle }, effectiveLabel ),
+					effectiveShowLabel && el( HeadingTag, { className: 'rnrd-label', style: labelStyle }, effectiveLabel ),
 
 					error && el( Notice, {
 						status: 'error', isDismissible: true,
@@ -485,13 +485,13 @@
 							el( Spinner ), el( 'span', null, 'Generating...' )
 						)
 						: summary.type === 'bullets'
-							? el( 'ul', { className: 'rr-bullets' },
+							? el( 'ul', { className: 'rnrd-bullets' },
 								summary.data.map( function ( b, i ) {
-									return el( 'li', { className: 'rr-bullet', key: i, style: bulletStyle }, b );
+									return el( 'li', { className: 'rnrd-bullet', key: i, style: bulletStyle }, b );
 								} )
 							)
 							: summary.type === 'text'
-								? el( 'p', { className: 'rr-text', style: bulletStyle }, summary.data )
+								? el( 'p', { className: 'rnrd-text', style: bulletStyle }, summary.data )
 								: el( 'p', { style: { opacity: 0.5, fontStyle: 'italic', margin: 0 } },
 									! hasKey
 										? 'Add API key in Settings \u2192 RankReady.'

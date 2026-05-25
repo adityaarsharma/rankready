@@ -25,7 +25,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Freshness {
+class RNRD_Freshness {
 
 	private const NS              = 'rankready/v1';
 	private const STALE_DAYS      = 60;
@@ -34,7 +34,7 @@ class RR_Freshness {
 
 	public static function init(): void {
 		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );
-		// Note: dashboard widget registration handled by RR_Agent_Dashboard
+		// Note: dashboard widget registration handled by RNRD_Agent_Dashboard
 		// — single consolidated "Agent Visibility" widget replaces the two
 		// separate widgets shipped in beta.1.
 	}
@@ -46,70 +46,70 @@ class RR_Freshness {
 		$nonce  = wp_create_nonce( 'wp_rest' );
 		$api    = esc_url_raw( rest_url( self::NS ) );
 		?>
-		<div class="rr-freshness-widget" data-rr-api="<?php echo esc_attr( $api ); ?>" data-rr-nonce="<?php echo esc_attr( $nonce ); ?>">
-			<div class="rr-fw-tabs" style="display:flex;gap:0;border-bottom:1px solid #dcdcde;margin:-12px -12px 12px;">
-				<button type="button" class="rr-fw-tab is-active" data-bucket="stale"
+		<div class="rnrd-freshness-widget" data-rnrd-api="<?php echo esc_attr( $api ); ?>" data-rnrd-nonce="<?php echo esc_attr( $nonce ); ?>">
+			<div class="rnrd-fw-tabs" style="display:flex;gap:0;border-bottom:1px solid #dcdcde;margin:-12px -12px 12px;">
+				<button type="button" class="rnrd-fw-tab is-active" data-bucket="stale"
 				        style="flex:1;padding:10px;border:0;border-bottom:2px solid #d63638;background:#fff;cursor:pointer;font-weight:600;color:#d63638;">
-					<?php esc_html_e( 'Stale', 'rankready' ); ?>
+					<?php esc_html_e( 'Stale', 'rankready-ai-llm-seo' ); ?>
 					<span style="display:block;font-size:18px;margin-top:2px;"><?php echo esc_html( (string) $counts['stale'] ); ?></span>
-					<span style="display:block;font-size:11px;color:#646970;font-weight:400;"><?php esc_html_e( '60+ days', 'rankready' ); ?></span>
+					<span style="display:block;font-size:11px;color:#646970;font-weight:400;"><?php esc_html_e( '60+ days', 'rankready-ai-llm-seo' ); ?></span>
 				</button>
-				<button type="button" class="rr-fw-tab" data-bucket="going_stale"
+				<button type="button" class="rnrd-fw-tab" data-bucket="going_stale"
 				        style="flex:1;padding:10px;border:0;border-bottom:2px solid transparent;background:#fff;cursor:pointer;font-weight:600;color:#646970;">
-					<?php esc_html_e( 'Going stale', 'rankready' ); ?>
+					<?php esc_html_e( 'Going stale', 'rankready-ai-llm-seo' ); ?>
 					<span style="display:block;font-size:18px;margin-top:2px;color:#dba617;"><?php echo esc_html( (string) $counts['going_stale'] ); ?></span>
-					<span style="display:block;font-size:11px;color:#646970;font-weight:400;"><?php esc_html_e( '30–59 days', 'rankready' ); ?></span>
+					<span style="display:block;font-size:11px;color:#646970;font-weight:400;"><?php esc_html_e( '30–59 days', 'rankready-ai-llm-seo' ); ?></span>
 				</button>
-				<button type="button" class="rr-fw-tab" data-bucket="fresh"
+				<button type="button" class="rnrd-fw-tab" data-bucket="fresh"
 				        style="flex:1;padding:10px;border:0;border-bottom:2px solid transparent;background:#fff;cursor:pointer;font-weight:600;color:#646970;">
-					<?php esc_html_e( 'Fresh', 'rankready' ); ?>
+					<?php esc_html_e( 'Fresh', 'rankready-ai-llm-seo' ); ?>
 					<span style="display:block;font-size:18px;margin-top:2px;color:#00a32a;"><?php echo esc_html( (string) $counts['fresh'] ); ?></span>
-					<span style="display:block;font-size:11px;color:#646970;font-weight:400;"><?php esc_html_e( '< 30 days', 'rankready' ); ?></span>
+					<span style="display:block;font-size:11px;color:#646970;font-weight:400;"><?php esc_html_e( '< 30 days', 'rankready-ai-llm-seo' ); ?></span>
 				</button>
 			</div>
 
-			<div class="rr-fw-toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+			<div class="rnrd-fw-toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
 				<label style="font-size:12px;">
-					<input type="checkbox" class="rr-fw-select-all" />
-					<?php esc_html_e( 'Select all', 'rankready' ); ?>
+					<input type="checkbox" class="rnrd-fw-select-all" />
+					<?php esc_html_e( 'Select all', 'rankready-ai-llm-seo' ); ?>
 				</label>
-				<button type="button" class="button button-small rr-fw-refresh" disabled>
-					<?php esc_html_e( 'Refresh dateModified', 'rankready' ); ?>
+				<button type="button" class="button button-small rnrd-fw-refresh" disabled>
+					<?php esc_html_e( 'Refresh dateModified', 'rankready-ai-llm-seo' ); ?>
 				</button>
 			</div>
 
-			<div class="rr-fw-list" style="max-height:280px;overflow-y:auto;">
-				<p style="color:var(--rr-color-text-muted,#646970);font-style:italic;font-size:var(--rr-text-sm,12px);padding:8px 0;">
-					<?php esc_html_e( 'Loading…', 'rankready' ); ?>
+			<div class="rnrd-fw-list" style="max-height:280px;overflow-y:auto;">
+				<p style="color:var(--rnrd-color-text-muted,#646970);font-style:italic;font-size:var(--rnrd-text-sm,12px);padding:8px 0;">
+					<?php esc_html_e( 'Loading…', 'rankready-ai-llm-seo' ); ?>
 				</p>
 			</div>
 
-			<p class="rr-fw-status" style="margin-top:8px;font-size:11px;color:#646970;"></p>
+			<p class="rnrd-fw-status" style="margin-top:8px;font-size:11px;color:#646970;"></p>
 		</div>
 		<style>
-			.rr-fw-tab:hover { background:#f6f7f7 !important; }
-			.rr-fw-list ul { margin:0; }
-			.rr-fw-list li { display:flex; align-items:center; padding:6px 0; border-bottom:1px solid #f0f0f1; font-size:12px; }
-			.rr-fw-list li:last-child { border-bottom:0; }
-			.rr-fw-list li label { flex:1; display:flex; align-items:center; gap:6px; cursor:pointer; min-width:0; }
-			.rr-fw-list li .rr-fw-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-			.rr-fw-list li .rr-fw-age { color:#646970; font-size:11px; flex-shrink:0; }
+			.rnrd-fw-tab:hover { background:#f6f7f7 !important; }
+			.rnrd-fw-list ul { margin:0; }
+			.rnrd-fw-list li { display:flex; align-items:center; padding:6px 0; border-bottom:1px solid #f0f0f1; font-size:12px; }
+			.rnrd-fw-list li:last-child { border-bottom:0; }
+			.rnrd-fw-list li label { flex:1; display:flex; align-items:center; gap:6px; cursor:pointer; min-width:0; }
+			.rnrd-fw-list li .rnrd-fw-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+			.rnrd-fw-list li .rnrd-fw-age { color:#646970; font-size:11px; flex-shrink:0; }
 		</style>
 		<script>
 		(function() {
 			var root = document.currentScript.previousElementSibling;
-			while ( root && ! root.classList.contains( 'rr-freshness-widget' ) ) {
+			while ( root && ! root.classList.contains( 'rnrd-freshness-widget' ) ) {
 				root = root.previousElementSibling;
 			}
 			if ( ! root ) return;
 
-			var api      = root.getAttribute( 'data-rr-api' );
-			var nonce    = root.getAttribute( 'data-rr-nonce' );
-			var listEl   = root.querySelector( '.rr-fw-list' );
-			var statusEl = root.querySelector( '.rr-fw-status' );
-			var btnRefr  = root.querySelector( '.rr-fw-refresh' );
-			var selAll   = root.querySelector( '.rr-fw-select-all' );
-			var tabs     = root.querySelectorAll( '.rr-fw-tab' );
+			var api      = root.getAttribute( 'data-rnrd-api' );
+			var nonce    = root.getAttribute( 'data-rnrd-nonce' );
+			var listEl   = root.querySelector( '.rnrd-fw-list' );
+			var statusEl = root.querySelector( '.rnrd-fw-status' );
+			var btnRefr  = root.querySelector( '.rnrd-fw-refresh' );
+			var selAll   = root.querySelector( '.rnrd-fw-select-all' );
+			var tabs     = root.querySelectorAll( '.rnrd-fw-tab' );
 			var current  = 'stale';
 
 			function updateButton() {
@@ -138,11 +138,11 @@ class RR_Freshness {
 				} ).then( function( r ) { return r.json(); } ).then( function( data ) {
 					if ( ! data || ! data.posts || ! data.posts.length ) {
 						var msg = current === 'stale'
-							? '🎯 No stale posts. Every published post has been touched within the last 60 days.'
+							? 'No stale posts. Every published post has been touched within the last 60 days.'
 							: ( current === 'going_stale'
-								? '⏳ Nothing in the 30–60 day window. Plenty of time before any post goes stale.'
-								: '✨ Newly published or refreshed content shows up here.' );
-						listEl.innerHTML = '<p style="color:var(--rr-color-text-muted,#646970);font-style:italic;font-size:var(--rr-text-sm,12px);padding:8px 0;">' + msg + '</p>';
+								? 'Nothing in the 30–60 day window. Plenty of time before any post goes stale.'
+								: 'Newly published or refreshed content shows up here.' );
+						listEl.innerHTML = '<p style="color:var(--rnrd-color-text-muted,#646970);font-style:italic;font-size:var(--rnrd-text-sm,12px);padding:8px 0;">' + msg + '</p>';
 						return;
 					}
 					// v1.2.0-beta.4 — build via DOM APIs (not innerHTML) so any
@@ -159,7 +159,7 @@ class RR_Freshness {
 						cb.type     = 'checkbox';
 						cb.value    = String( parseInt( p.id, 10 ) || 0 );
 						var titleEl = document.createElement( 'span' );
-						titleEl.className = 'rr-fw-title';
+						titleEl.className = 'rnrd-fw-title';
 						var link    = document.createElement( 'a' );
 						// p.edit can be null when the user lacks edit caps; coerce + validate scheme.
 						var editUrl = String( p.edit || '#' );
@@ -172,7 +172,7 @@ class RR_Freshness {
 						label.appendChild( cb );
 						label.appendChild( titleEl );
 						var ageEl   = document.createElement( 'span' );
-						ageEl.className = 'rr-fw-age';
+						ageEl.className = 'rnrd-fw-age';
 						ageEl.textContent = ( parseInt( p.age, 10 ) || 0 ) + 'd';
 						li.appendChild( label );
 						li.appendChild( ageEl );
@@ -248,7 +248,7 @@ class RR_Freshness {
 
 	public static function permission() {
 		if ( ! current_user_can( 'edit_others_posts' ) ) {
-			return new WP_Error( 'rr_forbidden', __( 'Insufficient permissions.', 'rankready' ), array( 'status' => 403 ) );
+			return new WP_Error( 'rnrd_forbidden', __( 'Insufficient permissions.', 'rankready-ai-llm-seo' ), array( 'status' => 403 ) );
 		}
 		return true;
 	}
@@ -277,7 +277,7 @@ class RR_Freshness {
 		$post_ids = array_values( array_unique( array_filter( $post_ids ) ) );
 
 		if ( empty( $post_ids ) ) {
-			return new WP_Error( 'rr_no_ids', __( 'No post IDs supplied.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_no_ids', __( 'No post IDs supplied.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		$now_mysql     = current_time( 'mysql' );
@@ -291,9 +291,9 @@ class RR_Freshness {
 		// reset to false. Two concurrent admin requests sharing a PHP-FPM
 		// worker would otherwise tear down each other's re-entrancy guard.
 		// (Audit beta.3 #10.)
-		$prev_generating = class_exists( 'RR_Generator' ) ? RR_Generator::$generating : null;
+		$prev_generating = class_exists( 'RNRD_Generator' ) ? RNRD_Generator::$generating : null;
 		if ( null !== $prev_generating ) {
-			RR_Generator::$generating = true;
+			RNRD_Generator::$generating = true;
 		}
 
 		try {
@@ -315,7 +315,7 @@ class RR_Freshness {
 			}
 		} finally {
 			if ( null !== $prev_generating ) {
-				RR_Generator::$generating = $prev_generating;
+				RNRD_Generator::$generating = $prev_generating;
 			}
 		}
 
@@ -394,7 +394,7 @@ class RR_Freshness {
 	}
 
 	private static function tracked_post_types(): array {
-		$types = (array) get_option( RR_OPT_POST_TYPES, array( 'post' ) );
+		$types = (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) );
 		// Always include page since RankReady runs for pages by default.
 		if ( ! in_array( 'page', $types, true ) ) {
 			$types[] = 'page';

@@ -5,7 +5,7 @@
 
 /* ── Layout ────────────────────────────────────────────────────────────────── */
 
-.rr-wrap {
+.rnrd-wrap {
 	max-width: 900px;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
@@ -13,12 +13,12 @@
 
 /* ── Header ────────────────────────────────────────────────────────────────── */
 
-.rr-header {
+.rnrd-header {
 	margin-bottom: 0;
 	padding: 20px 0 10px;
 }
 
-.rr-title {
+.rnrd-title {
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -29,10 +29,10 @@
 	text-wrap: balance;
 }
 
-/* .rr-title-icon retained for backward compat — hidden by default */
-.rr-title-icon { display: none; }
+/* .rnrd-title-icon retained for backward compat — hidden by default */
+.rnrd-title-icon { display: none; }
 
-.rr-version {
+.rnrd-version {
 	font-size: 12px;
 	color: #a7aaad;
 	font-weight: 400;
@@ -43,7 +43,7 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.rr-subtitle {
+.rnrd-subtitle {
 	margin: 4px 0 0;
 	color: #646970;
 	font-size: 13px;
@@ -52,7 +52,7 @@
 
 /* ── Tabs ──────────────────────────────────────────────────────────────────── */
 
-.rr-tabs {
+.rnrd-tabs {
 	margin-top: 16px;
 	border-bottom: 1px solid #c3c4c7;
 	position: sticky;
@@ -63,10 +63,10 @@
 }
 
 @media screen and (max-width: 782px) {
-	.rr-tabs { top: 46px; }
+	.rnrd-tabs { top: 46px; }
 }
 
-.rr-tabs .nav-tab {
+.rnrd-tabs .nav-tab {
 	font-size: 13px;
 	font-weight: 500;
 	padding: 10px 18px; /* 40px+ hit area per rule 16 */
@@ -75,29 +75,29 @@
 	transition-timing-function: ease;
 }
 
-.rr-tabs .nav-tab:hover:not(.nav-tab-active) {
+.rnrd-tabs .nav-tab:hover:not(.nav-tab-active) {
 	color: #2271b1;
 	background: #f0f6fc;
 }
 
-.rr-tabs .nav-tab:active { scale: 0.97; } /* tactile feedback per rule 12 */
+.rnrd-tabs .nav-tab:active { scale: 0.97; } /* tactile feedback per rule 12 */
 
 /* Tab icons removed for a cleaner, text-first nav */
-.rr-tabs .nav-tab .dashicons { display: none; }
+.rnrd-tabs .nav-tab .dashicons { display: none; }
 
-.rr-tab-content {
+.rnrd-tab-content {
 	padding-top: 20px;
-	animation: rr-fade-up .18s ease both;
+	animation: rnrd-fade-up .18s ease both;
 }
 
-@keyframes rr-fade-up {
+@keyframes rnrd-fade-up {
 	from { opacity: 0; transform: translateY(5px); }
 	to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Cards ─────────────────────────────────────────────────────────────────── */
 
-.rr-card {
+.rnrd-card {
 	background: #fff;
 	border: none;
 	border-radius: 8px;
@@ -110,12 +110,12 @@
 	margin-bottom: 20px;
 }
 
-.rr-card--subtle {
+.rnrd-card--subtle {
 	background: #f9f9f9;
 	box-shadow: 0 1px 2px rgba(0,0,0,.05);
 }
 
-.rr-card-title {
+.rnrd-card-title {
 	font-size: 15px;
 	font-weight: 600;
 	margin: 0 0 4px;
@@ -124,7 +124,7 @@
 	text-wrap: balance;
 }
 
-.rr-card-desc {
+.rnrd-card-desc {
 	color: #646970;
 	font-size: 13px;
 	margin: 0 0 16px;
@@ -133,7 +133,7 @@
 
 /* ── v1.2.0-rc.7 — Universal locked-state card pattern ────────────────────── */
 /* "Goal line" — one-line outcome promise under every card title. */
-.rr-card-goal {
+.rnrd-card-goal {
 	margin: 4px 0 14px;
 	font-size: 13px;
 	color: #646970;
@@ -143,36 +143,36 @@
 
 /* Locked-preview body — replaces the settings controls when the card's
    master toggle is OFF. Bullet list of what the user gets + Enable button. */
-.rr-card-locked {
+.rnrd-card-locked {
 	padding: 16px 20px;
 	background: #fbfbfc;
 	border: 1px dashed #c3c4c7;
 	border-radius: 6px;
 }
-.rr-card-locked__heading {
+.rnrd-card-locked__heading {
 	margin: 0 0 8px;
 	font-size: 13px;
 	color: #1d2327;
 }
-.rr-card-locked__bullets {
+.rnrd-card-locked__bullets {
 	margin: 0 0 14px 18px;
 	padding: 0;
 	color: #50575e;
 	font-size: 13px;
 	list-style: disc;
 }
-.rr-card-locked__bullets li {
+.rnrd-card-locked__bullets li {
 	margin: 4px 0;
 }
-.rr-card-locked__form {
+.rnrd-card-locked__form {
 	margin: 0;
 }
-.rr-card-locked__btn {
+.rnrd-card-locked__btn {
 	min-width: 140px;
 }
 
 /* Inline info callout used by the SEO Plugin Compatibility 1-liner. */
-.rr-info-callout {
+.rnrd-info-callout {
 	background: #f0f6fc;
 	border-left: 3px solid #2271b1;
 	padding: 8px 12px;
@@ -181,7 +181,7 @@
 	color: #1d2327;
 	border-radius: 3px;
 }
-.rr-info-callout .dashicons {
+.rnrd-info-callout .dashicons {
 	color: #2271b1;
 	margin-right: 4px;
 	vertical-align: middle;
@@ -189,11 +189,11 @@
 
 /* ── Collapsible details ───────────────────────────────────────────────────── */
 
-.rr-details {
+.rnrd-details {
 	margin-top: 4px;
 }
 
-.rr-details summary {
+.rnrd-details summary {
 	font-size: 12px;
 	font-weight: 600;
 	color: #646970;
@@ -208,7 +208,7 @@
 	gap: 5px;
 }
 
-.rr-details summary::before {
+.rnrd-details summary::before {
 	content: '\25B6';
 	font-size: 9px;
 	display: inline-block;
@@ -216,32 +216,32 @@
 	color: #a7aaad;
 }
 
-.rr-details[open] summary::before {
+.rnrd-details[open] summary::before {
 	transform: rotate(90deg);
 }
 
-.rr-details summary::-webkit-details-marker {
+.rnrd-details summary::-webkit-details-marker {
 	display: none;
 }
 
-.rr-details .rr-form-table {
+.rnrd-details .rnrd-form-table {
 	margin-top: 4px;
 }
 
 /* ── Form table overrides ──────────────────────────────────────────────────── */
 
-.rr-form-table th {
+.rnrd-form-table th {
 	padding: 12px 10px 12px 0;
 	font-size: 13px;
 	font-weight: 600;
 	color: #1d2327;
 }
 
-.rr-form-table td {
+.rnrd-form-table td {
 	padding: 12px 0;
 }
 
-.rr-form-table .description {
+.rnrd-form-table .description {
 	font-size: 12px;
 	color: #646970;
 	margin-top: 4px;
@@ -249,20 +249,20 @@
 
 /* ── Toggle controls ───────────────────────────────────────────────────────── */
 
-.rr-toggle {
+.rnrd-toggle {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	cursor: pointer;
 }
 
-.rr-toggle-label {
+.rnrd-toggle-label {
 	font-size: 13px;
 }
 
 /* ── Conditional fields ────────────────────────────────────────────────────── */
 
-.rr-conditional-fields {
+.rnrd-conditional-fields {
 	border-top: 1px solid #f0f0f1;
 	margin-top: 8px;
 	padding-top: 8px;
@@ -270,13 +270,13 @@
 
 /* ── Checkboxes inline ─────────────────────────────────────────────────────── */
 
-.rr-checkboxes-inline {
+.rnrd-checkboxes-inline {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px 20px;
 }
 
-.rr-checkboxes-inline label {
+.rnrd-checkboxes-inline label {
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -286,30 +286,30 @@
 
 /* ── Date range ────────────────────────────────────────────────────────────── */
 
-.rr-date-range {
+.rnrd-date-range {
 	display: flex;
 	gap: 20px;
 	flex-wrap: wrap;
 }
 
-.rr-date-range > div {
+.rnrd-date-range > div {
 	min-width: 180px;
 }
 
-.rr-date-range label {
+.rnrd-date-range label {
 	display: block;
 	font-size: 12px;
 	color: #646970;
 	margin-bottom: 4px;
 }
 
-.rr-date-range input[type="date"] {
+.rnrd-date-range input[type="date"] {
 	width: 100%;
 }
 
 /* ── Tool actions ──────────────────────────────────────────────────────────── */
 
-.rr-tool-actions {
+.rnrd-tool-actions {
 	display: flex;
 	gap: 8px;
 	align-items: center;
@@ -317,7 +317,7 @@
 
 /* ── Progress bar ──────────────────────────────────────────────────────────── */
 
-.rr-progress-track {
+.rnrd-progress-track {
 	background: #f0f0f1;
 	border-radius: 4px;
 	height: 18px;
@@ -325,7 +325,7 @@
 	max-width: 500px;
 }
 
-.rr-progress-fill {
+.rnrd-progress-fill {
 	background: #2271b1;
 	height: 100%;
 	width: 0%;
@@ -334,7 +334,7 @@
 	/* removed: width is not GPU-compositable per make-interfaces-feel-better rule 15 */
 }
 
-.rr-progress-label {
+.rnrd-progress-label {
 	color: #50575e;
 	font-size: 13px;
 	margin: 8px 0 0;
@@ -342,7 +342,7 @@
 
 /* ── Notices ───────────────────────────────────────────────────────────────── */
 
-.rr-notice {
+.rnrd-notice {
 	padding: 10px 14px;
 	border-radius: 4px;
 	font-size: 13px;
@@ -350,25 +350,25 @@
 	max-width: 560px;
 }
 
-.rr-notice--info {
+.rnrd-notice--info {
 	background: #eef6fb;
 	border-left: 4px solid #2271b1;
 	color: #1d2327;
 }
 
-.rr-notice--warn {
+.rnrd-notice--warn {
 	background: #fcf9e8;
 	border-left: 4px solid #dba617;
 	color: #1d2327;
 }
 
-.rr-notice--success {
+.rnrd-notice--success {
 	background: #edfaef;
 	border-left: 4px solid #00a32a;
 	color: #1d2327;
 }
 
-.rr-notice--error {
+.rnrd-notice--error {
 	background: #fcf0f1;
 	border-left: 4px solid #d63638;
 	color: #1d2327;
@@ -376,34 +376,34 @@
 
 /* ── Info grid ─────────────────────────────────────────────────────────────── */
 
-.rr-info-grid {
+.rnrd-info-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 	gap: 16px;
 }
 
-.rr-info-item {
+.rnrd-info-item {
 	background: #f9f9f9;
 	border: none;
 	border-radius: 6px;
 	box-shadow: 0 1px 2px rgba(0,0,0,.06);
 	padding: 16px;
 	/* stagger enter — index set via inline style or nth-child */
-	animation: rr-fade-up .18s ease both;
+	animation: rnrd-fade-up .18s ease both;
 }
 
-.rr-info-grid .rr-info-item:nth-child(1) { animation-delay: 0ms; }
-.rr-info-grid .rr-info-item:nth-child(2) { animation-delay: 60ms; }
-.rr-info-grid .rr-info-item:nth-child(3) { animation-delay: 120ms; }
-.rr-info-grid .rr-info-item:nth-child(4) { animation-delay: 180ms; }
-.rr-info-grid .rr-info-item:nth-child(5) { animation-delay: 240ms; }
-.rr-info-grid .rr-info-item:nth-child(6) { animation-delay: 300ms; }
-.rr-info-grid .rr-info-item:nth-child(n+7) { animation-delay: 360ms; }
+.rnrd-info-grid .rnrd-info-item:nth-child(1) { animation-delay: 0ms; }
+.rnrd-info-grid .rnrd-info-item:nth-child(2) { animation-delay: 60ms; }
+.rnrd-info-grid .rnrd-info-item:nth-child(3) { animation-delay: 120ms; }
+.rnrd-info-grid .rnrd-info-item:nth-child(4) { animation-delay: 180ms; }
+.rnrd-info-grid .rnrd-info-item:nth-child(5) { animation-delay: 240ms; }
+.rnrd-info-grid .rnrd-info-item:nth-child(6) { animation-delay: 300ms; }
+.rnrd-info-grid .rnrd-info-item:nth-child(n+7) { animation-delay: 360ms; }
 
 /* Info icons retired in v1.0.0 — kept hidden for backward CSS compat */
-.rr-info-icon { display: none; }
+.rnrd-info-icon { display: none; }
 
-@keyframes rr-icon-pop {
+@keyframes rnrd-icon-pop {
 	from {
 		opacity: 0;
 		transform: scale(0.25);
@@ -416,13 +416,13 @@
 	}
 }
 
-.rr-info-item h3 {
+.rnrd-info-item h3 {
 	font-size: 14px;
 	margin: 8px 0 6px;
 	color: #1d2327;
 }
 
-.rr-info-item p {
+.rnrd-info-item p {
 	font-size: 12px;
 	color: #646970;
 	margin: 0;
@@ -432,29 +432,29 @@
 
 /* ── Stats row ─────────────────────────────────────────────────────────────── */
 
-.rr-stats-row {
+.rnrd-stats-row {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 	gap: 16px;
 }
 
-.rr-stat {
+.rnrd-stat {
 	text-align: center;
 	padding: 16px 12px;
 	background: #f9f9f9;
 	border: none;
 	border-radius: 6px;
 	box-shadow: 0 1px 2px rgba(0,0,0,.06);
-	animation: rr-fade-up .18s ease both;
+	animation: rnrd-fade-up .18s ease both;
 }
 
-.rr-stats-row .rr-stat:nth-child(1) { animation-delay: 0ms; }
-.rr-stats-row .rr-stat:nth-child(2) { animation-delay: 80ms; }
-.rr-stats-row .rr-stat:nth-child(3) { animation-delay: 160ms; }
-.rr-stats-row .rr-stat:nth-child(4) { animation-delay: 240ms; }
-.rr-stats-row .rr-stat:nth-child(n+5) { animation-delay: 320ms; }
+.rnrd-stats-row .rnrd-stat:nth-child(1) { animation-delay: 0ms; }
+.rnrd-stats-row .rnrd-stat:nth-child(2) { animation-delay: 80ms; }
+.rnrd-stats-row .rnrd-stat:nth-child(3) { animation-delay: 160ms; }
+.rnrd-stats-row .rnrd-stat:nth-child(4) { animation-delay: 240ms; }
+.rnrd-stats-row .rnrd-stat:nth-child(n+5) { animation-delay: 320ms; }
 
-.rr-stat-number {
+.rnrd-stat-number {
 	display: block;
 	font-size: 28px;
 	font-weight: 600;
@@ -463,7 +463,7 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.rr-stat-label {
+.rnrd-stat-label {
 	display: block;
 	font-size: 12px;
 	color: #646970;
@@ -472,22 +472,22 @@
 
 /* ── Section dividers (inside merged tabs) ────────────────────────────────── */
 
-.rr-section-divider {
+.rnrd-section-divider {
 	border: none;
 	border-top: 1px solid #f0f0f1;
 	margin: 32px 0;
 }
 
-.rr-section-header {
+.rnrd-section-header {
 	margin: 4px 0 16px;
 	padding-left: 12px;
 	border-left: 3px solid #1d2327;
 }
 
 /* Section icons retired in v1.0.0 — kept hidden for backward compat */
-.rr-section-icon { display: none; }
+.rnrd-section-icon { display: none; }
 
-.rr-section-title {
+.rnrd-section-title {
 	font-size: 17px;
 	font-weight: 600;
 	margin: 0 0 2px;
@@ -495,7 +495,7 @@
 	text-wrap: balance;
 }
 
-.rr-section-desc {
+.rnrd-section-desc {
 	font-size: 13px;
 	color: #646970;
 	margin: 0;
@@ -504,20 +504,20 @@
 
 /* ── Dashboard feature cards ────────────────────────────────────────────────── */
 
-.rr-dash-feature {
+.rnrd-dash-feature {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
 }
 
-.rr-dash-feature h3 {
+.rnrd-dash-feature h3 {
 	font-size: 14px;
 	font-weight: 600;
 	margin: 0;
 	color: #1d2327;
 }
 
-.rr-dash-feature p {
+.rnrd-dash-feature p {
 	font-size: 12px;
 	color: #646970;
 	margin: 0;
@@ -526,7 +526,7 @@
 	text-wrap: pretty;
 }
 
-.rr-dash-link {
+.rnrd-dash-link {
 	font-size: 12px;
 	font-weight: 500;
 	text-decoration: none;
@@ -542,16 +542,16 @@
 }
 
 /* Hit-area extension per rule 16 — 40px min via pseudo-element */
-.rr-dash-link::after {
+.rnrd-dash-link::after {
 	content: "";
 	position: absolute;
 	inset: -8px -8px;
 	min-height: 40px;
 }
 
-.rr-dash-link:active { scale: 0.97; }
+.rnrd-dash-link:active { scale: 0.97; }
 
-.rr-dash-link:hover {
+.rnrd-dash-link:hover {
 	color: #135e96;
 	text-decoration: underline;
 }
@@ -565,61 +565,61 @@ select.regular-text {
 /* ── Responsive ────────────────────────────────────────────────────────────── */
 
 @media (max-width: 782px) {
-	.rr-info-grid {
+	.rnrd-info-grid {
 		grid-template-columns: 1fr;
 	}
 
-	.rr-stats-row {
+	.rnrd-stats-row {
 		grid-template-columns: repeat(2, 1fr);
 	}
 
-	.rr-date-range {
+	.rnrd-date-range {
 		flex-direction: column;
 	}
 }
 
 /* ── Free Tier Usage Banner ────────────────────────────────────────────────── */
 
-.rr-usage-banner {
+.rnrd-usage-banner {
 	background: #fff;
 	/* shadows over borders — adapts to any background */
 	box-shadow:
 		0 0 0 1px rgba(0,0,0,.07),
 		inset 4px 0 0 #2271b1;
-	border-radius: 8px; /* matches .rr-card for visual consistency */
+	border-radius: 8px; /* matches .rnrd-card for visual consistency */
 	margin: 0 0 20px;
 	padding: 14px 18px;
 }
 
-.rr-usage-banner--warn {
+.rnrd-usage-banner--warn {
 	box-shadow:
 		0 0 0 1px rgba(0,0,0,.07),
 		inset 4px 0 0 #d63638;
 	background: #fff8f8;
 }
 
-.rr-usage-banner__inner {
+.rnrd-usage-banner__inner {
 	display: flex;
 	align-items: center;
 	gap: 20px;
 	flex-wrap: wrap;
 }
 
-.rr-usage-item {
+.rnrd-usage-item {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	min-width: 200px;
 }
 
-.rr-usage-label {
+.rnrd-usage-label {
 	font-size: 12px;
 	font-weight: 600;
 	color: #50575e;
 	white-space: nowrap;
 }
 
-.rr-usage-bar-wrap {
+.rnrd-usage-bar-wrap {
 	flex: 1;
 	min-width: 80px;
 	max-width: 120px;
@@ -629,7 +629,7 @@ select.regular-text {
 	overflow: hidden;
 }
 
-.rr-usage-bar {
+.rnrd-usage-bar {
 	height: 100%;
 	background: #2271b1;
 	border-radius: 3px;
@@ -637,25 +637,25 @@ select.regular-text {
 	/* removed: width is not GPU-compositable per make-interfaces-feel-better rule 15 */
 }
 
-.rr-usage-banner--warn .rr-usage-bar {
+.rnrd-usage-banner--warn .rnrd-usage-bar {
 	background: #d63638;
 }
 
-.rr-usage-count {
+.rnrd-usage-count {
 	font-size: 12px;
 	color: #50575e;
 	white-space: nowrap;
 	font-variant-numeric: tabular-nums; /* prevents layout shift on number change */
 }
 
-.rr-usage-reset {
+.rnrd-usage-reset {
 	font-size: 11px;
 	color: #8c8f94;
 	white-space: nowrap;
 }
 
 /* 40×40px minimum hit area + scale on press */
-.rr-usage-upgrade {
+.rnrd-usage-upgrade {
 	margin-left: auto;
 	font-size: 12px;
 	font-weight: 600;
@@ -669,46 +669,46 @@ select.regular-text {
 	display: inline-block;
 }
 
-.rr-usage-upgrade:hover {
+.rnrd-usage-upgrade:hover {
 	background: #2271b1;
 	color: #fff;
 }
 
-.rr-usage-upgrade:active {
+.rnrd-usage-upgrade:active {
 	transform: scale(0.96); /* scale on press — never below 0.95 */
 }
 
 /* ── Scale on press — all interactive buttons ──────────────────────────────── */
 
-.rr-wrap .button:active,
-.rr-wrap .button-primary:active,
-.rr-wrap .button-secondary:active {
+.rnrd-wrap .button:active,
+.rnrd-wrap .button-primary:active,
+.rnrd-wrap .button-secondary:active {
 	transform: scale(0.96); /* exactly 0.96 — never below 0.95 */
 	transition: transform .1s ease;
 }
 
 /* ── Upsell inline notice (post-win + limit hit) ───────────────────────────── */
 
-.rr-notice--upsell {
+.rnrd-notice--upsell {
 	background: #f0f6fc;
 	border-left-color: #2271b1;
 	padding: 10px 14px;
 	font-size: 13px;
 }
 
-.rr-notice--upsell a {
+.rnrd-notice--upsell a {
 	font-weight: 600;
 	color: #2271b1;
 }
 
-.rr-notice--dismissible {
+.rnrd-notice--dismissible {
 	position: relative;
 	padding-right: 36px;
 }
 
 /* ── Plan status banner (Dashboard top) ────────────────────────────────────── */
 
-.rr-plan-banner {
+.rnrd-plan-banner {
 	display: flex;
 	align-items: center;
 	gap: 20px;
@@ -719,21 +719,21 @@ select.regular-text {
 	box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
 }
 
-.rr-plan-banner--free {
+.rnrd-plan-banner--free {
 	background: #fff;
 	box-shadow: 0 0 0 1px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.06);
 }
 
-.rr-plan-banner--pro {
+.rnrd-plan-banner--pro {
 	background: linear-gradient(135deg, #1d2327 0%, #2c3338 100%);
 }
 
-.rr-plan-banner__left {
+.rnrd-plan-banner__left {
 	flex: 1;
 	min-width: 220px;
 }
 
-.rr-plan-banner__badge {
+.rnrd-plan-banner__badge {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
@@ -746,50 +746,50 @@ select.regular-text {
 	margin-bottom: 8px;
 }
 
-.rr-plan-banner--free .rr-plan-banner__badge {
+.rnrd-plan-banner--free .rnrd-plan-banner__badge {
 	background: #f0f0f1;
 	color: #50575e;
 }
 
-.rr-plan-banner--pro .rr-plan-banner__badge {
+.rnrd-plan-banner--pro .rnrd-plan-banner__badge {
 	background: rgba(255,255,255,.15);
 	color: #fff;
 }
 
-.rr-plan-banner__title {
+.rnrd-plan-banner__title {
 	font-size: 15px;
 	font-weight: 600;
 	margin: 0 0 4px;
 	color: #1d2327;
 }
 
-.rr-plan-banner--pro .rr-plan-banner__title {
+.rnrd-plan-banner--pro .rnrd-plan-banner__title {
 	color: #fff;
 }
 
-.rr-plan-banner__desc {
+.rnrd-plan-banner__desc {
 	font-size: 12px;
 	color: #646970;
 	margin: 0;
 	text-wrap: pretty;
 }
 
-.rr-plan-banner--pro .rr-plan-banner__desc {
+.rnrd-plan-banner--pro .rnrd-plan-banner__desc {
 	color: rgba(255,255,255,.7);
 }
 
-.rr-plan-banner__meters {
+.rnrd-plan-banner__meters {
 	display: flex;
 	gap: 20px;
 	margin-top: 10px;
 	flex-wrap: wrap;
 }
 
-.rr-plan-meter {
+.rnrd-plan-meter {
 	min-width: 140px;
 }
 
-.rr-plan-meter__label {
+.rnrd-plan-meter__label {
 	font-size: 11px;
 	font-weight: 600;
 	color: #646970;
@@ -798,14 +798,14 @@ select.regular-text {
 	justify-content: space-between;
 }
 
-.rr-plan-meter__track {
+.rnrd-plan-meter__track {
 	height: 5px;
 	background: #e0e0e0;
 	border-radius: 3px;
 	overflow: hidden;
 }
 
-.rr-plan-meter__fill {
+.rnrd-plan-meter__fill {
 	height: 100%;
 	border-radius: 3px;
 	background: #2271b1;
@@ -813,11 +813,11 @@ select.regular-text {
 	/* removed: width is not GPU-compositable per make-interfaces-feel-better rule 15 */
 }
 
-.rr-plan-meter__fill--warn {
+.rnrd-plan-meter__fill--warn {
 	background: #d63638;
 }
 
-.rr-plan-banner__cta {
+.rnrd-plan-banner__cta {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
@@ -828,7 +828,7 @@ select.regular-text {
 /* Upgrade button CSS removed in v1.0.0 — Pro CTAs replaced with non-interactive
    "Coming Soon" pill until license system lands in v1.2. */
 
-.rr-plan-banner__cta-hint {
+.rnrd-plan-banner__cta-hint {
 	font-size: 11px;
 	color: #8c8f94;
 	text-align: right;
@@ -836,7 +836,7 @@ select.regular-text {
 
 /* ── Coming Soon pill (used wherever Pro CTAs would appear) ──────────────── */
 
-.rr-coming-soon {
+.rnrd-coming-soon {
 	display: inline-flex;
 	align-items: center;
 	height: 30px;
@@ -855,7 +855,7 @@ select.regular-text {
 
 /* ── PRO badge (inline pill) ───────────────────────────────────────────────── */
 
-.rr-pro-badge {
+.rnrd-pro-badge {
 	display: inline-block;
 	font-size: 9px;
 	font-weight: 700;
@@ -870,7 +870,7 @@ select.regular-text {
 	line-height: 1.4;
 }
 
-.rr-free-badge {
+.rnrd-free-badge {
 	display: inline-block;
 	font-size: 9px;
 	font-weight: 700;
@@ -887,7 +887,7 @@ select.regular-text {
 
 /* ── Pro gate — uniform grid layout, no wrapping issues ──────────────────── */
 
-.rr-pro-gate {
+.rnrd-pro-gate {
 	display: grid;
 	grid-template-columns: 24px 1fr;
 	column-gap: 14px;
@@ -903,28 +903,28 @@ select.regular-text {
 	transition: border-color .15s ease, box-shadow .15s ease;
 }
 
-.rr-pro-gate:hover {
+.rnrd-pro-gate:hover {
 	border-color: #d0d0d0;
 	box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
 
 /* Stagger entrance per rule 5 — split + stagger enter animations */
-.rr-pro-gate {
+.rnrd-pro-gate {
 	opacity: 0;
 	transform: translateY(6px);
-	animation: rr-pro-gate-in .35s cubic-bezier(0.2, 0, 0, 1) forwards;
+	animation: rnrd-pro-gate-in .35s cubic-bezier(0.2, 0, 0, 1) forwards;
 }
-.rr-pro-gate:nth-of-type(1) { animation-delay: 40ms; }
-.rr-pro-gate:nth-of-type(2) { animation-delay: 100ms; }
-.rr-pro-gate:nth-of-type(3) { animation-delay: 160ms; }
-.rr-pro-gate:nth-of-type(4) { animation-delay: 220ms; }
-.rr-pro-gate:nth-of-type(n+5) { animation-delay: 280ms; }
+.rnrd-pro-gate:nth-of-type(1) { animation-delay: 40ms; }
+.rnrd-pro-gate:nth-of-type(2) { animation-delay: 100ms; }
+.rnrd-pro-gate:nth-of-type(3) { animation-delay: 160ms; }
+.rnrd-pro-gate:nth-of-type(4) { animation-delay: 220ms; }
+.rnrd-pro-gate:nth-of-type(n+5) { animation-delay: 280ms; }
 
-@keyframes rr-pro-gate-in {
+@keyframes rnrd-pro-gate-in {
 	to { opacity: 1; transform: translateY(0); }
 }
 
-.rr-pro-gate__icon {
+.rnrd-pro-gate__icon {
 	font-size: 18px;
 	width: 18px;
 	height: 18px;
@@ -932,11 +932,11 @@ select.regular-text {
 	margin-top: 2px;
 }
 
-.rr-pro-gate__text {
+.rnrd-pro-gate__text {
 	min-width: 0;
 }
 
-.rr-pro-gate__text strong {
+.rnrd-pro-gate__text strong {
 	font-size: 13px;
 	font-weight: 600;
 	color: #1d2327;
@@ -946,7 +946,7 @@ select.regular-text {
 	line-height: 1.4;
 }
 
-.rr-pro-gate__text p {
+.rnrd-pro-gate__text p {
 	font-size: 12px;
 	color: #646970;
 	margin: 6px 0 0;
@@ -954,7 +954,7 @@ select.regular-text {
 	line-height: 1.55;
 }
 
-.rr-pro-gate__soon {
+.rnrd-pro-gate__soon {
 	display: inline-block;
 	margin-top: 8px;
 	font-size: 11px;
@@ -965,7 +965,7 @@ select.regular-text {
 
 /* ── Feature list (dashboard free/pro columns) ─────────────────────────────── */
 
-.rr-feature-split {
+.rnrd-feature-split {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	gap: 20px;
@@ -973,12 +973,12 @@ select.regular-text {
 }
 
 @media (max-width: 782px) {
-	.rr-feature-split {
+	.rnrd-feature-split {
 		grid-template-columns: 1fr;
 	}
 }
 
-.rr-feature-col__title {
+.rnrd-feature-col__title {
 	font-size: 11px;
 	font-weight: 700;
 	letter-spacing: .06em;
@@ -989,12 +989,12 @@ select.regular-text {
 	border-bottom: 2px solid #f0f0f1;
 }
 
-.rr-feature-col__title--pro {
+.rnrd-feature-col__title--pro {
 	color: #2271b1;
 	border-bottom-color: #2271b1;
 }
 
-.rr-feature-list {
+.rnrd-feature-list {
 	list-style: none;
 	margin: 0;
 	padding: 0;
@@ -1003,7 +1003,7 @@ select.regular-text {
 	gap: 7px;
 }
 
-.rr-feature-list li {
+.rnrd-feature-list li {
 	display: flex;
 	align-items: flex-start;
 	gap: 8px;
@@ -1012,7 +1012,7 @@ select.regular-text {
 	line-height: 1.4;
 }
 
-.rr-feature-list li .rr-feature-icon {
+.rnrd-feature-list li .rnrd-feature-icon {
 	flex-shrink: 0;
 	width: 16px;
 	height: 16px;
@@ -1021,22 +1021,22 @@ select.regular-text {
 	line-height: 1;
 }
 
-.rr-feature-list li .rr-feature-icon--check {
+.rnrd-feature-list li .rnrd-feature-icon--check {
 	color: #00a32a;
 }
 
-.rr-feature-list li .rr-feature-icon--lock {
+.rnrd-feature-list li .rnrd-feature-icon--lock {
 	color: #8c8f94;
 }
 
-.rr-feature-list li small {
+.rnrd-feature-list li small {
 	display: block;
 	font-size: 11px;
 	color: #8c8f94;
 	margin-top: 1px;
 }
 
-.rr-feature-col__upgrade {
+.rnrd-feature-col__upgrade {
 	margin-top: 16px;
 	padding-top: 14px;
 	border-top: 1px solid #f0f0f1;

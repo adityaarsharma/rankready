@@ -1,10 +1,10 @@
 === RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI ===
-Contributors: posimyth, adityaarsharma
+Contributors: posimyththemes, adityaarsharma
 Tags: ai seo, llms.txt, chatgpt, perplexity, agent ready
 Requires at least: 6.0
-Tested up to: 6.8
+Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 1.2.0-rc.15
+Stable tag: 1.2.0-rc.16
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,26 +16,28 @@ Get your WordPress content cited by ChatGPT, Perplexity, Claude, Gemini, and Goo
 
 Built by [POSIMYTH](https://posimyth.com) (makers of The Plus Addons for Elementor & NexterWP), RankReady ships every feature you need to be discovered, read, and cited by AI search engines.
 
-= 🎯 What RankReady Does =
+= What RankReady Does =
 
 Traditional SEO plugins (Rank Math, Yoast, AIOSEO) optimize for Google's blue-link results. **RankReady optimizes for the layer above that** — the AI summaries, citations, and answer engines that increasingly intercept your traffic before users see Google's results.
 
-= 🚀 Free Features (everything below, no upsell) =
+= Features =
 
-* **LLMs.txt + LLMs-full.txt Generator** — Serves the [llmstxt.org](https://llmstxt.org) standard at `/llms.txt` and `/llms-full.txt`. Helps AI crawlers understand your site structure. **Unlimited.**
+* **LLMs.txt + LLMs-full.txt Generator** — Serves the [llmstxt.org](https://llmstxt.org) standard at `/llms.txt` and `/llms-full.txt`. Helps AI crawlers understand your site structure.
 * **AI Crawler Controls (31 Bots)** — Granular allow/block for GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot-Extended, CCBot, Bytespider, and 24 more. Auto-syncs to physical `robots.txt`.
-* **AI Summary Generator** — Generate "Key Takeaways" for any post via OpenAI. Auto-injected as a styled block + `Speakable` schema for voice/AI assistants. **5 free per month.**
-* **FAQ Generator with FAQPage Schema** — Discovers real user questions via DataForSEO + answers via OpenAI. Outputs FAQPage JSON-LD that Google AI Overviews and Perplexity preferentially cite. **5 free per month.**
+* **AI Summary Generator** — Generate "Key Takeaways" for any post via your chosen LLM. Auto-injected as a styled block + `Speakable` schema for voice/AI assistants. Unlimited manual generation.
+* **FAQ Generator with FAQPage Schema** — Discovers real user questions via DataForSEO + answers via your chosen LLM. Outputs FAQPage JSON-LD that Google AI Overviews and Perplexity preferentially cite. Unlimited manual generation.
 * **Article + Speakable JSON-LD Schema** — Auto-injected on every post. Coexists smartly with Rank Math / Yoast / AIOSEO (no duplicate schema).
 * **Markdown Endpoints** — Every post available as clean Markdown at `/post-slug.md` with YAML frontmatter and content negotiation via `Accept: text/markdown`. AI agents read this format natively.
-* **Basic Author Box** — Display-only author bio with photo, headline, and topics. Bio, headshot, job title, and year-started fields support EEAT signals.
+* **WebMCP Manifest** — Publishes `/.well-known/mcp.json` so AI agents can discover your structured content via the Model Context Protocol.
+* **Author Box (E-E-A-T)** — Display-only author bio with photo, headline, and topics. Bio, headshot, job title, and year-started fields support E-E-A-T signals.
 * **AI Crawler Detection Counter** — Live counter of how many AI bots visited your site this week.
+* **AI Referral Tracking** — Per-source counts (ChatGPT, Perplexity, etc.) over a rolling 30-day window.
 * **Bulk Author Changer** — Reassign authors across any post type (including CPTs) with preview and progress bar.
 * **Content Signals** — Adds `ai-train`, `search`, `ai-input` directives to robots.txt per [contentsignals.org](https://contentsignals.org).
 * **Health Check Score** — Single-glance AI Readiness score for your site.
-* **Gutenberg Block + Elementor Widget** — Drop-in display for AI Summary and Author Box, full style controls.
+* **Gutenberg Block + Elementor Widget** — Drop-in display for AI Summary, FAQ, and Author Box.
 
-= 🤝 Works With Your Existing SEO Plugin =
+= Works With Your Existing SEO Plugin =
 
 RankReady is **designed to coexist** with the SEO plugin you already use. It detects active SEO plugins and either skips its own output (when there'd be a duplicate) or merges its data into theirs:
 
@@ -46,30 +48,31 @@ RankReady is **designed to coexist** with the SEO plugin you already use. It det
 
 You don't replace your SEO plugin. You add RankReady on top.
 
-= 🌟 RankReady Pro — More Coming Soon =
+== Privacy & Third-Party Services ==
 
-This release ships with everything above for free. RankReady Pro (launching in a future release) will add **more value** on top — not lock existing free features behind a paywall:
+RankReady is privacy-respecting by default. POSIMYTH does not collect, store, or transmit any data from your site. No telemetry. No analytics. No "phone home". Your API keys are stored only in your own `wp_options` table.
 
-* Unlimited AI Summaries + FAQ generation
-* Auto-generate on publish + bulk-process all existing posts
-* Full EEAT Author Schema (Person JSON-LD with credentials, Wikidata, ORCID, sameAs)
-* AI Crawler Analytics dashboard (which bots, what pages, when)
-* HowTo + ItemList schema auto-detection
-* Headless REST API for Next.js / Nuxt / Astro
-* Custom Post Type support
-* Per-post AI Readiness Score with fix suggestions
+The plugin contacts third-party services **only** when you explicitly enter API credentials AND trigger a generation action. Each service is opt-in and uses **your own API key**:
 
-Every feature in the free version stays free, forever.
-
-= 🔐 Privacy & Third-Party Services =
-
-RankReady is privacy-respecting by default. POSIMYTH does not collect, store, or transmit any data from your site. The plugin only contacts third-party services when **you explicitly enter API credentials and trigger a generation**:
-
-* **OpenAI** ([Terms](https://openai.com/policies/terms-of-use) · [Privacy](https://openai.com/policies/privacy-policy)) — When you generate an AI Summary or FAQ, the post's content (title + body excerpt) is sent to OpenAI's API using **your own API key** to receive the generated text. No content leaves your site without an active generation request initiated by you.
-* **DataForSEO** ([Terms](https://dataforseo.com/terms-and-conditions) · [Privacy](https://dataforseo.com/privacy-policy)) — When you generate FAQs, the post's primary keyword is sent to DataForSEO using **your own credentials** to discover related user questions.
+* **OpenAI** ([Terms of Use](https://openai.com/policies/terms-of-use) · [Privacy Policy](https://openai.com/policies/privacy-policy)) — When you generate an AI Summary or FAQ with OpenAI selected as your provider, the post's title and body text are sent to `https://api.openai.com/v1/chat/completions` using your own API key. The response (generated summary or FAQ) is stored as post meta on your site. Nothing is sent without an explicit click from you.
+* **Anthropic Claude** ([Terms of Use](https://www.anthropic.com/legal/consumer-terms) · [Privacy Policy](https://www.anthropic.com/legal/privacy)) — When Anthropic is your selected provider, the same post text is sent to `https://api.anthropic.com/v1/messages` using your own API key. Same opt-in trigger; same one-shot use.
+* **Google Gemini** ([Terms](https://ai.google.dev/terms) · [Privacy Policy](https://policies.google.com/privacy)) — When Gemini is your selected provider, the same post text is sent to `https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent` using your own API key.
+* **DeepSeek** ([Terms of Use](https://cdn.deepseek.com/policies/en-US/deepseek-terms-of-use.html) · [Privacy Policy](https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html)) — When DeepSeek is your selected provider, the same post text is sent to `https://api.deepseek.com/chat/completions` using your own API key.
+* **DataForSEO** ([Terms of Service](https://dataforseo.com/terms-of-service) · [Privacy Policy](https://dataforseo.com/privacy-policy)) — When you trigger the FAQ Generator, the post's focus keyword is sent to `https://api.dataforseo.com/v3/serp/google/organic/live/advanced` using your own DataForSEO Login + Password to discover related questions. Only the keyword string is sent, not the article text. The discovered questions are stored as post meta on your site.
 * **WordPress.org** — Plugin update checks are handled by core WordPress and follow your site's existing update settings. RankReady does not add any update checks beyond what WordPress already does.
 
-No telemetry. No analytics. No "phone home". Your API keys are stored only in your own `wp_options` table.
+== External services ==
+
+RankReady is a self-contained plugin. The only outbound network calls it ever makes are to the services the site administrator explicitly configures:
+
+* **OpenAI API** — `https://api.openai.com/v1/chat/completions`. Used only when an OpenAI API key is configured and a Summary/FAQ generation is requested. Sends post title + body text. See [OpenAI Terms of Use](https://openai.com/policies/terms-of-use) and [Privacy Policy](https://openai.com/policies/privacy-policy).
+* **Anthropic API** — `https://api.anthropic.com/v1/messages`. Used only when an Anthropic API key is configured and a generation is requested. Sends post title + body text. See [Anthropic Consumer Terms](https://www.anthropic.com/legal/consumer-terms) and [Privacy Policy](https://www.anthropic.com/legal/privacy).
+* **Google Gemini API** — `https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent`. Used only when a Gemini API key is configured and a generation is requested. Sends post title + body text. See [Gemini API Terms](https://ai.google.dev/terms) and [Google Privacy Policy](https://policies.google.com/privacy).
+* **DeepSeek API** — `https://api.deepseek.com/chat/completions`. Used only when a DeepSeek API key is configured and a generation is requested. Sends post title + body text. See [DeepSeek Terms of Use](https://cdn.deepseek.com/policies/en-US/deepseek-terms-of-use.html) and [Privacy Policy](https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html).
+* **DataForSEO API** — `https://api.dataforseo.com/v3/serp/google/organic/live/advanced`. Used only when DataForSEO credentials are configured and FAQ generation is requested. Sends the focus keyword for the post being processed (no article body). See [DataForSEO Terms of Service](https://dataforseo.com/terms-of-service) and [Privacy Policy](https://dataforseo.com/privacy-policy).
+* **YouTube (nocookie) embed** — `https://www.youtube-nocookie.com/embed/JA-rEwMbqNo` is loaded inside an iframe on the in-admin onboarding card so site administrators can watch a setup walkthrough. The card is dismissible. The privacy-enhanced (nocookie) host is used so YouTube does not set tracking cookies until the video plays. See [YouTube Terms of Service](https://www.youtube.com/t/terms) and [Google Privacy Policy](https://policies.google.com/privacy).
+
+No other endpoints are contacted. The plugin never sends any data on its own initiative — every outbound request is the direct result of an administrator action.
 
 == Installation ==
 
@@ -79,12 +82,12 @@ No telemetry. No analytics. No "phone home". Your API keys are stored only in yo
 2. Search for **"RankReady"**.
 3. Click **Install Now**, then **Activate**.
 4. Visit **RankReady** in the admin menu.
-5. Add your OpenAI API key in the **Settings** tab (required for AI Summary + FAQ generation).
+5. Add your AI provider API key (OpenAI, Anthropic, Gemini, or DeepSeek) in the **Settings** tab.
 6. Optionally enable LLMs.txt, Markdown endpoints, and AI crawler controls in the **AI Crawlers** tab.
 
 = Manual install =
 
-1. Download the plugin zip.
+1. Download the plugin zip from WordPress.org.
 2. Go to **Plugins → Add New → Upload Plugin** and select the zip.
 3. Activate, then follow steps 4–6 above.
 
@@ -100,13 +103,13 @@ No telemetry. No analytics. No "phone home". Your API keys are stored only in yo
 
 No. RankReady is designed to work **alongside** Rank Math, Yoast, AIOSEO, SEOPress, SEO Framework, and Slim SEO. It detects them and avoids emitting duplicate schema. You can keep your current SEO plugin and add RankReady for the AI/LLM-specific features none of them cover.
 
-= Do I need an OpenAI API key? =
+= Do I need an AI provider API key? =
 
-Only if you want to use the **AI Summary** or **FAQ Generator** features. The LLMs.txt generator, Markdown endpoints, AI crawler controls, Article schema, and Author Box all work without any API key.
+Only if you want to use the **AI Summary** or **FAQ Generator** features. The LLMs.txt generator, Markdown endpoints, AI crawler controls, Article schema, Author Box, and WebMCP manifest all work without any API key.
 
 = Are there usage limits? =
 
-The free version generates **5 AI Summaries** and **5 FAQ generations** per calendar month. Limits reset on the 1st of each month. All other features (LLMs.txt, robots.txt controls, schema, markdown endpoints, author box, bulk author changer) are unlimited.
+The plugin generates **5 AI Summaries** and **5 FAQ generations** per calendar month. Limits reset on the 1st of each month. All other features (LLMs.txt, robots.txt controls, schema, markdown endpoints, author box, bulk author changer, WebMCP) are unlimited.
 
 = What's an "llms.txt" file? =
 
@@ -118,15 +121,11 @@ No. All AI generation happens in the WordPress admin (not on page load). Schema 
 
 = Does this work with my caching plugin? =
 
-Yes. RankReady is tested with WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache, WP Fastest Cache, Breeze, SG Optimizer, Hummingbird, Comet Cache, Cache Enabler, Swift Performance, and Pantheon. It also handles Cloudflare APO correctly.
-
-= Does this support Custom Post Types? =
-
-The free version supports **Posts and Pages**. Custom Post Type (CPT) support across all features is included in the upcoming Pro version.
+Yes. RankReady is tested with WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache, WP Fastest Cache, Breeze, SG Optimizer, Hummingbird, Comet Cache, Cache Enabler, Swift Performance, and Pantheon. It also handles Cloudflare APO correctly. The plugin persists cache-bypass entries to each cache plugin's stored configuration so server-level caches (LiteSpeed, FastCGI, WPSC) honour the bypass before PHP runs.
 
 = Where is my data stored? =
 
-Everything stays on your own WordPress site. Your OpenAI key, DataForSEO credentials, generated summaries, FAQs, and author profiles all live in your own `wp_options` and `wp_postmeta` tables. POSIMYTH does not see, collect, or transmit any of your data.
+Everything stays on your own WordPress site. Your API keys, DataForSEO credentials, generated summaries, FAQs, and author profiles all live in your own `wp_options` and `wp_postmeta` tables. POSIMYTH does not see, collect, or transmit any of your data.
 
 = Will RankReady conflict with my existing schema? =
 
@@ -146,12 +145,26 @@ Yes. RankReady is open source under GPL-2.0-or-later. Source: [github.com/aditya
 2. Content AI tab — generate AI Summaries and FAQs for any post; track monthly usage.
 3. Authority tab — Author Box settings + Schema controls (FAQPage, Article, Speakable).
 4. AI Crawlers tab — block or allow 31 AI bots, generate LLMs.txt, enable Markdown endpoints.
-5. Settings tab — single-screen config for OpenAI, DataForSEO, and brand context.
-6. Author Box on the frontend — clean EEAT-optimized bio displayed at the end of every post.
+5. Settings tab — single-screen config for OpenAI, Anthropic, Gemini, DeepSeek, and DataForSEO.
+6. Author Box on the frontend — clean E-E-A-T-optimized bio displayed at the end of every post.
 7. AI Summary block — auto-injected "Key Takeaways" with Speakable schema for voice assistants.
 8. FAQ block — expandable Q&A with FAQPage JSON-LD that AI Overviews preferentially cite.
 
 == Changelog ==
+
+= 1.2.0-rc.16 =
+
+**WordPress.org compliance pass + cache layer hardening.**
+
+* Fix: WordPress.org compliance — migrated all PHP prefixes from `rr_` / `RR_` to `rnrd_` / `RNRD_` to satisfy WP.org's 4-character-minimum function and constant prefix rule. Filenames updated to `class-rnrd-*.php`. CSS classes renamed from `.rr-*` to `.rnrd-*`. JS identifiers renamed (`rrAdmin` → `rnrdAdmin`, etc.).
+* Fix: Removed the `admin_init` folder-rename / `active_plugins` rewrite block that violated WP.org policy (a plugin is not allowed to silently modify `active_plugins`). The duplicate-install guard at the top of the main file already handles the underlying problem without DB writes. The `upgrader_source_selection` filter is retained because it only operates on the staging directory during the upgrade process.
+* Fix: Cache layer — LiteSpeed Server (LSWS) cache-bypass response headers; persist exclusions to every cache plugin's stored configuration so server-level caches honour the bypass before PHP runs.
+* Fix: Removed XML sitemap reference from `/llms.txt` body — the file is now pure plain-text per the spec.
+* New: Multilingual `/llms.txt` detection — WPML, Polylang, TranslatePress, Weglot, and GTranslate. Emits `<link rel="alternate" hreflang="…">` discovery tags pointing to language-prefixed URLs.
+* New: `rankready_llms_txt_content` filter — programmatic override of the generated `/llms.txt` body for advanced users.
+* Fix: `Tested up to: 6.9`.
+* Removed: EDD Software Licensing updater (`RR_SL_Plugin_Updater.php`) — the WP.org distribution uses the native WordPress update flow exclusively.
+* Removed: Pro / Sandbox / Developer-Mode UI from the admin. Future paid features will be added as separate add-ons; the free plugin no longer references them.
 
 = 1.1.3 — 2026-05-13 =
 
@@ -164,8 +177,8 @@ Yes. RankReady is open source under GPL-2.0-or-later. Source: [github.com/aditya
 * Fixed: `strlen()` → `mb_strlen()` for multibyte token count header on markdown endpoints (was undercounting CJK/Arabic/Hindi characters).
 * Fixed: HTML entity decode on homepage markdown post titles (was outputting raw `&#8211;` instead of `—`).
 * Fixed: Null-coalescing guard on `$result['provider']` in generator to prevent PHP notice on unexpected API responses.
-* Fixed: `do_shortcode()` in `RR_Generator::get_content_string()` replaced with `strip_shortcodes()` — prevents WooCommerce / form / cache shortcode side-effects when generation runs under WP-Cron.
-* Fixed: Text domain corrected from `nexter-pro-extensions` to `rankready` in EDD plugin updater (4 strings).
+* Fixed: `do_shortcode()` in generator replaced with `strip_shortcodes()` — prevents WooCommerce / form / cache shortcode side-effects when generation runs under WP-Cron.
+* Fixed: Text domain corrected to `rankready` in plugin updater (4 strings).
 * Removed: Dead `run_generation_direct()` method from generator — shutdown-based path was removed in v1.1.0, method was unreachable.
 
 = 1.1.1 — 2026-05-08 =
@@ -176,31 +189,31 @@ Yes. RankReady is open source under GPL-2.0-or-later. Source: [github.com/aditya
 * New: Tutorial video card on the Dashboard tab — embedded walkthrough, dismissible per user.
 * New: "What's new" upgrade banner on RankReady admin pages, dismissible per version per user.
 * New: Red-dot release indicator on the WordPress sidebar RankReady menu item — clears when you dismiss the banner.
-* Changed: AI Summary + FAQ Generator dispatch through a unified `RR_LLM` abstraction. Same prompts, same output, provider-agnostic at the call site.
+* Changed: AI Summary + FAQ Generator dispatch through a unified `RNRD_LLM` abstraction. Same prompts, same output, provider-agnostic at the call site.
 * Changed: Connection test now pings the active provider (no longer hard-coded to OpenAI).
 * Changed: Advanced tab reorganized — Bulk Generate FAQs now sits next to Bulk Regenerate AI Summaries.
 * Fixed: `.md` URLs now serve the correct page when AI tools send `Accept: text/markdown` (was incorrectly serving the homepage index — issue #1).
 
 = 1.0.0 — 2026-04-23 =
 
-**First public freemium release for WordPress.org.**
+**First public release for WordPress.org.**
 
-* New: Freemium model — 5 AI Summaries + 5 FAQ generations per calendar month, all other features unlimited.
+* New: 5 AI Summaries + 5 FAQ generations per calendar month, all other features unlimited.
 * New: Plan banner and usage meters in the Dashboard.
-* New: Pro feature preview — locked sections clearly marked with "Launching with RankReady Pro" labels (no upsell pressure, no buy buttons in v1.0).
-* New: Author profile page splits Free fields (Identity, Experience) from Pro fields (Credentials, Verified Identity, Social, Contact).
 * New: Privacy & Third-Party Services disclosure section per WordPress.org guidelines.
 * Improved: Admin UI — single-card pattern for Summary Display + FAQ Display (consistent layout, no collapsed accordions).
-* Improved: Pro feature gates use a uniform card design with lock icon + "Launching with RankReady Pro" copy.
-* Improved: Sticky tab navigation, scale-on-press feedback, 3-layer card shadows, tabular-nums for dynamic counters, staggered enter animations — applied per the make-interfaces-feel-better design checklist.
+* Improved: Sticky tab navigation, scale-on-press feedback, 3-layer card shadows, tabular-nums for dynamic counters, staggered enter animations.
 * Improved: Tab labels are text-only (icons removed for a cleaner WP-native look).
 * Removed: Plugin Update Checker (PUC) library — WordPress.org distribution uses native WP update flow only.
-* Removed: GitHub-based auto-update path — free version updates exclusively via WordPress.org.
+* Removed: GitHub-based auto-update path — the WordPress.org build updates exclusively via WordPress.org.
 * Branding: Plugin URI → posimyth.com. Author → POSIMYTH Inc. & Aditya Sharma.
 
 For the full pre-1.0.0 development history (versions 0.5.0 through 0.6.7.2), see the [GitHub repository](https://github.com/adityaarsharma/rankready/blob/main/CHANGELOG.md).
 
 == Upgrade Notice ==
+
+= 1.2.0-rc.16 =
+WordPress.org compliance pass: internal PHP/JS/CSS prefix migration (`rr_` → `rnrd_`), removed `active_plugins` rewrite that violated WP.org policy, hardened cache layer (LiteSpeed Server headers, persisted exclusions), and added `rankready_llms_txt_content` filter. Tested up to WordPress 6.9. Existing options from earlier release candidates will be re-created with new keys on activation.
 
 = 1.1.3 =
 New: Brand Terms field for entity consistency. DeepSeek default switched to deepseek-v4-flash with auto-migration for legacy users. Homepage Link header for AI agent discovery (RFC 8288). Includes multibyte token count fix, markdown title entity decode, WP-Cron shortcode safety, and dead-code cleanup.
@@ -209,4 +222,4 @@ New: Brand Terms field for entity consistency. DeepSeek default switched to deep
 Major: now supports Claude, Gemini, and DeepSeek alongside OpenAI. Existing OpenAI users keep working with zero migration. Includes a fix for `.md` URLs that were serving the homepage instead of the requested page.
 
 = 1.0.0 =
-First public release on WordPress.org. Existing users on the GitHub-distributed v0.6.x: this version removes the GitHub auto-update path. After upgrading to 1.0.0, all future updates will arrive via WordPress.org's standard plugin updater.
+First public release on WordPress.org.

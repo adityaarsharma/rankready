@@ -17,14 +17,14 @@
  */
 defined( 'ABSPATH' ) || exit;
 
-class RR_LLM_Gemini {
+class RNRD_LLM_Gemini {
 
 	const ENDPOINT_TEMPLATE = 'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s';
 
 	public static function generate( string $system, string $user, array $opts ): array {
-		$provider = RR_LLM::PROVIDER_GEMINI;
-		$model    = RR_LLM::get_model( $provider );
-		$api_key  = RR_LLM::get_api_key( $provider );
+		$provider = RNRD_LLM::PROVIDER_GEMINI;
+		$model    = RNRD_LLM::get_model( $provider );
+		$api_key  = RNRD_LLM::get_api_key( $provider );
 
 		$generation_config = array(
 			'temperature'     => (float) $opts['temperature'],
@@ -51,26 +51,26 @@ class RR_LLM_Gemini {
 
 		$response = wp_remote_post( $endpoint, array(
 			'timeout'    => (int) $opts['timeout'],
-			'user-agent' => 'RankReady/' . RR_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
+			'user-agent' => 'RankReady/' . RNRD_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
 			'headers'    => array( 'Content-Type' => 'application/json' ),
 			'body'       => wp_json_encode( $body ),
 		) );
 
 		if ( is_wp_error( $response ) ) {
-			return RR_LLM::error_response( $provider, 'Gemini HTTP error: ' . $response->get_error_message(), $model );
+			return RNRD_LLM::error_response( $provider, 'Gemini HTTP error: ' . $response->get_error_message(), $model );
 		}
 
 		$http = (int) wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $http ) {
 			$err = wp_remote_retrieve_body( $response );
-			return RR_LLM::error_response( $provider, 'Gemini HTTP ' . $http . ': ' . mb_substr( (string) $err, 0, 300 ), $model );
+			return RNRD_LLM::error_response( $provider, 'Gemini HTTP ' . $http . ': ' . mb_substr( (string) $err, 0, 300 ), $model );
 		}
 
 		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		// Gemini may finish with safety blocks → no content.
 		if ( isset( $decoded['promptFeedback']['blockReason'] ) ) {
-			return RR_LLM::error_response( $provider, 'Gemini blocked the request: ' . (string) $decoded['promptFeedback']['blockReason'], $model );
+			return RNRD_LLM::error_response( $provider, 'Gemini blocked the request: ' . (string) $decoded['promptFeedback']['blockReason'], $model );
 		}
 
 		$content = '';
@@ -85,12 +85,12 @@ class RR_LLM_Gemini {
 
 		if ( '' === $content ) {
 			$finish = isset( $decoded['candidates'][0]['finishReason'] ) ? (string) $decoded['candidates'][0]['finishReason'] : 'unknown';
-			return RR_LLM::error_response( $provider, 'Gemini returned empty content (finishReason: ' . $finish . ').', $model );
+			return RNRD_LLM::error_response( $provider, 'Gemini returned empty content (finishReason: ' . $finish . ').', $model );
 		}
 
 		$tokens_in  = isset( $decoded['usageMetadata']['promptTokenCount'] ) ? (int) $decoded['usageMetadata']['promptTokenCount'] : 0;
 		$tokens_out = isset( $decoded['usageMetadata']['candidatesTokenCount'] ) ? (int) $decoded['usageMetadata']['candidatesTokenCount'] : 0;
 
-		return RR_LLM::success_response( $provider, $model, $content, $tokens_in, $tokens_out );
+		return RNRD_LLM::success_response( $provider, $model, $content, $tokens_in, $tokens_out );
 	}
 }

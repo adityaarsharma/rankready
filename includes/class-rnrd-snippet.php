@@ -11,8 +11,8 @@
  * more likely to be cited verbatim instead of summarised away from the source.
  *
  * Resolution order per post:
- *   1. Per-post meta `_rr_max_snippet` if set ('on' | 'off').
- *   2. Site-wide default `rr_max_snippet_default` (defaults to 'on').
+ *   1. Per-post meta `_rnrd_max_snippet` if set ('on' | 'off').
+ *   2. Site-wide default `rnrd_max_snippet_default` (defaults to 'on').
  *
  * No-op when:
  *   - The post is marked noindex by Yoast / RankMath / AIOSEO / SEOPress.
@@ -24,7 +24,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Snippet {
+class RNRD_Snippet {
 
 	public static function init(): void {
 		// v1.2.0-rc.1 — register at priority 999 so any SEO plugin's robots
@@ -99,9 +99,9 @@ class RR_Snippet {
 		if ( self::is_noindex( $post->ID ) ) {
 			return false;
 		}
-		$pref = (string) get_post_meta( $post->ID, RR_META_MAX_SNIPPET, true );
+		$pref = (string) get_post_meta( $post->ID, RNRD_META_MAX_SNIPPET, true );
 		if ( '' === $pref ) {
-			$pref = 'on' === get_option( RR_OPT_MAX_SNIPPET_DEFAULT, 'on' ) ? 'on' : 'off';
+			$pref = 'on' === get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' ) ? 'on' : 'off';
 		}
 		return 'on' === $pref;
 	}
@@ -130,7 +130,7 @@ class RR_Snippet {
 
 	/**
 	 * Returns true when a major SEO plugin has already flagged this post as
-	 * noindex. Mirrors RR_Llms_Txt::should_exclude_from_llms() — same logic,
+	 * noindex. Mirrors RNRD_Llms_Txt::should_exclude_from_llms() — same logic,
 	 * different purpose.
 	 */
 	private static function is_noindex( int $post_id ): bool {

@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Block {
+class RNRD_Block {
 
 	public static function init(): void {
 		add_action( 'init',                        array( self::class, 'register_block' ) );
@@ -19,7 +19,7 @@ class RR_Block {
 		add_action( 'wp_head',                     array( self::class, 'output_auto_schema' ), 25 );
 
 		// WP-Cron schema scanner.
-		add_action( RR_SCHEMA_CRON_HOOK,           array( self::class, 'cron_schema_scan' ) );
+		add_action( RNRD_SCHEMA_CRON_HOOK,           array( self::class, 'cron_schema_scan' ) );
 
 		// Re-scan on post save (deferred to avoid blocking the editor).
 		add_action( 'save_post',                   array( self::class, 'invalidate_schema_cache' ), 20, 2 );
@@ -79,8 +79,8 @@ class RR_Block {
 	public static function register_author_box_block(): void {
 		register_block_type( 'rankready/author-box', array(
 			'api_version'     => 3,
-			'render_callback' => array( 'RR_Author_Box', 'render_block' ),
-			'attributes'      => RR_Author_Box::block_attributes(),
+			'render_callback' => array( 'RNRD_Author_Box', 'render_block' ),
+			'attributes'      => RNRD_Author_Box::block_attributes(),
 		) );
 	}
 
@@ -129,14 +129,14 @@ class RR_Block {
 			return '';
 		}
 
-		$faq_data = RR_Faq::get_faq_data( $post_id );
+		$faq_data = RNRD_Faq::get_faq_data( $post_id );
 		if ( empty( $faq_data ) ) {
 			return '';
 		}
 
 		$heading_tag = self::validate_heading_tag( ! empty( $attrs['headingTag'] ) ? $attrs['headingTag'] : 'h3' );
 		$show_title  = isset( $attrs['showTitle'] ) ? (bool) $attrs['showTitle'] : true;
-		$title_text  = ! empty( $attrs['titleText'] ) ? sanitize_text_field( $attrs['titleText'] ) : __( 'Frequently Asked Questions', 'rankready' );
+		$title_text  = ! empty( $attrs['titleText'] ) ? sanitize_text_field( $attrs['titleText'] ) : __( 'Frequently Asked Questions', 'rankready-ai-llm-seo' );
 		$show_reviewed = isset( $attrs['showReviewed'] ) ? (bool) $attrs['showReviewed'] : true;
 
 		// Box styles.
@@ -200,16 +200,16 @@ class RR_Block {
 		}
 
 		// Build HTML.
-		$wrapper = get_block_wrapper_attributes( array( 'class' => 'rr-faq-wrapper' ) );
+		$wrapper = get_block_wrapper_attributes( array( 'class' => 'rnrd-faq-wrapper' ) );
 		$out     = '<div ' . $wrapper . $box_style_attr . '>';
 
 		if ( $show_title ) {
-			$out .= '<' . $heading_tag . ' class="rr-faq-title"' . $q_style_attr . '>'
+			$out .= '<' . $heading_tag . ' class="rnrd-faq-title"' . $q_style_attr . '>'
 				. esc_html( $title_text )
 				. '</' . $heading_tag . '>';
 		}
 
-		$out .= '<div class="rr-faq-list">';
+		$out .= '<div class="rnrd-faq-list">';
 
 		foreach ( $faq_data as $item ) {
 			$q = isset( $item['question'] ) ? $item['question'] : '';
@@ -218,9 +218,9 @@ class RR_Block {
 				continue;
 			}
 
-			$out .= '<div class="rr-faq-item"' . $d_style_attr . '>';
-			$out .= '<h4 class="rr-faq-question"' . $q_style_attr . '>' . esc_html( $q ) . '</h4>';
-			$out .= '<p class="rr-faq-answer"' . $a_style_attr . '>' . wp_kses_post( RR_Faq::convert_markdown_links( $a ) ) . '</p>';
+			$out .= '<div class="rnrd-faq-item"' . $d_style_attr . '>';
+			$out .= '<h4 class="rnrd-faq-question"' . $q_style_attr . '>' . esc_html( $q ) . '</h4>';
+			$out .= '<p class="rnrd-faq-answer"' . $a_style_attr . '>' . wp_kses_post( RNRD_Faq::convert_markdown_links( $a ) ) . '</p>';
 			$out .= '</div>';
 		}
 
@@ -230,8 +230,8 @@ class RR_Block {
 			$modified_ts = get_the_modified_time( 'U', $post_id );
 			if ( ! empty( $modified_ts ) ) {
 				$date = wp_date( get_option( 'date_format' ), (int) $modified_ts );
-				$out .= '<p class="rr-faq-reviewed">'
-					. esc_html( sprintf( __( 'Last reviewed: %s', 'rankready' ), $date ) )
+				$out .= '<p class="rnrd-faq-reviewed">'
+					. esc_html( sprintf( __( 'Last reviewed: %s', 'rankready-ai-llm-seo' ), $date ) )
 					. '</p>';
 			}
 		}
@@ -249,7 +249,7 @@ class RR_Block {
 			return '';
 		}
 
-		$raw = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
+		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( empty( $raw ) ) {
 			return '';
 		}
@@ -260,20 +260,20 @@ class RR_Block {
 	// ── Build summary HTML ────────────────────────────────────────────────────
 
 	public static function build_summary_html( $raw, $attrs = array(), $is_block = false ): string {
-		$summary = RR_Generator::decode_summary( $raw );
+		$summary = RNRD_Generator::decode_summary( $raw );
 		if ( 'empty' === $summary['type'] ) {
 			return '';
 		}
 
 		// Resolve attributes with global defaults
-		$show_label  = isset( $attrs['showLabel'] ) ? (bool) $attrs['showLabel'] : (bool) get_option( RR_OPT_SHOW_LABEL, '1' );
+		$show_label  = isset( $attrs['showLabel'] ) ? (bool) $attrs['showLabel'] : (bool) get_option( RNRD_OPT_SHOW_LABEL, '1' );
 		$label_text  = ! empty( $attrs['label'] )
 			? sanitize_text_field( $attrs['label'] )
-			: (string) get_option( RR_OPT_LABEL, 'Key Takeaways' );
+			: (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' );
 		$heading_tag = self::validate_heading_tag(
 			! empty( $attrs['headingTag'] )
 				? $attrs['headingTag']
-				: (string) get_option( RR_OPT_HEADING_TAG, 'h4' )
+				: (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' )
 		);
 
 		// Build box inline styles
@@ -309,7 +309,7 @@ class RR_Block {
 			$box_styles[] = 'padding:' . (int) $attrs['boxPadding'] . 'px';
 		}
 		if ( ! empty( $attrs['bulletMarkerColor'] ) ) {
-			$box_styles[] = '--rr-marker-color:' . self::sanitize_color( $attrs['bulletMarkerColor'] );
+			$box_styles[] = '--rnrd-marker-color:' . self::sanitize_color( $attrs['bulletMarkerColor'] );
 		}
 
 		$box_style_attr = ! empty( $box_styles ) ? ' style="' . esc_attr( implode( ';', $box_styles ) ) . '"' : '';
@@ -365,7 +365,7 @@ class RR_Block {
 		$bullet_style_attr = ! empty( $bullet_styles ) ? ' style="' . esc_attr( implode( ';', $bullet_styles ) ) . '"' : '';
 
 		// Build HTML
-		$class = 'rr-summary';
+		$class = 'rnrd-summary';
 		if ( $is_block ) {
 			$wrapper = get_block_wrapper_attributes( array( 'class' => $class ) );
 			$out     = '<div ' . $wrapper . $box_style_attr . '>';
@@ -374,19 +374,19 @@ class RR_Block {
 		}
 
 		if ( $show_label && ! empty( $label_text ) ) {
-			$out .= '<' . $heading_tag . ' class="rr-label"' . $label_style_attr . '>'
+			$out .= '<' . $heading_tag . ' class="rnrd-label"' . $label_style_attr . '>'
 				. esc_html( $label_text )
 				. '</' . $heading_tag . '>';
 		}
 
 		if ( 'bullets' === $summary['type'] ) {
-			$out .= '<ul class="rr-bullets">';
+			$out .= '<ul class="rnrd-bullets">';
 			foreach ( (array) $summary['data'] as $bullet ) {
-				$out .= '<li class="rr-bullet"' . $bullet_style_attr . '>' . esc_html( $bullet ) . '</li>';
+				$out .= '<li class="rnrd-bullet"' . $bullet_style_attr . '>' . esc_html( $bullet ) . '</li>';
 			}
 			$out .= '</ul>';
 		} else {
-			$out .= '<p class="rr-text"' . $bullet_style_attr . '>' . esc_html( $summary['data'] ) . '</p>';
+			$out .= '<p class="rnrd-text"' . $bullet_style_attr . '>' . esc_html( $summary['data'] ) . '</p>';
 		}
 
 		$out .= '</div>';
@@ -401,7 +401,7 @@ class RR_Block {
 			return $content;
 		}
 
-		if ( 'on' !== get_option( RR_OPT_AUTO_DISPLAY, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_AUTO_DISPLAY, 'off' ) ) {
 			return $content;
 		}
 
@@ -411,7 +411,7 @@ class RR_Block {
 		}
 
 		// Per-post disable
-		if ( get_post_meta( $post_id, RR_META_DISABLE, true ) ) {
+		if ( get_post_meta( $post_id, RNRD_META_DISABLE, true ) ) {
 			return $content;
 		}
 
@@ -431,13 +431,13 @@ class RR_Block {
 			return $content;
 		}
 
-		$raw = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
+		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( empty( $raw ) ) {
 			return $content;
 		}
 
 		$summary_html = self::build_summary_html( $raw );
-		$position     = get_option( RR_OPT_DISPLAY_POSITION, 'before' );
+		$position     = get_option( RNRD_OPT_DISPLAY_POSITION, 'before' );
 
 		if ( 'after' === $position ) {
 			return $content . $summary_html;
@@ -455,26 +455,26 @@ class RR_Block {
 		);
 
 		wp_enqueue_script(
-			'rr-block-editor',
-			RR_URL . 'assets/block.js',
+			'rnrd-block-editor',
+			RNRD_URL . 'assets/block.js',
 			$deps,
-			RR_VERSION,
+			RNRD_VERSION,
 			true
 		);
 
 		wp_enqueue_script(
-			'rr-faq-block-editor',
-			RR_URL . 'assets/faq-block.js',
+			'rnrd-faq-block-editor',
+			RNRD_URL . 'assets/faq-block.js',
 			$deps,
-			RR_VERSION,
+			RNRD_VERSION,
 			true
 		);
 
 		wp_enqueue_script(
-			'rr-author-box-block-editor',
-			RR_URL . 'assets/author-box-block.js',
+			'rnrd-author-box-block-editor',
+			RNRD_URL . 'assets/author-box-block.js',
 			$deps,
-			RR_VERSION,
+			RNRD_VERSION,
 			true
 		);
 
@@ -489,13 +489,13 @@ class RR_Block {
 			$users_data[] = array( 'id' => (int) $u->ID, 'name' => $u->display_name );
 		}
 
-		wp_localize_script( 'rr-block-editor', 'rrBlockData', array(
+		wp_localize_script( 'rnrd-block-editor', 'rnrdBlockData', array(
 			'defaults' => array(
-				'label'         => (string) get_option( RR_OPT_LABEL, 'Key Takeaways' ),
-				'showLabel'     => (bool) get_option( RR_OPT_SHOW_LABEL, '1' ),
-				'headingTag'    => (string) get_option( RR_OPT_HEADING_TAG, 'h4' ),
-				'authorHeading' => (string) get_option( RR_OPT_AUTHOR_HEADING, 'About the Author' ),
-				'authorTag'     => (string) get_option( RR_OPT_AUTHOR_HEADING_TAG, 'h3' ),
+				'label'         => (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' ),
+				'showLabel'     => (bool) get_option( RNRD_OPT_SHOW_LABEL, '1' ),
+				'headingTag'    => (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' ),
+				'authorHeading' => (string) get_option( RNRD_OPT_AUTHOR_HEADING, 'About the Author' ),
+				'authorTag'     => (string) get_option( RNRD_OPT_AUTHOR_HEADING_TAG, 'h3' ),
 			),
 			'users' => $users_data,
 		) );
@@ -515,13 +515,13 @@ class RR_Block {
 
 		// Always load styles when summary, FAQ, or author-box data may render.
 		// Display can come from: Gutenberg block, Elementor widget, theme builder widget, or auto-display.
-		$has_summary    = ! empty( get_post_meta( $post_id, RR_META_SUMMARY, true ) );
-		$has_faq        = ! empty( get_post_meta( $post_id, RR_META_FAQ, true ) );
+		$has_summary    = ! empty( get_post_meta( $post_id, RNRD_META_SUMMARY, true ) );
+		$has_faq        = ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) );
 		$has_author_box = has_block( 'rankready/author-box', $post_id )
-			|| 'off' !== (string) get_option( RR_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
+			|| 'off' !== (string) get_option( RNRD_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
 
 		if ( $has_summary || $has_faq || $has_author_box ) {
-			wp_enqueue_style( 'rankready-style', RR_URL . 'assets/style.css', array(), RR_VERSION );
+			wp_enqueue_style( 'rankready-style', RNRD_URL . 'assets/style.css', array(), RNRD_VERSION );
 		}
 	}
 
@@ -534,7 +534,7 @@ class RR_Block {
 	 * When any major SEO plugin is active, we merge via their filters instead.
 	 */
 	public static function maybe_inject_schema(): void {
-		if ( 'on' !== get_option( RR_OPT_SCHEMA_ARTICLE, 'on' ) ) return;
+		if ( 'on' !== get_option( RNRD_OPT_SCHEMA_ARTICLE, 'on' ) ) return;
 
 		// v1.2.0-rc.9 — Escape hatch: users can force standalone schema even
 		// when an SEO plugin is active. Same pattern as `rankready_force_llms_txt`.
@@ -573,10 +573,10 @@ class RR_Block {
 		$post = get_post( $post_id );
 		if ( ! $post || ! is_post_type_viewable( $post->post_type ) ) return;
 
-		$raw = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
+		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( empty( $raw ) ) return;
 
-		$summary     = RR_Generator::decode_summary( $raw );
+		$summary     = RNRD_Generator::decode_summary( $raw );
 		$description = '';
 
 		if ( 'bullets' === $summary['type'] && is_array( $summary['data'] ) ) {
@@ -646,10 +646,10 @@ class RR_Block {
 	// ── Generic helper: find Article node and merge AI props ─────────────────
 
 	private static function merge_into_article_node( array &$nodes, int $post_id ): void {
-		$raw = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
+		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( empty( $raw ) ) return;
 
-		$summary  = RR_Generator::decode_summary( $raw );
+		$summary  = RNRD_Generator::decode_summary( $raw );
 		$ai_props = self::build_ai_schema_properties( $post_id, $summary );
 
 		$article_types = array( 'Article', 'BlogPosting', 'NewsArticle', 'TechArticle', 'ScholarlyArticle', 'Report' );
@@ -717,10 +717,10 @@ class RR_Block {
 		$post_id = get_queried_object_id();
 		if ( ! $post_id ) return $schema;
 
-		$raw = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
+		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( empty( $raw ) ) return $schema;
 
-		$summary  = RR_Generator::decode_summary( $raw );
+		$summary  = RNRD_Generator::decode_summary( $raw );
 		$ai_props = self::build_ai_schema_properties( $post_id, $summary );
 
 		// SEOPress passes the Article schema directly as an assoc array.
@@ -776,13 +776,13 @@ class RR_Block {
 		$post  = get_post( $post_id );
 
 		// ── 1. Speakable — voice search / Google Assistant ─────────────
-		if ( 'on' === get_option( RR_OPT_SCHEMA_SPEAKABLE, 'on' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_SCHEMA_SPEAKABLE, 'on' ) ) {
 			$speakable_selectors = array( 'h1', '.entry-title' );
-			if ( ! empty( get_post_meta( $post_id, RR_META_SUMMARY, true ) ) ) {
-				$speakable_selectors[] = '.rr-summary';
+			if ( ! empty( get_post_meta( $post_id, RNRD_META_SUMMARY, true ) ) ) {
+				$speakable_selectors[] = '.rnrd-summary';
 			}
-			if ( ! empty( get_post_meta( $post_id, RR_META_FAQ, true ) ) ) {
-				$speakable_selectors[] = '.rr-faq-wrapper';
+			if ( ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) ) ) {
+				$speakable_selectors[] = '.rnrd-faq-wrapper';
 			}
 			$props['speakable'] = array(
 				'@type'       => 'SpeakableSpecification',
@@ -797,18 +797,18 @@ class RR_Block {
 		// Omitting the property defaults to "freely accessible" per schema.org,
 		// which is exactly what we want.
 		if ( 'bullets' === $summary['type'] && is_array( $summary['data'] ) && ! empty( $summary['data'] ) ) {
-			$label = (string) get_option( RR_OPT_LABEL, 'Key Takeaways' );
+			$label = (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' );
 			$props['hasPart'] = array(
 				array(
 					'@type'       => 'WebPageElement',
-					'cssSelector' => '.rr-summary',
+					'cssSelector' => '.rnrd-summary',
 					'name'        => $label,
 					'text'        => implode( '. ', $summary['data'] ) . '.',
 				),
 			);
 
 			// Also add FAQ section as a hasPart if it exists.
-			$faq_data = get_post_meta( $post_id, RR_META_FAQ, true );
+			$faq_data = get_post_meta( $post_id, RNRD_META_FAQ, true );
 			if ( ! empty( $faq_data ) ) {
 				$faq_items = json_decode( $faq_data, true );
 				if ( is_array( $faq_items ) && ! empty( $faq_items ) ) {
@@ -821,7 +821,7 @@ class RR_Block {
 					if ( ! empty( $faq_text ) ) {
 						$props['hasPart'][] = array(
 							'@type'       => 'WebPageElement',
-							'cssSelector' => '.rr-faq-wrapper',
+							'cssSelector' => '.rnrd-faq-wrapper',
 							'name'        => 'Frequently Asked Questions',
 							'text'        => implode( ' ', $faq_text ),
 						);
@@ -1104,18 +1104,18 @@ class RR_Block {
 		$post = get_queried_object();
 		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) return;
 
-		$schema_type = (string) get_post_meta( $post->ID, RR_META_SCHEMA_TYPE, true );
+		$schema_type = (string) get_post_meta( $post->ID, RNRD_META_SCHEMA_TYPE, true );
 		if ( empty( $schema_type ) ) return;
 
 		// Check if the schema type is enabled.
-		if ( 'howto' === $schema_type && 'on' !== get_option( RR_OPT_SCHEMA_HOWTO, 'on' ) ) return;
-		if ( 'itemlist' === $schema_type && 'on' !== get_option( RR_OPT_SCHEMA_ITEMLIST, 'on' ) ) return;
+		if ( 'howto' === $schema_type && 'on' !== get_option( RNRD_OPT_SCHEMA_HOWTO, 'on' ) ) return;
+		if ( 'itemlist' === $schema_type && 'on' !== get_option( RNRD_OPT_SCHEMA_ITEMLIST, 'on' ) ) return;
 
 		// Apply developer filters.
 		if ( 'howto' === $schema_type && ! apply_filters( 'rankready_inject_howto_schema', true ) ) return;
 		if ( 'itemlist' === $schema_type && ! apply_filters( 'rankready_inject_itemlist_schema', true ) ) return;
 
-		$schema_data = get_post_meta( $post->ID, RR_META_SCHEMA_DATA, true );
+		$schema_data = get_post_meta( $post->ID, RNRD_META_SCHEMA_DATA, true );
 		if ( empty( $schema_data ) || ! is_array( $schema_data ) ) return;
 
 		// Allow developer customization.
@@ -1137,7 +1137,7 @@ class RR_Block {
 		if ( ! is_post_type_viewable( $post->post_type ) ) return;
 
 		// Delete the hash so cron picks it up for re-scanning.
-		delete_post_meta( $post_id, RR_META_SCHEMA_HASH );
+		delete_post_meta( $post_id, RNRD_META_SCHEMA_HASH );
 	}
 
 	/**
@@ -1146,7 +1146,7 @@ class RR_Block {
 	 * schema hash or whose content has changed since last scan.
 	 */
 	public static function cron_schema_scan(): void {
-		$batch_size = (int) get_option( RR_OPT_SCHEMA_BATCH_SIZE, 10 );
+		$batch_size = (int) get_option( RNRD_OPT_SCHEMA_BATCH_SIZE, 10 );
 		if ( $batch_size < 1 ) $batch_size = 1;
 		if ( $batch_size > 50 ) $batch_size = 50;
 
@@ -1174,7 +1174,7 @@ class RR_Block {
 			   AND (pm.meta_value IS NULL OR pm.meta_value = '')
 			 ORDER BY p.post_modified DESC
 			 LIMIT %d",
-			array_merge( array( RR_META_SCHEMA_HASH ), $post_types, array( $batch_size ) )
+			array_merge( array( RNRD_META_SCHEMA_HASH ), $post_types, array( $batch_size ) )
 		) );
 		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
@@ -1203,16 +1203,16 @@ class RR_Block {
 		$hash = md5( $title . '|' . $content );
 
 		// Check if already scanned with same content.
-		$stored_hash = (string) get_post_meta( $post_id, RR_META_SCHEMA_HASH, true );
+		$stored_hash = (string) get_post_meta( $post_id, RNRD_META_SCHEMA_HASH, true );
 		if ( $hash === $stored_hash ) {
-			return (string) get_post_meta( $post_id, RR_META_SCHEMA_TYPE, true );
+			return (string) get_post_meta( $post_id, RNRD_META_SCHEMA_TYPE, true );
 		}
 
 		$schema_type = '';
 		$schema_data = array();
 
 		// ── Try HowTo detection first ─────────────────────────────────────
-		if ( 'on' === get_option( RR_OPT_SCHEMA_HOWTO, 'on' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_SCHEMA_HOWTO, 'on' ) ) {
 			$schema_data = self::detect_howto_schema( $post );
 			if ( ! empty( $schema_data ) ) {
 				$schema_type = 'howto';
@@ -1220,7 +1220,7 @@ class RR_Block {
 		}
 
 		// ── Try ItemList if not HowTo ─────────────────────────────────────
-		if ( empty( $schema_type ) && 'on' === get_option( RR_OPT_SCHEMA_ITEMLIST, 'on' ) ) {
+		if ( empty( $schema_type ) && 'on' === get_option( RNRD_OPT_SCHEMA_ITEMLIST, 'on' ) ) {
 			$schema_data = self::detect_itemlist_schema( $post );
 			if ( ! empty( $schema_data ) ) {
 				$schema_type = 'itemlist';
@@ -1228,9 +1228,9 @@ class RR_Block {
 		}
 
 		// Store results (even empty — so we know it was scanned).
-		update_post_meta( $post_id, RR_META_SCHEMA_TYPE, $schema_type );
-		update_post_meta( $post_id, RR_META_SCHEMA_DATA, $schema_data );
-		update_post_meta( $post_id, RR_META_SCHEMA_HASH, $hash );
+		update_post_meta( $post_id, RNRD_META_SCHEMA_TYPE, $schema_type );
+		update_post_meta( $post_id, RNRD_META_SCHEMA_DATA, $schema_data );
+		update_post_meta( $post_id, RNRD_META_SCHEMA_HASH, $hash );
 
 		return $schema_type;
 	}
@@ -1282,9 +1282,9 @@ class RR_Block {
 		);
 
 		// Description from summary or excerpt.
-		$raw_summary = (string) get_post_meta( $post->ID, RR_META_SUMMARY, true );
+		$raw_summary = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
 		if ( ! empty( $raw_summary ) ) {
-			$summary = RR_Generator::decode_summary( $raw_summary );
+			$summary = RNRD_Generator::decode_summary( $raw_summary );
 			if ( 'bullets' === $summary['type'] && is_array( $summary['data'] ) ) {
 				$schema['description'] = implode( '. ', $summary['data'] ) . '.';
 			} elseif ( 'text' === $summary['type'] ) {
@@ -1391,7 +1391,7 @@ class RR_Block {
 			 WHERE p.post_status = 'publish'
 			   AND p.post_type IN ('post','page')
 			   AND (pm.meta_value IS NULL OR pm.meta_value = '')",
-			RR_META_SCHEMA_HASH
+			RNRD_META_SCHEMA_HASH
 		) );
 
 		// Recommendation logic.
@@ -1417,11 +1417,11 @@ class RR_Block {
 			'unscanned_posts'     => $unscanned,
 			'scanned_posts'       => $total_posts - $unscanned,
 			'recommended_batch'   => $recommended_batch,
-			'current_batch'       => (int) get_option( RR_OPT_SCHEMA_BATCH_SIZE, 10 ),
+			'current_batch'       => (int) get_option( RNRD_OPT_SCHEMA_BATCH_SIZE, 10 ),
 			'est_minutes'         => $minutes_to_complete,
-			'cron_next_run'       => wp_next_scheduled( RR_SCHEMA_CRON_HOOK )
-				? human_time_diff( time(), wp_next_scheduled( RR_SCHEMA_CRON_HOOK ) )
-				: __( 'Not scheduled', 'rankready' ),
+			'cron_next_run'       => wp_next_scheduled( RNRD_SCHEMA_CRON_HOOK )
+				? human_time_diff( time(), wp_next_scheduled( RNRD_SCHEMA_CRON_HOOK ) )
+				: __( 'Not scheduled', 'rankready-ai-llm-seo' ),
 			'server_tier'         => $memory_limit >= 512 * MB_IN_BYTES ? 'high' : ( $memory_limit >= 256 * MB_IN_BYTES ? 'mid' : 'low' ),
 		);
 	}

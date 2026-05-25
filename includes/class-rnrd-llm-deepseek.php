@@ -1,34 +1,34 @@
 <?php
 /**
- * RankReady — OpenAI provider.
+ * RankReady — DeepSeek provider.
  *
- * Implements the RR_LLM provider contract for the OpenAI Chat Completions
- * API (`POST https://api.openai.com/v1/chat/completions`).
+ * POST https://api.deepseek.com/v1/chat/completions
  *
- * Native JSON mode supported via `response_format: { type: "json_object" }`.
+ * DeepSeek's API is OpenAI-compatible — same Authorization header, same
+ * messages array shape, same usage metadata. Only the endpoint differs.
+ * Native JSON output via `response_format: { type: "json_object" }`.
  *
  * @package RankReady
  */
 defined( 'ABSPATH' ) || exit;
 
-class RR_LLM_OpenAI {
+class RNRD_LLM_DeepSeek {
 
-	const ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+	const ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
 
 	public static function generate( string $system, string $user, array $opts ): array {
-		$provider = RR_LLM::PROVIDER_OPENAI;
-		$model    = RR_LLM::get_model( $provider );
-		$api_key  = RR_LLM::get_api_key( $provider );
+		$provider = RNRD_LLM::PROVIDER_DEEPSEEK;
+		$model    = RNRD_LLM::get_model( $provider );
+		$api_key  = RNRD_LLM::get_api_key( $provider );
 
 		$body = array(
-			'model'             => $model,
-			'messages'          => array(
+			'model'       => $model,
+			'messages'    => array(
 				array( 'role' => 'system', 'content' => $system ),
 				array( 'role' => 'user',   'content' => $user ),
 			),
-			'max_tokens'        => (int) $opts['max_tokens'],
-			'temperature'       => (float) $opts['temperature'],
-			'frequency_penalty' => 0.3,
+			'max_tokens'  => (int) $opts['max_tokens'],
+			'temperature' => (float) $opts['temperature'],
 		);
 
 		if ( ! empty( $opts['json'] ) ) {
@@ -37,7 +37,7 @@ class RR_LLM_OpenAI {
 
 		$response = wp_remote_post( self::ENDPOINT, array(
 			'timeout'    => (int) $opts['timeout'],
-			'user-agent' => 'RankReady/' . RR_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
+			'user-agent' => 'RankReady/' . RNRD_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
 			'headers'    => array(
 				'Authorization' => 'Bearer ' . $api_key,
 				'Content-Type'  => 'application/json',
@@ -46,25 +46,25 @@ class RR_LLM_OpenAI {
 		) );
 
 		if ( is_wp_error( $response ) ) {
-			return RR_LLM::error_response( $provider, 'OpenAI HTTP error: ' . $response->get_error_message(), $model );
+			return RNRD_LLM::error_response( $provider, 'DeepSeek HTTP error: ' . $response->get_error_message(), $model );
 		}
 
 		$http = (int) wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $http ) {
 			$err = wp_remote_retrieve_body( $response );
-			return RR_LLM::error_response( $provider, 'OpenAI HTTP ' . $http . ': ' . mb_substr( (string) $err, 0, 300 ), $model );
+			return RNRD_LLM::error_response( $provider, 'DeepSeek HTTP ' . $http . ': ' . mb_substr( (string) $err, 0, 300 ), $model );
 		}
 
 		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
 		$content = isset( $decoded['choices'][0]['message']['content'] ) ? trim( (string) $decoded['choices'][0]['message']['content'] ) : '';
 
 		if ( '' === $content ) {
-			return RR_LLM::error_response( $provider, 'OpenAI returned empty content.', $model );
+			return RNRD_LLM::error_response( $provider, 'DeepSeek returned empty content.', $model );
 		}
 
 		$tokens_in  = isset( $decoded['usage']['prompt_tokens'] ) ? (int) $decoded['usage']['prompt_tokens'] : 0;
 		$tokens_out = isset( $decoded['usage']['completion_tokens'] ) ? (int) $decoded['usage']['completion_tokens'] : 0;
 
-		return RR_LLM::success_response( $provider, $model, $content, $tokens_in, $tokens_out );
+		return RNRD_LLM::success_response( $provider, $model, $content, $tokens_in, $tokens_out );
 	}
 }

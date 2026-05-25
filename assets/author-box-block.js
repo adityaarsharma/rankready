@@ -26,7 +26,7 @@
 	var Notice            = wp.components.Notice;
 	var useSelect         = wp.data.useSelect;
 
-	var rrData = window.rrBlockData || { defaults: {}, users: [] };
+	var rrData = window.rnrdBlockData || { defaults: {}, users: [] };
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 	function colorControl( label, value, onChange, help ) {
@@ -198,16 +198,16 @@
 				return select( 'core' ).getUser( resolvedId );
 			}, [ resolvedId ] );
 
-			// Fetch all rr_author_* meta via core/user store.
+			// Fetch all rnrd_author_* meta via core/user store.
 			var meta = author && author.meta ? author.meta : {};
 
 			var name = author ? author.name : '';
-			var suffix = meta.rr_author_credentials_suffix || '';
-			var jobTitle = meta.rr_author_job_title || '';
-			var employer = meta.rr_author_employer || '';
-			var bio = meta.rr_author_bio || ( author && author.description ) || '';
-			var headshot = meta.rr_author_headshot || ( author && author.avatar_urls ? author.avatar_urls[ '96' ] : '' );
-			var expertise = meta.rr_author_expertise || '';
+			var suffix = meta.rnrd_author_credentials_suffix || '';
+			var jobTitle = meta.rnrd_author_job_title || '';
+			var employer = meta.rnrd_author_employer || '';
+			var bio = meta.rnrd_author_bio || ( author && author.description ) || '';
+			var headshot = meta.rnrd_author_headshot || ( author && author.avatar_urls ? author.avatar_urls[ '96' ] : '' );
+			var expertise = meta.rnrd_author_expertise || '';
 
 			// Build preview styles from CSS vars.
 			var previewStyle = {};
@@ -248,7 +248,7 @@
 			if ( attrs.headingFontWeight ) headingStyle.fontWeight = attrs.headingFontWeight;
 
 			var blockProps = useBlockProps( {
-				className: 'rr-author-box rr-ab-' + ( attrs.layout || 'card' ) + ' rr-ab-editor',
+				className: 'rnrd-author-box rnrd-ab-' + ( attrs.layout || 'card' ) + ' rnrd-ab-editor',
 				style: previewStyle,
 			} );
 
@@ -430,25 +430,25 @@
 						'Loading author…'
 					),
 
-					author && el( 'div', { className: 'rr-ab-preview' },
-						attrs.showHeading && attrs.layout !== 'inline' && el( HeadingTag, { className: 'rr-ab-heading', style: headingStyle }, headingText ),
-						el( 'div', { className: 'rr-ab-inner' },
-							attrs.showHeadshot && headshot && el( 'div', { className: 'rr-ab-headshot' },
+					author && el( 'div', { className: 'rnrd-ab-preview' },
+						attrs.showHeading && attrs.layout !== 'inline' && el( HeadingTag, { className: 'rnrd-ab-heading', style: headingStyle }, headingText ),
+						el( 'div', { className: 'rnrd-ab-inner' },
+							attrs.showHeadshot && headshot && el( 'div', { className: 'rnrd-ab-headshot' },
 								el( 'img', { src: headshot, alt: name, style: imgStyle } )
 							),
-							el( 'div', { className: 'rr-ab-body' },
-								el( 'div', { className: 'rr-ab-name', style: nameStyle },
+							el( 'div', { className: 'rnrd-ab-body' },
+								el( 'div', { className: 'rnrd-ab-name', style: nameStyle },
 									name + ( suffix ? ', ' + suffix : '' )
 								),
 								( attrs.showJobTitle && jobTitle ) || ( attrs.showEmployer && employer )
-									? el( 'div', { className: 'rr-ab-meta', style: metaStyle },
+									? el( 'div', { className: 'rnrd-ab-meta', style: metaStyle },
 										[ attrs.showJobTitle && jobTitle, attrs.showEmployer && employer ].filter( Boolean ).join( ' · ' )
 									)
 									: null,
-								attrs.showBio && bio && attrs.layout !== 'inline' && el( 'p', { className: 'rr-ab-bio', style: bioStyle }, bio ),
-								attrs.showExpertise && expertise && attrs.layout === 'card' && el( 'div', { className: 'rr-ab-expertise' },
+								attrs.showBio && bio && attrs.layout !== 'inline' && el( 'p', { className: 'rnrd-ab-bio', style: bioStyle }, bio ),
+								attrs.showExpertise && expertise && attrs.layout === 'card' && el( 'div', { className: 'rnrd-ab-expertise' },
 									expertise.split( ',' ).map( function ( t, i ) {
-										return el( 'span', { className: 'rr-ab-topic', key: i }, t.trim() );
+										return el( 'span', { className: 'rnrd-ab-topic', key: i }, t.trim() );
 									} )
 								),
 								el( 'p', { style: { fontSize: '11px', opacity: 0.55, fontStyle: 'italic', margin: '8px 0 0' } },

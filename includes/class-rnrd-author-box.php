@@ -4,7 +4,7 @@
  *
  * Every profile field mapped here emits Schema.org Person data for EEAT.
  * When a major SEO plugin is active, the Person data is merged into its
- * existing schema graph via the filters in class-rr-block.php (rank_math/json_ld,
+ * existing schema graph via the filters in class-rnrd-block.php (rank_math/json_ld,
  * wpseo_schema_graph, aioseo_schema_output, …). When no SEO plugin is active,
  * this class emits a standalone Person node inline in Article.author on singular
  * views, plus an additional node on is_author() archive pages via wp_head.
@@ -14,41 +14,41 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Author_Box {
+class RNRD_Author_Box {
 
 	// ── All profile field meta keys (user meta) ──────────────────────────────
 	// Kept as a single map so register_meta(), render(), schema build, and
 	// uninstall all read from the same source of truth.
 	const META_KEYS = array(
 		// Identity & work.
-		'rr_author_job_title',
-		'rr_author_employer',
-		'rr_author_employer_url',
-		'rr_author_bio',
-		'rr_author_headshot',
-		'rr_author_headshot_alt',
+		'rnrd_author_job_title',
+		'rnrd_author_employer',
+		'rnrd_author_employer_url',
+		'rnrd_author_bio',
+		'rnrd_author_headshot',
+		'rnrd_author_headshot_alt',
 		// Experience.
-		'rr_author_started_year',
-		'rr_author_expertise',
+		'rnrd_author_started_year',
+		'rnrd_author_expertise',
 		// Credentials.
-		'rr_author_credentials_suffix',
-		'rr_author_education',          // repeater JSON
-		'rr_author_certifications',     // repeater JSON
-		'rr_author_memberships',        // repeater JSON
-		'rr_author_awards',             // repeater JSON
+		'rnrd_author_credentials_suffix',
+		'rnrd_author_education',          // repeater JSON
+		'rnrd_author_certifications',     // repeater JSON
+		'rnrd_author_memberships',        // repeater JSON
+		'rnrd_author_awards',             // repeater JSON
 		// Verified identity (priority sameAs).
-		'rr_author_wikidata',
-		'rr_author_wikipedia',
-		'rr_author_orcid',
-		'rr_author_scholar',
-		'rr_author_linkedin',
+		'rnrd_author_wikidata',
+		'rnrd_author_wikipedia',
+		'rnrd_author_orcid',
+		'rnrd_author_scholar',
+		'rnrd_author_linkedin',
 		// Social (lower priority sameAs).
-		'rr_author_github',
-		'rr_author_youtube',
-		'rr_author_twitter',
-		'rr_author_website',
+		'rnrd_author_github',
+		'rnrd_author_youtube',
+		'rnrd_author_twitter',
+		'rnrd_author_website',
 		// Contact.
-		'rr_author_contact_url',
+		'rnrd_author_contact_url',
 	);
 
 	// ── Init ──────────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ class RR_Author_Box {
 		add_action( 'personal_options_update',  array( self::class, 'save_profile_fields' ) );
 		add_action( 'edit_user_profile_update', array( self::class, 'save_profile_fields' ) );
 
-		// Block + widget — register server-side renderer (block registered in class-rr-block.php).
+		// Block + widget — register server-side renderer (block registered in class-rnrd-block.php).
 		// Auto-display via the_content.
 		add_filter( 'the_content', array( self::class, 'maybe_auto_display' ), 101 );
 
@@ -84,7 +84,7 @@ class RR_Author_Box {
 		add_filter( 'slim_seo_schema_graph',               array( self::class, 'merge_into_slim_seo' ), 100 );
 
 		// reviewedBy + lastReviewed into Article schema (all SEO plugins).
-		// Piggybacks on the existing RR_Block merge_into_article_node helper by providing data through filter.
+		// Piggybacks on the existing RNRD_Block merge_into_article_node helper by providing data through filter.
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -94,7 +94,7 @@ class RR_Author_Box {
 	public static function register_user_meta(): void {
 		$text_keys = array_diff(
 			self::META_KEYS,
-			array( 'rr_author_education', 'rr_author_certifications', 'rr_author_memberships', 'rr_author_awards', 'rr_author_bio' )
+			array( 'rnrd_author_education', 'rnrd_author_certifications', 'rnrd_author_memberships', 'rnrd_author_awards', 'rnrd_author_bio' )
 		);
 
 		foreach ( $text_keys as $key ) {
@@ -108,7 +108,7 @@ class RR_Author_Box {
 		}
 
 		// Bio = longer text.
-		register_meta( 'user', 'rr_author_bio', array(
+		register_meta( 'user', 'rnrd_author_bio', array(
 			'type'              => 'string',
 			'single'            => true,
 			'show_in_rest'      => true,
@@ -117,7 +117,7 @@ class RR_Author_Box {
 		) );
 
 		// Repeaters = JSON strings.
-		foreach ( array( 'rr_author_education', 'rr_author_certifications', 'rr_author_memberships', 'rr_author_awards' ) as $key ) {
+		foreach ( array( 'rnrd_author_education', 'rnrd_author_certifications', 'rnrd_author_memberships', 'rnrd_author_awards' ) as $key ) {
 			register_meta( 'user', $key, array(
 				'type'              => 'string',
 				'single'            => true,
@@ -134,33 +134,33 @@ class RR_Author_Box {
 		// appear in the REST API, don't show up in the block editor's document
 		// meta panel, and never clutter the post editor for users who don't
 		// have a formal review process.
-		if ( 'on' !== get_option( RR_OPT_AUTHOR_TRUST_ENABLE, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_AUTHOR_TRUST_ENABLE, 'off' ) ) {
 			return;
 		}
 
-		$post_types = (array) get_option( RR_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
+		$post_types = (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
 
 		foreach ( $post_types as $pt ) {
-			register_post_meta( $pt, RR_META_AUTHOR_FACT_CHECKED_BY, array(
+			register_post_meta( $pt, RNRD_META_AUTHOR_FACT_CHECKED_BY, array(
 				'type'          => 'integer',
 				'single'        => true,
 				'show_in_rest'  => true,
 				'auth_callback' => function () { return current_user_can( 'edit_posts' ); },
 			) );
-			register_post_meta( $pt, RR_META_AUTHOR_REVIEWED_BY, array(
+			register_post_meta( $pt, RNRD_META_AUTHOR_REVIEWED_BY, array(
 				'type'          => 'integer',
 				'single'        => true,
 				'show_in_rest'  => true,
 				'auth_callback' => function () { return current_user_can( 'edit_posts' ); },
 			) );
-			register_post_meta( $pt, RR_META_AUTHOR_LAST_REVIEWED, array(
+			register_post_meta( $pt, RNRD_META_AUTHOR_LAST_REVIEWED, array(
 				'type'              => 'string',
 				'single'            => true,
 				'show_in_rest'      => true,
 				'sanitize_callback' => array( self::class, 'sanitize_date' ),
 				'auth_callback'     => function () { return current_user_can( 'edit_posts' ); },
 			) );
-			register_post_meta( $pt, RR_META_AUTHOR_DISABLE, array(
+			register_post_meta( $pt, RNRD_META_AUTHOR_DISABLE, array(
 				'type'          => 'boolean',
 				'single'        => true,
 				'show_in_rest'  => true,
@@ -225,21 +225,21 @@ class RR_Author_Box {
 			return (string) get_user_meta( $user->ID, $key, true );
 		};
 
-		$education     = self::decode_repeater( $m( 'rr_author_education' ) );
-		$certifications = self::decode_repeater( $m( 'rr_author_certifications' ) );
-		$memberships   = self::decode_repeater( $m( 'rr_author_memberships' ) );
-		$awards        = self::decode_repeater( $m( 'rr_author_awards' ) );
+		$education     = self::decode_repeater( $m( 'rnrd_author_education' ) );
+		$certifications = self::decode_repeater( $m( 'rnrd_author_certifications' ) );
+		$memberships   = self::decode_repeater( $m( 'rnrd_author_memberships' ) );
+		$awards        = self::decode_repeater( $m( 'rnrd_author_awards' ) );
 
-		wp_nonce_field( 'rr_save_author_box', 'rr_author_box_nonce' );
+		wp_nonce_field( 'rnrd_save_author_box', 'rnrd_author_box_nonce' );
 
-		$profile_is_pro = function_exists( 'rr_is_pro' ) && rr_is_pro();
+		$profile_is_pro = function_exists( 'rnrd_is_pro' ) && rnrd_is_pro();
 		?>
-		<h2 id="rr-author-box"><?php esc_html_e( 'RankReady Author Box', 'rankready' ); ?></h2>
+		<h2 id="rnrd-author-box"><?php esc_html_e( 'RankReady Author Box', 'rankready-ai-llm-seo' ); ?></h2>
 		<p class="description" style="max-width:780px;">
 			<?php if ( $profile_is_pro ) : ?>
-			<?php esc_html_e( 'Every field below emits Schema.org Person data for Google EEAT and AI citation (ChatGPT, Perplexity, Google AI Overviews). Fill in only what applies. RankReady merges into Rank Math / Yoast / AIOSEO Person schema automatically when those plugins are active.', 'rankready' ); ?>
+			<?php esc_html_e( 'Every field below emits Schema.org Person data for Google EEAT and AI citation (ChatGPT, Perplexity, Google AI Overviews). Fill in only what applies. RankReady merges into Rank Math / Yoast / AIOSEO Person schema automatically when those plugins are active.', 'rankready-ai-llm-seo' ); ?>
 			<?php else : ?>
-			<?php esc_html_e( 'Fill in your basic profile below — these fields power the Author Box display. Full Person JSON-LD schema (credentials, Wikidata, ORCID, sameAs) is coming in RankReady Pro.', 'rankready' ); ?>
+			<?php esc_html_e( 'Fill in your basic profile below — these fields power the Author Box display. Extended Person JSON-LD schema (credentials, Wikidata, ORCID, sameAs) is Coming Soon.', 'rankready-ai-llm-seo' ); ?>
 			<?php endif; ?>
 		</p>
 
@@ -247,76 +247,76 @@ class RR_Author_Box {
 
 			<!-- ── Identity & Work — FREE ───────────────────────────────────── -->
 			<tr><th colspan="2">
-				<h3 style="margin:16px 0 0;"><?php esc_html_e( 'Identity & Work', 'rankready' ); ?></h3>
+				<h3 style="margin:16px 0 0;"><?php esc_html_e( 'Identity & Work', 'rankready-ai-llm-seo' ); ?></h3>
 				<?php if ( ! $profile_is_pro ) : ?>
-				<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#00a32a;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'FREE', 'rankready' ); ?></span>
+				<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#00a32a;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'FREE', 'rankready-ai-llm-seo' ); ?></span>
 				<?php endif; ?>
 			</th></tr>
 
 			<tr>
-				<th><label for="rr_author_job_title"><?php esc_html_e( 'Job Title', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_job_title"><?php esc_html_e( 'Job Title', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="text" name="rr_author_job_title" id="rr_author_job_title" value="<?php echo esc_attr( $m( 'rr_author_job_title' ) ); ?>" class="regular-text" />
-					<p class="description"><?php esc_html_e( 'Your professional role. Emits as Person.jobTitle — a primary EEAT signal.', 'rankready' ); ?></p>
+					<input type="text" name="rnrd_author_job_title" id="rnrd_author_job_title" value="<?php echo esc_attr( $m( 'rnrd_author_job_title' ) ); ?>" class="regular-text" />
+					<p class="description"><?php esc_html_e( 'Your professional role. Emits as Person.jobTitle — a primary EEAT signal.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_employer"><?php esc_html_e( 'Employer / Company', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_employer"><?php esc_html_e( 'Employer / Company', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="text" name="rr_author_employer" id="rr_author_employer" value="<?php echo esc_attr( $m( 'rr_author_employer' ) ); ?>" class="regular-text" />
-					<p class="description"><?php esc_html_e( 'Organization you work for. Emits as Person.worksFor → Organization entity.', 'rankready' ); ?></p>
+					<input type="text" name="rnrd_author_employer" id="rnrd_author_employer" value="<?php echo esc_attr( $m( 'rnrd_author_employer' ) ); ?>" class="regular-text" />
+					<p class="description"><?php esc_html_e( 'Organization you work for. Emits as Person.worksFor → Organization entity.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_employer_url"><?php esc_html_e( 'Employer URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_employer_url"><?php esc_html_e( 'Employer URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_employer_url" id="rr_author_employer_url" value="<?php echo esc_attr( $m( 'rr_author_employer_url' ) ); ?>" class="regular-text" placeholder="https://" />
-					<p class="description"><?php esc_html_e( 'Organization website. Emits as Person.worksFor.url — connects your author entity to the org entity.', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_employer_url" id="rnrd_author_employer_url" value="<?php echo esc_attr( $m( 'rnrd_author_employer_url' ) ); ?>" class="regular-text" placeholder="https://" />
+					<p class="description"><?php esc_html_e( 'Organization website. Emits as Person.worksFor.url — connects your author entity to the org entity.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_bio"><?php esc_html_e( 'Bio', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_bio"><?php esc_html_e( 'Bio', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<textarea name="rr_author_bio" id="rr_author_bio" rows="4" class="large-text" maxlength="500"><?php echo esc_textarea( $m( 'rr_author_bio' ) ); ?></textarea>
-					<p class="description"><?php esc_html_e( 'Short professional bio (max 500 chars). Emits as Person.description. Keep it factual — AI systems extract this verbatim.', 'rankready' ); ?></p>
+					<textarea name="rnrd_author_bio" id="rnrd_author_bio" rows="4" class="large-text" maxlength="500"><?php echo esc_textarea( $m( 'rnrd_author_bio' ) ); ?></textarea>
+					<p class="description"><?php esc_html_e( 'Short professional bio (max 500 chars). Emits as Person.description. Keep it factual — AI systems extract this verbatim.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_headshot"><?php esc_html_e( 'Headshot URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_headshot"><?php esc_html_e( 'Headshot URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_headshot" id="rr_author_headshot" value="<?php echo esc_attr( $m( 'rr_author_headshot' ) ); ?>" class="regular-text" placeholder="https://" />
-					<button type="button" class="button rr-media-picker" data-target="rr_author_headshot"><?php esc_html_e( 'Select Image', 'rankready' ); ?></button>
-					<p class="description"><?php esc_html_e( 'Real photo, square, at least 400x400px. Emits as Person.image. Avoid avatars and stock photos — AI Overviews favor verifiable faces.', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_headshot" id="rnrd_author_headshot" value="<?php echo esc_attr( $m( 'rnrd_author_headshot' ) ); ?>" class="regular-text" placeholder="https://" />
+					<button type="button" class="button rnrd-media-picker" data-target="rnrd_author_headshot"><?php esc_html_e( 'Select Image', 'rankready-ai-llm-seo' ); ?></button>
+					<p class="description"><?php esc_html_e( 'Real photo, square, at least 400x400px. Emits as Person.image. Avoid avatars and stock photos — AI Overviews favor verifiable faces.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_headshot_alt"><?php esc_html_e( 'Headshot Alt Text', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_headshot_alt"><?php esc_html_e( 'Headshot Alt Text', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="text" name="rr_author_headshot_alt" id="rr_author_headshot_alt" value="<?php echo esc_attr( $m( 'rr_author_headshot_alt' ) ); ?>" class="regular-text" />
-					<p class="description"><?php esc_html_e( 'Accessibility text. Typically "Photo of [Your Name]".', 'rankready' ); ?></p>
+					<input type="text" name="rnrd_author_headshot_alt" id="rnrd_author_headshot_alt" value="<?php echo esc_attr( $m( 'rnrd_author_headshot_alt' ) ); ?>" class="regular-text" />
+					<p class="description"><?php esc_html_e( 'Accessibility text. Typically "Photo of [Your Name]".', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 
 			<!-- ── Experience — FREE ───────────────────────────────────────── -->
 			<tr><th colspan="2">
-				<h3 style="margin:24px 0 0;"><?php esc_html_e( 'Experience', 'rankready' ); ?></h3>
+				<h3 style="margin:24px 0 0;"><?php esc_html_e( 'Experience', 'rankready-ai-llm-seo' ); ?></h3>
 				<?php if ( ! $profile_is_pro ) : ?>
-				<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#00a32a;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'FREE', 'rankready' ); ?></span>
+				<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#00a32a;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'FREE', 'rankready-ai-llm-seo' ); ?></span>
 				<?php endif; ?>
 			</th></tr>
 
 			<tr>
-				<th><label for="rr_author_started_year"><?php esc_html_e( 'Started in Field (Year)', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_started_year"><?php esc_html_e( 'Started in Field (Year)', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="number" name="rr_author_started_year" id="rr_author_started_year" value="<?php echo esc_attr( $m( 'rr_author_started_year' ) ); ?>" min="1950" max="<?php echo (int) gmdate( 'Y' ); ?>" class="small-text" />
-					<p class="description"><?php esc_html_e( 'Year you started working in this field. RankReady auto-calculates years of experience from this — verifiable, not a vanity counter.', 'rankready' ); ?></p>
+					<input type="number" name="rnrd_author_started_year" id="rnrd_author_started_year" value="<?php echo esc_attr( $m( 'rnrd_author_started_year' ) ); ?>" min="1950" max="<?php echo (int) gmdate( 'Y' ); ?>" class="small-text" />
+					<p class="description"><?php esc_html_e( 'Year you started working in this field. RankReady auto-calculates years of experience from this — verifiable, not a vanity counter.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_expertise"><?php esc_html_e( 'Topics of Expertise', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_expertise"><?php esc_html_e( 'Topics of Expertise', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="text" name="rr_author_expertise" id="rr_author_expertise" value="<?php echo esc_attr( $m( 'rr_author_expertise' ) ); ?>" class="large-text" placeholder="WordPress, Elementor, SEO, …" />
-					<p class="description"><?php esc_html_e( 'Comma-separated topics. Emits as Person.knowsAbout[] — the highest-signal field for LLM topical clustering. Use 3–8 specific topics.', 'rankready' ); ?></p>
+					<input type="text" name="rnrd_author_expertise" id="rnrd_author_expertise" value="<?php echo esc_attr( $m( 'rnrd_author_expertise' ) ); ?>" class="large-text" placeholder="WordPress, Elementor, SEO, …" />
+					<p class="description"><?php esc_html_e( 'Comma-separated topics. Emits as Person.knowsAbout[] — the highest-signal field for LLM topical clustering. Use 3–8 specific topics.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 
@@ -327,9 +327,9 @@ class RR_Author_Box {
 					<div style="display:grid;grid-template-columns:24px 1fr;column-gap:14px;align-items:start;border:1px solid #e5e5e5;border-left:3px solid #1d2327;border-radius:4px;padding:16px 20px;background:#fff;min-height:72px;box-sizing:border-box;">
 						<span class="dashicons dashicons-lock" style="font-size:18px;width:18px;height:18px;color:#8c8f94;margin-top:2px;" aria-hidden="true"></span>
 						<div style="min-width:0;">
-							<strong style="font-size:13px;font-weight:600;color:#1d2327;display:inline-flex;align-items:center;gap:8px;line-height:1.4;"><?php esc_html_e( 'Full EEAT Schema', 'rankready' ); ?> <span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#1d2327;padding:2px 6px;border-radius:3px;">PRO</span></strong>
-							<p style="margin:6px 0 0;color:#646970;font-size:12px;line-height:1.55;"><?php esc_html_e( 'Credentials, Verified Identity (Wikidata, ORCID, LinkedIn), Social sameAs links, and Contact — these fields will emit Person JSON-LD that AI systems use to verify authorship and increase citation probability.', 'rankready' ); ?></p>
-							<span style="display:inline-block;margin-top:8px;font-size:11px;color:#9a6700;font-style:italic;letter-spacing:.01em;"><?php esc_html_e( 'Launching with RankReady Pro.', 'rankready' ); ?></span>
+							<strong style="font-size:13px;font-weight:600;color:#1d2327;display:inline-flex;align-items:center;gap:8px;line-height:1.4;"><?php esc_html_e( 'Full EEAT Schema', 'rankready-ai-llm-seo' ); ?> <span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#1d2327;padding:2px 6px;border-radius:3px;"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></strong>
+							<p style="margin:6px 0 0;color:#646970;font-size:12px;line-height:1.55;"><?php esc_html_e( 'Credentials, Verified Identity (Wikidata, ORCID, LinkedIn), Social sameAs links, and Contact — these fields will emit Person JSON-LD that AI systems use to verify authorship and increase citation probability.', 'rankready-ai-llm-seo' ); ?></p>
+							<span style="display:inline-block;margin-top:8px;font-size:11px;color:#9a6700;font-style:italic;letter-spacing:.01em;"><?php esc_html_e( 'Planned for a future release.', 'rankready-ai-llm-seo' ); ?></span>
 						</div>
 					</div>
 				</td>
@@ -338,141 +338,141 @@ class RR_Author_Box {
 
 			<!-- ── Credentials ─────────────────────────────────────────────── -->
 			<?php if ( $profile_is_pro ) : ?>
-			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Credentials', 'rankready' ); ?> <span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#1d2327;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'PRO', 'rankready' ); ?></span></h3></th></tr>
+			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Credentials', 'rankready-ai-llm-seo' ); ?> <span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#1d2327;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'PRO', 'rankready-ai-llm-seo' ); ?></span></h3></th></tr>
 			<?php endif; ?>
 			<?php if ( $profile_is_pro ) : ?>
 
 			<tr>
-				<th><label for="rr_author_credentials_suffix"><?php esc_html_e( 'Credentials Suffix', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_credentials_suffix"><?php esc_html_e( 'Credentials Suffix', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="text" name="rr_author_credentials_suffix" id="rr_author_credentials_suffix" value="<?php echo esc_attr( $m( 'rr_author_credentials_suffix' ) ); ?>" class="regular-text" placeholder="MD, PhD, MPH" />
-					<p class="description"><?php esc_html_e( 'Post-nominal letters displayed next to your name in the author box (e.g. "Jane Smith, MD"). Not required.', 'rankready' ); ?></p>
+					<input type="text" name="rnrd_author_credentials_suffix" id="rnrd_author_credentials_suffix" value="<?php echo esc_attr( $m( 'rnrd_author_credentials_suffix' ) ); ?>" class="regular-text" placeholder="MD, PhD, MPH" />
+					<p class="description"><?php esc_html_e( 'Post-nominal letters displayed next to your name in the author box (e.g. "Jane Smith, MD"). Not required.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><?php esc_html_e( 'Education', 'rankready' ); ?></th>
+				<th><?php esc_html_e( 'Education', 'rankready-ai-llm-seo' ); ?></th>
 				<td>
-					<div class="rr-repeater" data-repeater="education" data-fields="degree,institution,year">
+					<div class="rnrd-repeater" data-repeater="education" data-fields="degree,institution,year">
 						<?php self::render_repeater_rows( $education, array( 'degree' => 'Degree (e.g. MSc Computer Science)', 'institution' => 'Institution', 'year' => 'Year' ) ); ?>
 					</div>
-					<input type="hidden" name="rr_author_education" value="<?php echo esc_attr( wp_json_encode( $education ) ); ?>" />
-					<button type="button" class="button rr-repeater-add" data-target="education"><?php esc_html_e( '+ Add Education', 'rankready' ); ?></button>
-					<p class="description"><?php esc_html_e( 'Degrees and academic qualifications. Each row emits as Person.alumniOf[] + hasCredential[] (credentialCategory: degree).', 'rankready' ); ?></p>
+					<input type="hidden" name="rnrd_author_education" value="<?php echo esc_attr( wp_json_encode( $education ) ); ?>" />
+					<button type="button" class="button rnrd-repeater-add" data-target="education"><?php esc_html_e( '+ Add Education', 'rankready-ai-llm-seo' ); ?></button>
+					<p class="description"><?php esc_html_e( 'Degrees and academic qualifications. Each row emits as Person.alumniOf[] + hasCredential[] (credentialCategory: degree).', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><?php esc_html_e( 'Certifications', 'rankready' ); ?></th>
+				<th><?php esc_html_e( 'Certifications', 'rankready-ai-llm-seo' ); ?></th>
 				<td>
-					<div class="rr-repeater" data-repeater="certifications" data-fields="name,issuer,year,url">
+					<div class="rnrd-repeater" data-repeater="certifications" data-fields="name,issuer,year,url">
 						<?php self::render_repeater_rows( $certifications, array( 'name' => 'Certification Name', 'issuer' => 'Issuing Body', 'year' => 'Year', 'url' => 'Verify URL' ) ); ?>
 					</div>
-					<input type="hidden" name="rr_author_certifications" value="<?php echo esc_attr( wp_json_encode( $certifications ) ); ?>" />
-					<button type="button" class="button rr-repeater-add" data-target="certifications"><?php esc_html_e( '+ Add Certification', 'rankready' ); ?></button>
-					<p class="description"><?php esc_html_e( 'Professional certifications with issuer and verify URL. Emits as Person.hasCredential[] (credentialCategory: certification).', 'rankready' ); ?></p>
+					<input type="hidden" name="rnrd_author_certifications" value="<?php echo esc_attr( wp_json_encode( $certifications ) ); ?>" />
+					<button type="button" class="button rnrd-repeater-add" data-target="certifications"><?php esc_html_e( '+ Add Certification', 'rankready-ai-llm-seo' ); ?></button>
+					<p class="description"><?php esc_html_e( 'Professional certifications with issuer and verify URL. Emits as Person.hasCredential[] (credentialCategory: certification).', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><?php esc_html_e( 'Memberships', 'rankready' ); ?></th>
+				<th><?php esc_html_e( 'Memberships', 'rankready-ai-llm-seo' ); ?></th>
 				<td>
-					<div class="rr-repeater" data-repeater="memberships" data-fields="name,url">
+					<div class="rnrd-repeater" data-repeater="memberships" data-fields="name,url">
 						<?php self::render_repeater_rows( $memberships, array( 'name' => 'Organization Name', 'url' => 'Organization URL' ) ); ?>
 					</div>
-					<input type="hidden" name="rr_author_memberships" value="<?php echo esc_attr( wp_json_encode( $memberships ) ); ?>" />
-					<button type="button" class="button rr-repeater-add" data-target="memberships"><?php esc_html_e( '+ Add Membership', 'rankready' ); ?></button>
-					<p class="description"><?php esc_html_e( 'Professional associations (SPJ, AMA, IEEE, W3C, …). Emits as Person.memberOf[].', 'rankready' ); ?></p>
+					<input type="hidden" name="rnrd_author_memberships" value="<?php echo esc_attr( wp_json_encode( $memberships ) ); ?>" />
+					<button type="button" class="button rnrd-repeater-add" data-target="memberships"><?php esc_html_e( '+ Add Membership', 'rankready-ai-llm-seo' ); ?></button>
+					<p class="description"><?php esc_html_e( 'Professional associations (SPJ, AMA, IEEE, W3C, …). Emits as Person.memberOf[].', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><?php esc_html_e( 'Awards', 'rankready' ); ?></th>
+				<th><?php esc_html_e( 'Awards', 'rankready-ai-llm-seo' ); ?></th>
 				<td>
-					<div class="rr-repeater" data-repeater="awards" data-fields="name,year">
+					<div class="rnrd-repeater" data-repeater="awards" data-fields="name,year">
 						<?php self::render_repeater_rows( $awards, array( 'name' => 'Award Name', 'year' => 'Year' ) ); ?>
 					</div>
-					<input type="hidden" name="rr_author_awards" value="<?php echo esc_attr( wp_json_encode( $awards ) ); ?>" />
-					<button type="button" class="button rr-repeater-add" data-target="awards"><?php esc_html_e( '+ Add Award', 'rankready' ); ?></button>
-					<p class="description"><?php esc_html_e( 'Professional recognition. Emits as Person.award[].', 'rankready' ); ?></p>
+					<input type="hidden" name="rnrd_author_awards" value="<?php echo esc_attr( wp_json_encode( $awards ) ); ?>" />
+					<button type="button" class="button rnrd-repeater-add" data-target="awards"><?php esc_html_e( '+ Add Award', 'rankready-ai-llm-seo' ); ?></button>
+					<p class="description"><?php esc_html_e( 'Professional recognition. Emits as Person.award[].', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 
 			<!-- ── Verified Identity (Priority sameAs) ─────────────────────── -->
-			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Verified Identity (priority sameAs)', 'rankready' ); ?></h3></th></tr>
+			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Verified Identity (priority sameAs)', 'rankready-ai-llm-seo' ); ?></h3></th></tr>
 
 			<tr>
-				<th><label for="rr_author_wikidata"><?php esc_html_e( 'Wikidata QID', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_wikidata"><?php esc_html_e( 'Wikidata QID', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="text" name="rr_author_wikidata" id="rr_author_wikidata" value="<?php echo esc_attr( $m( 'rr_author_wikidata' ) ); ?>" class="regular-text" placeholder="Q12345" />
-					<p class="description"><?php esc_html_e( 'Your Wikidata identifier if you have one (format: Q12345). Highest-priority sameAs — the canonical entity URI LLMs actually reuse.', 'rankready' ); ?></p>
+					<input type="text" name="rnrd_author_wikidata" id="rnrd_author_wikidata" value="<?php echo esc_attr( $m( 'rnrd_author_wikidata' ) ); ?>" class="regular-text" placeholder="Q12345" />
+					<p class="description"><?php esc_html_e( 'Your Wikidata identifier if you have one (format: Q12345). Highest-priority sameAs — the canonical entity URI LLMs actually reuse.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_wikipedia"><?php esc_html_e( 'Wikipedia URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_wikipedia"><?php esc_html_e( 'Wikipedia URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_wikipedia" id="rr_author_wikipedia" value="<?php echo esc_attr( $m( 'rr_author_wikipedia' ) ); ?>" class="regular-text" placeholder="https://en.wikipedia.org/wiki/…" />
-					<p class="description"><?php esc_html_e( 'Wikipedia article URL about you, if one exists. Emits early in sameAs[] — strong entity anchor for Google and LLMs.', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_wikipedia" id="rnrd_author_wikipedia" value="<?php echo esc_attr( $m( 'rnrd_author_wikipedia' ) ); ?>" class="regular-text" placeholder="https://en.wikipedia.org/wiki/…" />
+					<p class="description"><?php esc_html_e( 'Wikipedia article URL about you, if one exists. Emits early in sameAs[] — strong entity anchor for Google and LLMs.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_orcid"><?php esc_html_e( 'ORCID iD', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_orcid"><?php esc_html_e( 'ORCID iD', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="text" name="rr_author_orcid" id="rr_author_orcid" value="<?php echo esc_attr( $m( 'rr_author_orcid' ) ); ?>" class="regular-text" placeholder="0000-0000-0000-0000" />
-					<p class="description"><?php esc_html_e( 'ORCID identifier (academic ID). Emits both as sameAs (orcid.org URL) and as identifier PropertyValue — dual emission improves disambiguation.', 'rankready' ); ?></p>
+					<input type="text" name="rnrd_author_orcid" id="rnrd_author_orcid" value="<?php echo esc_attr( $m( 'rnrd_author_orcid' ) ); ?>" class="regular-text" placeholder="0000-0000-0000-0000" />
+					<p class="description"><?php esc_html_e( 'ORCID identifier (academic ID). Emits both as sameAs (orcid.org URL) and as identifier PropertyValue — dual emission improves disambiguation.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_scholar"><?php esc_html_e( 'Google Scholar URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_scholar"><?php esc_html_e( 'Google Scholar URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_scholar" id="rr_author_scholar" value="<?php echo esc_attr( $m( 'rr_author_scholar' ) ); ?>" class="regular-text" placeholder="https://scholar.google.com/citations?user=…" />
-					<p class="description"><?php esc_html_e( 'Google Scholar profile. Emits in sameAs[] — academic authority signal.', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_scholar" id="rnrd_author_scholar" value="<?php echo esc_attr( $m( 'rnrd_author_scholar' ) ); ?>" class="regular-text" placeholder="https://scholar.google.com/citations?user=…" />
+					<p class="description"><?php esc_html_e( 'Google Scholar profile. Emits in sameAs[] — academic authority signal.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_linkedin"><?php esc_html_e( 'LinkedIn URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_linkedin"><?php esc_html_e( 'LinkedIn URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_linkedin" id="rr_author_linkedin" value="<?php echo esc_attr( $m( 'rr_author_linkedin' ) ); ?>" class="regular-text" placeholder="https://www.linkedin.com/in/…" />
-					<p class="description"><?php esc_html_e( 'LinkedIn profile. Perplexity explicitly weights authors with verifiable LinkedIn — this is the single most important social signal for AI citation.', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_linkedin" id="rnrd_author_linkedin" value="<?php echo esc_attr( $m( 'rnrd_author_linkedin' ) ); ?>" class="regular-text" placeholder="https://www.linkedin.com/in/…" />
+					<p class="description"><?php esc_html_e( 'LinkedIn profile. Perplexity explicitly weights authors with verifiable LinkedIn — this is the single most important social signal for AI citation.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 
 			<!-- ── Social (Lower Priority sameAs) ──────────────────────────── -->
-			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Social', 'rankready' ); ?></h3></th></tr>
+			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Social', 'rankready-ai-llm-seo' ); ?></h3></th></tr>
 
 			<tr>
-				<th><label for="rr_author_github"><?php esc_html_e( 'GitHub URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_github"><?php esc_html_e( 'GitHub URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_github" id="rr_author_github" value="<?php echo esc_attr( $m( 'rr_author_github' ) ); ?>" class="regular-text" placeholder="https://github.com/…" />
-					<p class="description"><?php esc_html_e( 'GitHub profile. Emits in sameAs[] — technical authority signal.', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_github" id="rnrd_author_github" value="<?php echo esc_attr( $m( 'rnrd_author_github' ) ); ?>" class="regular-text" placeholder="https://github.com/…" />
+					<p class="description"><?php esc_html_e( 'GitHub profile. Emits in sameAs[] — technical authority signal.', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_youtube"><?php esc_html_e( 'YouTube URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_youtube"><?php esc_html_e( 'YouTube URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_youtube" id="rr_author_youtube" value="<?php echo esc_attr( $m( 'rr_author_youtube' ) ); ?>" class="regular-text" placeholder="https://www.youtube.com/@…" />
-					<p class="description"><?php esc_html_e( 'YouTube channel. Emits in sameAs[].', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_youtube" id="rnrd_author_youtube" value="<?php echo esc_attr( $m( 'rnrd_author_youtube' ) ); ?>" class="regular-text" placeholder="https://www.youtube.com/@…" />
+					<p class="description"><?php esc_html_e( 'YouTube channel. Emits in sameAs[].', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_twitter"><?php esc_html_e( 'X / Twitter URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_twitter"><?php esc_html_e( 'X / Twitter URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_twitter" id="rr_author_twitter" value="<?php echo esc_attr( $m( 'rr_author_twitter' ) ); ?>" class="regular-text" placeholder="https://x.com/…" />
-					<p class="description"><?php esc_html_e( 'X (Twitter) profile. Emits in sameAs[].', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_twitter" id="rnrd_author_twitter" value="<?php echo esc_attr( $m( 'rnrd_author_twitter' ) ); ?>" class="regular-text" placeholder="https://x.com/…" />
+					<p class="description"><?php esc_html_e( 'X (Twitter) profile. Emits in sameAs[].', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<tr>
-				<th><label for="rr_author_website"><?php esc_html_e( 'Personal Website URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_website"><?php esc_html_e( 'Personal Website URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_website" id="rr_author_website" value="<?php echo esc_attr( $m( 'rr_author_website' ) ); ?>" class="regular-text" placeholder="https://" />
-					<p class="description"><?php esc_html_e( 'Your personal or portfolio site. Emits in sameAs[].', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_website" id="rnrd_author_website" value="<?php echo esc_attr( $m( 'rnrd_author_website' ) ); ?>" class="regular-text" placeholder="https://" />
+					<p class="description"><?php esc_html_e( 'Your personal or portfolio site. Emits in sameAs[].', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 
 			<!-- ── Contact ─────────────────────────────────────────────────── -->
-			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Contact', 'rankready' ); ?></h3></th></tr>
+			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Contact', 'rankready-ai-llm-seo' ); ?></h3></th></tr>
 
 			<tr>
-				<th><label for="rr_author_contact_url"><?php esc_html_e( 'Contact Form URL', 'rankready' ); ?></label></th>
+				<th><label for="rnrd_author_contact_url"><?php esc_html_e( 'Contact Form URL', 'rankready-ai-llm-seo' ); ?></label></th>
 				<td>
-					<input type="url" name="rr_author_contact_url" id="rr_author_contact_url" value="<?php echo esc_attr( $m( 'rr_author_contact_url' ) ); ?>" class="regular-text" placeholder="https://" />
-					<p class="description"><?php esc_html_e( 'Contact form page URL. Emits as Person.contactPoint — preferred over raw email (zero scrape risk).', 'rankready' ); ?></p>
+					<input type="url" name="rnrd_author_contact_url" id="rnrd_author_contact_url" value="<?php echo esc_attr( $m( 'rnrd_author_contact_url' ) ); ?>" class="regular-text" placeholder="https://" />
+					<p class="description"><?php esc_html_e( 'Contact form page URL. Emits as Person.contactPoint — preferred over raw email (zero scrape risk).', 'rankready-ai-llm-seo' ); ?></p>
 				</td>
 			</tr>
 			<?php endif; // profile_is_pro — credentials + verified identity + social + contact ?>
@@ -484,7 +484,7 @@ class RR_Author_Box {
 			function syncHidden(repeater){
 				var key = repeater.getAttribute('data-repeater');
 				var fields = repeater.getAttribute('data-fields').split(',');
-				var rows = repeater.querySelectorAll('.rr-repeater-row');
+				var rows = repeater.querySelectorAll('.rnrd-repeater-row');
 				var data = [];
 				for (var i = 0; i < rows.length; i++) {
 					var row = {};
@@ -498,13 +498,13 @@ class RR_Author_Box {
 					}
 					if (has) data.push(row);
 				}
-				var hidden = document.querySelector('input[name="rr_author_' + key + '"]');
+				var hidden = document.querySelector('input[name="rnrd_author_' + key + '"]');
 				if (hidden) hidden.value = JSON.stringify(data);
 			}
 
 			function makeRow(fields, values){
 				var row = document.createElement('div');
-				row.className = 'rr-repeater-row';
+				row.className = 'rnrd-repeater-row';
 				row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center;';
 				for (var i = 0; i < fields.length; i++) {
 					var f = fields[i].trim();
@@ -523,16 +523,16 @@ class RR_Author_Box {
 				del.style.cssText = 'min-width:32px;';
 				del.addEventListener('click', function(){
 					row.parentNode.removeChild(row);
-					syncHidden(row.parentNode || document.querySelector('.rr-repeater'));
+					syncHidden(row.parentNode || document.querySelector('.rnrd-repeater'));
 				});
 				row.appendChild(del);
 				return row;
 			}
 
-			document.querySelectorAll('.rr-repeater-add').forEach(function(btn){
+			document.querySelectorAll('.rnrd-repeater-add').forEach(function(btn){
 				btn.addEventListener('click', function(){
 					var key = btn.getAttribute('data-target');
-					var repeater = document.querySelector('.rr-repeater[data-repeater="' + key + '"]');
+					var repeater = document.querySelector('.rnrd-repeater[data-repeater="' + key + '"]');
 					if (!repeater) return;
 					var fields = repeater.getAttribute('data-fields').split(',');
 					var row = makeRow(fields, {});
@@ -543,20 +543,20 @@ class RR_Author_Box {
 				});
 			});
 
-			document.querySelectorAll('.rr-repeater').forEach(function(repeater){
+			document.querySelectorAll('.rnrd-repeater').forEach(function(repeater){
 				repeater.querySelectorAll('input').forEach(function(inp){
 					inp.addEventListener('input', function(){ syncHidden(repeater); });
 				});
-				repeater.querySelectorAll('.rr-repeater-row-remove').forEach(function(btn){
+				repeater.querySelectorAll('.rnrd-repeater-row-remove').forEach(function(btn){
 					btn.addEventListener('click', function(){
-						btn.closest('.rr-repeater-row').remove();
+						btn.closest('.rnrd-repeater-row').remove();
 						syncHidden(repeater);
 					});
 				});
 			});
 
 			// Media picker.
-			document.querySelectorAll('.rr-media-picker').forEach(function(btn){
+			document.querySelectorAll('.rnrd-media-picker').forEach(function(btn){
 				btn.addEventListener('click', function(e){
 					e.preventDefault();
 					if (typeof wp === 'undefined' || !wp.media) return;
@@ -579,16 +579,16 @@ class RR_Author_Box {
 	private static function render_repeater_rows( array $rows, array $field_labels ): void {
 		$fields = array_keys( $field_labels );
 		if ( empty( $rows ) ) {
-			echo '<p class="description" style="font-style:italic;margin:4px 0 8px;">' . esc_html__( 'No entries yet. Click "Add" below.', 'rankready' ) . '</p>';
+			echo '<p class="description" style="font-style:italic;margin:4px 0 8px;">' . esc_html__( 'No entries yet. Click "Add" below.', 'rankready-ai-llm-seo' ) . '</p>';
 			return;
 		}
 		foreach ( $rows as $row ) {
-			echo '<div class="rr-repeater-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">';
+			echo '<div class="rnrd-repeater-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">';
 			foreach ( $fields as $field ) {
 				$value = isset( $row[ $field ] ) ? $row[ $field ] : '';
 				echo '<input type="text" data-field="' . esc_attr( $field ) . '" placeholder="' . esc_attr( $field_labels[ $field ] ) . '" value="' . esc_attr( $value ) . '" style="flex:1;" />';
 			}
-			echo '<button type="button" class="button rr-repeater-row-remove" style="min-width:32px;">&times;</button>';
+			echo '<button type="button" class="button rnrd-repeater-row-remove" style="min-width:32px;">&times;</button>';
 			echo '</div>';
 		}
 	}
@@ -597,7 +597,7 @@ class RR_Author_Box {
 		if ( ! current_user_can( 'edit_user', $user_id ) ) {
 			return;
 		}
-		if ( empty( $_POST['rr_author_box_nonce'] ) || ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['rr_author_box_nonce'] ) ), 'rr_save_author_box' ) ) {
+		if ( empty( $_POST['rnrd_author_box_nonce'] ) || ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['rnrd_author_box_nonce'] ) ), 'rnrd_save_author_box' ) ) {
 			return;
 		}
 
@@ -612,11 +612,11 @@ class RR_Author_Box {
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 			$raw = wp_unslash( $_POST[ $key ] );
 
-			if ( in_array( $key, array( 'rr_author_education', 'rr_author_certifications', 'rr_author_memberships', 'rr_author_awards' ), true ) ) {
+			if ( in_array( $key, array( 'rnrd_author_education', 'rnrd_author_certifications', 'rnrd_author_memberships', 'rnrd_author_awards' ), true ) ) {
 				update_user_meta( $user_id, $key, self::sanitize_repeater_json( $raw ) );
-			} elseif ( 'rr_author_bio' === $key ) {
+			} elseif ( 'rnrd_author_bio' === $key ) {
 				update_user_meta( $user_id, $key, self::sanitize_textarea( $raw ) );
-			} elseif ( in_array( $key, array( 'rr_author_employer_url', 'rr_author_headshot', 'rr_author_wikipedia', 'rr_author_scholar', 'rr_author_linkedin', 'rr_author_github', 'rr_author_youtube', 'rr_author_twitter', 'rr_author_website', 'rr_author_contact_url' ), true ) ) {
+			} elseif ( in_array( $key, array( 'rnrd_author_employer_url', 'rnrd_author_headshot', 'rnrd_author_wikipedia', 'rnrd_author_scholar', 'rnrd_author_linkedin', 'rnrd_author_github', 'rnrd_author_youtube', 'rnrd_author_twitter', 'rnrd_author_website', 'rnrd_author_contact_url' ), true ) ) {
 				update_user_meta( $user_id, $key, esc_url_raw( (string) $raw ) );
 			} else {
 				update_user_meta( $user_id, $key, sanitize_text_field( (string) $raw ) );
@@ -642,7 +642,7 @@ class RR_Author_Box {
 		};
 
 		$display_name = $user->display_name;
-		$suffix       = $m( 'rr_author_credentials_suffix' );
+		$suffix       = $m( 'rnrd_author_credentials_suffix' );
 		$full_name    = $suffix ? $display_name . ', ' . $suffix : $display_name;
 
 		$person = array(
@@ -653,7 +653,7 @@ class RR_Author_Box {
 		);
 
 		// Bio → description.
-		$bio = $m( 'rr_author_bio' );
+		$bio = $m( 'rnrd_author_bio' );
 		if ( '' === $bio && $user->description ) {
 			$bio = $user->description;
 		}
@@ -662,12 +662,12 @@ class RR_Author_Box {
 		}
 
 		// Headshot → image (ImageObject).
-		$headshot = $m( 'rr_author_headshot' );
+		$headshot = $m( 'rnrd_author_headshot' );
 		if ( '' !== $headshot ) {
 			$person['image'] = array(
 				'@type'   => 'ImageObject',
 				'url'     => $headshot,
-				'caption' => $m( 'rr_author_headshot_alt' ) ?: $display_name,
+				'caption' => $m( 'rnrd_author_headshot_alt' ) ?: $display_name,
 			);
 		} else {
 			$avatar = get_avatar_url( $user_id, array( 'size' => 400 ) );
@@ -680,20 +680,20 @@ class RR_Author_Box {
 		}
 
 		// Job title.
-		$job = $m( 'rr_author_job_title' );
+		$job = $m( 'rnrd_author_job_title' );
 		if ( '' !== $job ) $person['jobTitle'] = $job;
 
 		// Employer → worksFor.
-		$employer = $m( 'rr_author_employer' );
+		$employer = $m( 'rnrd_author_employer' );
 		if ( '' !== $employer ) {
 			$works_for = array( '@type' => 'Organization', 'name' => $employer );
-			$emp_url   = $m( 'rr_author_employer_url' );
+			$emp_url   = $m( 'rnrd_author_employer_url' );
 			if ( '' !== $emp_url ) $works_for['url'] = $emp_url;
 			$person['worksFor'] = $works_for;
 		}
 
 		// knowsAbout → topics of expertise (highest LLM signal).
-		$expertise = $m( 'rr_author_expertise' );
+		$expertise = $m( 'rnrd_author_expertise' );
 		if ( '' !== $expertise ) {
 			$topics = array_filter( array_map( 'trim', explode( ',', $expertise ) ) );
 			if ( ! empty( $topics ) ) {
@@ -704,7 +704,7 @@ class RR_Author_Box {
 		// sameAs (priority order: Wikidata → Wikipedia → ORCID → Scholar → LinkedIn → GitHub → YouTube → X → personal site).
 		$same_as = array();
 
-		$wikidata = $m( 'rr_author_wikidata' );
+		$wikidata = $m( 'rnrd_author_wikidata' );
 		if ( '' !== $wikidata ) {
 			// Accept raw QID or full URL.
 			$wd_url = preg_match( '/^Q\d+$/', $wikidata )
@@ -712,13 +712,13 @@ class RR_Author_Box {
 				: $wikidata;
 			$same_as[] = $wd_url;
 		}
-		foreach ( array( 'rr_author_wikipedia', 'rr_author_linkedin', 'rr_author_scholar', 'rr_author_github', 'rr_author_youtube', 'rr_author_twitter', 'rr_author_website' ) as $k ) {
+		foreach ( array( 'rnrd_author_wikipedia', 'rnrd_author_linkedin', 'rnrd_author_scholar', 'rnrd_author_github', 'rnrd_author_youtube', 'rnrd_author_twitter', 'rnrd_author_website' ) as $k ) {
 			$v = $m( $k );
 			if ( '' !== $v ) $same_as[] = $v;
 		}
 
 		// ORCID → sameAs + identifier PropertyValue.
-		$orcid = $m( 'rr_author_orcid' );
+		$orcid = $m( 'rnrd_author_orcid' );
 		if ( '' !== $orcid ) {
 			// Accept raw id or full URL.
 			$orcid_url = ( 0 === strpos( $orcid, 'http' ) ) ? $orcid : 'https://orcid.org/' . $orcid;
@@ -750,7 +750,7 @@ class RR_Author_Box {
 		}
 
 		// Education → alumniOf[] + hasCredential[] (degree).
-		$education = self::decode_repeater( $m( 'rr_author_education' ) );
+		$education = self::decode_repeater( $m( 'rnrd_author_education' ) );
 		$alumni    = array();
 		$credentials = array();
 		foreach ( $education as $row ) {
@@ -768,7 +768,7 @@ class RR_Author_Box {
 		if ( ! empty( $alumni ) )      $person['alumniOf']     = $alumni;
 
 		// Certifications → hasCredential[] (certification).
-		$certifications = self::decode_repeater( $m( 'rr_author_certifications' ) );
+		$certifications = self::decode_repeater( $m( 'rnrd_author_certifications' ) );
 		foreach ( $certifications as $row ) {
 			if ( empty( $row['name'] ) ) continue;
 			$cred = array(
@@ -785,7 +785,7 @@ class RR_Author_Box {
 		if ( ! empty( $credentials ) ) $person['hasCredential'] = $credentials;
 
 		// Memberships → memberOf[].
-		$memberships = self::decode_repeater( $m( 'rr_author_memberships' ) );
+		$memberships = self::decode_repeater( $m( 'rnrd_author_memberships' ) );
 		$member_of   = array();
 		foreach ( $memberships as $row ) {
 			if ( empty( $row['name'] ) ) continue;
@@ -796,7 +796,7 @@ class RR_Author_Box {
 		if ( ! empty( $member_of ) ) $person['memberOf'] = $member_of;
 
 		// Awards → award[].
-		$awards = self::decode_repeater( $m( 'rr_author_awards' ) );
+		$awards = self::decode_repeater( $m( 'rnrd_author_awards' ) );
 		$award_names = array();
 		foreach ( $awards as $row ) {
 			if ( empty( $row['name'] ) ) continue;
@@ -805,7 +805,7 @@ class RR_Author_Box {
 		if ( ! empty( $award_names ) ) $person['award'] = $award_names;
 
 		// Contact point.
-		$contact_url = $m( 'rr_author_contact_url' );
+		$contact_url = $m( 'rnrd_author_contact_url' );
 		if ( '' !== $contact_url ) {
 			$person['contactPoint'] = array(
 				'@type'       => 'ContactPoint',
@@ -815,7 +815,7 @@ class RR_Author_Box {
 		}
 
 		// publishingPrinciples — site-wide editorial policy URL.
-		$editorial = (string) get_option( RR_OPT_AUTHOR_EDITORIAL_URL, '' );
+		$editorial = (string) get_option( RNRD_OPT_AUTHOR_EDITORIAL_URL, '' );
 		if ( '' !== $editorial ) $person['publishingPrinciples'] = $editorial;
 
 		// Filter count: if we only have the baseline (type/@id/name/url), don't bother emitting.
@@ -854,7 +854,7 @@ class RR_Author_Box {
 	 *     destructive, no-conflict.
 	 */
 	private static function enhance_graph( array &$graph, int $post_id ): void {
-		if ( 'on' !== get_option( RR_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ) return;
+		if ( 'on' !== get_option( RNRD_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ) return;
 		$post = get_post( $post_id );
 		if ( ! $post ) return;
 
@@ -1005,9 +1005,9 @@ class RR_Author_Box {
 	}
 
 	private static function inject_review_signals( array &$graph, int $post_id ): void {
-		$reviewed_by_id    = (int) get_post_meta( $post_id, RR_META_AUTHOR_REVIEWED_BY, true );
-		$fact_checked_by_id = (int) get_post_meta( $post_id, RR_META_AUTHOR_FACT_CHECKED_BY, true );
-		$last_reviewed     = (string) get_post_meta( $post_id, RR_META_AUTHOR_LAST_REVIEWED, true );
+		$reviewed_by_id    = (int) get_post_meta( $post_id, RNRD_META_AUTHOR_REVIEWED_BY, true );
+		$fact_checked_by_id = (int) get_post_meta( $post_id, RNRD_META_AUTHOR_FACT_CHECKED_BY, true );
+		$last_reviewed     = (string) get_post_meta( $post_id, RNRD_META_AUTHOR_LAST_REVIEWED, true );
 
 		if ( ! $reviewed_by_id && ! $fact_checked_by_id && '' === $last_reviewed ) return;
 
@@ -1064,7 +1064,7 @@ class RR_Author_Box {
 	}
 	public static function merge_into_seopress( $schema ) {
 		if ( ! is_singular() || ! is_array( $schema ) ) return $schema;
-		if ( 'on' !== get_option( RR_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ) return $schema;
+		if ( 'on' !== get_option( RNRD_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ) return $schema;
 		$post_id = get_queried_object_id();
 		if ( ! $post_id ) return $schema;
 
@@ -1099,7 +1099,7 @@ class RR_Author_Box {
 
 	public static function maybe_inject_archive_person(): void {
 		if ( ! is_author() ) return;
-		if ( 'on' !== get_option( RR_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ) return;
+		if ( 'on' !== get_option( RNRD_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ) return;
 
 		$user_id = (int) get_queried_object_id();
 		if ( $user_id <= 0 ) return;
@@ -1136,15 +1136,15 @@ class RR_Author_Box {
 		$user = get_userdata( $user_id );
 		if ( ! $user ) return '';
 
-		$layout        = isset( $attrs['layout'] ) ? sanitize_key( $attrs['layout'] ) : (string) get_option( RR_OPT_AUTHOR_LAYOUT, 'card' );
+		$layout        = isset( $attrs['layout'] ) ? sanitize_key( $attrs['layout'] ) : (string) get_option( RNRD_OPT_AUTHOR_LAYOUT, 'card' );
 		$layout        = in_array( $layout, array( 'card', 'compact', 'inline' ), true ) ? $layout : 'card';
 		$show_heading  = isset( $attrs['showHeading'] ) ? (bool) $attrs['showHeading'] : true;
 		$heading_text  = isset( $attrs['headingText'] ) && '' !== $attrs['headingText']
 			? sanitize_text_field( $attrs['headingText'] )
-			: (string) get_option( RR_OPT_AUTHOR_HEADING, 'About the Author' );
+			: (string) get_option( RNRD_OPT_AUTHOR_HEADING, 'About the Author' );
 		$heading_tag   = isset( $attrs['headingTag'] ) && '' !== $attrs['headingTag']
 			? $attrs['headingTag']
-			: (string) get_option( RR_OPT_AUTHOR_HEADING_TAG, 'h3' );
+			: (string) get_option( RNRD_OPT_AUTHOR_HEADING_TAG, 'h3' );
 		$heading_tag   = in_array( $heading_tag, array( 'h2', 'h3', 'h4', 'h5', 'h6', 'p' ), true ) ? $heading_tag : 'h3';
 
 		$show_headshot   = isset( $attrs['showHeadshot'] )   ? (bool) $attrs['showHeadshot']   : true;
@@ -1162,81 +1162,81 @@ class RR_Author_Box {
 		};
 
 		$display_name = $user->display_name;
-		$suffix       = $m( 'rr_author_credentials_suffix' );
-		$name_html    = esc_html( $display_name ) . ( $suffix ? ' <span class="rr-ab-suffix">' . esc_html( $suffix ) . '</span>' : '' );
+		$suffix       = $m( 'rnrd_author_credentials_suffix' );
+		$name_html    = esc_html( $display_name ) . ( $suffix ? ' <span class="rnrd-ab-suffix">' . esc_html( $suffix ) . '</span>' : '' );
 		$name_link    = get_author_posts_url( $user_id );
 
 		// Headshot.
-		$headshot = $m( 'rr_author_headshot' );
+		$headshot = $m( 'rnrd_author_headshot' );
 		if ( '' === $headshot ) $headshot = get_avatar_url( $user_id, array( 'size' => 200 ) );
-		$headshot_alt = $m( 'rr_author_headshot_alt' ) ?: $display_name;
+		$headshot_alt = $m( 'rnrd_author_headshot_alt' ) ?: $display_name;
 
 		// Years of experience (derived).
-		$started_year = (int) $m( 'rr_author_started_year' );
+		$started_year = (int) $m( 'rnrd_author_started_year' );
 		$years_exp    = ( $started_year > 1950 && $started_year <= (int) gmdate( 'Y' ) )
 			? ( (int) gmdate( 'Y' ) - $started_year )
 			: 0;
 
 		// Reviewed / fact-checked signals.
-		$reviewed_by_id     = $post_id ? (int) get_post_meta( $post_id, RR_META_AUTHOR_REVIEWED_BY, true ) : 0;
-		$fact_checked_by_id = $post_id ? (int) get_post_meta( $post_id, RR_META_AUTHOR_FACT_CHECKED_BY, true ) : 0;
-		$last_reviewed      = $post_id ? (string) get_post_meta( $post_id, RR_META_AUTHOR_LAST_REVIEWED, true ) : '';
+		$reviewed_by_id     = $post_id ? (int) get_post_meta( $post_id, RNRD_META_AUTHOR_REVIEWED_BY, true ) : 0;
+		$fact_checked_by_id = $post_id ? (int) get_post_meta( $post_id, RNRD_META_AUTHOR_FACT_CHECKED_BY, true ) : 0;
+		$last_reviewed      = $post_id ? (string) get_post_meta( $post_id, RNRD_META_AUTHOR_LAST_REVIEWED, true ) : '';
 
 		ob_start();
 		?>
-		<div class="rr-author-box rr-ab-<?php echo esc_attr( $layout ); ?>"
+		<div class="rnrd-author-box rnrd-ab-<?php echo esc_attr( $layout ); ?>"
 			<?php echo self::inline_style( $attrs ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>>
 			<?php if ( $show_heading && 'inline' !== $layout ) : ?>
-				<<?php echo esc_attr( $heading_tag ); ?> class="rr-ab-heading"><?php echo esc_html( $heading_text ); ?></<?php echo esc_attr( $heading_tag ); ?>>
+				<<?php echo esc_attr( $heading_tag ); ?> class="rnrd-ab-heading"><?php echo esc_html( $heading_text ); ?></<?php echo esc_attr( $heading_tag ); ?>>
 			<?php endif; ?>
 
-			<div class="rr-ab-inner">
+			<div class="rnrd-ab-inner">
 				<?php if ( $show_headshot && $headshot ) : ?>
-					<div class="rr-ab-headshot">
+					<div class="rnrd-ab-headshot">
 						<img src="<?php echo esc_url( $headshot ); ?>" alt="<?php echo esc_attr( $headshot_alt ); ?>" loading="lazy" />
 					</div>
 				<?php endif; ?>
 
-				<div class="rr-ab-body">
-					<div class="rr-ab-name-row">
-						<a class="rr-ab-name" href="<?php echo esc_url( $name_link ); ?>" rel="author"><?php echo $name_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></a>
+				<div class="rnrd-ab-body">
+					<div class="rnrd-ab-name-row">
+						<a class="rnrd-ab-name" href="<?php echo esc_url( $name_link ); ?>" rel="author"><?php echo $name_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></a>
 					</div>
 
 					<?php if ( $show_title || $show_employer || ( $show_years_exp && $years_exp > 0 ) ) : ?>
-						<div class="rr-ab-meta">
+						<div class="rnrd-ab-meta">
 							<?php
 							$meta_parts = array();
-							if ( $show_title && $m( 'rr_author_job_title' ) ) {
-								$meta_parts[] = esc_html( $m( 'rr_author_job_title' ) );
+							if ( $show_title && $m( 'rnrd_author_job_title' ) ) {
+								$meta_parts[] = esc_html( $m( 'rnrd_author_job_title' ) );
 							}
-							if ( $show_employer && $m( 'rr_author_employer' ) ) {
-								$emp_name = esc_html( $m( 'rr_author_employer' ) );
-								$emp_url  = $m( 'rr_author_employer_url' );
+							if ( $show_employer && $m( 'rnrd_author_employer' ) ) {
+								$emp_name = esc_html( $m( 'rnrd_author_employer' ) );
+								$emp_url  = $m( 'rnrd_author_employer_url' );
 								$meta_parts[] = $emp_url ? '<a href="' . esc_url( $emp_url ) . '" rel="noopener">' . $emp_name . '</a>' : $emp_name;
 							}
 							if ( $show_years_exp && $years_exp > 0 ) {
 								/* translators: %d number of years */
-								$meta_parts[] = esc_html( sprintf( _n( '%d year experience', '%d years experience', $years_exp, 'rankready' ), $years_exp ) );
+								$meta_parts[] = esc_html( sprintf( _n( '%d year experience', '%d years experience', $years_exp, 'rankready-ai-llm-seo' ), $years_exp ) );
 							}
-							echo implode( ' <span class="rr-ab-sep">·</span> ', $meta_parts ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+							echo implode( ' <span class="rnrd-ab-sep">·</span> ', $meta_parts ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							?>
 						</div>
 					<?php endif; ?>
 
 					<?php
-					$bio = $m( 'rr_author_bio' );
+					$bio = $m( 'rnrd_author_bio' );
 					if ( '' === $bio ) $bio = $user->description;
 					if ( $show_bio && $bio && 'inline' !== $layout ) :
 					?>
-						<p class="rr-ab-bio"><?php echo esc_html( $bio ); ?></p>
+						<p class="rnrd-ab-bio"><?php echo esc_html( $bio ); ?></p>
 					<?php endif; ?>
 
-					<?php if ( $show_expertise && 'card' === $layout && $m( 'rr_author_expertise' ) ) : ?>
-						<div class="rr-ab-expertise">
+					<?php if ( $show_expertise && 'card' === $layout && $m( 'rnrd_author_expertise' ) ) : ?>
+						<div class="rnrd-ab-expertise">
 							<?php
-							$topics = array_filter( array_map( 'trim', explode( ',', $m( 'rr_author_expertise' ) ) ) );
+							$topics = array_filter( array_map( 'trim', explode( ',', $m( 'rnrd_author_expertise' ) ) ) );
 							foreach ( $topics as $topic ) {
-								echo '<span class="rr-ab-topic">' . esc_html( $topic ) . '</span>';
+								echo '<span class="rnrd-ab-topic">' . esc_html( $topic ) . '</span>';
 							}
 							?>
 						</div>
@@ -1244,20 +1244,20 @@ class RR_Author_Box {
 
 					<?php if ( $show_credentials && 'card' === $layout ) : ?>
 						<?php
-						$education = self::decode_repeater( $m( 'rr_author_education' ) );
-						$certs     = self::decode_repeater( $m( 'rr_author_certifications' ) );
+						$education = self::decode_repeater( $m( 'rnrd_author_education' ) );
+						$certs     = self::decode_repeater( $m( 'rnrd_author_certifications' ) );
 						if ( ! empty( $education ) || ! empty( $certs ) ) :
 						?>
-							<div class="rr-ab-credentials">
+							<div class="rnrd-ab-credentials">
 								<?php foreach ( $education as $row ) : if ( empty( $row['degree'] ) && empty( $row['institution'] ) ) continue; ?>
-									<div class="rr-ab-cred-row">
-										<span class="rr-ab-cred-icon" aria-hidden="true">🎓</span>
+									<div class="rnrd-ab-cred-row">
+										<span class="rnrd-ab-cred-icon" aria-hidden="true">🎓</span>
 										<?php echo esc_html( trim( ( $row['degree'] ?? '' ) . ( ! empty( $row['institution'] ) ? ' · ' . $row['institution'] : '' ) ) ); ?>
 									</div>
 								<?php endforeach; ?>
 								<?php foreach ( $certs as $row ) : if ( empty( $row['name'] ) ) continue; ?>
-									<div class="rr-ab-cred-row">
-										<span class="rr-ab-cred-icon" aria-hidden="true">✓</span>
+									<div class="rnrd-ab-cred-row">
+										<span class="rnrd-ab-cred-icon" aria-hidden="true">✓</span>
 										<?php echo esc_html( trim( $row['name'] . ( ! empty( $row['issuer'] ) ? ' · ' . $row['issuer'] : '' ) ) ); ?>
 									</div>
 								<?php endforeach; ?>
@@ -1270,9 +1270,9 @@ class RR_Author_Box {
 						$socials = self::get_social_links( $user_id );
 						if ( ! empty( $socials ) ) :
 						?>
-							<div class="rr-ab-socials">
+							<div class="rnrd-ab-socials">
 								<?php foreach ( $socials as $label => $url ) : ?>
-									<a class="rr-ab-social rr-ab-social-<?php echo esc_attr( sanitize_key( $label ) ); ?>" href="<?php echo esc_url( $url ); ?>" rel="noopener me" target="_blank" aria-label="<?php echo esc_attr( $label ); ?>">
+									<a class="rnrd-ab-social rnrd-ab-social-<?php echo esc_attr( sanitize_key( $label ) ); ?>" href="<?php echo esc_url( $url ); ?>" rel="noopener me" target="_blank" aria-label="<?php echo esc_attr( $label ); ?>">
 										<?php echo esc_html( $label ); ?>
 									</a>
 								<?php endforeach; ?>
@@ -1281,44 +1281,44 @@ class RR_Author_Box {
 					<?php endif; ?>
 
 					<?php if ( $show_reviewed && ( $reviewed_by_id || $fact_checked_by_id || $last_reviewed ) ) : ?>
-						<div class="rr-ab-reviewed">
+						<div class="rnrd-ab-reviewed">
 							<?php
 							$parts = array();
 							if ( $fact_checked_by_id ) {
 								$u = get_userdata( $fact_checked_by_id );
 								if ( $u ) {
-									$parts[] = esc_html__( 'Fact-checked by', 'rankready' ) . ' <a href="' . esc_url( get_author_posts_url( $fact_checked_by_id ) ) . '">' . esc_html( $u->display_name ) . '</a>';
+									$parts[] = esc_html__( 'Fact-checked by', 'rankready-ai-llm-seo' ) . ' <a href="' . esc_url( get_author_posts_url( $fact_checked_by_id ) ) . '">' . esc_html( $u->display_name ) . '</a>';
 								}
 							}
 							if ( $reviewed_by_id ) {
 								$u = get_userdata( $reviewed_by_id );
 								if ( $u ) {
-									$parts[] = esc_html__( 'Reviewed by', 'rankready' ) . ' <a href="' . esc_url( get_author_posts_url( $reviewed_by_id ) ) . '">' . esc_html( $u->display_name ) . '</a>';
+									$parts[] = esc_html__( 'Reviewed by', 'rankready-ai-llm-seo' ) . ' <a href="' . esc_url( get_author_posts_url( $reviewed_by_id ) ) . '">' . esc_html( $u->display_name ) . '</a>';
 								}
 							}
 							if ( $last_reviewed ) {
 								$ts = strtotime( $last_reviewed );
 								if ( $ts ) {
-									$parts[] = esc_html__( 'Last reviewed', 'rankready' ) . ' <time datetime="' . esc_attr( $last_reviewed ) . '">' . esc_html( wp_date( get_option( 'date_format' ), $ts ) ) . '</time>';
+									$parts[] = esc_html__( 'Last reviewed', 'rankready-ai-llm-seo' ) . ' <time datetime="' . esc_attr( $last_reviewed ) . '">' . esc_html( wp_date( get_option( 'date_format' ), $ts ) ) . '</time>';
 								}
 							}
-							echo implode( ' <span class="rr-ab-sep">·</span> ', $parts ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+							echo implode( ' <span class="rnrd-ab-sep">·</span> ', $parts ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							?>
 						</div>
 					<?php endif; ?>
 
 					<?php
-					$factcheck_url = (string) get_option( RR_OPT_AUTHOR_FACTCHECK_URL, '' );
-					$editorial_url = (string) get_option( RR_OPT_AUTHOR_EDITORIAL_URL, '' );
+					$factcheck_url = (string) get_option( RNRD_OPT_AUTHOR_FACTCHECK_URL, '' );
+					$editorial_url = (string) get_option( RNRD_OPT_AUTHOR_EDITORIAL_URL, '' );
 					if ( 'card' === $layout && ( $factcheck_url || $editorial_url ) ) :
 					?>
-						<div class="rr-ab-policy">
+						<div class="rnrd-ab-policy">
 							<?php if ( $editorial_url ) : ?>
-								<a href="<?php echo esc_url( $editorial_url ); ?>" rel="noopener"><?php esc_html_e( 'Editorial policy', 'rankready' ); ?></a>
+								<a href="<?php echo esc_url( $editorial_url ); ?>" rel="noopener"><?php esc_html_e( 'Editorial policy', 'rankready-ai-llm-seo' ); ?></a>
 							<?php endif; ?>
-							<?php if ( $editorial_url && $factcheck_url ) : ?> <span class="rr-ab-sep">·</span> <?php endif; ?>
+							<?php if ( $editorial_url && $factcheck_url ) : ?> <span class="rnrd-ab-sep">·</span> <?php endif; ?>
 							<?php if ( $factcheck_url ) : ?>
-								<a href="<?php echo esc_url( $factcheck_url ); ?>" rel="noopener"><?php esc_html_e( 'How we fact-check', 'rankready' ); ?></a>
+								<a href="<?php echo esc_url( $factcheck_url ); ?>" rel="noopener"><?php esc_html_e( 'How we fact-check', 'rankready-ai-llm-seo' ); ?></a>
 							<?php endif; ?>
 						</div>
 					<?php endif; ?>
@@ -1336,13 +1336,13 @@ class RR_Author_Box {
 
 		$links = array();
 		$candidates = array(
-			'LinkedIn' => 'rr_author_linkedin',
-			'X'        => 'rr_author_twitter',
-			'GitHub'   => 'rr_author_github',
-			'YouTube'  => 'rr_author_youtube',
-			'Scholar'  => 'rr_author_scholar',
-			'ORCID'    => 'rr_author_orcid',
-			'Website'  => 'rr_author_website',
+			'LinkedIn' => 'rnrd_author_linkedin',
+			'X'        => 'rnrd_author_twitter',
+			'GitHub'   => 'rnrd_author_github',
+			'YouTube'  => 'rnrd_author_youtube',
+			'Scholar'  => 'rnrd_author_scholar',
+			'ORCID'    => 'rnrd_author_orcid',
+			'Website'  => 'rnrd_author_website',
 		);
 
 		foreach ( $candidates as $label => $key ) {
@@ -1364,29 +1364,29 @@ class RR_Author_Box {
 		$vars = array();
 
 		$map = array(
-			'boxBgColor'        => '--rr-ab-bg',
-			'boxBorderColor'    => '--rr-ab-border',
-			'boxBorderRadius'   => array( '--rr-ab-radius', 'px' ),
-			'boxPadding'        => array( '--rr-ab-padding', 'px' ),
-			'headingColor'      => '--rr-ab-heading-color',
-			'headingFontSize'   => array( '--rr-ab-heading-size', 'px' ),
-			'headingFontFamily' => '--rr-ab-heading-ff',
-			'headingFontWeight' => '--rr-ab-heading-fw',
-			'nameColor'         => '--rr-ab-name-color',
-			'nameFontSize'      => array( '--rr-ab-name-size', 'px' ),
-			'nameFontFamily'    => '--rr-ab-name-ff',
-			'nameFontWeight'    => '--rr-ab-name-fw',
-			'metaColor'         => '--rr-ab-meta-color',
-			'metaFontSize'      => array( '--rr-ab-meta-size', 'px' ),
-			'metaFontFamily'    => '--rr-ab-meta-ff',
-			'bioColor'          => '--rr-ab-bio-color',
-			'bioFontSize'       => array( '--rr-ab-bio-size', 'px' ),
-			'bioFontFamily'     => '--rr-ab-bio-ff',
-			'bioLineHeight'     => '--rr-ab-bio-lh',
-			'imageSize'         => array( '--rr-ab-img-size', 'px' ),
-			'imageRadius'       => array( '--rr-ab-img-radius', 'px' ),
-			'socialColor'       => '--rr-ab-social-color',
-			'socialSize'        => array( '--rr-ab-social-size', 'px' ),
+			'boxBgColor'        => '--rnrd-ab-bg',
+			'boxBorderColor'    => '--rnrd-ab-border',
+			'boxBorderRadius'   => array( '--rnrd-ab-radius', 'px' ),
+			'boxPadding'        => array( '--rnrd-ab-padding', 'px' ),
+			'headingColor'      => '--rnrd-ab-heading-color',
+			'headingFontSize'   => array( '--rnrd-ab-heading-size', 'px' ),
+			'headingFontFamily' => '--rnrd-ab-heading-ff',
+			'headingFontWeight' => '--rnrd-ab-heading-fw',
+			'nameColor'         => '--rnrd-ab-name-color',
+			'nameFontSize'      => array( '--rnrd-ab-name-size', 'px' ),
+			'nameFontFamily'    => '--rnrd-ab-name-ff',
+			'nameFontWeight'    => '--rnrd-ab-name-fw',
+			'metaColor'         => '--rnrd-ab-meta-color',
+			'metaFontSize'      => array( '--rnrd-ab-meta-size', 'px' ),
+			'metaFontFamily'    => '--rnrd-ab-meta-ff',
+			'bioColor'          => '--rnrd-ab-bio-color',
+			'bioFontSize'       => array( '--rnrd-ab-bio-size', 'px' ),
+			'bioFontFamily'     => '--rnrd-ab-bio-ff',
+			'bioLineHeight'     => '--rnrd-ab-bio-lh',
+			'imageSize'         => array( '--rnrd-ab-img-size', 'px' ),
+			'imageRadius'       => array( '--rnrd-ab-img-radius', 'px' ),
+			'socialColor'       => '--rnrd-ab-social-color',
+			'socialSize'        => array( '--rnrd-ab-social-size', 'px' ),
 		);
 
 		foreach ( $map as $attr => $var ) {
@@ -1409,9 +1409,9 @@ class RR_Author_Box {
 
 	public static function maybe_auto_display( $content ) {
 		if ( ! is_singular() || ! is_main_query() || ! in_the_loop() ) return $content;
-		if ( 'on' !== get_option( RR_OPT_AUTHOR_ENABLE, 'on' ) ) return $content;
+		if ( 'on' !== get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' ) ) return $content;
 
-		$position = (string) get_option( RR_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
+		$position = (string) get_option( RNRD_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
 		if ( 'off' === $position ) return $content;
 
 		$post_id = get_the_ID();
@@ -1421,10 +1421,10 @@ class RR_Author_Box {
 		if ( ! $post ) return $content;
 
 		// Per-post opt-out.
-		if ( get_post_meta( $post_id, RR_META_AUTHOR_DISABLE, true ) ) return $content;
+		if ( get_post_meta( $post_id, RNRD_META_AUTHOR_DISABLE, true ) ) return $content;
 
 		// Post type allowlist.
-		$allowed = (array) get_option( RR_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
+		$allowed = (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
 		if ( ! in_array( $post->post_type, $allowed, true ) ) return $content;
 
 		// Skip if the block is already in content.
@@ -1441,7 +1441,7 @@ class RR_Author_Box {
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// BLOCK render callback (registered from class-rr-block.php)
+	// BLOCK render callback (registered from class-rnrd-block.php)
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function render_block( $attrs, $content = '', $block = null ): string {
@@ -1459,7 +1459,7 @@ class RR_Author_Box {
 	}
 
 	/**
-	 * Block attributes array — exposed for register_block_type in class-rr-block.php.
+	 * Block attributes array — exposed for register_block_type in class-rnrd-block.php.
 	 */
 	public static function block_attributes(): array {
 		return array(

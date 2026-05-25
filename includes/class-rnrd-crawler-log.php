@@ -17,9 +17,9 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Crawler_Log {
+class RNRD_Crawler_Log {
 
-	const DB_VERSION_KEY = 'rr_crawler_log_db_version';
+	const DB_VERSION_KEY = 'rnrd_crawler_log_db_version';
 	const DB_VERSION     = 3;
 	const RETENTION_DAYS = 30;   // rows older than 30 days are pruned daily
 	const MAX_ROWS       = 50000; // hard cap — oldest rows deleted when exceeded
@@ -154,17 +154,17 @@ class RR_Crawler_Log {
 			}
 		}
 
-		if ( ! wp_next_scheduled( 'rr_crawler_log_prune' ) ) {
-			wp_schedule_event( time(), 'daily', 'rr_crawler_log_prune' );
+		if ( ! wp_next_scheduled( 'rnrd_crawler_log_prune' ) ) {
+			wp_schedule_event( time(), 'daily', 'rnrd_crawler_log_prune' );
 		}
-		add_action( 'rr_crawler_log_prune', array( self::class, 'prune' ) );
+		add_action( 'rnrd_crawler_log_prune', array( self::class, 'prune' ) );
 	}
 
 	// ── Table management ───────────────────────────────────────────────────
 
 	public static function create_table(): void {
 		global $wpdb;
-		$table   = $wpdb->prefix . 'rr_crawler_log';
+		$table   = $wpdb->prefix . 'rnrd_crawler_log';
 		$charset = $wpdb->get_charset_collate();
 
 		// user_agent is intentionally absent (removed in v3 — redundant storage).
@@ -196,7 +196,7 @@ class RR_Crawler_Log {
 	 */
 	private static function drop_user_agent_column(): void {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$exists = $wpdb->get_results( "SHOW COLUMNS FROM {$table} LIKE 'user_agent'" );
 		if ( ! empty( $exists ) ) {
@@ -208,7 +208,7 @@ class RR_Crawler_Log {
 	public static function drop_table(): void {
 		global $wpdb;
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
-		$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'rr_crawler_log' );
+		$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'rnrd_crawler_log' );
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared
 		delete_option( self::DB_VERSION_KEY );
 	}
@@ -266,7 +266,7 @@ class RR_Crawler_Log {
 
 		global $wpdb;
 		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$wpdb->prefix . 'rr_crawler_log',
+			$wpdb->prefix . 'rnrd_crawler_log',
 			array(
 				'logged_at'  => current_time( 'mysql' ),
 				'bot_name'   => $bot,
@@ -287,7 +287,7 @@ class RR_Crawler_Log {
 	 */
 	public static function get_bot_stats( int $days = 30 ): array {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return $wpdb->get_results(
 			$wpdb->prepare(
@@ -316,7 +316,7 @@ class RR_Crawler_Log {
 	 */
 	public static function get_bot_top_pages( string $bot_name, int $days = 30, int $limit = 5 ): array {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return $wpdb->get_results(
 			$wpdb->prepare(
@@ -342,7 +342,7 @@ class RR_Crawler_Log {
 	 */
 	public static function get_cpt_stats( int $days = 30 ): array {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return $wpdb->get_results(
 			$wpdb->prepare(
@@ -364,7 +364,7 @@ class RR_Crawler_Log {
 	 */
 	public static function get_top_pages( int $days = 30, int $limit = 15 ): array {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return $wpdb->get_results(
 			$wpdb->prepare(
@@ -399,7 +399,7 @@ class RR_Crawler_Log {
 	 */
 	public static function get_endpoint_totals( int $days = 30 ): array {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
@@ -427,7 +427,7 @@ class RR_Crawler_Log {
 	 */
 	public static function get_recent_hits( int $limit = 40 ): array {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return $wpdb->get_results(
 			$wpdb->prepare(
@@ -445,7 +445,7 @@ class RR_Crawler_Log {
 	/** Total hits — used for dashboard stat card. */
 	public static function get_total( int $days = 30 ): int {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -471,7 +471,7 @@ class RR_Crawler_Log {
 			return 0;
 		}
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
 		$sql = "SELECT COUNT(*) FROM {$table}
 		        WHERE logged_at >= DATE_SUB(NOW(), INTERVAL %d DAY)
@@ -493,7 +493,7 @@ class RR_Crawler_Log {
 			return 0;
 		}
 		global $wpdb;
-		$table  = $wpdb->prefix . 'rr_crawler_log';
+		$table  = $wpdb->prefix . 'rnrd_crawler_log';
 		$frags  = array();
 		$params = array( $days );
 		foreach ( self::BOTS_TRAINING as $pattern ) {
@@ -524,7 +524,7 @@ class RR_Crawler_Log {
 			return array();
 		}
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
 		$sql = "SELECT
 		            post_id,
@@ -550,7 +550,7 @@ class RR_Crawler_Log {
 	/** Total unique pages crawled. */
 	public static function get_unique_pages( int $days = 30 ): int {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
@@ -572,7 +572,7 @@ class RR_Crawler_Log {
 	 */
 	public static function prune(): void {
 		global $wpdb;
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 
 		// Pass 1: time-based expiry.
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared

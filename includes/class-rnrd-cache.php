@@ -45,7 +45,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Cache {
+class RNRD_Cache {
 
 	// ── Bypass headers ────────────────────────────────────────────────────────
 
@@ -83,7 +83,11 @@ class RR_Cache {
 			return;
 		}
 
-		// LiteSpeed Cache — array of URI fragments.
+		// LiteSpeed Cache — runtime filter (covers in-process requests).
+		// NOTE: runtime filter alone is insufficient — LSWS server-level
+		// LSCACHE module reads the persisted `litespeed.conf.cache-exc` option
+		// via .htaccess BEFORE PHP runs. persist_litespeed_exclusions() handles
+		// the persisted side. See rc.16 audit C2.
 		add_filter( 'litespeed_excluded_url', function ( $existing ) use ( $patterns ) {
 			return array_values( array_unique( array_merge( (array) $existing, $patterns ) ) );
 		} );
@@ -104,9 +108,12 @@ class RR_Cache {
 		} );
 
 		// WP Super Cache — uri reject patterns.
+		// rc.16 audit fix H2: the previous global-mutation approach only
+		// affected request-local state; WPSC reads `cache_rejected_uri` from
+		// its persisted config BEFORE PHP runs on cached pages. We now both
+		// (a) mutate the global as a runtime defense for the current request
+		// and (b) persist to WPSC's settings via persist_wpsc_exclusions().
 		add_filter( 'wp_cache_get_cookies_values', function ( $string ) use ( $patterns ) {
-			// WPSC excludes any URI that contains its `cache_rejected_uri`.
-			// Add ours via the option side-effect filter on first read.
 			global $cache_rejected_uri;
 			if ( is_array( $cache_rejected_uri ) ) {
 				$cache_rejected_uri = array_values( array_unique( array_merge( $cache_rejected_uri, $patterns ) ) );
@@ -134,7 +141,7 @@ class RR_Cache {
 			if ( $bypass ) {
 				return $bypass;
 			}
-			$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
+			$uri = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
 			foreach ( $patterns as $p ) {
 				if ( false !== strpos( $uri, $p ) ) {
 					return true;
@@ -142,6 +149,111 @@ class RR_Cache {
 			}
 			return $bypass;
 		} );
+
+		// rc.16 audit fix M1 — NitroPack bypass.
+		// NitroPack ships its own edge cache that ignores DONOTCACHEPAGE.
+		// The `nitropack_should_skip_cache` filter is the supported escape hatch.
+		add_filter( 'nitropack_should_skip_cache', function ( $skip ) use ( $patterns ) {
+			if ( $skip ) {
+				return $skip;
+			}
+			$uri = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+			foreach ( $patterns as $p ) {
+				if ( false !== strpos( $uri, $p ) ) {
+					return true;
+				}
+			}
+			return $skip;
+		} );
+
+		// rc.16 audit fix M1 — Perfmatters URL exclusion. Perfmatters mostly
+		// optimises CSS/JS; defensive only — its CDN rewrite shouldn't touch
+		// .txt/.md/.json content types but we exclude to be explicit.
+		add_filter( 'perfmatters_excluded_urls', function ( $excluded ) use ( $patterns ) {
+			return array_values( array_unique( array_merge( (array) $excluded, $patterns ) ) );
+		} );
+
+		// rc.16 audit fix M1 — Hummingbird page-cache exclusion.
+		add_filter( 'wphb_should_cache_request', function ( $should_cache ) use ( $patterns ) {
+			if ( ! $should_cache ) {
+				return $should_cache;
+			}
+			$uri = isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+			foreach ( $patterns as $p ) {
+				if ( false !== strpos( $uri, $p ) ) {
+					return false;
+				}
+			}
+			return $should_cache;
+		} );
+	}
+
+	/**
+	 * Persist exclusion rules to each cache plugin's saved option.
+	 *
+	 * Runtime filters in exclude_url_patterns() only affect the in-process
+	 * request. Server-level caches (LiteSpeed Web Server, FastCGI cache) read
+	 * the persisted option BEFORE PHP runs — so cold cache hits would bypass
+	 * our runtime filter entirely.
+	 *
+	 * Call this on activation, on plugin update, and on settings save.
+	 *
+	 * @since 1.2.0-rc.16
+	 * @param string[] $patterns Path fragments to persist.
+	 */
+	public static function persist_exclusions( array $patterns ): void {
+		$patterns = array_values( array_filter( array_map( 'strval', $patterns ) ) );
+		if ( empty( $patterns ) ) {
+			return;
+		}
+
+		// ── LiteSpeed Cache / LSWS — persisted exclusion list ─────────────
+		// Read by LSWS via .htaccess LSCACHE module BEFORE PHP runs.
+		// Without this, a cold-cache /llms.txt request gets a stale HTML
+		// response from disk and our headers never fire. (Audit C2.)
+		if ( defined( 'LSCWP_V' ) || defined( 'LITESPEED_VERSION' ) ) {
+			$existing = (array) get_option( 'litespeed.conf.cache-exc', array() );
+			$merged   = array_values( array_unique( array_merge( $existing, $patterns ) ) );
+			if ( $merged !== $existing ) {
+				update_option( 'litespeed.conf.cache-exc', $merged );
+				do_action( 'litespeed_purge_all' );
+			}
+		}
+
+		// ── WP Super Cache — persisted reject URI ─────────────────────────
+		// (Audit H2.)
+		if ( function_exists( 'wp_cache_setting' ) ) {
+			$existing = (array) wp_cache_setting( 'cache_rejected_uri', array() );
+			$merged   = array_values( array_unique( array_merge( $existing, $patterns ) ) );
+			if ( $merged !== $existing ) {
+				wp_cache_setting( 'cache_rejected_uri', $merged );
+			}
+		}
+
+		// ── WP Rocket — persisted reject URI ─────────────────────────────
+		if ( defined( 'WP_ROCKET_VERSION' ) && function_exists( 'get_rocket_option' ) && function_exists( 'update_rocket_option' ) ) {
+			$existing = (array) get_rocket_option( 'cache_reject_uri', array() );
+			$regex    = array_map( function ( $p ) { return preg_quote( $p, '/' ); }, $patterns );
+			$merged   = array_values( array_unique( array_merge( $existing, $regex ) ) );
+			if ( $merged !== $existing ) {
+				update_rocket_option( 'cache_reject_uri', $merged );
+			}
+		}
+
+		// ── W3 Total Cache — persisted reject URI ─────────────────────────
+		if ( defined( 'W3TC' ) && class_exists( '\\W3TC\\Dispatcher' ) ) {
+			try {
+				$config   = \W3TC\Dispatcher::config();
+				$existing = (array) $config->get_array( 'pgcache.reject.uri' );
+				$merged   = array_values( array_unique( array_merge( $existing, $patterns ) ) );
+				if ( $merged !== $existing ) {
+					$config->set( 'pgcache.reject.uri', $merged );
+					$config->save();
+				}
+			} catch ( \Throwable $e ) {
+				// W3TC API surface shifts across versions — skip on error.
+			}
+		}
 	}
 
 	/**
@@ -168,6 +280,16 @@ class RR_Cache {
 		}
 		if ( ! defined( 'LSCWP_NO_CACHE' ) ) {
 			define( 'LSCWP_NO_CACHE', true );
+		}
+
+		// rc.16 audit fix C2 + M5 — emit LSWS server-level bypass headers.
+		// The LSCWP_NO_CACHE constant only signals the LSCWP PHP plugin.
+		// LiteSpeed Web Server (LSWS) reads these response headers to decide
+		// whether to store the response at the server level. Without these,
+		// LSWS will cache /llms.txt + /.well-known/mcp.json on disk.
+		if ( ! headers_sent() ) {
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+			header( 'X-LiteSpeed-Tag: rnrd-dynamic' );
 		}
 	}
 
@@ -196,6 +318,12 @@ class RR_Cache {
 
 		// nginx FastCGI cache — 0 means do not cache this response at all.
 		header( 'X-Accel-Expires: 0' );
+
+		// rc.16 audit fix C2 — LiteSpeed Web Server (LSWS) server-level cache
+		// bypass. Distinct from the LSCWP plugin constant — LSWS reads the
+		// X-LiteSpeed-Cache-Control response header to decide on-disk storage.
+		header( 'X-LiteSpeed-Cache-Control: no-cache' );
+		header( 'X-LiteSpeed-Tag: rnrd-dynamic' );
 
 		// ── HTTP standard ────────────────────────────────────────────────────
 
@@ -371,7 +499,69 @@ class RR_Cache {
 		if ( class_exists( 'comet_cache' ) )                                               $active['comet-cache']    = 'Comet Cache';
 		if ( class_exists( 'Swift_Performance_Lite' ) || class_exists( 'Swift_Performance' ) ) $active['swift']     = 'Swift Performance';
 		if ( function_exists( 'pantheon_clear_edge_paths' ) )                              $active['pantheon']       = 'Pantheon Edge';
+		// rc.16 audit fix M2 — Nginx Helper detection.
+		if ( class_exists( 'Nginx_Helper' ) || defined( 'RT_WP_NGINX_HELPER_PATH' ) )      $active['nginx-helper']   = 'Nginx Helper';
+		// rc.16 audit — NitroPack detection.
+		if ( defined( 'NITROPACK_VERSION' ) )                                              $active['nitropack']      = 'NitroPack';
+		// rc.16 audit — Perfmatters detection (caching-adjacent).
+		if ( defined( 'PERFMATTERS_VERSION' ) )                                            $active['perfmatters']    = 'Perfmatters';
 
 		return $active;
+	}
+
+	// ── Server bypass snippets ───────────────────────────────────────────────
+
+	/**
+	 * Apache / LiteSpeed `.htaccess` bypass snippet for RankReady endpoints.
+	 *
+	 * Apply at server level when runtime headers aren't sufficient — i.e. when
+	 * LiteSpeed Web Server caches a stale HTML response for /llms.txt before
+	 * PHP runs. Surfaced in Diagnostics → "Server bypass snippet".
+	 *
+	 * @since 1.2.0-rc.16
+	 */
+	public static function apache_htaccess_snippet(): string {
+		return <<<HTACCESS
+# BEGIN RankReady — LiteSpeed/Apache cache bypass
+<IfModule LiteSpeed>
+  RewriteEngine On
+  RewriteRule ^llms(-full)?\.txt$       - [E=cache-control:no-cache,L]
+  RewriteRule ^\.well-known/mcp\.json$  - [E=cache-control:no-cache,L]
+  RewriteRule \.md$                     - [E=cache-control:no-cache,L]
+</IfModule>
+<IfModule mod_headers.c>
+  <FilesMatch "\.(txt|md|json)$">
+    Header set X-LiteSpeed-Cache-Control "no-cache"
+    Header set Cache-Control             "no-store, no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+# END RankReady
+HTACCESS;
+	}
+
+	/**
+	 * Nginx server-block bypass snippet for RankReady endpoints.
+	 *
+	 * Use with FastCGI cache stacks (nginx + php-fpm) where header-based
+	 * bypass via X-Accel-Expires alone is unreliable on cold cache builds.
+	 *
+	 * @since 1.2.0-rc.16
+	 */
+	public static function nginx_snippet(): string {
+		return <<<NGINX
+# RankReady — FastCGI cache bypass (add to your nginx server block)
+location ~ ^/(llms\.txt|llms-full\.txt|\.well-known/mcp\.json)\$ {
+    fastcgi_cache_bypass 1;
+    fastcgi_no_cache     1;
+    add_header X-RR-Bypass "1" always;
+    try_files \$uri \$uri/ /index.php?\$args;
+}
+location ~ \.md\$ {
+    fastcgi_cache_bypass 1;
+    fastcgi_no_cache     1;
+    add_header X-RR-Bypass "1" always;
+    try_files \$uri \$uri/ /index.php?\$args;
+}
+NGINX;
 	}
 }

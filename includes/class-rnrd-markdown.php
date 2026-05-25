@@ -25,7 +25,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Markdown {
+class RNRD_Markdown {
 
 	public static function init(): void {
 		add_action( 'init',              array( self::class, 'add_rewrite_rules' ) );
@@ -54,7 +54,7 @@ class RR_Markdown {
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_md_trailing_slash' ), 10, 2 );
 
 		// Flush rewrite rules when the setting changes.
-		add_action( 'update_option_' . RR_OPT_MD_ENABLE, array( self::class, 'flush_rules' ) );
+		add_action( 'update_option_' . RNRD_OPT_MD_ENABLE, array( self::class, 'flush_rules' ) );
 
 		// Register query vars via named method (not anonymous closure).
 		add_filter( 'query_vars', array( self::class, 'register_query_vars' ) );
@@ -73,14 +73,14 @@ class RR_Markdown {
 	// ── Query vars (named method so it can be removed) ───────────────────────
 
 	public static function register_query_vars( array $vars ): array {
-		$vars[] = 'rr_md_path';
+		$vars[] = 'rnrd_md_path';
 		return $vars;
 	}
 
 	// ── Rewrite rules ────────────────────────────────────────────────────────
 
 	public static function add_rewrite_rules(): void {
-		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			return;
 		}
 
@@ -89,7 +89,7 @@ class RR_Markdown {
 		// Only match front-end content paths.
 		add_rewrite_rule(
 			'^(?!wp-admin|wp-content|wp-includes|wp-json)(.+)\.md$',
-			'index.php?rr_md_path=$matches[1]',
+			'index.php?rnrd_md_path=$matches[1]',
 			'top'
 		);
 	}
@@ -101,13 +101,13 @@ class RR_Markdown {
 	// ── Handle .md URL request ───────────────────────────────────────────────
 
 	public static function handle_request(): void {
-		$md_path = get_query_var( 'rr_md_path', '' );
+		$md_path = get_query_var( 'rnrd_md_path', '' );
 
 		if ( empty( $md_path ) ) {
 			return;
 		}
 
-		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			status_header( 404 );
 			header( 'Content-Type: text/plain; charset=utf-8' );
 			echo '# 404 Not Found';
@@ -125,7 +125,7 @@ class RR_Markdown {
 		}
 
 		// Check post type is enabled.
-		$enabled_types = (array) get_option( RR_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
 			status_header( 404 );
 			header( 'Content-Type: text/plain; charset=utf-8' );
@@ -134,9 +134,9 @@ class RR_Markdown {
 		}
 
 		// Log with the resolved post so CPT, title, and ID are captured.
-		RR_Crawler_Log::log( 'markdown', $post );
+		RNRD_Crawler_Log::log( 'markdown', $post );
 
-		$cache_key = 'rr_md_' . $post->ID . '_' . strtotime( $post->post_modified );
+		$cache_key = 'rnrd_md_' . $post->ID . '_' . strtotime( $post->post_modified );
 		$markdown  = get_transient( $cache_key );
 		if ( false === $markdown ) {
 			$markdown = self::post_to_markdown( $post );
@@ -159,22 +159,22 @@ class RR_Markdown {
 	public static function handle_accept_header(): void {
 		// Don't interfere when an explicit .md URL is being processed.
 		// At this stage WordPress hasn't resolved the queried object yet
-		// (only `rr_md_path` query var is set), so is_home() returns true
+		// (only `rnrd_md_path` query var is set), so is_home() returns true
 		// and we'd incorrectly serve the homepage index instead of the page.
 		// handle_request() at priority 10 serves the correct page markdown.
 		// Reported in issue #1 by @rohitposimyth-seo.
-		if ( '' !== (string) get_query_var( 'rr_md_path', '' ) ) {
+		if ( '' !== (string) get_query_var( 'rnrd_md_path', '' ) ) {
 			return;
 		}
 
-		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			return;
 		}
 
 		$ua             = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
 		// v1.2.0-beta.3 — sub-toggle for UA-based forced markdown. Default on.
 		// Disabling restricts markdown to explicit Accept: text/markdown only.
-		$force_markdown = 'on' === get_option( RR_OPT_MD_BOT_AUTO_SERVE, 'on' )
+		$force_markdown = 'on' === get_option( RNRD_OPT_MD_BOT_AUTO_SERVE, 'on' )
 			&& ! empty( $ua )
 			&& self::is_ai_bot( $ua );
 
@@ -218,7 +218,7 @@ class RR_Markdown {
 
 		// Homepage (static front page OR blog posts index): generate a site overview.
 		if ( is_front_page() || is_home() ) {
-			RR_Crawler_Log::log( 'home_md' );
+			RNRD_Crawler_Log::log( 'home_md' );
 			self::serve_homepage_markdown();
 			return;
 		}
@@ -233,15 +233,15 @@ class RR_Markdown {
 			return;
 		}
 
-		$enabled_types = (array) get_option( RR_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
 			return;
 		}
 
 		// Log Accept-header markdown hit with the resolved post (CPT + title captured).
-		RR_Crawler_Log::log( 'markdown', $post );
+		RNRD_Crawler_Log::log( 'markdown', $post );
 
-		$cache_key = 'rr_md_' . $post->ID . '_' . strtotime( $post->post_modified );
+		$cache_key = 'rnrd_md_' . $post->ID . '_' . strtotime( $post->post_modified );
 		$markdown  = get_transient( $cache_key );
 		if ( false === $markdown ) {
 			$markdown = self::post_to_markdown( $post );
@@ -294,7 +294,7 @@ class RR_Markdown {
 		// stays under WordPress's 172-char limit on exotic configurations
 		// (multilingual prefixes, custom CPT date paths, etc.).
 		// Audit beta.3 #15.
-		$cache_key = 'rr_md_homepage_' . md5( (string) get_option( 'permalink_structure', '' ) );
+		$cache_key = 'rnrd_md_homepage_' . md5( (string) get_option( 'permalink_structure', '' ) );
 		$markdown  = get_transient( $cache_key );
 
 		if ( false === $markdown ) {
@@ -313,7 +313,7 @@ class RR_Markdown {
 			$lines[] = '';
 
 			// Link to llms.txt if enabled.
-			if ( 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+			if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
 				$lines[] = 'Full site index: [llms.txt](' . home_url( '/llms.txt' ) . ')';
 				$lines[] = '';
 			}
@@ -347,7 +347,7 @@ class RR_Markdown {
 	// based on the Accept header, enabling correct content negotiation.
 
 	public static function add_vary_header(): void {
-		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			return;
 		}
 		if ( is_admin() || defined( 'REST_REQUEST' ) ) {
@@ -355,11 +355,16 @@ class RR_Markdown {
 		}
 		header( 'Vary: Accept', false );
 
-		// Homepage only: fire the full cache-bypass stack so every CDN and page-cache
-		// plugin stops serving a stale HTML response when Accept: text/markdown arrives.
-		// See RR_Cache::no_cache_headers() for the complete layer-by-layer breakdown.
-		if ( is_front_page() || is_home() ) {
-			RR_Cache::no_cache_headers();
+		// rc.16 audit fix H1 — only fire the full cache-bypass stack when this
+		// request is ACTUALLY negotiating markdown. The prior behaviour ran
+		// no_cache_headers() on every HTML homepage hit, which killed page
+		// cache for all visitors on cache-plugin sites. Vary: Accept (above)
+		// alone is enough to tell well-behaved caches to store separate
+		// representations.
+		$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) : '';
+		$wants_md = '' !== $accept && false !== stripos( $accept, 'text/markdown' );
+		if ( ( is_front_page() || is_home() ) && $wants_md ) {
+			RNRD_Cache::no_cache_headers();
 		}
 	}
 
@@ -367,7 +372,7 @@ class RR_Markdown {
 	// Helps crawlers discover the markdown version from the HTML page.
 
 	public static function add_md_link_tag(): void {
-		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
 			return;
 		}
 
@@ -376,7 +381,7 @@ class RR_Markdown {
 			return;
 		}
 
-		$enabled_types = (array) get_option( RR_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
 			return;
 		}
@@ -398,12 +403,12 @@ class RR_Markdown {
 	 * signal.
 	 */
 	public static function add_ai_hint_div(): void {
-		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
 			return;
 		}
 		// v1.2.0-beta.3 — sub-toggle, default on. Users who prefer no hidden
 		// content (some SEO purists do) can disable from Markdown Endpoints card.
-		if ( 'on' !== get_option( RR_OPT_MD_HINT_DIV, 'on' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_HINT_DIV, 'on' ) ) {
 			return;
 		}
 
@@ -412,7 +417,7 @@ class RR_Markdown {
 			return;
 		}
 
-		$enabled_types = (array) get_option( RR_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
 			return;
 		}
@@ -429,7 +434,7 @@ class RR_Markdown {
 	}
 
 	public static function add_md_link_header(): void {
-		if ( 'on' !== get_option( RR_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
 			return;
 		}
 
@@ -438,7 +443,7 @@ class RR_Markdown {
 			return;
 		}
 
-		$enabled_types = (array) get_option( RR_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
 			return;
 		}
@@ -456,7 +461,7 @@ class RR_Markdown {
 	 * actually resolves.
 	 */
 	public static function add_homepage_link_headers(): void {
-		if ( ! is_front_page() || 'on' !== get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+		if ( ! is_front_page() || 'on' !== get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
 			return;
 		}
 		header( 'Link: <' . esc_url( home_url( '/llms.txt' ) ) . '>; rel="describedby"; type="text/plain"', false );
@@ -489,7 +494,7 @@ class RR_Markdown {
 		// Block every cache layer from storing this response. Markdown and HTML
 		// are different representations of the same URL — a cache hit would
 		// serve the wrong content-type to the next client.
-		RR_Cache::no_cache_headers();
+		RNRD_Cache::no_cache_headers();
 
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/markdown; charset=utf-8' );
@@ -544,7 +549,7 @@ class RR_Markdown {
 		}
 
 		// Strategy 2: Try get_page_by_path() for pages and hierarchical types.
-		$enabled_types = (array) get_option( RR_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		$post          = get_page_by_path( $path, OBJECT, $enabled_types );
 
 		if ( $post instanceof WP_Post ) {
@@ -602,7 +607,7 @@ class RR_Markdown {
 		$lines = array();
 
 		// ── YAML frontmatter ─────────────────────────────────────────────
-		$include_meta = (bool) get_option( RR_OPT_MD_INCLUDE_META, '1' );
+		$include_meta = (bool) get_option( RNRD_OPT_MD_INCLUDE_META, '1' );
 
 		if ( $include_meta ) {
 			$lines[] = '---';
@@ -658,9 +663,9 @@ class RR_Markdown {
 		$lines[] = '';
 
 		// ── AI Summary (if available) ────────────────────────────────────
-		$summary_raw = (string) get_post_meta( $post->ID, RR_META_SUMMARY, true );
+		$summary_raw = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
 		if ( ! empty( $summary_raw ) ) {
-			$summary = RR_Generator::decode_summary( $summary_raw );
+			$summary = RNRD_Generator::decode_summary( $summary_raw );
 			if ( 'bullets' === $summary['type'] && ! empty( $summary['data'] ) ) {
 				$lines[] = '## Key Takeaways';
 				$lines[] = '';
@@ -672,15 +677,15 @@ class RR_Markdown {
 		}
 
 		// ── Content ──────────────────────────────────────────────────────
-		$content = RR_Llms_Txt::post_to_clean_markdown( $post );
+		$content = RNRD_Llms_Txt::post_to_clean_markdown( $post );
 
 		if ( ! empty( $content ) ) {
 			$lines[] = $content;
 		}
 
 		// ── FAQ section (if available) ───────────────────────────────
-		if ( class_exists( 'RR_Faq' ) ) {
-			$faq_md = RR_Faq::get_faq_markdown( $post->ID );
+		if ( class_exists( 'RNRD_Faq' ) ) {
+			$faq_md = RNRD_Faq::get_faq_markdown( $post->ID );
 			if ( ! empty( $faq_md ) ) {
 				$lines[] = '';
 				$lines[] = $faq_md;

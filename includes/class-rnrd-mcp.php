@@ -36,9 +36,9 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_MCP {
+class RNRD_MCP {
 
-	private const NS = 'rankready';
+	private const NS = 'rankready-ai-llm-seo';
 
 	public static function init(): void {
 		// Abilities API registers on its own init hook ('abilities_api_init')
@@ -58,24 +58,24 @@ class RR_MCP {
 		// 5-minute Cache-Control: public on the response handles CDN/browser
 		// layer; we just need the WP page-cache layer out of the way.
 		add_action( 'init', function () {
-			if ( class_exists( 'RR_Cache' ) ) {
-				RR_Cache::exclude_url_patterns( array( '/.well-known/mcp.json' ) );
+			if ( class_exists( 'RNRD_Cache' ) ) {
+				RNRD_Cache::exclude_url_patterns( array( '/.well-known/mcp.json' ) );
 			}
 		}, 11 );
 
 		// v1.2.0-rc.1 — purge the manifest cache when the toggle flips so
 		// CDNs / browser caches don't serve a stale 200 after disable.
 		// (Audit beta.3 #13.)
-		add_action( 'update_option_' . RR_OPT_MCP_ENABLE, array( self::class, 'purge_manifest_cache' ), 10, 2 );
+		add_action( 'update_option_' . RNRD_OPT_MCP_ENABLE, array( self::class, 'purge_manifest_cache' ), 10, 2 );
 	}
 
 	/**
-	 * Hook fired on RR_OPT_MCP_ENABLE save. Purges any CDN / page-cache
+	 * Hook fired on RNRD_OPT_MCP_ENABLE save. Purges any CDN / page-cache
 	 * layer that may be holding the previous manifest response.
 	 */
 	public static function purge_manifest_cache(): void {
-		if ( class_exists( 'RR_Cache' ) ) {
-			RR_Cache::purge_url( home_url( '/.well-known/mcp.json' ) );
+		if ( class_exists( 'RNRD_Cache' ) ) {
+			RNRD_Cache::purge_url( home_url( '/.well-known/mcp.json' ) );
 		}
 	}
 
@@ -84,22 +84,22 @@ class RR_MCP {
 	 * core value RankReady ships, opt-out rather than opt-in.
 	 */
 	public static function is_enabled(): bool {
-		return 'on' === get_option( RR_OPT_MCP_ENABLE, 'on' );
+		return 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' );
 	}
 
 	// ── Manifest endpoint ─────────────────────────────────────────────────
 
 	public static function register_query_vars( array $vars ): array {
-		$vars[] = 'rr_mcp_manifest';
+		$vars[] = 'rnrd_mcp_manifest';
 		return $vars;
 	}
 
 	public static function add_manifest_rewrite(): void {
-		add_rewrite_rule( '^\.well-known/mcp\.json$', 'index.php?rr_mcp_manifest=1', 'top' );
+		add_rewrite_rule( '^\.well-known/mcp\.json$', 'index.php?rnrd_mcp_manifest=1', 'top' );
 	}
 
 	public static function maybe_serve_manifest(): void {
-		if ( ! get_query_var( 'rr_mcp_manifest' ) ) {
+		if ( ! get_query_var( 'rnrd_mcp_manifest' ) ) {
 			return;
 		}
 		if ( ! self::is_enabled() ) {
@@ -117,7 +117,7 @@ class RR_MCP {
 	}
 
 	private static function serve_manifest(): void {
-		$brand_terms = class_exists( 'RR_Llms_Txt' ) ? RR_Llms_Txt::get_brand_terms_list() : array();
+		$brand_terms = class_exists( 'RNRD_Llms_Txt' ) ? RNRD_Llms_Txt::get_brand_terms_list() : array();
 
 		// v1.2.0-rc.1 — discovery URLs only included when they actually
 		// resolve. Returning a 404'd URL in the manifest is worse than
@@ -125,10 +125,10 @@ class RR_MCP {
 		$discovery = array(
 			'public_rest_base' => rest_url( 'rankready/v1/public' ),
 		);
-		if ( 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
 			$discovery['llms_txt'] = home_url( '/llms.txt' );
 		}
-		if ( 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
 			$discovery['llms_full_txt'] = home_url( '/llms-full.txt' );
 		}
 		// Only advertise sitemap if a known SEO plugin emits one, or core
@@ -146,12 +146,12 @@ class RR_MCP {
 			'brand'       => $brand_terms,
 			'tools'       => self::tool_descriptors(),
 			'discovery'   => $discovery,
-			'generator'   => 'RankReady ' . RR_VERSION,
+			'generator'   => 'RankReady ' . RNRD_VERSION,
 		);
 
 		// Bypass WP page-cache plugins; keep our 5-minute browser/CDN cache header.
-		if ( class_exists( 'RR_Cache' ) ) {
-			RR_Cache::bypass_page_cache_plugins_only();
+		if ( class_exists( 'RNRD_Cache' ) ) {
+			RNRD_Cache::bypass_page_cache_plugins_only();
 		}
 		header( 'Content-Type: application/json; charset=utf-8' );
 		header( 'X-Content-Type-Options: nosniff' );
@@ -304,8 +304,8 @@ class RR_MCP {
 	public static function ability_permission() {
 		if ( ! self::is_enabled() ) {
 			return new WP_Error(
-				'rr_mcp_disabled',
-				__( 'WebMCP is disabled on this site.', 'rankready' ),
+				'rnrd_mcp_disabled',
+				__( 'WebMCP is disabled on this site.', 'rankready-ai-llm-seo' ),
 				array( 'status' => 503 )
 			);
 		}
@@ -316,7 +316,7 @@ class RR_MCP {
 	 * v1.2.0-beta.6 — Per-resource toggle check. Returns true when the
 	 * resource is opted in (defaults defined in admin.php registration).
 	 *
-	 * @param string $resource_option One of the RR_OPT_MCP_EXPOSE_* constants.
+	 * @param string $resource_option One of the RNRD_OPT_MCP_EXPOSE_* constants.
 	 */
 	public static function resource_enabled( string $resource_option ): bool {
 		// Defer to register_setting() defaults: WP returns the registered
@@ -332,24 +332,24 @@ class RR_MCP {
 	 */
 	public static function exposure_state(): array {
 		return array(
-			'posts'      => self::resource_enabled( RR_OPT_MCP_EXPOSE_POSTS )
-				|| ( null === get_option( RR_OPT_MCP_EXPOSE_POSTS, null )
+			'posts'      => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_POSTS )
+				|| ( null === get_option( RNRD_OPT_MCP_EXPOSE_POSTS, null )
 					? true : false ), // default ON
-			'pages'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_PAGES, 'on' ),
-			'authors'    => 'on' === get_option( RR_OPT_MCP_EXPOSE_AUTHORS, 'on' ),
-			'taxonomies' => 'on' === get_option( RR_OPT_MCP_EXPOSE_TAXONOMIES, 'on' ),
-			'sitemap'    => 'on' === get_option( RR_OPT_MCP_EXPOSE_SITEMAP, 'on' ),
-			'menus'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_MENUS, 'on' ),
-			'llms_txt'   => 'on' === get_option( RR_OPT_MCP_EXPOSE_LLMS_TXT, 'on' ),
-			'rr_ai'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_RR_AI, 'on' ),
-			'freshness'  => 'on' === get_option( RR_OPT_MCP_EXPOSE_FRESHNESS, 'on' ),
-			'cpts'       => (array) get_option( RR_OPT_MCP_EXPOSE_CPTS, array() ),
-			'comments'   => 'on' === get_option( RR_OPT_MCP_EXPOSE_COMMENTS, 'off' ),
-			'media'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_MEDIA, 'off' ),
-			'users'      => 'on' === get_option( RR_OPT_MCP_EXPOSE_USERS, 'off' ),
-			'plugins'    => 'on' === get_option( RR_OPT_MCP_EXPOSE_PLUGINS, 'off' ),
-			'themes'     => 'on' === get_option( RR_OPT_MCP_EXPOSE_THEMES, 'off' ),
-			'settings'   => 'on' === get_option( RR_OPT_MCP_EXPOSE_SETTINGS, 'off' ),
+			'pages'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_PAGES, 'on' ),
+			'authors'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_AUTHORS, 'on' ),
+			'taxonomies' => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_TAXONOMIES, 'on' ),
+			'sitemap'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_SITEMAP, 'on' ),
+			'menus'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_MENUS, 'on' ),
+			'llms_txt'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_LLMS_TXT, 'on' ),
+			'rnrd_ai'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_RR_AI, 'on' ),
+			'freshness'  => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_FRESHNESS, 'on' ),
+			'cpts'       => (array) get_option( RNRD_OPT_MCP_EXPOSE_CPTS, array() ),
+			'comments'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_COMMENTS, 'off' ),
+			'media'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_MEDIA, 'off' ),
+			'users'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_USERS, 'off' ),
+			'plugins'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_PLUGINS, 'off' ),
+			'themes'     => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_THEMES, 'off' ),
+			'settings'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_SETTINGS, 'off' ),
 		);
 	}
 
@@ -382,9 +382,9 @@ class RR_MCP {
 			'list-content-types' => array(),
 
 			// RankReady AI value-add data.
-			'get-brand-terms'    => array( 'rr_ai' ),
-			'get-post-summary'   => array( 'rr_ai', 'posts' ),
-			'get-post-faq'       => array( 'rr_ai', 'posts' ),
+			'get-brand-terms'    => array( 'rnrd_ai' ),
+			'get-post-summary'   => array( 'rnrd_ai', 'posts' ),
+			'get-post-faq'       => array( 'rnrd_ai', 'posts' ),
 
 			// Posts resource.
 			'search-posts'       => array( 'posts' ),
@@ -459,8 +459,8 @@ class RR_MCP {
 		$expose = self::exposure_state();
 
 		wp_register_ability( self::NS . '/get-site-info', array(
-			'label'               => __( 'Get site info', 'rankready' ),
-			'description'         => __( 'Returns site identity: name, description, URL, brand terms, language.', 'rankready' ),
+			'label'               => __( 'Get site info', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Returns site identity: name, description, URL, brand terms, language.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array( 'type' => 'object', 'properties' => new \stdClass(), 'additionalProperties' => false ),
 			'output_schema'       => array(
 				'type'       => 'object',
@@ -477,8 +477,8 @@ class RR_MCP {
 		) );
 
 		wp_register_ability( self::NS . '/get-brand-terms', array(
-			'label'               => __( 'Get brand terms', 'rankready' ),
-			'description'         => __( 'Returns canonical brand names for entity consistency.', 'rankready' ),
+			'label'               => __( 'Get brand terms', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Returns canonical brand names for entity consistency.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array( 'type' => 'object', 'properties' => new \stdClass(), 'additionalProperties' => false ),
 			'output_schema'       => array(
 				'type'       => 'object',
@@ -489,8 +489,8 @@ class RR_MCP {
 		) );
 
 		wp_register_ability( self::NS . '/search-posts', array(
-			'label'               => __( 'Search posts', 'rankready' ),
-			'description'         => __( 'Keyword search across published posts. Returns title, URL, excerpt, modified date.', 'rankready' ),
+			'label'               => __( 'Search posts', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Keyword search across published posts. Returns title, URL, excerpt, modified date.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -523,8 +523,8 @@ class RR_MCP {
 		) );
 
 		wp_register_ability( self::NS . '/get-post-summary', array(
-			'label'               => __( 'Get post AI summary', 'rankready' ),
-			'description'         => __( 'Returns RankReady-generated AI summary (key takeaways) for a post.', 'rankready' ),
+			'label'               => __( 'Get post AI summary', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Returns RankReady-generated AI summary (key takeaways) for a post.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array( 'post_id' => array( 'type' => 'integer', 'minimum' => 1 ) ),
@@ -544,8 +544,8 @@ class RR_MCP {
 		) );
 
 		wp_register_ability( self::NS . '/get-post-faq', array(
-			'label'               => __( 'Get post FAQ', 'rankready' ),
-			'description'         => __( 'Returns RankReady-generated FAQ question/answer pairs for a post.', 'rankready' ),
+			'label'               => __( 'Get post FAQ', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Returns RankReady-generated FAQ question/answer pairs for a post.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array( 'post_id' => array( 'type' => 'integer', 'minimum' => 1 ) ),
@@ -574,8 +574,8 @@ class RR_MCP {
 		) );
 
 		wp_register_ability( self::NS . '/list-recent-posts', array(
-			'label'               => __( 'List recent posts', 'rankready' ),
-			'description'         => __( 'Paginated list of recently modified posts.', 'rankready' ),
+			'label'               => __( 'List recent posts', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Paginated list of recently modified posts.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -610,8 +610,8 @@ class RR_MCP {
 		// 7. get-post — the "view document" primitive. Returns full markdown +
 		//    metadata + summary + FAQ + schema in one call.
 		wp_register_ability( self::NS . '/get-post', array(
-			'label'               => __( 'Get post (full content)', 'rankready' ),
-			'description'         => __( 'Returns full post content as clean Markdown plus title, URL, modified date, author, AI summary bullets, FAQ Q&A, and JSON-LD schema. The agent\'s primary content retrieval primitive.', 'rankready' ),
+			'label'               => __( 'Get post (full content)', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Returns full post content as clean Markdown plus title, URL, modified date, author, AI summary bullets, FAQ Q&A, and JSON-LD schema. The agent\'s primary content retrieval primitive.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -645,8 +645,8 @@ class RR_MCP {
 		// 8. get-post-by-url — resolve a URL (including /post-slug.md or
 		//    /category/x/) → post payload. Lets an agent follow internal links.
 		wp_register_ability( self::NS . '/get-post-by-url', array(
-			'label'               => __( 'Get post by URL', 'rankready' ),
-			'description'         => __( 'Resolve any site URL (incl. .md, category, tag URLs) to a post. Returns the same shape as get-post. Returns 404-like empty payload if the URL does not map to content.', 'rankready' ),
+			'label'               => __( 'Get post by URL', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Resolve any site URL (incl. .md, category, tag URLs) to a post. Returns the same shape as get-post. Returns 404-like empty payload if the URL does not map to content.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -662,8 +662,8 @@ class RR_MCP {
 
 		// 9. list-pages — static pages separately from posts.
 		wp_register_ability( self::NS . '/list-pages', array(
-			'label'               => __( 'List pages', 'rankready' ),
-			'description'         => __( 'List static pages (About, Pricing, Docs, etc.). Hierarchical — returns parent_id so an agent can rebuild the page tree.', 'rankready' ),
+			'label'               => __( 'List pages', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'List static pages (About, Pricing, Docs, etc.). Hierarchical — returns parent_id so an agent can rebuild the page tree.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -679,8 +679,8 @@ class RR_MCP {
 
 		// 10. list-content-types — what post types this site exposes.
 		wp_register_ability( self::NS . '/list-content-types', array(
-			'label'               => __( 'List content types', 'rankready' ),
-			'description'         => __( 'Returns every public post type the site exposes (Posts, Pages, Products, Docs, etc.) so the agent can target queries to the right type.', 'rankready' ),
+			'label'               => __( 'List content types', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Returns every public post type the site exposes (Posts, Pages, Products, Docs, etc.) so the agent can target queries to the right type.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array( 'type' => 'object', 'properties' => new \stdClass(), 'additionalProperties' => false ),
 			'output_schema'       => array( 'type' => 'object' ),
 			'execute_callback'    => array( self::class, 'ability_list_content_types' ),
@@ -689,8 +689,8 @@ class RR_MCP {
 
 		// 11. list-categories — taxonomy discovery.
 		wp_register_ability( self::NS . '/list-categories', array(
-			'label'               => __( 'List categories', 'rankready' ),
-			'description'         => __( 'Browse the site\'s topical hierarchy. Returns category name, slug, parent, post count, and archive URL.', 'rankready' ),
+			'label'               => __( 'List categories', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Browse the site\'s topical hierarchy. Returns category name, slug, parent, post count, and archive URL.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -705,8 +705,8 @@ class RR_MCP {
 
 		// 12. list-tags — same shape, different taxonomy.
 		wp_register_ability( self::NS . '/list-tags', array(
-			'label'               => __( 'List tags', 'rankready' ),
-			'description'         => __( 'List tags ordered by post count. Returns name, slug, post count, archive URL.', 'rankready' ),
+			'label'               => __( 'List tags', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'List tags ordered by post count. Returns name, slug, post count, archive URL.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -721,8 +721,8 @@ class RR_MCP {
 
 		// 13. get-llms-txt — return the rendered llms.txt inline.
 		wp_register_ability( self::NS . '/get-llms-txt', array(
-			'label'               => __( 'Get llms.txt', 'rankready' ),
-			'description'         => __( 'Returns the rendered /llms.txt content inline so the agent does not have to make a separate HTTP fetch. Same content as the file endpoint.', 'rankready' ),
+			'label'               => __( 'Get llms.txt', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Returns the rendered /llms.txt content inline so the agent does not have to make a separate HTTP fetch. Same content as the file endpoint.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -737,8 +737,8 @@ class RR_MCP {
 
 		// 14. get-author — EEAT Person schema fields for an author.
 		wp_register_ability( self::NS . '/get-author', array(
-			'label'               => __( 'Get author (EEAT Person schema)', 'rankready' ),
-			'description'         => __( 'Returns full EEAT Person schema for a WordPress author: name, bio, job title, employer, credentials, education, awards, social profiles. Drives AI trust signals.', 'rankready' ),
+			'label'               => __( 'Get author (EEAT Person schema)', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Returns full EEAT Person schema for a WordPress author: name, bio, job title, employer, credentials, education, awards, social profiles. Drives AI trust signals.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -754,8 +754,8 @@ class RR_MCP {
 
 		// 15. get-sitemap — parsed sitemap index for cold crawls.
 		wp_register_ability( self::NS . '/get-sitemap', array(
-			'label'               => __( 'Get sitemap', 'rankready' ),
-			'description'         => __( 'Returns a parsed sitemap (URL + lastmod) of every published post + page. Agent\'s first call when discovering a site cold.', 'rankready' ),
+			'label'               => __( 'Get sitemap', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Returns a parsed sitemap (URL + lastmod) of every published post + page. Agent\'s first call when discovering a site cold.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -770,8 +770,8 @@ class RR_MCP {
 
 		// 16. get-fresh-content — posts modified in last N days.
 		wp_register_ability( self::NS . '/get-fresh-content', array(
-			'label'               => __( 'Get fresh content', 'rankready' ),
-			'description'         => __( 'Posts and pages modified within the last N days. AI engines prioritise fresh content — this ability surfaces what to read first when context is limited.', 'rankready' ),
+			'label'               => __( 'Get fresh content', 'rankready-ai-llm-seo' ),
+			'description'         => __( 'Posts and pages modified within the last N days. AI engines prioritise fresh content — this ability surfaces what to read first when context is limited.', 'rankready-ai-llm-seo' ),
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
@@ -791,8 +791,8 @@ class RR_MCP {
 	public static function ability_get_site_info(): array {
 		// v1.2.0-beta.4 — return the unified Brand Identity so agents see
 		// the same canonical name + summary + about + terms that humans see.
-		$brand = class_exists( 'RR_Llms_Txt' )
-			? RR_Llms_Txt::get_brand_identity()
+		$brand = class_exists( 'RNRD_Llms_Txt' )
+			? RNRD_Llms_Txt::get_brand_identity()
 			: array(
 				'name'    => (string) get_bloginfo( 'name' ),
 				'summary' => (string) get_bloginfo( 'description' ),
@@ -813,7 +813,7 @@ class RR_MCP {
 	public static function ability_get_brand_terms(): array {
 		if ( $g = self::guard( 'get-brand-terms' ) ) { return $g; }
 		return array(
-			'brand_terms' => class_exists( 'RR_Llms_Txt' ) ? RR_Llms_Txt::get_brand_terms_list() : array(),
+			'brand_terms' => class_exists( 'RNRD_Llms_Txt' ) ? RNRD_Llms_Txt::get_brand_terms_list() : array(),
 		);
 	}
 
@@ -823,7 +823,7 @@ class RR_MCP {
 		$limit = isset( $input['limit'] ) ? (int) $input['limit'] : 10;
 		$limit = max( 1, min( 20, $limit ) );
 
-		$post_types = (array) get_option( RR_OPT_POST_TYPES, array( 'post' ) );
+		$post_types = (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) );
 		if ( ! in_array( 'page', $post_types, true ) ) {
 			$post_types[] = 'page';
 		}
@@ -860,9 +860,9 @@ class RR_MCP {
 		}
 
 		$bullets = array();
-		$raw     = (string) get_post_meta( $post->ID, RR_META_SUMMARY, true );
-		if ( '' !== $raw && class_exists( 'RR_Generator' ) ) {
-			$decoded = RR_Generator::decode_summary( $raw );
+		$raw     = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
+		if ( '' !== $raw && class_exists( 'RNRD_Generator' ) ) {
+			$decoded = RNRD_Generator::decode_summary( $raw );
 			if ( 'bullets' === $decoded['type'] ) {
 				$bullets = array_values( (array) $decoded['data'] );
 			}
@@ -884,7 +884,7 @@ class RR_MCP {
 			return array( 'title' => '', 'url' => '', 'faq' => array() );
 		}
 
-		$faq = class_exists( 'RR_Faq' ) ? RR_Faq::get_faq_data( $post->ID ) : array();
+		$faq = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_faq_data( $post->ID ) : array();
 
 		return array(
 			'title' => html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' ),
@@ -900,7 +900,7 @@ class RR_MCP {
 		$limit  = max( 1, min( 50, $limit ) );
 		$offset = max( 0, $offset );
 
-		$post_types = (array) get_option( RR_OPT_POST_TYPES, array( 'post' ) );
+		$post_types = (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) );
 		if ( ! in_array( 'page', $post_types, true ) ) {
 			$post_types[] = 'page';
 		}
@@ -937,18 +937,18 @@ class RR_MCP {
 	private static function post_payload( WP_Post $post ): array {
 		$post_id   = (int) $post->ID;
 		$summary   = array();
-		$summary_raw = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
-		if ( '' !== $summary_raw && class_exists( 'RR_Generator' ) ) {
-			$decoded = RR_Generator::decode_summary( $summary_raw );
+		$summary_raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
+		if ( '' !== $summary_raw && class_exists( 'RNRD_Generator' ) ) {
+			$decoded = RNRD_Generator::decode_summary( $summary_raw );
 			if ( 'bullets' === $decoded['type'] ) {
 				$summary = array_values( (array) $decoded['data'] );
 			}
 		}
 
-		$faq = class_exists( 'RR_Faq' ) ? RR_Faq::get_faq_data( $post_id ) : array();
+		$faq = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_faq_data( $post_id ) : array();
 
-		$markdown = class_exists( 'RR_Markdown' ) ? RR_Markdown::post_to_markdown( $post ) : '';
-		$md_url   = class_exists( 'RR_Markdown' ) ? RR_Markdown::get_md_url( $post ) : '';
+		$markdown = class_exists( 'RNRD_Markdown' ) ? RNRD_Markdown::post_to_markdown( $post ) : '';
+		$md_url   = class_exists( 'RNRD_Markdown' ) ? RNRD_Markdown::get_md_url( $post ) : '';
 
 		$author_name = (string) get_the_author_meta( 'display_name', $post->post_author );
 
@@ -1133,14 +1133,14 @@ class RR_MCP {
 	public static function ability_get_llms_txt( array $input ): array {
 		if ( $g = self::guard( 'get-llms-txt' ) ) { return $g; }
 		$full = ! empty( $input['full'] );
-		if ( ! class_exists( 'RR_Llms_Txt' ) ) {
+		if ( ! class_exists( 'RNRD_Llms_Txt' ) ) {
 			return array( 'content' => '', 'enabled' => false );
 		}
 
 		// Respect the master toggles — don't return content the file endpoint
 		// itself would 404 on.
-		$llms_on = 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' );
-		$full_on = 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' );
+		$llms_on = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$full_on = 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
 
 		if ( ! $llms_on ) {
 			return array( 'content' => '', 'enabled' => false, 'note' => 'llms.txt is disabled on this site.' );
@@ -1149,7 +1149,7 @@ class RR_MCP {
 			return array( 'content' => '', 'enabled' => false, 'note' => 'llms-full.txt is disabled on this site.' );
 		}
 
-		$content = $full ? RR_Llms_Txt::generate_full() : RR_Llms_Txt::generate();
+		$content = $full ? RNRD_Llms_Txt::generate_full() : RNRD_Llms_Txt::generate();
 		return array(
 			'content' => $content,
 			'enabled' => true,
@@ -1175,7 +1175,7 @@ class RR_MCP {
 
 		$eeat = array();
 		foreach ( $fields as $key ) {
-			$val = get_user_meta( $user->ID, 'rr_author_' . $key, true );
+			$val = get_user_meta( $user->ID, 'rnrd_author_' . $key, true );
 			if ( '' !== (string) $val ) {
 				$eeat[ $key ] = is_array( $val ) ? $val : (string) $val;
 			}

@@ -7,14 +7,14 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Generator {
+class RNRD_Generator {
 
 	/** Minimum seconds between API calls for the same post. */
 	private const MIN_INTERVAL = 30;
 
 	public static function init(): void {
 		add_action( 'wp_after_insert_post', array( self::class, 'schedule_generation' ), 10, 4 );
-		add_action( RR_CRON_HOOK, array( self::class, 'run_generation' ) );
+		add_action( RNRD_CRON_HOOK, array( self::class, 'run_generation' ) );
 	}
 
 	// ── Trigger ───────────────────────────────────────────────────────────────
@@ -31,12 +31,9 @@ class RR_Generator {
 		}
 
 		// Auto-generate toggle: if off, only generate via manual/bulk actions.
-		if ( 'on' !== get_option( RR_OPT_AUTO_GENERATE, 'off' ) ) {
-			return;
-		}
-
-		// Pro gate — auto-generate on publish is a Pro feature.
-		if ( ! ( function_exists( 'rr_is_pro' ) && rr_is_pro() ) ) {
+		// The toggle UI is presented as "Coming Soon" and defaults to 'off',
+		// so this branch is effectively dormant in the WP.org Free build.
+		if ( 'on' !== get_option( RNRD_OPT_AUTO_GENERATE, 'off' ) ) {
 			return;
 		}
 
@@ -65,29 +62,29 @@ class RR_Generator {
 		}
 
 		// Per-post disable
-		if ( get_post_meta( $post_id, RR_META_DISABLE, true ) ) {
+		if ( get_post_meta( $post_id, RNRD_META_DISABLE, true ) ) {
 			return;
 		}
 
 		// No API key for the active LLM provider — nothing to call.
-		if ( ! RR_LLM::active_provider_ready() ) {
+		if ( ! RNRD_LLM::active_provider_ready() ) {
 			return;
 		}
 
 		// Hash check: only call API if content changed
 		$content  = self::get_content_string( $post );
 		$new_hash = md5( $content );
-		$old_hash = (string) get_post_meta( $post_id, RR_META_HASH, true );
+		$old_hash = (string) get_post_meta( $post_id, RNRD_META_HASH, true );
 
 		if ( $new_hash === $old_hash ) {
 			return;
 		}
 
-		update_post_meta( $post_id, RR_META_HASH, $new_hash );
+		update_post_meta( $post_id, RNRD_META_HASH, $new_hash );
 
 		// Use WP-Cron only (single path, no double-fire).
-		wp_clear_scheduled_hook( RR_CRON_HOOK, array( $post_id ) );
-		wp_schedule_single_event( time() + 5, RR_CRON_HOOK, array( $post_id ) );
+		wp_clear_scheduled_hook( RNRD_CRON_HOOK, array( $post_id ) );
+		wp_schedule_single_event( time() + 5, RNRD_CRON_HOOK, array( $post_id ) );
 		spawn_cron();
 	}
 
@@ -105,17 +102,17 @@ class RR_Generator {
 		}
 
 		// Per-post disable check
-		if ( get_post_meta( $post_id, RR_META_DISABLE, true ) ) {
+		if ( get_post_meta( $post_id, RNRD_META_DISABLE, true ) ) {
 			self::$generating = false;
 			return;
 		}
 
-		if ( ! RR_LLM::active_provider_ready() ) {
+		if ( ! RNRD_LLM::active_provider_ready() ) {
 			self::$generating = false;
 			return;
 		}
 
-		$last = (int) get_post_meta( $post_id, RR_META_GENERATED, true );
+		$last = (int) get_post_meta( $post_id, RNRD_META_GENERATED, true );
 		if ( $last && ( time() - $last ) < self::MIN_INTERVAL ) {
 			self::$generating = false;
 			return;
@@ -125,8 +122,8 @@ class RR_Generator {
 		$result  = self::call_openai( $content, $post );
 
 		if ( $result ) {
-			update_post_meta( $post_id, RR_META_SUMMARY,   $result );
-			update_post_meta( $post_id, RR_META_GENERATED, time() );
+			update_post_meta( $post_id, RNRD_META_SUMMARY,   $result );
+			update_post_meta( $post_id, RNRD_META_GENERATED, time() );
 		}
 
 		self::$generating = false;
@@ -148,12 +145,9 @@ class RR_Generator {
 			return false;
 		}
 
-		// ── Free tier limit check (before API call) ───────────────────────────
-		if ( ! RR_Limits::can_generate_summary() ) {
-			return RR_Limits::summary_limit_error();
-		}
+		// Free build: unlimited manual generation. No cap to check.
 
-		if ( ! RR_LLM::active_provider_ready() ) {
+		if ( ! RNRD_LLM::active_provider_ready() ) {
 			return false;
 		}
 
@@ -162,8 +156,8 @@ class RR_Generator {
 
 		// Skip if content unchanged and summary already exists.
 		if ( $skip_unchanged ) {
-			$old_hash = (string) get_post_meta( $post_id, RR_META_HASH, true );
-			$existing = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
+			$old_hash = (string) get_post_meta( $post_id, RNRD_META_HASH, true );
+			$existing = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 			if ( $new_hash === $old_hash && ! empty( $existing ) ) {
 				return $existing; // Return existing without API call.
 			}
@@ -172,11 +166,9 @@ class RR_Generator {
 		$result = self::call_openai( $content, $post );
 
 		if ( $result && ! is_wp_error( $result ) ) {
-			update_post_meta( $post_id, RR_META_SUMMARY,   $result );
-			update_post_meta( $post_id, RR_META_HASH,      $new_hash );
-			update_post_meta( $post_id, RR_META_GENERATED, time() );
-			// Record free tier usage after successful API call.
-			RR_Limits::record_summary();
+			update_post_meta( $post_id, RNRD_META_SUMMARY,   $result );
+			update_post_meta( $post_id, RNRD_META_HASH,      $new_hash );
+			update_post_meta( $post_id, RNRD_META_GENERATED, time() );
 		}
 
 		return $result;
@@ -185,10 +177,10 @@ class RR_Generator {
 	// ── LLM call (multi-provider since v1.1.1) ─────────────────────────────────
 	//
 	// Method name kept as `call_openai()` for back-compat with any external
-	// callers, but the body now dispatches through `RR_LLM::generate()` to
+	// callers, but the body now dispatches through `RNRD_LLM::generate()` to
 	// whichever provider is active (OpenAI / Claude / Gemini / DeepSeek).
 	// `$api_key` parameter is ignored — the active provider's own key is
-	// fetched by RR_LLM. Callers can pass an empty string.
+	// fetched by RNRD_LLM. Callers can pass an empty string.
 
 	public static function call_openai( $content, $post, $api_key = '' ) {
 		$word_count   = preg_match_all( '/\S+/', $content );
@@ -212,14 +204,14 @@ class RR_Generator {
 		$system_prompt .= "- No em dashes. No filler words (certainly, indeed, comprehensive, robust, leverage, utilize). No promotional language.";
 
 		// v1.2.0-rc.3 — product context now sourced from Brand Identity About
-		// field. Falls back to legacy rr_product_context for back-compat with
+		// field. Falls back to legacy rnrd_product_context for back-compat with
 		// installs that filled in the old field before rc.3.
 		$product_context = '';
-		if ( class_exists( 'RR_Llms_Txt' ) ) {
-			$product_context = RR_Llms_Txt::get_brand_about();
+		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
+			$product_context = RNRD_Llms_Txt::get_brand_about();
 		}
 		if ( '' === $product_context ) {
-			$product_context = (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' );
+			$product_context = (string) get_option( RNRD_OPT_PRODUCT_CONTEXT, '' );
 		}
 		if ( ! empty( $product_context ) ) {
 			$system_prompt .= "\n\nPRODUCT CONTEXT (use this as a fact-check reference — never contradict this, never add details beyond this):\n" . $product_context;
@@ -227,15 +219,15 @@ class RR_Generator {
 
 		// Inject canonical brand terms (v1.2.0) — single source from AI Crawlers tab.
 		// Wires same one input through every LLM call so brand naming stays consistent.
-		if ( class_exists( 'RR_Llms_Txt' ) ) {
-			$brand_terms = RR_Llms_Txt::get_brand_terms_string();
+		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
+			$brand_terms = RNRD_Llms_Txt::get_brand_terms_string();
 			if ( '' !== $brand_terms ) {
 				$system_prompt .= "\n\nCANONICAL BRAND NAMES (use these exact spellings — never abbreviate, paraphrase, or use variants):\n" . $brand_terms;
 			}
 		}
 
 		// Append custom prompt if set.
-		$custom_prompt = (string) get_option( RR_OPT_CUSTOM_PROMPT, '' );
+		$custom_prompt = (string) get_option( RNRD_OPT_CUSTOM_PROMPT, '' );
 		if ( ! empty( $custom_prompt ) ) {
 			$system_prompt .= "\n\nAdditional instructions:\n" . $custom_prompt;
 		}
@@ -265,7 +257,7 @@ Blog Post:
 			$content
 		);
 
-		$result = RR_LLM::generate( $system_prompt, $user_prompt, array(
+		$result = RNRD_LLM::generate( $system_prompt, $user_prompt, array(
 			'max_tokens'  => 500,
 			'temperature' => 0.2,
 			'json'        => true,
@@ -310,19 +302,19 @@ Blog Post:
 	 * Connection test — pings the active LLM provider with a tiny prompt.
 	 * Returns true on success, or a string error message on failure.
 	 *
-	 * Routes through `RR_LLM::generate()` so adding a new provider needs no
+	 * Routes through `RNRD_LLM::generate()` so adding a new provider needs no
 	 * changes here.
 	 */
 	public static function test_api_connection() {
-		if ( ! RR_LLM::active_provider_ready() ) {
+		if ( ! RNRD_LLM::active_provider_ready() ) {
 			return sprintf(
 				/* translators: %s: provider name */
-				__( 'No %s API key configured.', 'rankready' ),
-				RR_LLM::get_provider_label( RR_LLM::get_active_provider() )
+				__( 'No %s API key configured.', 'rankready-ai-llm-seo' ),
+				RNRD_LLM::get_provider_label( RNRD_LLM::get_active_provider() )
 			);
 		}
 
-		$result = RR_LLM::generate(
+		$result = RNRD_LLM::generate(
 			'You reply with the single word OK.',
 			'Reply with OK only.',
 			array(
@@ -361,7 +353,7 @@ Blog Post:
 	// ── Error logging ────────────────────────────────────────────────────────
 
 	public static function log_error( string $source, string $message, int $post_id = 0 ): void {
-		$log = (array) get_option( 'rr_error_log', array() );
+		$log = (array) get_option( 'rnrd_error_log', array() );
 
 		$log[] = array(
 			'time'    => time(),
@@ -375,27 +367,27 @@ Blog Post:
 			$log = array_slice( $log, -50 );
 		}
 
-		update_option( 'rr_error_log', $log, false );
+		update_option( 'rnrd_error_log', $log, false );
 	}
 
 	public static function get_error_log(): array {
-		return (array) get_option( 'rr_error_log', array() );
+		return (array) get_option( 'rnrd_error_log', array() );
 	}
 
 	public static function clear_error_log(): void {
-		delete_option( 'rr_error_log' );
+		delete_option( 'rnrd_error_log' );
 	}
 
 	// ── Token tracking ───────────────────────────────────────────────────────
 
 	public static function track_tokens( int $tokens, int $post_id, string $type ): void {
 		// Per-post tracking.
-		$meta_key = '_rr_tokens_used';
+		$meta_key = '_rnrd_tokens_used';
 		$current  = (int) get_post_meta( $post_id, $meta_key, true );
 		update_post_meta( $post_id, $meta_key, $current + $tokens );
 
 		// Global cumulative tracking.
-		$totals = (array) get_option( 'rr_token_usage', array(
+		$totals = (array) get_option( 'rnrd_token_usage', array(
 			'summary_tokens' => 0,
 			'faq_tokens'     => 0,
 			'total_calls'    => 0,
@@ -408,6 +400,6 @@ Blog Post:
 		}
 		$totals['total_calls'] = ( isset( $totals['total_calls'] ) ? (int) $totals['total_calls'] : 0 ) + 1;
 
-		update_option( 'rr_token_usage', $totals, false );
+		update_option( 'rnrd_token_usage', $totals, false );
 	}
 }

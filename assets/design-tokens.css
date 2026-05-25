@@ -5,7 +5,7 @@
  * Every other RankReady stylesheet should reference these custom properties
  * instead of hard-coding hex values.
  *
- * Naming convention: --rr-{category}-{role}-{variant}
+ * Naming convention: --rnrd-{category}-{role}-{variant}
  *
  * Inspired by Apple HIG + WordPress core. Stays close to WP admin chrome so
  * RankReady screens feel native, not bolted on.
@@ -13,118 +13,118 @@
 
 :root {
 	/* ── Colour: brand ──────────────────────────────────────────────────── */
-	--rr-color-brand:           #2271b1;  /* WP admin blue — keeps native feel */
-	--rr-color-brand-hover:     #135e96;
-	--rr-color-brand-soft:      #f0f6fc;
+	--rnrd-color-brand:           #2271b1;  /* WP admin blue — keeps native feel */
+	--rnrd-color-brand-hover:     #135e96;
+	--rnrd-color-brand-soft:      #f0f6fc;
 
 	/* ── Colour: semantic ───────────────────────────────────────────────── */
-	--rr-color-success:         #00a32a;
-	--rr-color-success-bg:      #d1ecdf;
-	--rr-color-success-text:    #0a6c39;
+	--rnrd-color-success:         #00a32a;
+	--rnrd-color-success-bg:      #d1ecdf;
+	--rnrd-color-success-text:    #0a6c39;
 
-	--rr-color-warning:         #dba617;
-	--rr-color-warning-bg:      #fcf9e8;
-	--rr-color-warning-text:    #674c00;
+	--rnrd-color-warning:         #dba617;
+	--rnrd-color-warning-bg:      #fcf9e8;
+	--rnrd-color-warning-text:    #674c00;
 
-	--rr-color-danger:          #d63638;
-	--rr-color-danger-bg:       #fcebe6;
-	--rr-color-danger-text:     #a72e1f;
+	--rnrd-color-danger:          #d63638;
+	--rnrd-color-danger-bg:       #fcebe6;
+	--rnrd-color-danger-text:     #a72e1f;
 
-	--rr-color-info:            #3582c4;
-	--rr-color-info-bg:         #e5f1f9;
-	--rr-color-info-text:       #135e96;
+	--rnrd-color-info:            #3582c4;
+	--rnrd-color-info-bg:         #e5f1f9;
+	--rnrd-color-info-text:       #135e96;
 
 	/* ── Colour: neutrals (WP core scale) ───────────────────────────────── */
-	--rr-color-ink:             #1d2327;  /* primary text */
-	--rr-color-ink-soft:        #3c434a;  /* secondary text */
-	--rr-color-text-muted:      #646970;  /* helper text */
-	--rr-color-border:          #c3c4c7;  /* dividers */
-	--rr-color-border-soft:     #dcdcde;  /* subtle dividers */
-	--rr-color-surface:         #ffffff;
-	--rr-color-surface-2:       #f6f7f7;  /* WP admin grey */
-	--rr-color-surface-3:       #f0f0f1;
+	--rnrd-color-ink:             #1d2327;  /* primary text */
+	--rnrd-color-ink-soft:        #3c434a;  /* secondary text */
+	--rnrd-color-text-muted:      #646970;  /* helper text */
+	--rnrd-color-border:          #c3c4c7;  /* dividers */
+	--rnrd-color-border-soft:     #dcdcde;  /* subtle dividers */
+	--rnrd-color-surface:         #ffffff;
+	--rnrd-color-surface-2:       #f6f7f7;  /* WP admin grey */
+	--rnrd-color-surface-3:       #f0f0f1;
 
 	/* ── Colour: AI source palette (Referral widget) ───────────────────── */
-	--rr-source-chatgpt:        #10a37f;  /* OpenAI green   */
-	--rr-source-perplexity:     #21808d;  /* Perplexity teal */
-	--rr-source-gemini:         #4285f4;  /* Google blue    */
-	--rr-source-claude:         #cc785c;  /* Anthropic terracotta */
-	--rr-source-copilot:        #0078d4;  /* Microsoft blue */
+	--rnrd-source-chatgpt:        #10a37f;  /* OpenAI green   */
+	--rnrd-source-perplexity:     #21808d;  /* Perplexity teal */
+	--rnrd-source-gemini:         #4285f4;  /* Google blue    */
+	--rnrd-source-claude:         #cc785c;  /* Anthropic terracotta */
+	--rnrd-source-copilot:        #0078d4;  /* Microsoft blue */
 
 	/* ── Spacing (4px base) ─────────────────────────────────────────────── */
-	--rr-space-xs:              4px;
-	--rr-space-sm:              8px;
-	--rr-space-md:              12px;
-	--rr-space-lg:              16px;
-	--rr-space-xl:              24px;
-	--rr-space-2xl:             32px;
-	--rr-space-3xl:             48px;
+	--rnrd-space-xs:              4px;
+	--rnrd-space-sm:              8px;
+	--rnrd-space-md:              12px;
+	--rnrd-space-lg:              16px;
+	--rnrd-space-xl:              24px;
+	--rnrd-space-2xl:             32px;
+	--rnrd-space-3xl:             48px;
 
 	/* ── Radius ─────────────────────────────────────────────────────────── */
-	--rr-radius-sm:             3px;
-	--rr-radius-md:             6px;
-	--rr-radius-lg:             10px;
-	--rr-radius-pill:           9999px;
+	--rnrd-radius-sm:             3px;
+	--rnrd-radius-md:             6px;
+	--rnrd-radius-lg:             10px;
+	--rnrd-radius-pill:           9999px;
 
 	/* ── Type scale ─────────────────────────────────────────────────────── */
-	--rr-text-xs:               11px;
-	--rr-text-sm:               12px;
-	--rr-text-md:               13px;  /* WP admin default */
-	--rr-text-lg:               14px;
-	--rr-text-xl:               18px;
-	--rr-text-2xl:              23px;
-	--rr-text-3xl:              28px;
+	--rnrd-text-xs:               11px;
+	--rnrd-text-sm:               12px;
+	--rnrd-text-md:               13px;  /* WP admin default */
+	--rnrd-text-lg:               14px;
+	--rnrd-text-xl:               18px;
+	--rnrd-text-2xl:              23px;
+	--rnrd-text-3xl:              28px;
 
-	--rr-leading-tight:         1.2;
-	--rr-leading-normal:        1.5;
-	--rr-leading-relaxed:       1.6;
+	--rnrd-leading-tight:         1.2;
+	--rnrd-leading-normal:        1.5;
+	--rnrd-leading-relaxed:       1.6;
 
-	--rr-weight-regular:        400;
-	--rr-weight-medium:         500;
-	--rr-weight-semibold:       600;
-	--rr-weight-bold:           700;
+	--rnrd-weight-regular:        400;
+	--rnrd-weight-medium:         500;
+	--rnrd-weight-semibold:       600;
+	--rnrd-weight-bold:           700;
 
 	/* ── Shadow ─────────────────────────────────────────────────────────── */
-	--rr-shadow-sm:             0 1px 2px rgba(0,0,0,0.04);
-	--rr-shadow-md:             0 2px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-	--rr-shadow-lg:             0 8px 24px rgba(0,0,0,0.08);
+	--rnrd-shadow-sm:             0 1px 2px rgba(0,0,0,0.04);
+	--rnrd-shadow-md:             0 2px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+	--rnrd-shadow-lg:             0 8px 24px rgba(0,0,0,0.08);
 
 	/* ── Motion ─────────────────────────────────────────────────────────── */
-	--rr-motion-fast:           120ms ease-out;
-	--rr-motion-normal:         180ms ease-in-out;
+	--rnrd-motion-fast:           120ms ease-out;
+	--rnrd-motion-normal:         180ms ease-in-out;
 }
 
 /* ── Reusable atoms — reference tokens above ─────────────────────────── */
 
-.rr-card {
-	background: var(--rr-color-surface);
-	border: 1px solid var(--rr-color-border);
-	border-radius: var(--rr-radius-md);
-	padding: var(--rr-space-lg);
-	box-shadow: var(--rr-shadow-sm);
+.rnrd-card {
+	background: var(--rnrd-color-surface);
+	border: 1px solid var(--rnrd-color-border);
+	border-radius: var(--rnrd-radius-md);
+	padding: var(--rnrd-space-lg);
+	box-shadow: var(--rnrd-shadow-sm);
 }
 
-.rr-badge {
+.rnrd-badge {
 	display: inline-block;
 	padding: 2px 8px;
-	border-radius: var(--rr-radius-pill);
-	font-size: var(--rr-text-xs);
-	font-weight: var(--rr-weight-semibold);
-	line-height: var(--rr-leading-tight);
+	border-radius: var(--rnrd-radius-pill);
+	font-size: var(--rnrd-text-xs);
+	font-weight: var(--rnrd-weight-semibold);
+	line-height: var(--rnrd-leading-tight);
 }
 
-.rr-badge--ok   { background: var(--rr-color-success-bg); color: var(--rr-color-success-text); }
-.rr-badge--warn { background: var(--rr-color-warning-bg); color: var(--rr-color-warning-text); }
-.rr-badge--err  { background: var(--rr-color-danger-bg);  color: var(--rr-color-danger-text); }
-.rr-badge--info { background: var(--rr-color-info-bg);    color: var(--rr-color-info-text); }
+.rnrd-badge--ok   { background: var(--rnrd-color-success-bg); color: var(--rnrd-color-success-text); }
+.rnrd-badge--warn { background: var(--rnrd-color-warning-bg); color: var(--rnrd-color-warning-text); }
+.rnrd-badge--err  { background: var(--rnrd-color-danger-bg);  color: var(--rnrd-color-danger-text); }
+.rnrd-badge--info { background: var(--rnrd-color-info-bg);    color: var(--rnrd-color-info-text); }
 
-.rr-muted        { color: var(--rr-color-text-muted); }
-.rr-text-xs      { font-size: var(--rr-text-xs); }
-.rr-text-sm      { font-size: var(--rr-text-sm); }
-.rr-divider      { border: 0; border-top: 1px solid var(--rr-color-border-soft); margin: var(--rr-space-md) 0; }
+.rnrd-muted        { color: var(--rnrd-color-text-muted); }
+.rnrd-text-xs      { font-size: var(--rnrd-text-xs); }
+.rnrd-text-sm      { font-size: var(--rnrd-text-sm); }
+.rnrd-divider      { border: 0; border-top: 1px solid var(--rnrd-color-border-soft); margin: var(--rnrd-space-md) 0; }
 
 /* Visually-hidden helper (re-usable for AI hint divs, screen-reader text). */
-.rr-sr-only {
+.rnrd-sr-only {
 	position: absolute !important;
 	width: 1px !important;
 	height: 1px !important;

@@ -20,7 +20,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Rest {
+class RNRD_Rest {
 
 	private const NS             = 'rankready/v1';
 	private const REGEN_COOLDOWN = 60;
@@ -31,9 +31,9 @@ class RR_Rest {
 		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );
 
 		// WP-Cron hooks for bulk operations — run even after browser close.
-		add_action( RR_CRON_BULK_STARTOVER, array( self::class, 'cron_startover_tick' ) );
-		add_action( RR_CRON_BULK_FAQ,       array( self::class, 'cron_faq_tick' ) );
-		add_action( RR_CRON_BULK_SUMMARY,   array( self::class, 'cron_summary_tick' ) );
+		add_action( RNRD_CRON_BULK_STARTOVER, array( self::class, 'cron_startover_tick' ) );
+		add_action( RNRD_CRON_BULK_FAQ,       array( self::class, 'cron_faq_tick' ) );
+		add_action( RNRD_CRON_BULK_SUMMARY,   array( self::class, 'cron_summary_tick' ) );
 	}
 
 	public static function register_routes(): void {
@@ -299,10 +299,10 @@ class RR_Rest {
 		) );
 
 		// (Old /health-check route removed in rc.15 — replaced by the live
-		// 22-probe Diagnostics endpoint registered by RR_Diagnostics class:
+		// 22-probe Diagnostics endpoint registered by RNRD_Diagnostics class:
 		//   GET /rankready/v1/diagnostics?include_api=0|1
 		//   GET /rankready/v1/diagnostics/report?include_api=0|1
-		// See class-rr-diagnostics.php for the new implementation.)
+		// See class-rnrd-diagnostics.php for the new implementation.)
 
 		// ── Schema Scanner endpoints ─────────────────────────────────────────
 		register_rest_route( self::NS, '/schema/status', array(
@@ -322,31 +322,31 @@ class RR_Rest {
 
 	public static function can_edit_post( $request ) {
 		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'rankready' ), array( 'status' => 401 ) );
+			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'rankready-ai-llm-seo' ), array( 'status' => 401 ) );
 		}
 		$post_id = (int) $request->get_param( 'id' );
 		if ( ! current_user_can( 'edit_post', $post_id ) ) {
-			return new WP_Error( 'rest_forbidden', __( 'You do not have permission to edit this post.', 'rankready' ), array( 'status' => 403 ) );
+			return new WP_Error( 'rest_forbidden', __( 'You do not have permission to edit this post.', 'rankready-ai-llm-seo' ), array( 'status' => 403 ) );
 		}
 		return true;
 	}
 
 	public static function is_admin_user() {
 		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'rankready' ), array( 'status' => 401 ) );
+			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'rankready-ai-llm-seo' ), array( 'status' => 401 ) );
 		}
 		if ( ! current_user_can( 'manage_options' ) ) {
-			return new WP_Error( 'rest_forbidden', __( 'Admin access required.', 'rankready' ), array( 'status' => 403 ) );
+			return new WP_Error( 'rest_forbidden', __( 'Admin access required.', 'rankready-ai-llm-seo' ), array( 'status' => 403 ) );
 		}
 		return true;
 	}
 
 	public static function can_edit_others() {
 		if ( ! is_user_logged_in() ) {
-			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'rankready' ), array( 'status' => 401 ) );
+			return new WP_Error( 'rest_forbidden', __( 'You must be logged in.', 'rankready-ai-llm-seo' ), array( 'status' => 401 ) );
 		}
 		if ( ! current_user_can( 'edit_others_posts' ) ) {
-			return new WP_Error( 'rest_forbidden', __( 'Insufficient permissions.', 'rankready' ), array( 'status' => 403 ) );
+			return new WP_Error( 'rest_forbidden', __( 'Insufficient permissions.', 'rankready-ai-llm-seo' ), array( 'status' => 403 ) );
 		}
 		return true;
 	}
@@ -359,31 +359,31 @@ class RR_Rest {
 		$post_id = (int) $request->get_param( 'id' );
 		return new WP_REST_Response( array(
 			'success' => true,
-			'summary' => (string) get_post_meta( $post_id, RR_META_SUMMARY, true ),
-			'has_key' => ! empty( get_option( RR_OPT_KEY ) ),
+			'summary' => (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true ),
+			'has_key' => ! empty( get_option( RNRD_OPT_KEY ) ),
 		), 200 );
 	}
 
 	public static function regenerate_summary( $request ) {
 		$post_id = (int) $request->get_param( 'id' );
 
-		if ( empty( get_option( RR_OPT_KEY ) ) ) {
-			return new WP_Error( 'rr_no_api_key', __( 'OpenAI API key not configured.', 'rankready' ), array( 'status' => 400 ) );
+		if ( empty( get_option( RNRD_OPT_KEY ) ) ) {
+			return new WP_Error( 'rnrd_no_api_key', __( 'OpenAI API key not configured.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
-		$last  = (int) get_post_meta( $post_id, RR_META_GENERATED, true );
+		$last  = (int) get_post_meta( $post_id, RNRD_META_GENERATED, true );
 		$since = time() - $last;
 		if ( $last > 0 && $since < self::REGEN_COOLDOWN ) {
 			return new WP_Error(
-				'rr_rate_limited',
-				sprintf( __( 'Please wait %d more seconds before regenerating.', 'rankready' ), self::REGEN_COOLDOWN - $since ),
+				'rnrd_rate_limited',
+				sprintf( __( 'Please wait %d more seconds before regenerating.', 'rankready-ai-llm-seo' ), self::REGEN_COOLDOWN - $since ),
 				array( 'status' => 429 )
 			);
 		}
 
-		$summary = RR_Generator::force_generate( $post_id );
+		$summary = RNRD_Generator::force_generate( $post_id );
 		if ( false === $summary ) {
-			return new WP_Error( 'rr_generation_failed', __( 'Failed to generate summary.', 'rankready' ), array( 'status' => 502 ) );
+			return new WP_Error( 'rnrd_generation_failed', __( 'Failed to generate summary.', 'rankready-ai-llm-seo' ), array( 'status' => 502 ) );
 		}
 
 		return new WP_REST_Response( array( 'success' => true, 'summary' => $summary ), 200 );
@@ -395,20 +395,20 @@ class RR_Rest {
 		$post_id = (int) $request->get_param( 'id' );
 		$keyword = sanitize_text_field( (string) $request->get_param( 'keyword' ) );
 
-		if ( empty( get_option( RR_OPT_KEY ) ) ) {
-			return new WP_Error( 'rr_no_api_key', __( 'OpenAI API key not configured.', 'rankready' ), array( 'status' => 400 ) );
+		if ( empty( get_option( RNRD_OPT_KEY ) ) ) {
+			return new WP_Error( 'rnrd_no_api_key', __( 'OpenAI API key not configured.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		// Clear existing summary data.
-		delete_post_meta( $post_id, RR_META_SUMMARY );
-		delete_post_meta( $post_id, RR_META_HASH );
-		delete_post_meta( $post_id, RR_META_GENERATED );
+		delete_post_meta( $post_id, RNRD_META_SUMMARY );
+		delete_post_meta( $post_id, RNRD_META_HASH );
+		delete_post_meta( $post_id, RNRD_META_GENERATED );
 
 		// Clear existing FAQ data.
-		delete_post_meta( $post_id, RR_META_FAQ );
-		delete_post_meta( $post_id, RR_META_FAQ_HASH );
-		delete_post_meta( $post_id, RR_META_FAQ_GENERATED );
-		delete_post_meta( $post_id, RR_META_FAQ_KEYWORD );
+		delete_post_meta( $post_id, RNRD_META_FAQ );
+		delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
+		delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
+		delete_post_meta( $post_id, RNRD_META_FAQ_KEYWORD );
 
 		$result = array(
 			'summary' => null,
@@ -416,7 +416,7 @@ class RR_Rest {
 		);
 
 		// Regenerate summary.
-		$summary = RR_Generator::force_generate( $post_id );
+		$summary = RNRD_Generator::force_generate( $post_id );
 		if ( false !== $summary ) {
 			$result['summary'] = 'generated';
 		} else {
@@ -424,9 +424,9 @@ class RR_Rest {
 		}
 
 		// Regenerate FAQ (if DFS credentials available).
-		$has_dfs = ! empty( get_option( RR_OPT_DFS_LOGIN ) ) && ! empty( get_option( RR_OPT_DFS_PASSWORD ) );
+		$has_dfs = ! empty( get_option( RNRD_OPT_DFS_LOGIN ) ) && ! empty( get_option( RNRD_OPT_DFS_PASSWORD ) );
 		if ( $has_dfs ) {
-			$faq = RR_Faq::generate_faq( $post_id, $keyword );
+			$faq = RNRD_Faq::generate_faq( $post_id, $keyword );
 			if ( is_array( $faq ) && ! is_wp_error( $faq ) ) {
 				$result['faq'] = 'generated';
 				$result['faq_count'] = count( $faq );
@@ -450,14 +450,14 @@ class RR_Rest {
 
 		// Resume: pick up existing queue if one exists.
 		if ( $resume ) {
-			$queue = (array) get_option( RR_SO_QUEUE, array() );
+			$queue = (array) get_option( RNRD_SO_QUEUE, array() );
 			if ( ! empty( $queue ) ) {
-				$done  = (int) get_option( RR_SO_DONE, 0 );
-				$total = (int) get_option( RR_SO_TOTAL, 0 );
-				update_option( RR_SO_RUNNING, true, false );
+				$done  = (int) get_option( RNRD_SO_DONE, 0 );
+				$total = (int) get_option( RNRD_SO_TOTAL, 0 );
+				update_option( RNRD_SO_RUNNING, true, false );
 				// Re-schedule cron for background processing.
-				if ( ! wp_next_scheduled( RR_CRON_BULK_STARTOVER ) ) {
-					wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_STARTOVER );
+				if ( ! wp_next_scheduled( RNRD_CRON_BULK_STARTOVER ) ) {
+					wp_schedule_event( time() + 10, 'rnrd_one_minute', RNRD_CRON_BULK_STARTOVER );
 				}
 				return new WP_REST_Response( array(
 					'total'   => $total,
@@ -467,23 +467,23 @@ class RR_Rest {
 				), 200 );
 			}
 			// No queue to resume — fall through to error or start fresh.
-			return new WP_Error( 'rr_nothing_to_resume', __( 'No pending start-over queue found. Start a new operation instead.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_nothing_to_resume', __( 'No pending start-over queue found. Start a new operation instead.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
-		if ( get_option( RR_SO_RUNNING ) ) {
-			return new WP_Error( 'rr_already_running', __( 'A start-over operation is already running. Stop it first.', 'rankready' ), array( 'status' => 409 ) );
+		if ( get_option( RNRD_SO_RUNNING ) ) {
+			return new WP_Error( 'rnrd_already_running', __( 'A start-over operation is already running. Stop it first.', 'rankready-ai-llm-seo' ), array( 'status' => 409 ) );
 		}
 
-		if ( empty( get_option( RR_OPT_KEY ) ) ) {
-			return new WP_Error( 'rr_no_api_key', __( 'OpenAI API key not configured.', 'rankready' ), array( 'status' => 400 ) );
+		if ( empty( get_option( RNRD_OPT_KEY ) ) ) {
+			return new WP_Error( 'rnrd_no_api_key', __( 'OpenAI API key not configured.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		$raw_types  = (array) $request->get_param( 'post_types' );
-		$allowed    = array_keys( RR_Admin::get_allowed_post_types() );
+		$allowed    = array_keys( RNRD_Admin::get_allowed_post_types() );
 		$post_types = array_values( array_intersect( $raw_types, $allowed ) );
 
 		if ( empty( $post_types ) ) {
-			return new WP_Error( 'rr_invalid_types', __( 'No valid post types selected.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_invalid_types', __( 'No valid post types selected.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		$ids = get_posts( array(
@@ -496,14 +496,14 @@ class RR_Rest {
 
 		$total = count( $ids );
 
-		update_option( RR_SO_QUEUE,   $ids,   false );
-		update_option( RR_SO_TOTAL,   $total, false );
-		update_option( RR_SO_DONE,    0,      false );
-		update_option( RR_SO_RUNNING, true,   false );
+		update_option( RNRD_SO_QUEUE,   $ids,   false );
+		update_option( RNRD_SO_TOTAL,   $total, false );
+		update_option( RNRD_SO_DONE,    0,      false );
+		update_option( RNRD_SO_RUNNING, true,   false );
 
 		// Schedule WP-Cron to process queue even if browser closes.
-		if ( ! wp_next_scheduled( RR_CRON_BULK_STARTOVER ) ) {
-			wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_STARTOVER );
+		if ( ! wp_next_scheduled( RNRD_CRON_BULK_STARTOVER ) ) {
+			wp_schedule_event( time() + 10, 'rnrd_one_minute', RNRD_CRON_BULK_STARTOVER );
 		}
 
 		return new WP_REST_Response( array(
@@ -514,46 +514,46 @@ class RR_Rest {
 	}
 
 	public static function startover_bulk_process() {
-		if ( ! get_option( RR_SO_RUNNING ) ) {
+		if ( ! get_option( RNRD_SO_RUNNING ) ) {
 			return new WP_REST_Response( array(
-				'total' => (int) get_option( RR_SO_TOTAL, 0 ),
-				'done'  => (int) get_option( RR_SO_DONE, 0 ),
+				'total' => (int) get_option( RNRD_SO_TOTAL, 0 ),
+				'done'  => (int) get_option( RNRD_SO_DONE, 0 ),
 				'running' => false,
 			), 200 );
 		}
 
-		$queue = (array) get_option( RR_SO_QUEUE, array() );
-		$done  = (int) get_option( RR_SO_DONE, 0 );
-		$total = (int) get_option( RR_SO_TOTAL, 0 );
+		$queue = (array) get_option( RNRD_SO_QUEUE, array() );
+		$done  = (int) get_option( RNRD_SO_DONE, 0 );
+		$total = (int) get_option( RNRD_SO_TOTAL, 0 );
 
 		if ( empty( $queue ) ) {
-			update_option( RR_SO_RUNNING, false );
+			update_option( RNRD_SO_RUNNING, false );
 			return new WP_REST_Response( array( 'total' => $total, 'done' => $done, 'running' => false ), 200 );
 		}
 
 		// Process 1 post at a time (both summary + FAQ are heavy).
 		$post_id = (int) array_shift( $queue );
 		$log     = array();
-		$has_dfs = ! empty( get_option( RR_OPT_DFS_LOGIN ) ) && ! empty( get_option( RR_OPT_DFS_PASSWORD ) );
+		$has_dfs = ! empty( get_option( RNRD_OPT_DFS_LOGIN ) ) && ! empty( get_option( RNRD_OPT_DFS_PASSWORD ) );
 
 		if ( $post_id > 0 ) {
 			// Clear all existing data.
-			delete_post_meta( $post_id, RR_META_SUMMARY );
-			delete_post_meta( $post_id, RR_META_HASH );
-			delete_post_meta( $post_id, RR_META_GENERATED );
-			delete_post_meta( $post_id, RR_META_FAQ );
-			delete_post_meta( $post_id, RR_META_FAQ_HASH );
-			delete_post_meta( $post_id, RR_META_FAQ_GENERATED );
-			delete_post_meta( $post_id, RR_META_FAQ_KEYWORD );
+			delete_post_meta( $post_id, RNRD_META_SUMMARY );
+			delete_post_meta( $post_id, RNRD_META_HASH );
+			delete_post_meta( $post_id, RNRD_META_GENERATED );
+			delete_post_meta( $post_id, RNRD_META_FAQ );
+			delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
+			delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
+			delete_post_meta( $post_id, RNRD_META_FAQ_KEYWORD );
 
 			// Regenerate summary.
-			$summary_result = RR_Generator::force_generate( $post_id );
+			$summary_result = RNRD_Generator::force_generate( $post_id );
 			$summary_status = ( false !== $summary_result ) ? 'generated' : 'failed';
 
 			// Regenerate FAQ.
 			$faq_status = 'skipped';
 			if ( $has_dfs ) {
-				$faq = RR_Faq::generate_faq( $post_id );
+				$faq = RNRD_Faq::generate_faq( $post_id );
 				$faq_status = ( is_array( $faq ) && ! is_wp_error( $faq ) ) ? 'generated' : 'failed';
 			}
 
@@ -571,11 +571,11 @@ class RR_Rest {
 			);
 		}
 
-		update_option( RR_SO_QUEUE, $queue, false );
-		update_option( RR_SO_DONE,  $done,  false );
+		update_option( RNRD_SO_QUEUE, $queue, false );
+		update_option( RNRD_SO_DONE,  $done,  false );
 
 		if ( empty( $queue ) ) {
-			update_option( RR_SO_RUNNING, false );
+			update_option( RNRD_SO_RUNNING, false );
 		}
 
 		return new WP_REST_Response( array(
@@ -587,16 +587,16 @@ class RR_Rest {
 	}
 
 	public static function startover_bulk_stop() {
-		$done  = (int) get_option( RR_SO_DONE, 0 );
-		$total = (int) get_option( RR_SO_TOTAL, 0 );
-		$queue = (array) get_option( RR_SO_QUEUE, array() );
+		$done  = (int) get_option( RNRD_SO_DONE, 0 );
+		$total = (int) get_option( RNRD_SO_TOTAL, 0 );
+		$queue = (array) get_option( RNRD_SO_QUEUE, array() );
 		$queue_remaining = count( $queue );
 
-		update_option( RR_SO_RUNNING, false, false );
+		update_option( RNRD_SO_RUNNING, false, false );
 		// Keep queue intact so Resume can pick it up.
 
 		// Clear WP-Cron schedule.
-		wp_clear_scheduled_hook( RR_CRON_BULK_STARTOVER );
+		wp_clear_scheduled_hook( RNRD_CRON_BULK_STARTOVER );
 
 		return new WP_REST_Response( array(
 			'stopped'         => true,
@@ -615,13 +615,13 @@ class RR_Rest {
 
 		// Resume: pick up existing queue if one exists.
 		if ( $resume ) {
-			$queue = (array) get_option( RR_BULK_QUEUE, array() );
+			$queue = (array) get_option( RNRD_BULK_QUEUE, array() );
 			if ( ! empty( $queue ) ) {
-				$done  = (int) get_option( RR_BULK_DONE, 0 );
-				$total = (int) get_option( RR_BULK_TOTAL, 0 );
-				update_option( RR_BULK_RUNNING, true, false );
-				if ( ! wp_next_scheduled( RR_CRON_BULK_SUMMARY ) ) {
-					wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_SUMMARY );
+				$done  = (int) get_option( RNRD_BULK_DONE, 0 );
+				$total = (int) get_option( RNRD_BULK_TOTAL, 0 );
+				update_option( RNRD_BULK_RUNNING, true, false );
+				if ( ! wp_next_scheduled( RNRD_CRON_BULK_SUMMARY ) ) {
+					wp_schedule_event( time() + 10, 'rnrd_one_minute', RNRD_CRON_BULK_SUMMARY );
 				}
 				return new WP_REST_Response( array(
 					'total'   => $total,
@@ -632,20 +632,20 @@ class RR_Rest {
 			}
 		}
 
-		if ( get_option( RR_BULK_RUNNING ) ) {
-			return new WP_Error( 'rr_already_running', __( 'A bulk operation is already in progress. Stop it first.', 'rankready' ), array( 'status' => 409 ) );
+		if ( get_option( RNRD_BULK_RUNNING ) ) {
+			return new WP_Error( 'rnrd_already_running', __( 'A bulk operation is already in progress. Stop it first.', 'rankready-ai-llm-seo' ), array( 'status' => 409 ) );
 		}
 
-		if ( empty( get_option( RR_OPT_KEY ) ) ) {
-			return new WP_Error( 'rr_no_api_key', __( 'OpenAI API key not configured.', 'rankready' ), array( 'status' => 400 ) );
+		if ( empty( get_option( RNRD_OPT_KEY ) ) ) {
+			return new WP_Error( 'rnrd_no_api_key', __( 'OpenAI API key not configured.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		$raw_types  = (array) $request->get_param( 'post_types' );
-		$allowed    = array_keys( RR_Admin::get_allowed_post_types() );
+		$allowed    = array_keys( RNRD_Admin::get_allowed_post_types() );
 		$post_types = array_values( array_intersect( $raw_types, $allowed ) );
 
 		if ( empty( $post_types ) ) {
-			return new WP_Error( 'rr_invalid_types', __( 'No valid post types selected.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_invalid_types', __( 'No valid post types selected.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		$ids = get_posts( array(
@@ -658,16 +658,16 @@ class RR_Rest {
 
 		$total = count( $ids );
 
-		update_option( RR_BULK_QUEUE,      $ids,   false );
-		update_option( RR_BULK_TOTAL,      $total, false );
-		update_option( RR_BULK_DONE,       0,      false );
-		update_option( RR_BULK_RUNNING,    true,   false );
-		update_option( 'rr_bulk_skipped',  0,      false );
-		update_option( 'rr_bulk_failed',   0,      false );
+		update_option( RNRD_BULK_QUEUE,      $ids,   false );
+		update_option( RNRD_BULK_TOTAL,      $total, false );
+		update_option( RNRD_BULK_DONE,       0,      false );
+		update_option( RNRD_BULK_RUNNING,    true,   false );
+		update_option( 'rnrd_bulk_skipped',  0,      false );
+		update_option( 'rnrd_bulk_failed',   0,      false );
 
 		// Schedule WP-Cron to process queue even if browser closes.
-		if ( ! wp_next_scheduled( RR_CRON_BULK_SUMMARY ) ) {
-			wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_SUMMARY );
+		if ( ! wp_next_scheduled( RNRD_CRON_BULK_SUMMARY ) ) {
+			wp_schedule_event( time() + 10, 'rnrd_one_minute', RNRD_CRON_BULK_SUMMARY );
 		}
 
 		return new WP_REST_Response( array(
@@ -678,18 +678,18 @@ class RR_Rest {
 	}
 
 	public static function bulk_process() {
-		if ( ! get_option( RR_BULK_RUNNING ) ) {
+		if ( ! get_option( RNRD_BULK_RUNNING ) ) {
 			return new WP_REST_Response( self::bulk_state(), 200 );
 		}
 
-		$queue   = (array) get_option( RR_BULK_QUEUE, array() );
-		$done    = (int) get_option( RR_BULK_DONE, 0 );
-		$total   = (int) get_option( RR_BULK_TOTAL, 0 );
-		$skipped = (int) get_option( 'rr_bulk_skipped', 0 );
-		$failed  = (int) get_option( 'rr_bulk_failed', 0 );
+		$queue   = (array) get_option( RNRD_BULK_QUEUE, array() );
+		$done    = (int) get_option( RNRD_BULK_DONE, 0 );
+		$total   = (int) get_option( RNRD_BULK_TOTAL, 0 );
+		$skipped = (int) get_option( 'rnrd_bulk_skipped', 0 );
+		$failed  = (int) get_option( 'rnrd_bulk_failed', 0 );
 
 		if ( empty( $queue ) ) {
-			update_option( RR_BULK_RUNNING, false );
+			update_option( RNRD_BULK_RUNNING, false );
 			return new WP_REST_Response( array( 'total' => $total, 'done' => $done, 'skipped' => $skipped, 'failed' => $failed, 'running' => false ), 200 );
 		}
 
@@ -702,9 +702,9 @@ class RR_Rest {
 				continue;
 			}
 
-			$tokens_before = (int) get_post_meta( $post_id, '_rr_tokens_used', true );
-			$result        = RR_Generator::force_generate( $post_id, true );
-			$tokens_after  = (int) get_post_meta( $post_id, '_rr_tokens_used', true );
+			$tokens_before = (int) get_post_meta( $post_id, '_rnrd_tokens_used', true );
+			$result        = RNRD_Generator::force_generate( $post_id, true );
+			$tokens_after  = (int) get_post_meta( $post_id, '_rnrd_tokens_used', true );
 			$tokens_used   = $tokens_after - $tokens_before;
 			$done++;
 
@@ -722,7 +722,7 @@ class RR_Rest {
 					'tokens' => 0,
 				);
 			} else {
-				$existing = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
+				$existing = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 				if ( $result === $existing && 0 === $tokens_used ) {
 					$skipped++;
 					$processed[] = array(
@@ -744,14 +744,14 @@ class RR_Rest {
 			}
 		}
 
-		update_option( RR_BULK_QUEUE,     $queue,   false );
-		update_option( RR_BULK_DONE,      $done,    false );
-		update_option( 'rr_bulk_skipped', $skipped, false );
-		update_option( 'rr_bulk_failed',  $failed,  false );
+		update_option( RNRD_BULK_QUEUE,     $queue,   false );
+		update_option( RNRD_BULK_DONE,      $done,    false );
+		update_option( 'rnrd_bulk_skipped', $skipped, false );
+		update_option( 'rnrd_bulk_failed',  $failed,  false );
 
 		$still_running = ! empty( $queue );
 		if ( ! $still_running ) {
-			update_option( RR_BULK_RUNNING, false );
+			update_option( RNRD_BULK_RUNNING, false );
 		}
 
 		return new WP_REST_Response( array(
@@ -765,9 +765,9 @@ class RR_Rest {
 	}
 
 	public static function bulk_stop() {
-		update_option( RR_BULK_RUNNING, false );
+		update_option( RNRD_BULK_RUNNING, false );
 		// Keep queue intact for resume — don't clear it.
-		wp_clear_scheduled_hook( RR_CRON_BULK_SUMMARY );
+		wp_clear_scheduled_hook( RNRD_CRON_BULK_SUMMARY );
 		return new WP_REST_Response( array_merge( array( 'stopped' => true ), self::bulk_state() ), 200 );
 	}
 
@@ -777,12 +777,12 @@ class RR_Rest {
 
 	private static function bulk_state(): array {
 		return array(
-			'total'   => (int) get_option( RR_BULK_TOTAL, 0 ),
-			'done'    => (int) get_option( RR_BULK_DONE, 0 ),
-			'skipped' => (int) get_option( 'rr_bulk_skipped', 0 ),
-			'failed'  => (int) get_option( 'rr_bulk_failed', 0 ),
-			'running' => (bool) get_option( RR_BULK_RUNNING, false ),
-			'queue_remaining' => count( (array) get_option( RR_BULK_QUEUE, array() ) ),
+			'total'   => (int) get_option( RNRD_BULK_TOTAL, 0 ),
+			'done'    => (int) get_option( RNRD_BULK_DONE, 0 ),
+			'skipped' => (int) get_option( 'rnrd_bulk_skipped', 0 ),
+			'failed'  => (int) get_option( 'rnrd_bulk_failed', 0 ),
+			'running' => (bool) get_option( RNRD_BULK_RUNNING, false ),
+			'queue_remaining' => count( (array) get_option( RNRD_BULK_QUEUE, array() ) ),
 		);
 	}
 
@@ -808,7 +808,7 @@ class RR_Rest {
 					'%1$d post will be reassigned to %2$s.',
 					'%1$d posts will be reassigned to %2$s.',
 					$count,
-					'rankready'
+					'rankready-ai-llm-seo'
 				),
 				$count,
 				$to_user ? $to_user->display_name : '?'
@@ -817,8 +817,8 @@ class RR_Rest {
 	}
 
 	public static function author_execute( $request ) {
-		if ( get_option( RR_BAC_RUNNING ) ) {
-			return new WP_Error( 'rr_already_running', __( 'An author change is already in progress. Stop it first.', 'rankready' ), array( 'status' => 409 ) );
+		if ( get_option( RNRD_BAC_RUNNING ) ) {
+			return new WP_Error( 'rnrd_already_running', __( 'An author change is already in progress. Stop it first.', 'rankready-ai-llm-seo' ), array( 'status' => 409 ) );
 		}
 
 		$params = self::extract_author_params( $request );
@@ -832,31 +832,31 @@ class RR_Rest {
 		if ( 0 === $total ) {
 			return new WP_REST_Response( array(
 				'total' => 0, 'done' => 0, 'running' => false,
-				'message' => __( 'No matching posts found.', 'rankready' ),
+				'message' => __( 'No matching posts found.', 'rankready-ai-llm-seo' ),
 			), 200 );
 		}
 
-		update_option( RR_BAC_QUEUE,   $ids,                  false );
-		update_option( RR_BAC_TOTAL,   $total,                false );
-		update_option( RR_BAC_DONE,    0,                     false );
-		update_option( RR_BAC_RUNNING, true,                  false );
-		update_option( RR_BAC_TO,      $params['to_author'],  false );
+		update_option( RNRD_BAC_QUEUE,   $ids,                  false );
+		update_option( RNRD_BAC_TOTAL,   $total,                false );
+		update_option( RNRD_BAC_DONE,    0,                     false );
+		update_option( RNRD_BAC_RUNNING, true,                  false );
+		update_option( RNRD_BAC_TO,      $params['to_author'],  false );
 
 		return new WP_REST_Response( array( 'total' => $total, 'done' => 0, 'running' => true ), 200 );
 	}
 
 	public static function author_process() {
-		if ( ! get_option( RR_BAC_RUNNING ) ) {
+		if ( ! get_option( RNRD_BAC_RUNNING ) ) {
 			return new WP_REST_Response( self::author_state(), 200 );
 		}
 
-		$queue     = (array) get_option( RR_BAC_QUEUE, array() );
-		$done      = (int)   get_option( RR_BAC_DONE,  0 );
-		$total     = (int)   get_option( RR_BAC_TOTAL, 0 );
-		$to_author = (int)   get_option( RR_BAC_TO,    0 );
+		$queue     = (array) get_option( RNRD_BAC_QUEUE, array() );
+		$done      = (int)   get_option( RNRD_BAC_DONE,  0 );
+		$total     = (int)   get_option( RNRD_BAC_TOTAL, 0 );
+		$to_author = (int)   get_option( RNRD_BAC_TO,    0 );
 
 		if ( empty( $queue ) || ! $to_author ) {
-			update_option( RR_BAC_RUNNING, false );
+			update_option( RNRD_BAC_RUNNING, false );
 			return new WP_REST_Response( array( 'total' => $total, 'done' => $done, 'running' => false ), 200 );
 		}
 
@@ -864,7 +864,7 @@ class RR_Rest {
 
 		// Temporarily unhook summary generation to prevent cascading API calls
 		// during bulk author changes (author change doesn't change content).
-		remove_action( 'wp_after_insert_post', array( 'RR_Generator', 'schedule_generation' ), 10 );
+		remove_action( 'wp_after_insert_post', array( 'RNRD_Generator', 'schedule_generation' ), 10 );
 
 		foreach ( $batch as $post_id ) {
 			$post_id = (int) $post_id;
@@ -879,30 +879,30 @@ class RR_Rest {
 		}
 
 		// Re-hook summary generation.
-		add_action( 'wp_after_insert_post', array( 'RR_Generator', 'schedule_generation' ), 10, 4 );
+		add_action( 'wp_after_insert_post', array( 'RNRD_Generator', 'schedule_generation' ), 10, 4 );
 
-		update_option( RR_BAC_QUEUE, $queue, false );
-		update_option( RR_BAC_DONE,  $done,  false );
+		update_option( RNRD_BAC_QUEUE, $queue, false );
+		update_option( RNRD_BAC_DONE,  $done,  false );
 
 		$still_running = ! empty( $queue );
 		if ( ! $still_running ) {
-			update_option( RR_BAC_RUNNING, false );
+			update_option( RNRD_BAC_RUNNING, false );
 		}
 
 		return new WP_REST_Response( array( 'total' => $total, 'done' => $done, 'running' => $still_running ), 200 );
 	}
 
 	public static function author_stop() {
-		update_option( RR_BAC_RUNNING, false );
-		update_option( RR_BAC_QUEUE,   array() );
+		update_option( RNRD_BAC_RUNNING, false );
+		update_option( RNRD_BAC_QUEUE,   array() );
 		return new WP_REST_Response( array_merge( array( 'stopped' => true ), self::author_state() ), 200 );
 	}
 
 	private static function author_state(): array {
 		return array(
-			'total'   => (int)  get_option( RR_BAC_TOTAL,   0 ),
-			'done'    => (int)  get_option( RR_BAC_DONE,    0 ),
-			'running' => (bool) get_option( RR_BAC_RUNNING, false ),
+			'total'   => (int)  get_option( RNRD_BAC_TOTAL,   0 ),
+			'done'    => (int)  get_option( RNRD_BAC_DONE,    0 ),
+			'running' => (bool) get_option( RNRD_BAC_RUNNING, false ),
 		);
 	}
 
@@ -913,19 +913,19 @@ class RR_Rest {
 		$date_from   = sanitize_text_field( (string) $request->get_param( 'date_from' ) );
 		$date_to     = sanitize_text_field( (string) $request->get_param( 'date_to' ) );
 
-		$allowed    = array_keys( RR_Admin::get_author_post_types() );
+		$allowed    = array_keys( RNRD_Admin::get_author_post_types() );
 		$post_types = array_values( array_intersect( array_map( 'sanitize_key', $raw_types ), $allowed ) );
 
 		if ( empty( $post_types ) ) {
-			return new WP_Error( 'rr_no_post_types', __( 'Select at least one post type.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_no_post_types', __( 'Select at least one post type.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		if ( ! $to_author || ! get_userdata( $to_author ) ) {
-			return new WP_Error( 'rr_invalid_author', __( 'Invalid target author.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_invalid_author', __( 'Invalid target author.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		if ( $from_author && ! get_userdata( $from_author ) ) {
-			return new WP_Error( 'rr_invalid_from_author', __( 'Invalid source author.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_invalid_from_author', __( 'Invalid source author.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		if ( $date_from && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_from ) ) {
@@ -974,9 +974,9 @@ class RR_Rest {
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function llms_flush_cache() {
-		delete_transient( RR_LLMS_CACHE_KEY );
-		delete_transient( RR_LLMS_FULL_CACHE_KEY );
-		return new WP_REST_Response( array( 'success' => true, 'message' => __( 'Cache cleared.', 'rankready' ) ), 200 );
+		delete_transient( RNRD_LLMS_CACHE_KEY );
+		delete_transient( RNRD_LLMS_FULL_CACHE_KEY );
+		return new WP_REST_Response( array( 'success' => true, 'message' => __( 'Cache cleared.', 'rankready-ai-llm-seo' ) ), 200 );
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -985,7 +985,7 @@ class RR_Rest {
 	// Bound to the "Verify Key" button on the OpenAI card in Settings. Hits
 	// the OpenAI `/v1/models` list endpoint to confirm the key. For other
 	// providers (Claude / Gemini / DeepSeek), users save the key and use the
-	// connection test pathway, which routes through RR_LLM::generate() and
+	// connection test pathway, which routes through RNRD_LLM::generate() and
 	// is provider-agnostic. Adding a generic per-provider verify is a v1.1.2
 	// follow-up — kept narrow here to not reshape working UI.
 	// ══════════════════════════════════════════════════════════════════════════
@@ -1000,7 +1000,7 @@ class RR_Rest {
 		// Provider → (stored option key, validation endpoint, header builder).
 		$providers = array(
 			'openai'    => array(
-				'option'  => RR_OPT_KEY,
+				'option'  => RNRD_OPT_KEY,
 				'verify'  => function ( $key ) {
 					return wp_remote_get( 'https://api.openai.com/v1/models', array(
 						'headers' => array( 'Authorization' => 'Bearer ' . $key ),
@@ -1009,7 +1009,7 @@ class RR_Rest {
 				},
 			),
 			'anthropic' => array(
-				'option'  => 'rr_anthropic_api_key',
+				'option'  => 'rnrd_anthropic_api_key',
 				'verify'  => function ( $key ) {
 					// Tiny messages call — `model` is required, 1-token output keeps cost trivial.
 					return wp_remote_post( 'https://api.anthropic.com/v1/messages', array(
@@ -1031,7 +1031,7 @@ class RR_Rest {
 				},
 			),
 			'gemini'    => array(
-				'option'  => 'rr_gemini_api_key',
+				'option'  => 'rnrd_gemini_api_key',
 				'verify'  => function ( $key ) {
 					// `models` list endpoint — cheapest valid auth check for AI Studio keys.
 					return wp_remote_get( 'https://generativelanguage.googleapis.com/v1beta/models?key=' . rawurlencode( $key ), array(
@@ -1040,7 +1040,7 @@ class RR_Rest {
 				},
 			),
 			'deepseek'  => array(
-				'option'  => 'rr_deepseek_api_key',
+				'option'  => 'rnrd_deepseek_api_key',
 				'verify'  => function ( $key ) {
 					return wp_remote_get( 'https://api.deepseek.com/v1/models', array(
 						'headers' => array( 'Authorization' => 'Bearer ' . $key ),
@@ -1053,7 +1053,7 @@ class RR_Rest {
 		if ( ! isset( $providers[ $provider ] ) ) {
 			return new WP_REST_Response( array(
 				'valid'   => false,
-				'message' => __( 'Unknown provider.', 'rankready' ),
+				'message' => __( 'Unknown provider.', 'rankready-ai-llm-seo' ),
 			), 200 );
 		}
 
@@ -1068,7 +1068,7 @@ class RR_Rest {
 		if ( empty( $key ) ) {
 			return new WP_REST_Response( array(
 				'valid'   => false,
-				'message' => __( 'No API key stored for this provider.', 'rankready' ),
+				'message' => __( 'No API key stored for this provider.', 'rankready-ai-llm-seo' ),
 			), 200 );
 		}
 
@@ -1086,7 +1086,7 @@ class RR_Rest {
 		if ( 200 === $code ) {
 			return new WP_REST_Response( array(
 				'valid'   => true,
-				'message' => __( 'API key is valid and working.', 'rankready' ),
+				'message' => __( 'API key is valid and working.', 'rankready-ai-llm-seo' ),
 			), 200 );
 		}
 
@@ -1098,7 +1098,7 @@ class RR_Rest {
 		elseif ( isset( $body['error'] ) && is_string( $body['error'] ) ) { $err = (string) $body['error']; }
 		elseif ( isset( $body['message'] ) )           { $err = (string) $body['message']; }                 // Anthropic uses { type, message }
 		if ( '' === $err ) {
-			$err = sprintf( /* translators: %d: HTTP status code */ __( 'Verification failed (HTTP %d).', 'rankready' ), $code );
+			$err = sprintf( /* translators: %d: HTTP status code */ __( 'Verification failed (HTTP %d).', 'rankready-ai-llm-seo' ), $code );
 		}
 
 		return new WP_REST_Response( array(
@@ -1110,8 +1110,8 @@ class RR_Rest {
 	// ── DataForSEO Key Verification ──────────────────────────────────────────
 
 	public static function verify_dfs_key( $request = null ) {
-		$login    = (string) get_option( RR_OPT_DFS_LOGIN, '' );
-		$password = (string) get_option( RR_OPT_DFS_PASSWORD, '' );
+		$login    = (string) get_option( RNRD_OPT_DFS_LOGIN, '' );
+		$password = (string) get_option( RNRD_OPT_DFS_PASSWORD, '' );
 
 		// Allow passing password from the form for testing before save.
 		if ( $request && $request->get_param( 'password' ) ) {
@@ -1124,7 +1124,7 @@ class RR_Rest {
 		if ( empty( $login ) || empty( $password ) ) {
 			return new WP_REST_Response( array(
 				'valid'   => false,
-				'message' => __( 'DataForSEO login or password not configured.', 'rankready' ),
+				'message' => __( 'DataForSEO login or password not configured.', 'rankready-ai-llm-seo' ),
 			), 200 );
 		}
 
@@ -1150,16 +1150,16 @@ class RR_Rest {
 			$balance = $body['tasks'][0]['result'][0]['money']['balance'];
 
 			// Auto-save verified credentials to DB.
-			update_option( RR_OPT_DFS_LOGIN, $login );
-			update_option( RR_OPT_DFS_PASSWORD, $password );
+			update_option( RNRD_OPT_DFS_LOGIN, $login );
+			update_option( RNRD_OPT_DFS_PASSWORD, $password );
 
 			return new WP_REST_Response( array(
 				'valid'   => true,
-				'message' => sprintf( __( 'Credentials valid and saved. Balance: $%s', 'rankready' ), number_format( (float) $balance, 2 ) ),
+				'message' => sprintf( __( 'Credentials valid and saved. Balance: $%s', 'rankready-ai-llm-seo' ), number_format( (float) $balance, 2 ) ),
 			), 200 );
 		}
 
-		$err = isset( $body['status_message'] ) ? $body['status_message'] : __( 'Invalid credentials.', 'rankready' );
+		$err = isset( $body['status_message'] ) ? $body['status_message'] : __( 'Invalid credentials.', 'rankready-ai-llm-seo' );
 		return new WP_REST_Response( array(
 			'valid'   => false,
 			'message' => $err,
@@ -1176,17 +1176,17 @@ class RR_Rest {
 		$count   = (int) $request->get_param( 'count' );
 
 		// Cooldown: prevent rapid-fire FAQ generation for the same post.
-		$last  = (int) get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
+		$last  = (int) get_post_meta( $post_id, RNRD_META_FAQ_GENERATED, true );
 		$since = time() - $last;
 		if ( $last && $since < self::REGEN_COOLDOWN ) {
 			return new WP_Error(
-				'rr_rate_limited',
-				sprintf( __( 'Please wait %d more seconds before regenerating.', 'rankready' ), self::REGEN_COOLDOWN - $since ),
+				'rnrd_rate_limited',
+				sprintf( __( 'Please wait %d more seconds before regenerating.', 'rankready-ai-llm-seo' ), self::REGEN_COOLDOWN - $since ),
 				array( 'status' => 429 )
 			);
 		}
 
-		$result = RR_Faq::generate_faq( $post_id, $keyword, $count );
+		$result = RNRD_Faq::generate_faq( $post_id, $keyword, $count );
 
 		if ( is_wp_error( $result ) ) {
 			return new WP_REST_Response( array(
@@ -1204,9 +1204,9 @@ class RR_Rest {
 
 	public static function faq_get( $request ) {
 		$post_id  = (int) $request->get_param( 'id' );
-		$faq_data = RR_Faq::get_faq_data( $post_id );
+		$faq_data = RNRD_Faq::get_faq_data( $post_id );
 
-		$generated_ts  = (int) get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
+		$generated_ts  = (int) get_post_meta( $post_id, RNRD_META_FAQ_GENERATED, true );
 		$generated_str = '';
 		if ( $generated_ts > 0 ) {
 			$generated_str = wp_date( get_option( 'date_format' ), $generated_ts );
@@ -1215,9 +1215,9 @@ class RR_Rest {
 		return new WP_REST_Response( array(
 			'success'   => true,
 			'faq'       => $faq_data,
-			'keyword'   => (string) get_post_meta( $post_id, RR_META_FAQ_KEYWORD, true ),
+			'keyword'   => (string) get_post_meta( $post_id, RNRD_META_FAQ_KEYWORD, true ),
 			'generated' => $generated_str,
-			'disabled'  => (bool) get_post_meta( $post_id, RR_META_FAQ_DISABLE, true ),
+			'disabled'  => (bool) get_post_meta( $post_id, RNRD_META_FAQ_DISABLE, true ),
 		), 200 );
 	}
 
@@ -1226,7 +1226,7 @@ class RR_Rest {
 		$faq_data = $request->get_json_params();
 
 		if ( ! isset( $faq_data['faq'] ) || ! is_array( $faq_data['faq'] ) ) {
-			return new WP_Error( 'rr_invalid_faq', __( 'Invalid FAQ data.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_invalid_faq', __( 'Invalid FAQ data.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		$clean = array();
@@ -1239,8 +1239,8 @@ class RR_Rest {
 			}
 		}
 
-		update_post_meta( $post_id, RR_META_FAQ, wp_json_encode( $clean ) );
-		update_post_meta( $post_id, RR_META_FAQ_GENERATED, time() );
+		update_post_meta( $post_id, RNRD_META_FAQ, wp_json_encode( $clean ) );
+		update_post_meta( $post_id, RNRD_META_FAQ_GENERATED, time() );
 
 		return new WP_REST_Response( array( 'success' => true, 'count' => count( $clean ) ), 200 );
 	}
@@ -1252,13 +1252,13 @@ class RR_Rest {
 
 		// Resume: pick up existing queue.
 		if ( $resume ) {
-			$queue = (array) get_option( RR_FAQ_QUEUE, array() );
+			$queue = (array) get_option( RNRD_FAQ_QUEUE, array() );
 			if ( ! empty( $queue ) ) {
-				$done  = (int) get_option( RR_FAQ_DONE, 0 );
-				$total = (int) get_option( RR_FAQ_TOTAL, 0 );
-				update_option( RR_FAQ_RUNNING, true, false );
-				if ( ! wp_next_scheduled( RR_CRON_BULK_FAQ ) ) {
-					wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_FAQ );
+				$done  = (int) get_option( RNRD_FAQ_DONE, 0 );
+				$total = (int) get_option( RNRD_FAQ_TOTAL, 0 );
+				update_option( RNRD_FAQ_RUNNING, true, false );
+				if ( ! wp_next_scheduled( RNRD_CRON_BULK_FAQ ) ) {
+					wp_schedule_event( time() + 10, 'rnrd_one_minute', RNRD_CRON_BULK_FAQ );
 				}
 				return new WP_REST_Response( array(
 					'running' => true,
@@ -1269,17 +1269,17 @@ class RR_Rest {
 			}
 		}
 
-		if ( get_option( RR_FAQ_RUNNING ) ) {
-			return new WP_Error( 'rr_faq_running', __( 'FAQ generation already running.', 'rankready' ), array( 'status' => 409 ) );
+		if ( get_option( RNRD_FAQ_RUNNING ) ) {
+			return new WP_Error( 'rnrd_faq_running', __( 'FAQ generation already running.', 'rankready-ai-llm-seo' ), array( 'status' => 409 ) );
 		}
 
 		$types         = (array) $request->get_param( 'post_types' );
 		$skip_existing = (bool) $request->get_param( 'skip_existing' );
-		$allowed       = array_keys( RR_Admin::get_allowed_post_types() );
+		$allowed       = array_keys( RNRD_Admin::get_allowed_post_types() );
 		$types         = array_values( array_intersect( $types, $allowed ) );
 
 		if ( empty( $types ) ) {
-			return new WP_Error( 'rr_no_types', __( 'Select at least one post type.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_no_types', __( 'Select at least one post type.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		$args = array(
@@ -1296,8 +1296,8 @@ class RR_Rest {
 		if ( $skip_existing ) {
 			$args['meta_query'] = array(
 				'relation' => 'OR',
-				array( 'key' => RR_META_FAQ, 'compare' => 'NOT EXISTS' ),
-				array( 'key' => RR_META_FAQ, 'value' => '', 'compare' => '=' ),
+				array( 'key' => RNRD_META_FAQ, 'compare' => 'NOT EXISTS' ),
+				array( 'key' => RNRD_META_FAQ, 'value' => '', 'compare' => '=' ),
 			);
 		}
 
@@ -1311,16 +1311,16 @@ class RR_Rest {
 			), 200 );
 		}
 
-		update_option( RR_FAQ_QUEUE,        $ids,          false );
-		update_option( RR_FAQ_TOTAL,        count( $ids ), false );
-		update_option( RR_FAQ_DONE,         0,             false );
-		update_option( RR_FAQ_RUNNING,      true,          false );
-		update_option( 'rr_faq_skipped',    0,             false );
-		update_option( 'rr_faq_failed',     0,             false );
+		update_option( RNRD_FAQ_QUEUE,        $ids,          false );
+		update_option( RNRD_FAQ_TOTAL,        count( $ids ), false );
+		update_option( RNRD_FAQ_DONE,         0,             false );
+		update_option( RNRD_FAQ_RUNNING,      true,          false );
+		update_option( 'rnrd_faq_skipped',    0,             false );
+		update_option( 'rnrd_faq_failed',     0,             false );
 
 		// Schedule WP-Cron to process queue even if browser closes.
-		if ( ! wp_next_scheduled( RR_CRON_BULK_FAQ ) ) {
-			wp_schedule_event( time() + 10, 'rr_one_minute', RR_CRON_BULK_FAQ );
+		if ( ! wp_next_scheduled( RNRD_CRON_BULK_FAQ ) ) {
+			wp_schedule_event( time() + 10, 'rnrd_one_minute', RNRD_CRON_BULK_FAQ );
 		}
 
 		return new WP_REST_Response( array(
@@ -1331,28 +1331,28 @@ class RR_Rest {
 	}
 
 	public static function faq_bulk_process() {
-		if ( ! get_option( RR_FAQ_RUNNING ) ) {
+		if ( ! get_option( RNRD_FAQ_RUNNING ) ) {
 			return new WP_REST_Response( array(
 				'running' => false,
-				'done'    => (int) get_option( RR_FAQ_DONE, 0 ),
-				'total'   => (int) get_option( RR_FAQ_TOTAL, 0 ),
-				'skipped' => (int) get_option( 'rr_faq_skipped', 0 ),
-				'failed'  => (int) get_option( 'rr_faq_failed', 0 ),
+				'done'    => (int) get_option( RNRD_FAQ_DONE, 0 ),
+				'total'   => (int) get_option( RNRD_FAQ_TOTAL, 0 ),
+				'skipped' => (int) get_option( 'rnrd_faq_skipped', 0 ),
+				'failed'  => (int) get_option( 'rnrd_faq_failed', 0 ),
 			), 200 );
 		}
 
-		$queue   = (array) get_option( RR_FAQ_QUEUE, array() );
-		$done    = (int) get_option( RR_FAQ_DONE, 0 );
-		$total   = (int) get_option( RR_FAQ_TOTAL, 0 );
-		$skipped = (int) get_option( 'rr_faq_skipped', 0 );
-		$failed  = (int) get_option( 'rr_faq_failed', 0 );
+		$queue   = (array) get_option( RNRD_FAQ_QUEUE, array() );
+		$done    = (int) get_option( RNRD_FAQ_DONE, 0 );
+		$total   = (int) get_option( RNRD_FAQ_TOTAL, 0 );
+		$skipped = (int) get_option( 'rnrd_faq_skipped', 0 );
+		$failed  = (int) get_option( 'rnrd_faq_failed', 0 );
 
 		// Process 1 post per batch (API rate limits).
 		$processed = array();
 
 		if ( ! empty( $queue ) ) {
 			$post_id = (int) array_shift( $queue );
-			update_option( RR_FAQ_QUEUE, $queue, false );
+			update_option( RNRD_FAQ_QUEUE, $queue, false );
 
 			$post  = get_post( $post_id );
 			$title = $post ? $post->post_title : '#' . $post_id;
@@ -1360,11 +1360,11 @@ class RR_Rest {
 
 			if ( $post ) {
 				$content  = wp_strip_all_tags( do_shortcode( $post->post_content ) );
-				$keyword  = RR_Faq::get_focus_keyword( $post_id );
-				$count    = (int) get_option( RR_OPT_FAQ_COUNT, 5 );
+				$keyword  = RNRD_Faq::get_focus_keyword( $post_id );
+				$count    = (int) get_option( RNRD_OPT_FAQ_COUNT, 5 );
 				$new_hash = md5( $content . $keyword . $count );
-				$old_hash = (string) get_post_meta( $post_id, RR_META_FAQ_HASH, true );
-				$existing = get_post_meta( $post_id, RR_META_FAQ, true );
+				$old_hash = (string) get_post_meta( $post_id, RNRD_META_FAQ_HASH, true );
+				$existing = get_post_meta( $post_id, RNRD_META_FAQ, true );
 
 				if ( $new_hash === $old_hash && ! empty( $existing ) ) {
 					$skipped++;
@@ -1376,26 +1376,26 @@ class RR_Rest {
 						'tokens' => 0,
 					);
 				} else {
-					$tokens_before = (int) get_post_meta( $post_id, '_rr_tokens_used', true );
+					$tokens_before = (int) get_post_meta( $post_id, '_rnrd_tokens_used', true );
 					try {
-						$result = RR_Faq::generate_faq( $post_id );
+						$result = RNRD_Faq::generate_faq( $post_id );
 					} catch ( \Throwable $e ) {
 						$result = new WP_Error( 'faq_exception', $e->getMessage() );
-						if ( class_exists( 'RR_Generator' ) && method_exists( 'RR_Generator', 'log_error' ) ) {
-							RR_Generator::log_error( 'FAQ/BulkProcess', $e->getMessage(), $post_id );
+						if ( class_exists( 'RNRD_Generator' ) && method_exists( 'RNRD_Generator', 'log_error' ) ) {
+							RNRD_Generator::log_error( 'FAQ/BulkProcess', $e->getMessage(), $post_id );
 						}
 					}
-					$tokens_after  = (int) get_post_meta( $post_id, '_rr_tokens_used', true );
+					$tokens_after  = (int) get_post_meta( $post_id, '_rnrd_tokens_used', true );
 					$tokens_used   = $tokens_after - $tokens_before;
 
 					if ( is_wp_error( $result ) ) {
 						$failed++;
-						$failed_ids = (array) get_option( 'rr_faq_failed_ids', array() );
+						$failed_ids = (array) get_option( 'rnrd_faq_failed_ids', array() );
 						$failed_ids[] = $post_id;
 						if ( count( $failed_ids ) > 100 ) {
 							$failed_ids = array_slice( $failed_ids, -100 );
 						}
-						update_option( 'rr_faq_failed_ids', $failed_ids, false );
+						update_option( 'rnrd_faq_failed_ids', $failed_ids, false );
 
 						$processed[] = array(
 							'id'     => $post_id,
@@ -1426,14 +1426,14 @@ class RR_Rest {
 			}
 
 			$done++;
-			update_option( RR_FAQ_DONE,      $done,    false );
-			update_option( 'rr_faq_skipped', $skipped, false );
-			update_option( 'rr_faq_failed',  $failed,  false );
+			update_option( RNRD_FAQ_DONE,      $done,    false );
+			update_option( 'rnrd_faq_skipped', $skipped, false );
+			update_option( 'rnrd_faq_failed',  $failed,  false );
 		}
 
 		$still_running = ! empty( $queue );
 		if ( ! $still_running ) {
-			update_option( RR_FAQ_RUNNING, false );
+			update_option( RNRD_FAQ_RUNNING, false );
 		}
 
 		return new WP_REST_Response( array(
@@ -1447,17 +1447,17 @@ class RR_Rest {
 	}
 
 	public static function faq_bulk_stop() {
-		update_option( RR_FAQ_RUNNING, false );
+		update_option( RNRD_FAQ_RUNNING, false );
 		// Keep queue intact for resume.
-		wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
+		wp_clear_scheduled_hook( RNRD_CRON_BULK_FAQ );
 
 		return new WP_REST_Response( array(
 			'running'         => false,
-			'done'            => (int) get_option( RR_FAQ_DONE, 0 ),
-			'total'           => (int) get_option( RR_FAQ_TOTAL, 0 ),
-			'skipped'         => (int) get_option( 'rr_faq_skipped', 0 ),
-			'failed'          => (int) get_option( 'rr_faq_failed', 0 ),
-			'queue_remaining' => count( (array) get_option( RR_FAQ_QUEUE, array() ) ),
+			'done'            => (int) get_option( RNRD_FAQ_DONE, 0 ),
+			'total'           => (int) get_option( RNRD_FAQ_TOTAL, 0 ),
+			'skipped'         => (int) get_option( 'rnrd_faq_skipped', 0 ),
+			'failed'          => (int) get_option( 'rnrd_faq_failed', 0 ),
+			'queue_remaining' => count( (array) get_option( RNRD_FAQ_QUEUE, array() ) ),
 		), 200 );
 	}
 
@@ -1476,8 +1476,8 @@ class RR_Rest {
 			 WHERE p.post_status = 'publish'
 			 ORDER BY pm2.meta_value DESC
 			 LIMIT 200",
-			RR_META_FAQ,
-			RR_META_FAQ_GENERATED
+			RNRD_META_FAQ,
+			RNRD_META_FAQ_GENERATED
 		) );
 
 		$posts = array();
@@ -1504,7 +1504,7 @@ class RR_Rest {
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function get_errors() {
-		$log = RR_Generator::get_error_log();
+		$log = RNRD_Generator::get_error_log();
 		// Reverse so newest first.
 		$log = array_reverse( $log );
 
@@ -1519,7 +1519,7 @@ class RR_Rest {
 	}
 
 	public static function clear_errors() {
-		RR_Generator::clear_error_log();
+		RNRD_Generator::clear_error_log();
 		return new WP_REST_Response( array( 'success' => true ), 200 );
 	}
 
@@ -1535,7 +1535,7 @@ class RR_Rest {
 			 WHERE pm.meta_key = %s AND pm.meta_value > 0
 			 ORDER BY CAST(pm.meta_value AS UNSIGNED) DESC
 			 LIMIT 100",
-			'_rr_tokens_used'
+			'_rnrd_tokens_used'
 		) );
 
 		$posts = array();
@@ -1550,7 +1550,7 @@ class RR_Rest {
 			);
 		}
 
-		$totals = (array) get_option( 'rr_token_usage', array() );
+		$totals = (array) get_option( 'rnrd_token_usage', array() );
 
 		return new WP_REST_Response( array(
 			'posts'          => $posts,
@@ -1567,8 +1567,8 @@ class RR_Rest {
 		$cutoff_date = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
 
 		// Get post types that have summaries or FAQs enabled.
-		$summary_types = (array) get_option( RR_OPT_POST_TYPES, array( 'post' ) );
-		$faq_types     = (array) get_option( RR_OPT_FAQ_POST_TYPES, array( 'post' ) );
+		$summary_types = (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) );
+		$faq_types     = (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) );
 		$all_types     = array_unique( array_merge( $summary_types, $faq_types ) );
 
 		if ( empty( $all_types ) ) {
@@ -1592,8 +1592,8 @@ class RR_Rest {
 			$post       = get_post( $pid );
 			$modified   = strtotime( $post->post_modified );
 			$days_ago   = (int) floor( ( time() - $modified ) / DAY_IN_SECONDS );
-			$has_summary = ! empty( get_post_meta( $pid, RR_META_SUMMARY, true ) );
-			$has_faq     = ! empty( get_post_meta( $pid, RR_META_FAQ, true ) );
+			$has_summary = ! empty( get_post_meta( $pid, RNRD_META_SUMMARY, true ) );
+			$has_faq     = ! empty( get_post_meta( $pid, RNRD_META_FAQ, true ) );
 
 			$urgency = 'moderate';
 			if ( $days_ago > 365 ) {
@@ -1706,7 +1706,7 @@ class RR_Rest {
 	 * Get schema scanner status — progress, scanned/total counts.
 	 */
 	public static function schema_status() {
-		$rec = RR_Block::get_server_recommendation();
+		$rec = RNRD_Block::get_server_recommendation();
 		return new WP_REST_Response( array(
 			'success'         => true,
 			'total_posts'     => $rec['total_posts'],
@@ -1724,7 +1724,7 @@ class RR_Rest {
 	public static function schema_recommendation() {
 		return new WP_REST_Response( array(
 			'success' => true,
-			'data'    => RR_Block::get_server_recommendation(),
+			'data'    => RNRD_Block::get_server_recommendation(),
 		), 200 );
 	}
 
@@ -1737,51 +1737,51 @@ class RR_Rest {
 	 * Runs every minute. Clears itself when queue is empty or stopped.
 	 */
 	public static function cron_startover_tick(): void {
-		if ( ! get_option( RR_SO_RUNNING ) ) {
-			wp_clear_scheduled_hook( RR_CRON_BULK_STARTOVER );
+		if ( ! get_option( RNRD_SO_RUNNING ) ) {
+			wp_clear_scheduled_hook( RNRD_CRON_BULK_STARTOVER );
 			return;
 		}
 
-		$queue = (array) get_option( RR_SO_QUEUE, array() );
+		$queue = (array) get_option( RNRD_SO_QUEUE, array() );
 		if ( empty( $queue ) ) {
-			update_option( RR_SO_RUNNING, false, false );
-			wp_clear_scheduled_hook( RR_CRON_BULK_STARTOVER );
+			update_option( RNRD_SO_RUNNING, false, false );
+			wp_clear_scheduled_hook( RNRD_CRON_BULK_STARTOVER );
 			return;
 		}
 
-		$done    = (int) get_option( RR_SO_DONE, 0 );
-		$has_dfs = ! empty( get_option( RR_OPT_DFS_LOGIN ) ) && ! empty( get_option( RR_OPT_DFS_PASSWORD ) );
+		$done    = (int) get_option( RNRD_SO_DONE, 0 );
+		$has_dfs = ! empty( get_option( RNRD_OPT_DFS_LOGIN ) ) && ! empty( get_option( RNRD_OPT_DFS_PASSWORD ) );
 
 		// Process 1 post per cron tick (summary + FAQ are heavy API calls).
 		$post_id = (int) array_shift( $queue );
 
 		if ( $post_id > 0 ) {
 			// Clear existing data.
-			delete_post_meta( $post_id, RR_META_SUMMARY );
-			delete_post_meta( $post_id, RR_META_HASH );
-			delete_post_meta( $post_id, RR_META_GENERATED );
-			delete_post_meta( $post_id, RR_META_FAQ );
-			delete_post_meta( $post_id, RR_META_FAQ_HASH );
-			delete_post_meta( $post_id, RR_META_FAQ_GENERATED );
-			delete_post_meta( $post_id, RR_META_FAQ_KEYWORD );
+			delete_post_meta( $post_id, RNRD_META_SUMMARY );
+			delete_post_meta( $post_id, RNRD_META_HASH );
+			delete_post_meta( $post_id, RNRD_META_GENERATED );
+			delete_post_meta( $post_id, RNRD_META_FAQ );
+			delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
+			delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
+			delete_post_meta( $post_id, RNRD_META_FAQ_KEYWORD );
 
 			// Regenerate summary.
-			RR_Generator::force_generate( $post_id );
+			RNRD_Generator::force_generate( $post_id );
 
 			// Regenerate FAQ.
 			if ( $has_dfs ) {
-				RR_Faq::generate_faq( $post_id );
+				RNRD_Faq::generate_faq( $post_id );
 			}
 
 			$done++;
 		}
 
-		update_option( RR_SO_QUEUE, $queue, false );
-		update_option( RR_SO_DONE,  $done,  false );
+		update_option( RNRD_SO_QUEUE, $queue, false );
+		update_option( RNRD_SO_DONE,  $done,  false );
 
 		if ( empty( $queue ) ) {
-			update_option( RR_SO_RUNNING, false, false );
-			wp_clear_scheduled_hook( RR_CRON_BULK_STARTOVER );
+			update_option( RNRD_SO_RUNNING, false, false );
+			wp_clear_scheduled_hook( RNRD_CRON_BULK_STARTOVER );
 		}
 	}
 
@@ -1796,20 +1796,20 @@ class RR_Rest {
 	 * - Watchdog: records last-tick timestamp for stuck-state detection.
 	 */
 	public static function cron_faq_tick(): void {
-		if ( ! get_option( RR_FAQ_RUNNING ) ) {
-			wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
+		if ( ! get_option( RNRD_FAQ_RUNNING ) ) {
+			wp_clear_scheduled_hook( RNRD_CRON_BULK_FAQ );
 			return;
 		}
 
-		$queue = (array) get_option( RR_FAQ_QUEUE, array() );
+		$queue = (array) get_option( RNRD_FAQ_QUEUE, array() );
 		if ( empty( $queue ) ) {
-			update_option( RR_FAQ_RUNNING, false, false );
-			wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
+			update_option( RNRD_FAQ_RUNNING, false, false );
+			wp_clear_scheduled_hook( RNRD_CRON_BULK_FAQ );
 			return;
 		}
 
 		// Watchdog heartbeat — used by admin UI to detect stuck state.
-		update_option( 'rr_faq_cron_last_tick', time(), false );
+		update_option( 'rnrd_faq_cron_last_tick', time(), false );
 
 		// Time budget — stop processing 5s before max_execution_time to allow clean finish.
 		$max_exec  = (int) ini_get( 'max_execution_time' );
@@ -1819,9 +1819,9 @@ class RR_Rest {
 		$deadline  = microtime( true ) + max( 10, $max_exec - 5 );
 		$max_batch = 5; // Hard cap per tick to avoid runaway.
 
-		$done    = (int) get_option( RR_FAQ_DONE, 0 );
-		$failed  = (int) get_option( 'rr_faq_failed', 0 );
-		$failed_ids = (array) get_option( 'rr_faq_failed_ids', array() );
+		$done    = (int) get_option( RNRD_FAQ_DONE, 0 );
+		$failed  = (int) get_option( 'rnrd_faq_failed', 0 );
+		$failed_ids = (array) get_option( 'rnrd_faq_failed_ids', array() );
 
 		$processed_count = 0;
 
@@ -1830,7 +1830,7 @@ class RR_Rest {
 			// If generate_faq() fatals, the post is already removed from the queue
 			// and will not be retried in an infinite loop.
 			$post_id = (int) array_shift( $queue );
-			update_option( RR_FAQ_QUEUE, $queue, false );
+			update_option( RNRD_FAQ_QUEUE, $queue, false );
 
 			if ( $post_id <= 0 ) {
 				continue;
@@ -1847,7 +1847,7 @@ class RR_Rest {
 			// Wrap in try/catch — a fatal Throwable (PHP 7+) is not caught,
 			// but Exception/Error are. We minimize surface by persisting dequeue first.
 			try {
-				$result = RR_Faq::generate_faq( $post_id );
+				$result = RNRD_Faq::generate_faq( $post_id );
 
 				if ( is_wp_error( $result ) ) {
 					$failed++;
@@ -1856,8 +1856,8 @@ class RR_Rest {
 			} catch ( \Throwable $e ) {
 				$failed++;
 				$failed_ids[] = $post_id;
-				if ( class_exists( 'RR_Generator' ) && method_exists( 'RR_Generator', 'log_error' ) ) {
-					RR_Generator::log_error( 'FAQ/Cron', $e->getMessage(), $post_id );
+				if ( class_exists( 'RNRD_Generator' ) && method_exists( 'RNRD_Generator', 'log_error' ) ) {
+					RNRD_Generator::log_error( 'FAQ/Cron', $e->getMessage(), $post_id );
 				}
 			}
 
@@ -1865,20 +1865,20 @@ class RR_Rest {
 			$processed_count++;
 
 			// Persist progress after every post so a later fatal cannot roll back.
-			update_option( RR_FAQ_DONE, $done, false );
-			update_option( 'rr_faq_failed', $failed, false );
+			update_option( RNRD_FAQ_DONE, $done, false );
+			update_option( 'rnrd_faq_failed', $failed, false );
 
 			// Keep the failed_ids list bounded to last 100 entries.
 			if ( count( $failed_ids ) > 100 ) {
 				$failed_ids = array_slice( $failed_ids, -100 );
 			}
-			update_option( 'rr_faq_failed_ids', $failed_ids, false );
+			update_option( 'rnrd_faq_failed_ids', $failed_ids, false );
 		}
 
 		// Final state.
 		if ( empty( $queue ) ) {
-			update_option( RR_FAQ_RUNNING, false, false );
-			wp_clear_scheduled_hook( RR_CRON_BULK_FAQ );
+			update_option( RNRD_FAQ_RUNNING, false, false );
+			wp_clear_scheduled_hook( RNRD_CRON_BULK_FAQ );
 		}
 	}
 
@@ -1889,20 +1889,20 @@ class RR_Rest {
 	 * time budget, and per-post progress persistence.
 	 */
 	public static function cron_summary_tick(): void {
-		if ( ! get_option( RR_BULK_RUNNING ) ) {
-			wp_clear_scheduled_hook( RR_CRON_BULK_SUMMARY );
+		if ( ! get_option( RNRD_BULK_RUNNING ) ) {
+			wp_clear_scheduled_hook( RNRD_CRON_BULK_SUMMARY );
 			return;
 		}
 
-		$queue = (array) get_option( RR_BULK_QUEUE, array() );
+		$queue = (array) get_option( RNRD_BULK_QUEUE, array() );
 		if ( empty( $queue ) ) {
-			update_option( RR_BULK_RUNNING, false, false );
-			wp_clear_scheduled_hook( RR_CRON_BULK_SUMMARY );
+			update_option( RNRD_BULK_RUNNING, false, false );
+			wp_clear_scheduled_hook( RNRD_CRON_BULK_SUMMARY );
 			return;
 		}
 
 		// Watchdog heartbeat.
-		update_option( 'rr_bulk_cron_last_tick', time(), false );
+		update_option( 'rnrd_bulk_cron_last_tick', time(), false );
 
 		// Time budget — stop 5s before max_execution_time.
 		$max_exec = (int) ini_get( 'max_execution_time' );
@@ -1912,14 +1912,14 @@ class RR_Rest {
 		$deadline  = microtime( true ) + max( 10, $max_exec - 5 );
 		$max_batch = (int) self::BULK_BATCH;
 
-		$done   = (int) get_option( RR_BULK_DONE, 0 );
-		$failed = (int) get_option( 'rr_bulk_failed', 0 );
+		$done   = (int) get_option( RNRD_BULK_DONE, 0 );
+		$failed = (int) get_option( 'rnrd_bulk_failed', 0 );
 
 		$processed_count = 0;
 
 		while ( ! empty( $queue ) && $processed_count < $max_batch && microtime( true ) < $deadline ) {
 			$post_id = (int) array_shift( $queue );
-			update_option( RR_BULK_QUEUE, $queue, false );
+			update_option( RNRD_BULK_QUEUE, $queue, false );
 
 			if ( $post_id <= 0 || ! get_post( $post_id ) ) {
 				$done++;
@@ -1928,27 +1928,27 @@ class RR_Rest {
 			}
 
 			try {
-				$result = RR_Generator::force_generate( $post_id );
+				$result = RNRD_Generator::force_generate( $post_id );
 				if ( false === $result ) {
 					$failed++;
 				}
 			} catch ( \Throwable $e ) {
 				$failed++;
-				if ( class_exists( 'RR_Generator' ) && method_exists( 'RR_Generator', 'log_error' ) ) {
-					RR_Generator::log_error( 'Summary/Cron', $e->getMessage(), $post_id );
+				if ( class_exists( 'RNRD_Generator' ) && method_exists( 'RNRD_Generator', 'log_error' ) ) {
+					RNRD_Generator::log_error( 'Summary/Cron', $e->getMessage(), $post_id );
 				}
 			}
 
 			$done++;
 			$processed_count++;
 
-			update_option( RR_BULK_DONE, $done, false );
-			update_option( 'rr_bulk_failed', $failed, false );
+			update_option( RNRD_BULK_DONE, $done, false );
+			update_option( 'rnrd_bulk_failed', $failed, false );
 		}
 
 		if ( empty( $queue ) ) {
-			update_option( RR_BULK_RUNNING, false, false );
-			wp_clear_scheduled_hook( RR_CRON_BULK_SUMMARY );
+			update_option( RNRD_BULK_RUNNING, false, false );
+			wp_clear_scheduled_hook( RNRD_CRON_BULK_SUMMARY );
 		}
 	}
 }

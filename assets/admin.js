@@ -6,12 +6,30 @@
 ( function () {
 	'use strict';
 
-	var nonce   = rrAdmin.nonce;
-	var apiBase = rrAdmin.apiBase;
+	var nonce   = rnrdAdmin.nonce;
+	var apiBase = rnrdAdmin.apiBase;
 
-	function rrFetch( path, method, body ) {
-		return fetch( apiBase + path, {
-			method:  method || 'GET',
+	function rnrdFetch( path, method, body ) {
+		// Defensive URL construction — works whether the site uses pretty
+		// permalinks (apiBase = "/wp-json/rankready/v1") or plain permalinks
+		// (apiBase = "/?rest_route=/rankready/v1"). Naive concat with "?"
+		// would create two query separators on plain-permalink sites and
+		// the server would return 404. Split path into [pathPart, queryPart].
+		var url = apiBase;
+		var pathPart  = path;
+		var queryPart = '';
+		var qIdx = path.indexOf( '?' );
+		if ( qIdx >= 0 ) {
+			pathPart  = path.slice( 0, qIdx );
+			queryPart = path.slice( qIdx + 1 );
+		}
+		url += pathPart;
+		if ( queryPart ) {
+			url += ( url.indexOf( '?' ) >= 0 ? '&' : '?' ) + queryPart;
+		}
+		return fetch( url, {
+			method:      method || 'GET',
+			credentials: 'same-origin',
 			headers: {
 				'Content-Type': 'application/json',
 				'X-WP-Nonce':   nonce,
@@ -37,22 +55,22 @@
 	 * BULK SUMMARY GENERATION
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var bulkStart = document.getElementById( 'rr-bulk-start' );
-	var bulkStop  = document.getElementById( 'rr-bulk-stop' );
-	var bulkProg  = document.getElementById( 'rr-bulk-progress' );
-	var bulkBar   = document.getElementById( 'rr-bulk-bar' );
-	var bulkStat  = document.getElementById( 'rr-bulk-status' );
+	var bulkStart = document.getElementById( 'rnrd-bulk-start' );
+	var bulkStop  = document.getElementById( 'rnrd-bulk-stop' );
+	var bulkProg  = document.getElementById( 'rnrd-bulk-progress' );
+	var bulkBar   = document.getElementById( 'rnrd-bulk-bar' );
+	var bulkStat  = document.getElementById( 'rnrd-bulk-status' );
 	var bulkRunning = false;
 
 	if ( bulkStart ) {
-		var bulkResume = document.getElementById( 'rr-bulk-resume' );
+		var bulkResume = document.getElementById( 'rnrd-bulk-resume' );
 
 		function bulkBegin( isResume ) {
 			var payload = isResume ? { resume: true } : {};
 
 			if ( ! isResume ) {
 				var types = [];
-				document.querySelectorAll( '.rr-bulk-type:checked' ).forEach( function ( cb ) {
+				document.querySelectorAll( '.rnrd-bulk-type:checked' ).forEach( function ( cb ) {
 					types.push( cb.value );
 				} );
 				if ( ! types.length ) {
@@ -73,7 +91,7 @@
 			}
 			bulkStat.textContent    = isResume ? 'Resuming...' : 'Starting...';
 
-			rrFetch( '/bulk/start', 'POST', payload ).then( function ( data ) {
+			rnrdFetch( '/bulk/start', 'POST', payload ).then( function ( data ) {
 				if ( data.code ) {
 					bulkStat.textContent = 'Error: ' + ( data.message || 'Unknown error' );
 					bulkFinish();
@@ -99,7 +117,7 @@
 
 		bulkStop.addEventListener( 'click', function () {
 			bulkRunning = false;
-			rrFetch( '/bulk/stop', 'POST' ).then( function ( data ) {
+			rnrdFetch( '/bulk/stop', 'POST' ).then( function ( data ) {
 				var msg = 'Stopped at ' + data.done + ' / ' + data.total + '.';
 				if ( data.queue_remaining > 0 ) {
 					msg += ' ' + data.queue_remaining + ' remaining — click Resume to continue.';
@@ -120,10 +138,10 @@
 
 		// Show per-post activity log.
 		if ( data.processed && data.processed.length ) {
-			var log = document.getElementById( 'rr-bulk-log' );
+			var log = document.getElementById( 'rnrd-bulk-log' );
 			if ( ! log ) {
 				log = document.createElement( 'div' );
-				log.id = 'rr-bulk-log';
+				log.id = 'rnrd-bulk-log';
 				log.style.cssText = 'margin-top:8px;max-height:200px;overflow-y:auto;font-size:12px;border:1px solid #e0e0e0;border-radius:4px;padding:6px 10px;background:#fafafa;';
 				bulkProg.appendChild( log );
 			}
@@ -143,7 +161,7 @@
 
 	function bulkNext() {
 		if ( ! bulkRunning ) return;
-		rrFetch( '/bulk/process', 'POST' ).then( function ( data ) {
+		rnrdFetch( '/bulk/process', 'POST' ).then( function ( data ) {
 			if ( data.code ) {
 				bulkStat.textContent = 'Error: ' + ( data.message || 'Unknown' );
 				bulkFinish();
@@ -171,7 +189,7 @@
 		bulkStart.disabled     = false;
 		bulkStart.textContent  = 'Start Bulk Generate';
 		bulkStop.style.display = 'none';
-		var bulkResume = document.getElementById( 'rr-bulk-resume' );
+		var bulkResume = document.getElementById( 'rnrd-bulk-resume' );
 		if ( bulkResume ) bulkResume.disabled = false;
 		// Keep the log visible so user can review results.
 	}
@@ -180,27 +198,27 @@
 	 * BULK AUTHOR CHANGER
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var bacPreview   = document.getElementById( 'rr-bac-preview' );
-	var bacExecute   = document.getElementById( 'rr-bac-execute' );
-	var bacStop      = document.getElementById( 'rr-bac-stop' );
-	var bacPrevResult = document.getElementById( 'rr-bac-preview-result' );
-	var bacProgress  = document.getElementById( 'rr-bac-progress' );
-	var bacBar       = document.getElementById( 'rr-bac-bar' );
-	var bacStatus    = document.getElementById( 'rr-bac-status' );
-	var bacDone      = document.getElementById( 'rr-bac-done' );
+	var bacPreview   = document.getElementById( 'rnrd-bac-preview' );
+	var bacExecute   = document.getElementById( 'rnrd-bac-execute' );
+	var bacStop      = document.getElementById( 'rnrd-bac-stop' );
+	var bacPrevResult = document.getElementById( 'rnrd-bac-preview-result' );
+	var bacProgress  = document.getElementById( 'rnrd-bac-progress' );
+	var bacBar       = document.getElementById( 'rnrd-bac-bar' );
+	var bacStatus    = document.getElementById( 'rnrd-bac-status' );
+	var bacDone      = document.getElementById( 'rnrd-bac-done' );
 	var bacRunning   = false;
 
 	function bacGetParams() {
 		var types = [];
-		document.querySelectorAll( '.rr-bac-pt:checked' ).forEach( function ( cb ) {
+		document.querySelectorAll( '.rnrd-bac-pt:checked' ).forEach( function ( cb ) {
 			types.push( cb.value );
 		} );
 		return {
 			post_types  : types,
-			to_author   : parseInt( document.getElementById( 'rr-bac-to' ).value ) || 0,
-			from_author : parseInt( document.getElementById( 'rr-bac-from' ).value ) || 0,
-			date_from   : document.getElementById( 'rr-bac-date-from' ).value,
-			date_to     : document.getElementById( 'rr-bac-date-to' ).value,
+			to_author   : parseInt( document.getElementById( 'rnrd-bac-to' ).value ) || 0,
+			from_author : parseInt( document.getElementById( 'rnrd-bac-from' ).value ) || 0,
+			date_from   : document.getElementById( 'rnrd-bac-date-from' ).value,
+			date_to     : document.getElementById( 'rnrd-bac-date-to' ).value,
 		};
 	}
 
@@ -227,20 +245,20 @@
 			if ( bacDone ) bacDone.style.display = 'none';
 			bacExecute.disabled = true;
 
-			rrFetch( '/author/preview', 'POST', params )
+			rnrdFetch( '/author/preview', 'POST', params )
 				.then( function ( data ) {
 					bacPreview.disabled    = false;
 					bacPreview.textContent = 'Preview Count';
 
 					if ( data.code ) {
 						bacPrevResult.textContent  = 'Error: ' + ( data.message || 'Unknown error' );
-						bacPrevResult.className    = 'rr-notice rr-notice--error';
+						bacPrevResult.className    = 'rnrd-notice rnrd-notice--error';
 						bacPrevResult.style.display = 'block';
 						return;
 					}
 
 					bacPrevResult.textContent   = data.message;
-					bacPrevResult.className     = data.count > 0 ? 'rr-notice rr-notice--info' : 'rr-notice rr-notice--warn';
+					bacPrevResult.className     = data.count > 0 ? 'rnrd-notice rnrd-notice--info' : 'rnrd-notice rnrd-notice--warn';
 					bacPrevResult.style.display = 'block';
 					bacExecute.disabled         = data.count < 1;
 				} )
@@ -248,7 +266,7 @@
 					bacPreview.disabled    = false;
 					bacPreview.textContent = 'Preview Count';
 					bacPrevResult.textContent  = 'Preview request failed.';
-					bacPrevResult.className    = 'rr-notice rr-notice--error';
+					bacPrevResult.className    = 'rnrd-notice rnrd-notice--error';
 					bacPrevResult.style.display = 'block';
 				} );
 		} );
@@ -268,7 +286,7 @@
 			bacStatus.textContent   = 'Starting...';
 			if ( bacDone ) bacDone.style.display = 'none';
 
-			rrFetch( '/author/execute', 'POST', params )
+			rnrdFetch( '/author/execute', 'POST', params )
 				.then( function ( data ) {
 					if ( data.code ) {
 						bacSetFinished( 'Error: ' + ( data.message || 'Unknown error' ) );
@@ -290,7 +308,7 @@
 
 		bacStop.addEventListener( 'click', function () {
 			bacRunning = false;
-			rrFetch( '/author/stop', 'POST' );
+			rnrdFetch( '/author/stop', 'POST' );
 			bacStatus.textContent = 'Stopped.';
 			bacSetFinished();
 		} );
@@ -304,7 +322,7 @@
 
 	function bacProcessNext() {
 		if ( ! bacRunning ) return;
-		rrFetch( '/author/process', 'POST' )
+		rnrdFetch( '/author/process', 'POST' )
 			.then( function ( data ) {
 				if ( data.code ) {
 					bacSetFinished( 'Error: ' + ( data.message || 'Unknown' ) );
@@ -336,7 +354,7 @@
 
 		if ( errorMsg ) {
 			bacPrevResult.textContent  = errorMsg;
-			bacPrevResult.className    = 'rr-notice rr-notice--error';
+			bacPrevResult.className    = 'rnrd-notice rnrd-notice--error';
 			bacPrevResult.style.display = 'block';
 		}
 	}
@@ -345,15 +363,15 @@
 	 * LLMS CACHE FLUSH
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var flushBtn    = document.getElementById( 'rr-flush-llms-cache' );
-	var flushStatus = document.getElementById( 'rr-flush-status' );
+	var flushBtn    = document.getElementById( 'rnrd-flush-llms-cache' );
+	var flushStatus = document.getElementById( 'rnrd-flush-status' );
 
 	if ( flushBtn ) {
 		flushBtn.addEventListener( 'click', function () {
 			flushBtn.disabled    = true;
 			flushBtn.textContent = 'Flushing...';
 
-			rrFetch( '/llms/flush-cache', 'POST' )
+			rnrdFetch( '/llms/flush-cache', 'POST' )
 				.then( function () {
 					flushBtn.disabled    = false;
 					flushBtn.textContent = 'Flush LLMs.txt Cache';
@@ -375,22 +393,22 @@
 	 * BULK FAQ GENERATION
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var faqStart   = document.getElementById( 'rr-faq-bulk-start' );
-	var faqStop    = document.getElementById( 'rr-faq-bulk-stop' );
-	var faqProg    = document.getElementById( 'rr-faq-bulk-progress' );
-	var faqBar     = document.getElementById( 'rr-faq-bulk-bar' );
-	var faqStat    = document.getElementById( 'rr-faq-bulk-status' );
+	var faqStart   = document.getElementById( 'rnrd-faq-bulk-start' );
+	var faqStop    = document.getElementById( 'rnrd-faq-bulk-stop' );
+	var faqProg    = document.getElementById( 'rnrd-faq-bulk-progress' );
+	var faqBar     = document.getElementById( 'rnrd-faq-bulk-bar' );
+	var faqStat    = document.getElementById( 'rnrd-faq-bulk-status' );
 	var faqRunning = false;
 
 	if ( faqStart ) {
-		var faqResume = document.getElementById( 'rr-faq-bulk-resume' );
+		var faqResume = document.getElementById( 'rnrd-faq-bulk-resume' );
 
 		function faqBegin( isResume ) {
 			var payload = isResume ? { resume: true } : {};
 
 			if ( ! isResume ) {
 				var types = [];
-				document.querySelectorAll( '.rr-faq-bulk-type:checked' ).forEach( function ( cb ) {
+				document.querySelectorAll( '.rnrd-faq-bulk-type:checked' ).forEach( function ( cb ) {
 					types.push( cb.value );
 				} );
 				if ( ! types.length ) {
@@ -411,7 +429,7 @@
 			}
 			faqStat.textContent = isResume ? 'Resuming...' : 'Starting...';
 
-			rrFetch( '/faq-bulk/start', 'POST', payload ).then( function ( data ) {
+			rnrdFetch( '/faq-bulk/start', 'POST', payload ).then( function ( data ) {
 				if ( data.code ) {
 					faqStat.textContent = 'Error: ' + ( data.message || 'Unknown error' );
 					faqFinish();
@@ -437,7 +455,7 @@
 
 		faqStop.addEventListener( 'click', function () {
 			faqRunning = false;
-			rrFetch( '/faq-bulk/stop', 'POST' ).then( function ( data ) {
+			rnrdFetch( '/faq-bulk/stop', 'POST' ).then( function ( data ) {
 				var msg = 'Stopped at ' + data.done + ' / ' + data.total + '.';
 				if ( data.queue_remaining > 0 ) {
 					msg += ' ' + data.queue_remaining + ' remaining — click Resume to continue.';
@@ -458,10 +476,10 @@
 
 		// Show per-post activity log.
 		if ( data.processed && data.processed.length ) {
-			var log = document.getElementById( 'rr-faq-bulk-log' );
+			var log = document.getElementById( 'rnrd-faq-bulk-log' );
 			if ( ! log ) {
 				log = document.createElement( 'div' );
-				log.id = 'rr-faq-bulk-log';
+				log.id = 'rnrd-faq-bulk-log';
 				log.style.cssText = 'margin-top:8px;max-height:200px;overflow-y:auto;font-size:12px;border:1px solid #e0e0e0;border-radius:4px;padding:6px 10px;background:#fafafa;';
 				faqProg.appendChild( log );
 			}
@@ -481,7 +499,7 @@
 
 	function faqNext() {
 		if ( ! faqRunning ) return;
-		rrFetch( '/faq-bulk/process', 'POST' ).then( function ( data ) {
+		rnrdFetch( '/faq-bulk/process', 'POST' ).then( function ( data ) {
 			if ( data.code ) {
 				faqStat.textContent = 'Error: ' + ( data.message || 'Unknown' );
 				faqFinish();
@@ -509,7 +527,7 @@
 		faqStart.disabled     = false;
 		faqStart.textContent  = 'Start Bulk FAQ Generate';
 		faqStop.style.display = 'none';
-		var faqResume = document.getElementById( 'rr-faq-bulk-resume' );
+		var faqResume = document.getElementById( 'rnrd-faq-bulk-resume' );
 		if ( faqResume ) faqResume.disabled = false;
 	}
 
@@ -517,17 +535,17 @@
 	 * FAQ POSTS LIST
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var faqLoadBtn   = document.getElementById( 'rr-faq-load-posts' );
-	var faqPostsList = document.getElementById( 'rr-faq-posts-list' );
-	var faqPostsTbody = document.getElementById( 'rr-faq-posts-tbody' );
-	var faqPostsCount = document.getElementById( 'rr-faq-posts-count' );
+	var faqLoadBtn   = document.getElementById( 'rnrd-faq-load-posts' );
+	var faqPostsList = document.getElementById( 'rnrd-faq-posts-list' );
+	var faqPostsTbody = document.getElementById( 'rnrd-faq-posts-tbody' );
+	var faqPostsCount = document.getElementById( 'rnrd-faq-posts-count' );
 
 	if ( faqLoadBtn ) {
 		faqLoadBtn.addEventListener( 'click', function () {
 			faqLoadBtn.disabled    = true;
 			faqLoadBtn.textContent = 'Loading...';
 
-			rrFetch( '/faq/posts', 'GET' )
+			rnrdFetch( '/faq/posts', 'GET' )
 				.then( function ( data ) {
 					faqLoadBtn.disabled    = false;
 					faqLoadBtn.textContent = 'Refresh List';
@@ -591,7 +609,7 @@
 
 		if ( ! faqModal ) {
 			faqModal = document.createElement( 'div' );
-			faqModal.id = 'rr-faq-modal';
+			faqModal.id = 'rnrd-faq-modal';
 			faqModal.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
 			document.body.appendChild( faqModal );
 		}
@@ -599,24 +617,24 @@
 		faqModal.innerHTML = '<div style="background:#fff;border-radius:8px;max-width:700px;width:95%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,0.2);">'
 			+ '<div style="padding:16px 20px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;">'
 			+ '<h3 style="margin:0;font-size:15px;">Edit FAQ — ' + escHtml( postTitle ) + '</h3>'
-			+ '<button id="rr-faq-modal-close" type="button" style="background:none;border:none;font-size:20px;cursor:pointer;color:#666;">&times;</button>'
+			+ '<button id="rnrd-faq-modal-close" type="button" style="background:none;border:none;font-size:20px;cursor:pointer;color:#666;">&times;</button>'
 			+ '</div>'
-			+ '<div id="rr-faq-modal-body" style="padding:20px;overflow-y:auto;flex:1;">Loading...</div>'
+			+ '<div id="rnrd-faq-modal-body" style="padding:20px;overflow-y:auto;flex:1;">Loading...</div>'
 			+ '<div style="padding:12px 20px;border-top:1px solid #ddd;display:flex;gap:8px;justify-content:flex-end;">'
-			+ '<button id="rr-faq-modal-save" class="button button-primary" disabled>Save Changes</button>'
-			+ '<span id="rr-faq-modal-status" style="font-size:13px;line-height:30px;margin-right:auto;"></span>'
+			+ '<button id="rnrd-faq-modal-save" class="button button-primary" disabled>Save Changes</button>'
+			+ '<span id="rnrd-faq-modal-status" style="font-size:13px;line-height:30px;margin-right:auto;"></span>'
 			+ '</div>'
 			+ '</div>';
 		faqModal.style.display = 'flex';
 
-		document.getElementById( 'rr-faq-modal-close' ).addEventListener( 'click', closeFaqEditor );
+		document.getElementById( 'rnrd-faq-modal-close' ).addEventListener( 'click', closeFaqEditor );
 		faqModal.addEventListener( 'click', function ( e ) {
 			if ( e.target === faqModal ) closeFaqEditor();
 		} );
 
-		rrFetch( '/faq/get/' + postId, 'GET' ).then( function ( data ) {
+		rnrdFetch( '/faq/get/' + postId, 'GET' ).then( function ( data ) {
 			if ( ! data || ! data.faq || ! data.faq.length ) {
-				document.getElementById( 'rr-faq-modal-body' ).innerHTML = '<p style="color:#999;">No FAQ data found.</p>';
+				document.getElementById( 'rnrd-faq-modal-body' ).innerHTML = '<p style="color:#999;">No FAQ data found.</p>';
 				return;
 			}
 			faqEditData = data.faq;
@@ -625,52 +643,52 @@
 	}
 
 	function renderFaqEditor() {
-		var body = document.getElementById( 'rr-faq-modal-body' );
+		var body = document.getElementById( 'rnrd-faq-modal-body' );
 		if ( ! body ) return;
 
 		var html = '';
 		faqEditData.forEach( function ( item, i ) {
-			html += '<div class="rr-faq-edit-item" style="margin-bottom:16px;padding:12px;border:1px solid #e0e0e0;border-radius:4px;">';
+			html += '<div class="rnrd-faq-edit-item" style="margin-bottom:16px;padding:12px;border:1px solid #e0e0e0;border-radius:4px;">';
 			html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
 			html += '<strong style="font-size:12px;color:#666;">Q' + ( i + 1 ) + '</strong>';
-			html += '<button type="button" class="rr-faq-delete-btn" data-index="' + i + '" style="background:none;border:none;color:#d63638;cursor:pointer;font-size:13px;">Remove</button>';
+			html += '<button type="button" class="rnrd-faq-delete-btn" data-index="' + i + '" style="background:none;border:none;color:#d63638;cursor:pointer;font-size:13px;">Remove</button>';
 			html += '</div>';
-			html += '<input type="text" class="rr-faq-q-input" data-index="' + i + '" value="' + escHtml( item.question ) + '" style="width:100%;padding:6px 8px;margin-bottom:8px;border:1px solid #ddd;border-radius:3px;font-weight:600;" />';
-			html += '<textarea class="rr-faq-a-input" data-index="' + i + '" rows="3" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:3px;resize:vertical;">' + escHtml( item.answer ) + '</textarea>';
+			html += '<input type="text" class="rnrd-faq-q-input" data-index="' + i + '" value="' + escHtml( item.question ) + '" style="width:100%;padding:6px 8px;margin-bottom:8px;border:1px solid #ddd;border-radius:3px;font-weight:600;" />';
+			html += '<textarea class="rnrd-faq-a-input" data-index="' + i + '" rows="3" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:3px;resize:vertical;">' + escHtml( item.answer ) + '</textarea>';
 			html += '</div>';
 		} );
 		body.innerHTML = html;
 
-		document.getElementById( 'rr-faq-modal-save' ).disabled = false;
+		document.getElementById( 'rnrd-faq-modal-save' ).disabled = false;
 
-		body.querySelectorAll( '.rr-faq-q-input' ).forEach( function ( el ) {
+		body.querySelectorAll( '.rnrd-faq-q-input' ).forEach( function ( el ) {
 			el.addEventListener( 'input', function () {
 				faqEditData[ parseInt( el.dataset.index ) ].question = el.value;
 			} );
 		} );
-		body.querySelectorAll( '.rr-faq-a-input' ).forEach( function ( el ) {
+		body.querySelectorAll( '.rnrd-faq-a-input' ).forEach( function ( el ) {
 			el.addEventListener( 'input', function () {
 				faqEditData[ parseInt( el.dataset.index ) ].answer = el.value;
 			} );
 		} );
-		body.querySelectorAll( '.rr-faq-delete-btn' ).forEach( function ( btn ) {
+		body.querySelectorAll( '.rnrd-faq-delete-btn' ).forEach( function ( btn ) {
 			btn.addEventListener( 'click', function () {
 				faqEditData.splice( parseInt( btn.dataset.index ), 1 );
 				renderFaqEditor();
 			} );
 		} );
 
-		document.getElementById( 'rr-faq-modal-save' ).onclick = saveFaqEdits;
+		document.getElementById( 'rnrd-faq-modal-save' ).onclick = saveFaqEdits;
 	}
 
 	function saveFaqEdits() {
-		var saveBtn = document.getElementById( 'rr-faq-modal-save' );
-		var status  = document.getElementById( 'rr-faq-modal-status' );
+		var saveBtn = document.getElementById( 'rnrd-faq-modal-save' );
+		var status  = document.getElementById( 'rnrd-faq-modal-status' );
 		saveBtn.disabled    = true;
 		saveBtn.textContent = 'Saving...';
 		status.textContent  = '';
 
-		rrFetch( '/faq/save/' + faqEditId, 'POST', { faq: faqEditData } )
+		rnrdFetch( '/faq/save/' + faqEditId, 'POST', { faq: faqEditData } )
 			.then( function ( data ) {
 				saveBtn.disabled    = false;
 				saveBtn.textContent = 'Save Changes';
@@ -702,10 +720,10 @@
 	 * PER-POST TOKEN USAGE
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var tokensLoad  = document.getElementById( 'rr-tokens-load' );
-	var tokensList  = document.getElementById( 'rr-tokens-list' );
-	var tokensTbody = document.getElementById( 'rr-tokens-tbody' );
-	var tokensCount = document.getElementById( 'rr-tokens-count' );
+	var tokensLoad  = document.getElementById( 'rnrd-tokens-load' );
+	var tokensList  = document.getElementById( 'rnrd-tokens-list' );
+	var tokensTbody = document.getElementById( 'rnrd-tokens-tbody' );
+	var tokensCount = document.getElementById( 'rnrd-tokens-count' );
 
 	if ( tokensLoad ) {
 		tokensLoad.addEventListener( 'click', function () {
@@ -713,7 +731,7 @@
 			tokensLoad.textContent = 'Loading...';
 			tokensCount.style.display = 'none';
 
-			rrFetch( '/token-usage', 'GET' ).then( function ( data ) {
+			rnrdFetch( '/token-usage', 'GET' ).then( function ( data ) {
 				tokensLoad.disabled    = false;
 				tokensLoad.textContent = 'Refresh Details';
 
@@ -757,11 +775,11 @@
 	 * ERROR LOG
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var errorsLoad  = document.getElementById( 'rr-errors-load' );
-	var errorsClear = document.getElementById( 'rr-errors-clear' );
-	var errorsList  = document.getElementById( 'rr-errors-list' );
-	var errorsTbody = document.getElementById( 'rr-errors-tbody' );
-	var errorsStatus = document.getElementById( 'rr-errors-status' );
+	var errorsLoad  = document.getElementById( 'rnrd-errors-load' );
+	var errorsClear = document.getElementById( 'rnrd-errors-clear' );
+	var errorsList  = document.getElementById( 'rnrd-errors-list' );
+	var errorsTbody = document.getElementById( 'rnrd-errors-tbody' );
+	var errorsStatus = document.getElementById( 'rnrd-errors-status' );
 
 	if ( errorsLoad ) {
 		errorsLoad.addEventListener( 'click', function () {
@@ -769,7 +787,7 @@
 			errorsLoad.textContent = 'Loading...';
 			errorsStatus.style.display = 'none';
 
-			rrFetch( '/errors', 'GET' ).then( function ( data ) {
+			rnrdFetch( '/errors', 'GET' ).then( function ( data ) {
 				errorsLoad.disabled    = false;
 				errorsLoad.textContent = 'Refresh Log';
 
@@ -803,7 +821,7 @@
 		} );
 
 		errorsClear.addEventListener( 'click', function () {
-			rrFetch( '/errors/clear', 'POST' ).then( function () {
+			rnrdFetch( '/errors/clear', 'POST' ).then( function () {
 				errorsTbody.innerHTML  = '';
 				errorsList.style.display   = 'none';
 				errorsStatus.textContent   = 'Log cleared.';
@@ -817,12 +835,12 @@
 	 * VERIFY API KEY
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var verifyBtn    = document.getElementById( 'rr-verify-key' );
-	var verifyStatus = document.getElementById( 'rr-verify-status' );
+	var verifyBtn    = document.getElementById( 'rnrd-verify-key' );
+	var verifyStatus = document.getElementById( 'rnrd-verify-status' );
 
 	if ( verifyBtn ) {
 		verifyBtn.addEventListener( 'click', function () {
-			var keyField = document.getElementById( 'rr_api_key' );
+			var keyField = document.getElementById( 'rnrd_api_key' );
 			var key      = keyField ? keyField.value : '';
 
 			if ( ! key ) {
@@ -836,7 +854,7 @@
 			verifyBtn.textContent = 'Verifying...';
 			verifyStatus.style.display = 'none';
 
-			rrFetch( '/verify-key', 'POST', { key: key } )
+			rnrdFetch( '/verify-key', 'POST', { key: key } )
 				.then( function ( data ) {
 					verifyBtn.disabled    = false;
 					verifyBtn.textContent = 'Verify Key';
@@ -864,13 +882,13 @@
 	 * VERIFY DATAFORSEO KEY
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var dfsVerifyBtn    = document.getElementById( 'rr-verify-dfs' );
-	var dfsVerifyStatus = document.getElementById( 'rr-verify-dfs-status' );
+	var dfsVerifyBtn    = document.getElementById( 'rnrd-verify-dfs' );
+	var dfsVerifyStatus = document.getElementById( 'rnrd-verify-dfs-status' );
 
 	if ( dfsVerifyBtn ) {
 		dfsVerifyBtn.addEventListener( 'click', function () {
-			var loginField = document.getElementById( 'rr_dfs_login' );
-			var pwField    = document.getElementById( 'rr_dfs_password' );
+			var loginField = document.getElementById( 'rnrd_dfs_login' );
+			var pwField    = document.getElementById( 'rnrd_dfs_password' );
 			var login = loginField ? loginField.value : '';
 			var pw    = pwField ? pwField.value : '';
 
@@ -885,7 +903,7 @@
 			dfsVerifyBtn.textContent = 'Verifying...';
 			dfsVerifyStatus.style.display = 'none';
 
-			rrFetch( '/verify-dfs', 'POST', payload )
+			rnrdFetch( '/verify-dfs', 'POST', payload )
 				.then( function ( data ) {
 					dfsVerifyBtn.disabled    = false;
 					dfsVerifyBtn.textContent = 'Verify DataForSEO';
@@ -919,9 +937,9 @@
 	 * CRAWLER SELECT ALL
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var selectAll = document.getElementById( 'rr-crawlers-select-all' );
+	var selectAll = document.getElementById( 'rnrd-crawlers-select-all' );
 	if ( selectAll ) {
-		var crawlerBoxes = document.querySelectorAll( '.rr-crawler-checkbox' );
+		var crawlerBoxes = document.querySelectorAll( '.rnrd-crawler-checkbox' );
 
 		selectAll.addEventListener( 'change', function () {
 			crawlerBoxes.forEach( function ( cb ) {
@@ -942,12 +960,12 @@
 	 * START OVER — BULK REGENERATE (clear + regenerate all)
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var soStart   = document.getElementById( 'rr-startover-btn' );
-	var soResume  = document.getElementById( 'rr-startover-resume' );
-	var soStop    = document.getElementById( 'rr-startover-stop' );
-	var soProg    = document.getElementById( 'rr-startover-progress' );
-	var soBar     = document.getElementById( 'rr-startover-bar' );
-	var soStat    = document.getElementById( 'rr-startover-status' );
+	var soStart   = document.getElementById( 'rnrd-startover-btn' );
+	var soResume  = document.getElementById( 'rnrd-startover-resume' );
+	var soStop    = document.getElementById( 'rnrd-startover-stop' );
+	var soProg    = document.getElementById( 'rnrd-startover-progress' );
+	var soBar     = document.getElementById( 'rnrd-startover-bar' );
+	var soStat    = document.getElementById( 'rnrd-startover-status' );
 	var soRunning = false;
 
 	if ( soStart ) {
@@ -956,7 +974,7 @@
 
 			if ( ! isResume ) {
 				var types = [];
-				document.querySelectorAll( '.rr-startover-type:checked' ).forEach( function ( cb ) {
+				document.querySelectorAll( '.rnrd-startover-type:checked' ).forEach( function ( cb ) {
 					types.push( cb.value );
 				} );
 				if ( ! types.length ) {
@@ -979,7 +997,7 @@
 			soStat.style.display  = 'block';
 			soStat.style.color    = '';
 
-			rrFetch( '/startover-bulk/start', 'POST', payload ).then( function ( data ) {
+			rnrdFetch( '/startover-bulk/start', 'POST', payload ).then( function ( data ) {
 				if ( data.code ) {
 					soStat.textContent = 'Error: ' + ( data.message || 'Unknown error' );
 					soFinish();
@@ -1000,7 +1018,7 @@
 
 		function soNext() {
 			if ( ! soRunning ) return;
-			rrFetch( '/startover-bulk/process', 'POST' ).then( function ( data ) {
+			rnrdFetch( '/startover-bulk/process', 'POST' ).then( function ( data ) {
 				if ( data.code ) {
 					soStat.textContent = 'Error: ' + ( data.message || 'Unknown error' );
 					soFinish();
@@ -1010,10 +1028,10 @@
 
 				// Append log entries.
 				if ( data.log && data.log.length ) {
-					var log = document.getElementById( 'rr-startover-log' );
+					var log = document.getElementById( 'rnrd-startover-log' );
 					if ( ! log ) {
 						log = document.createElement( 'div' );
-						log.id = 'rr-startover-log';
+						log.id = 'rnrd-startover-log';
 						log.style.cssText = 'margin-top:12px;max-height:300px;overflow-y:auto;font-size:13px;border:1px solid #ddd;border-radius:4px;padding:8px;background:#fafafa;';
 						soProg.parentNode.insertBefore( log, soProg.nextSibling );
 					}
@@ -1063,7 +1081,7 @@
 
 		soStop.addEventListener( 'click', function () {
 			soRunning = false;
-			rrFetch( '/startover-bulk/stop', 'POST' ).then( function ( data ) {
+			rnrdFetch( '/startover-bulk/stop', 'POST' ).then( function ( data ) {
 				var msg = 'Stopped at ' + data.done + ' / ' + data.total + '.';
 				if ( data.queue_remaining > 0 ) {
 					msg += ' ' + data.queue_remaining + ' remaining — click Resume to continue.';
@@ -1075,7 +1093,7 @@
 	}
 
 	/* Old "Health Check" handler removed in rc.15 — replaced by the live
-	 * 22-probe Diagnostics handler below. The rr-health-check DOM element
+	 * 22-probe Diagnostics handler below. The rnrd-health-check DOM element
 	 * was removed in rc.5; the JS handler became orphan code. */
 
 	/* ═══════════════════════════════════════════════════════════════════════
@@ -1086,16 +1104,16 @@
 	 *           GET /rankready/v1/diagnostics/report?include_api=0|1
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var diagRunBtn       = document.getElementById( 'rr-diag-run' );
-	var diagIncludeApi   = document.getElementById( 'rr-diag-include-api' );
-	var diagStatus       = document.getElementById( 'rr-diag-status' );
-	var diagSummary      = document.getElementById( 'rr-diag-summary' );
-	var diagResults      = document.getElementById( 'rr-diag-results' );
-	var diagTbody        = document.getElementById( 'rr-diag-tbody' );
-	var diagCopyRow      = document.getElementById( 'rr-diag-copy-row' );
-	var diagCopyBtn      = document.getElementById( 'rr-diag-copy' );
-	var diagCopyStatus   = document.getElementById( 'rr-diag-copy-status' );
-	var diagReportPreview = document.getElementById( 'rr-diag-report-preview' );
+	var diagRunBtn       = document.getElementById( 'rnrd-diag-run' );
+	var diagIncludeApi   = document.getElementById( 'rnrd-diag-include-api' );
+	var diagStatus       = document.getElementById( 'rnrd-diag-status' );
+	var diagSummary      = document.getElementById( 'rnrd-diag-summary' );
+	var diagResults      = document.getElementById( 'rnrd-diag-results' );
+	var diagTbody        = document.getElementById( 'rnrd-diag-tbody' );
+	var diagCopyRow      = document.getElementById( 'rnrd-diag-copy-row' );
+	var diagCopyBtn      = document.getElementById( 'rnrd-diag-copy' );
+	var diagCopyStatus   = document.getElementById( 'rnrd-diag-copy-status' );
+	var diagReportPreview = document.getElementById( 'rnrd-diag-report-preview' );
 
 	if ( diagRunBtn ) {
 		diagRunBtn.addEventListener( 'click', function () {
@@ -1108,7 +1126,7 @@
 			diagResults.style.display = 'none';
 			diagCopyRow.style.display = 'none';
 
-			rrFetch( '/diagnostics?include_api=' + includeApi, 'GET' ).then( function ( data ) {
+			rnrdFetch( '/diagnostics?include_api=' + includeApi, 'GET' ).then( function ( data ) {
 				diagRunBtn.disabled    = false;
 				diagRunBtn.textContent = 'Run Diagnostics';
 
@@ -1183,7 +1201,7 @@
 			diagCopyBtn.disabled = true;
 			diagCopyStatus.style.display = 'none';
 
-			rrFetch( '/diagnostics/report?include_api=' + includeApi, 'GET' ).then( function ( data ) {
+			rnrdFetch( '/diagnostics/report?include_api=' + includeApi, 'GET' ).then( function ( data ) {
 				diagCopyBtn.disabled = false;
 				var report = data.report || '';
 				if ( diagReportPreview ) {
@@ -1230,12 +1248,12 @@
 	 * CONTENT FRESHNESS ALERTS
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var freshBtn     = document.getElementById( 'rr-freshness-scan' );
-	var freshDays    = document.getElementById( 'rr-freshness-days' );
-	var freshStatus  = document.getElementById( 'rr-freshness-status' );
-	var freshSummary = document.getElementById( 'rr-freshness-summary' );
-	var freshResults = document.getElementById( 'rr-freshness-results' );
-	var freshTbody   = document.getElementById( 'rr-freshness-tbody' );
+	var freshBtn     = document.getElementById( 'rnrd-freshness-scan' );
+	var freshDays    = document.getElementById( 'rnrd-freshness-days' );
+	var freshStatus  = document.getElementById( 'rnrd-freshness-status' );
+	var freshSummary = document.getElementById( 'rnrd-freshness-summary' );
+	var freshResults = document.getElementById( 'rnrd-freshness-results' );
+	var freshTbody   = document.getElementById( 'rnrd-freshness-tbody' );
 
 	if ( freshBtn ) {
 		freshBtn.addEventListener( 'click', function () {
@@ -1316,23 +1334,23 @@
 
 	// ── Progressive disclosure: toggle reveals child settings ────────────────
 	//
-	// Pattern: a master checkbox marked with `data-rr-toggle-master`
+	// Pattern: a master checkbox marked with `data-rnrd-toggle-master`
 	// controls visibility of every element marked with the matching
-	// `data-rr-toggle-target="<id>"`. Two attributes only — no class
+	// `data-rnrd-toggle-target="<id>"`. Two attributes only — no class
 	// hardcoding, works inside any tab.
 	//
 	// Usage in PHP:
-	//   <input type="checkbox" data-rr-toggle-master="headless">
-	//   <div data-rr-toggle-target="headless"> ... settings ... </div>
+	//   <input type="checkbox" data-rnrd-toggle-master="headless">
+	//   <div data-rnrd-toggle-target="headless"> ... settings ... </div>
 	//
 	function bindToggleDisclosure() {
-		var masters = document.querySelectorAll( '[data-rr-toggle-master]' );
+		var masters = document.querySelectorAll( '[data-rnrd-toggle-master]' );
 		if ( ! masters.length ) {
 			return;
 		}
 		masters.forEach( function ( master ) {
-			var key      = master.getAttribute( 'data-rr-toggle-master' );
-			var targets  = document.querySelectorAll( '[data-rr-toggle-target="' + key + '"]' );
+			var key      = master.getAttribute( 'data-rnrd-toggle-master' );
+			var targets  = document.querySelectorAll( '[data-rnrd-toggle-target="' + key + '"]' );
 			if ( ! targets.length ) {
 				return;
 			}
@@ -1350,18 +1368,18 @@
 
 	// ── Verify Key — provider-aware ──────────────────────────────────────────
 	//
-	// Each provider card has its own [data-rr-verify-provider] button. Pulls
+	// Each provider card has its own [data-rnrd-verify-provider] button. Pulls
 	// the matching key field's value (or the saved key if masked) and pings
 	// the REST verify endpoint with the chosen provider.
 	//
 	function bindVerifyButtons() {
-		var buttons = document.querySelectorAll( '[data-rr-verify-provider]' );
+		var buttons = document.querySelectorAll( '[data-rnrd-verify-provider]' );
 		buttons.forEach( function ( btn ) {
 			btn.addEventListener( 'click', function ( e ) {
 				e.preventDefault();
-				var provider = btn.getAttribute( 'data-rr-verify-provider' );
-				var keyInput = document.querySelector( '[data-rr-key-for="' + provider + '"]' );
-				var status   = document.querySelector( '[data-rr-verify-status="' + provider + '"]' );
+				var provider = btn.getAttribute( 'data-rnrd-verify-provider' );
+				var keyInput = document.querySelector( '[data-rnrd-key-for="' + provider + '"]' );
+				var status   = document.querySelector( '[data-rnrd-verify-status="' + provider + '"]' );
 				if ( ! keyInput || ! status ) { return; }
 
 				var key = keyInput.value;
@@ -1370,7 +1388,7 @@
 				status.textContent   = 'Verifying…';
 				btn.disabled = true;
 
-				rrFetch( '/verify-key', 'POST', { key: key, provider: provider } )
+				rnrdFetch( '/verify-key', 'POST', { key: key, provider: provider } )
 					.then( function ( r ) { return r.json(); } )
 					.then( function ( data ) {
 						btn.disabled       = false;

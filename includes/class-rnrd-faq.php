@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Faq {
+class RNRD_Faq {
 
 	public static function init(): void {
 		// Auto-display FAQ via the_content filter.
@@ -26,11 +26,11 @@ class RR_Faq {
 		// Inject FAQPage schema into wp_head.
 		add_action( 'wp_head', array( self::class, 'inject_faq_schema' ), 20 );
 
-		// Auto-generate on publish/update (gated by RR_OPT_FAQ_AUTO_GENERATE option).
+		// Auto-generate on publish/update (gated by RNRD_OPT_FAQ_AUTO_GENERATE option).
 		add_action( 'wp_after_insert_post', array( self::class, 'schedule_faq_generation' ), 20, 4 );
 
 		// FAQ cron runner (used by auto-generate, bulk, and manual triggers).
-		add_action( 'rr_async_faq_generate', array( self::class, 'run_faq_generation' ) );
+		add_action( 'rnrd_async_faq_generate', array( self::class, 'run_faq_generation' ) );
 	}
 
 	// ── Auto-generate FAQ on publish ─────────────────────────────────────────
@@ -39,12 +39,10 @@ class RR_Faq {
 		$post_id = (int) $post_id;
 
 		// Auto-generate toggle: if off, only generate via manual/bulk actions.
-		if ( 'on' !== get_option( RR_OPT_FAQ_AUTO_GENERATE, 'off' ) ) {
-			return;
-		}
-
-		// Pro gate — auto-generate on publish is a Pro feature.
-		if ( ! ( function_exists( 'rr_is_pro' ) && rr_is_pro() ) ) {
+		// The toggle UI is presented as "Coming Soon" — defaults to 'off' and
+		// the form control is disabled, so this branch is effectively a no-op
+		// in the WP.org Free build unless the option is flipped via wp-cli.
+		if ( 'on' !== get_option( RNRD_OPT_FAQ_AUTO_GENERATE, 'off' ) ) {
 			return;
 		}
 
@@ -73,35 +71,35 @@ class RR_Faq {
 		}
 
 		// Only run for FAQ-enabled post types from settings.
-		$enabled_types = (array) get_option( RR_OPT_FAQ_POST_TYPES, array( 'post' ) );
+		$enabled_types = (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
 			return;
 		}
 
 		// Per-post disable.
-		if ( get_post_meta( $post_id, RR_META_FAQ_DISABLE, true ) ) {
+		if ( get_post_meta( $post_id, RNRD_META_FAQ_DISABLE, true ) ) {
 			return;
 		}
 
 		// Need both an LLM provider key (whichever is active) AND DataForSEO.
-		if ( ! RR_LLM::active_provider_ready() || empty( get_option( RR_OPT_DFS_LOGIN ) ) || empty( get_option( RR_OPT_DFS_PASSWORD ) ) ) {
+		if ( ! RNRD_LLM::active_provider_ready() || empty( get_option( RNRD_OPT_DFS_LOGIN ) ) || empty( get_option( RNRD_OPT_DFS_PASSWORD ) ) ) {
 			return;
 		}
 
 		// Hash check: only call API if content changed.
 		$content  = wp_strip_all_tags( do_shortcode( $post->post_content ) );
 		$keyword  = self::get_focus_keyword( $post_id );
-		$count    = (int) get_option( RR_OPT_FAQ_COUNT, 5 );
+		$count    = (int) get_option( RNRD_OPT_FAQ_COUNT, 5 );
 		$new_hash = md5( $content . $keyword . $count );
-		$old_hash = (string) get_post_meta( $post_id, RR_META_FAQ_HASH, true );
+		$old_hash = (string) get_post_meta( $post_id, RNRD_META_FAQ_HASH, true );
 
-		if ( $new_hash === $old_hash && ! empty( get_post_meta( $post_id, RR_META_FAQ, true ) ) ) {
+		if ( $new_hash === $old_hash && ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) ) ) {
 			return;
 		}
 
 		// Schedule via cron (FAQ takes longer due to DataForSEO + OpenAI calls).
-		wp_clear_scheduled_hook( 'rr_async_faq_generate', array( $post_id ) );
-		wp_schedule_single_event( time() + 15, 'rr_async_faq_generate', array( $post_id ) );
+		wp_clear_scheduled_hook( 'rnrd_async_faq_generate', array( $post_id ) );
+		wp_schedule_single_event( time() + 15, 'rnrd_async_faq_generate', array( $post_id ) );
 		spawn_cron();
 	}
 
@@ -113,12 +111,12 @@ class RR_Faq {
 		}
 
 		// Per-post disable check.
-		if ( get_post_meta( $post_id, RR_META_FAQ_DISABLE, true ) ) {
+		if ( get_post_meta( $post_id, RNRD_META_FAQ_DISABLE, true ) ) {
 			return;
 		}
 
 		// Rate limit: don't re-generate if done very recently.
-		$last = (int) get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
+		$last = (int) get_post_meta( $post_id, RNRD_META_FAQ_GENERATED, true );
 		if ( $last && ( time() - $last ) < 60 ) {
 			return;
 		}
@@ -132,7 +130,7 @@ class RR_Faq {
 	 * Auto-append FAQ below/above content if enabled.
 	 */
 	public static function auto_display_faq( string $content ): string {
-		if ( 'on' !== get_option( RR_OPT_FAQ_AUTO_DISPLAY, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' ) ) {
 			return $content;
 		}
 
@@ -151,12 +149,12 @@ class RR_Faq {
 		}
 
 		// Per-post disable.
-		if ( get_post_meta( $post->ID, RR_META_FAQ_DISABLE, true ) ) {
+		if ( get_post_meta( $post->ID, RNRD_META_FAQ_DISABLE, true ) ) {
 			return $content;
 		}
 
 		// Skip if a theme builder renders this page — display is handled by the widget.
-		if ( class_exists( 'RR_Block' ) && RR_Block::is_theme_builder_page( $post->ID ) ) {
+		if ( class_exists( 'RNRD_Block' ) && RNRD_Block::is_theme_builder_page( $post->ID ) ) {
 			return $content;
 		}
 
@@ -167,7 +165,7 @@ class RR_Faq {
 
 		$faq_html = self::render_faq_html( $faq_data, $post->ID );
 
-		$position = get_option( RR_OPT_FAQ_POSITION, 'after' );
+		$position = get_option( RNRD_OPT_FAQ_POSITION, 'after' );
 		if ( 'before' === $position ) {
 			return $faq_html . $content;
 		}
@@ -189,17 +187,17 @@ class RR_Faq {
 			return '';
 		}
 
-		$heading_tag = get_option( RR_OPT_FAQ_HEADING_TAG, 'h3' );
+		$heading_tag = get_option( RNRD_OPT_FAQ_HEADING_TAG, 'h3' );
 		$allowed_tags = array( 'h2', 'h3', 'h4', 'h5', 'h6' );
 		if ( ! in_array( $heading_tag, $allowed_tags, true ) ) {
 			$heading_tag = 'h3';
 		}
 
-		$html  = '<div class="rr-faq-wrapper">';
-		$html .= '<' . $heading_tag . ' class="rr-faq-title">';
-		$html .= esc_html__( 'Frequently Asked Questions', 'rankready' );
+		$html  = '<div class="rnrd-faq-wrapper">';
+		$html .= '<' . $heading_tag . ' class="rnrd-faq-title">';
+		$html .= esc_html__( 'Frequently Asked Questions', 'rankready-ai-llm-seo' );
 		$html .= '</' . $heading_tag . '>';
-		$html .= '<div class="rr-faq-list">';
+		$html .= '<div class="rnrd-faq-list">';
 
 		foreach ( $faq_data as $i => $item ) {
 			$q = isset( $item['question'] ) ? $item['question'] : '';
@@ -208,9 +206,9 @@ class RR_Faq {
 				continue;
 			}
 
-			$html .= '<div class="rr-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">';
-			$html .= '<h4 class="rr-faq-question" itemprop="name">' . esc_html( $q ) . '</h4>';
-			$html .= '<div class="rr-faq-answer" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">';
+			$html .= '<div class="rnrd-faq-item" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">';
+			$html .= '<h4 class="rnrd-faq-question" itemprop="name">' . esc_html( $q ) . '</h4>';
+			$html .= '<div class="rnrd-faq-answer" itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">';
 			$html .= '<div itemprop="text">' . wp_kses_post( self::convert_markdown_links( $a ) ) . '</div>';
 			$html .= '</div>';
 			$html .= '</div>';
@@ -220,12 +218,12 @@ class RR_Faq {
 
 		// Optional "Last reviewed" text — uses post modified date so it reflects
 		// when the content was actually updated, not when the FAQ was generated.
-		if ( 'on' === get_option( RR_OPT_FAQ_SHOW_REVIEWED, 'off' ) && $post_id > 0 ) {
+		if ( 'on' === get_option( RNRD_OPT_FAQ_SHOW_REVIEWED, 'off' ) && $post_id > 0 ) {
 			$modified_ts = get_the_modified_time( 'U', $post_id );
 			if ( ! empty( $modified_ts ) ) {
 				$date = wp_date( get_option( 'date_format' ), (int) $modified_ts );
-				$html .= '<p class="rr-faq-reviewed">';
-				$html .= esc_html( sprintf( __( 'Last reviewed: %s', 'rankready' ), $date ) );
+				$html .= '<p class="rnrd-faq-reviewed">';
+				$html .= esc_html( sprintf( __( 'Last reviewed: %s', 'rankready-ai-llm-seo' ), $date ) );
 				$html .= '</p>';
 			}
 		}
@@ -247,7 +245,7 @@ class RR_Faq {
 	 * - No FAQ data exists for the post
 	 */
 	public static function inject_faq_schema(): void {
-		if ( 'on' !== get_option( RR_OPT_SCHEMA_FAQ, 'on' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_SCHEMA_FAQ, 'on' ) ) {
 			return;
 		}
 		if ( ! is_singular() ) {
@@ -265,7 +263,7 @@ class RR_Faq {
 		}
 
 		// Per-post disable.
-		if ( get_post_meta( $post->ID, RR_META_FAQ_DISABLE, true ) ) {
+		if ( get_post_meta( $post->ID, RNRD_META_FAQ_DISABLE, true ) ) {
 			return;
 		}
 
@@ -359,8 +357,8 @@ class RR_Faq {
 	 * @return array Array of question strings with source metadata.
 	 */
 	public static function fetch_dataforseo_questions( string $keyword, string $page_type = 'post' ): array {
-		$login    = get_option( RR_OPT_DFS_LOGIN, '' );
-		$password = get_option( RR_OPT_DFS_PASSWORD, '' );
+		$login    = get_option( RNRD_OPT_DFS_LOGIN, '' );
+		$password = get_option( RNRD_OPT_DFS_PASSWORD, '' );
 
 		if ( empty( $login ) || empty( $password ) ) {
 			return array();
@@ -520,7 +518,7 @@ class RR_Faq {
 		) );
 
 		if ( is_wp_error( $response ) ) {
-			RR_Generator::log_error( 'DataForSEO', $response->get_error_message() );
+			RNRD_Generator::log_error( 'DataForSEO', $response->get_error_message() );
 			return array();
 		}
 
@@ -529,7 +527,7 @@ class RR_Faq {
 
 		if ( 200 !== $http_code ) {
 			$err = isset( $body['status_message'] ) ? $body['status_message'] : 'HTTP ' . $http_code;
-			RR_Generator::log_error( 'DataForSEO', $err );
+			RNRD_Generator::log_error( 'DataForSEO', $err );
 		}
 
 		// Track DFS usage.
@@ -550,7 +548,7 @@ class RR_Faq {
 	 * Track DataForSEO API usage (calls + cost).
 	 */
 	private static function track_dfs_usage( float $cost ): void {
-		$usage = (array) get_option( 'rr_dfs_usage', array(
+		$usage = (array) get_option( 'rnrd_dfs_usage', array(
 			'total_calls' => 0,
 			'total_cost'  => 0,
 		) );
@@ -558,7 +556,7 @@ class RR_Faq {
 		$usage['total_calls'] = ( isset( $usage['total_calls'] ) ? (int) $usage['total_calls'] : 0 ) + 1;
 		$usage['total_cost']  = ( isset( $usage['total_cost'] ) ? (float) $usage['total_cost'] : 0 ) + $cost;
 
-		update_option( 'rr_dfs_usage', $usage, false );
+		update_option( 'rnrd_dfs_usage', $usage, false );
 	}
 
 	// ── OpenAI FAQ Generation ─────────────────────────────────────────────────
@@ -577,10 +575,7 @@ class RR_Faq {
 			return new \WP_Error( 'invalid_post', 'Post not found.' );
 		}
 
-		// ── Free tier limit check (before API call) ───────────────────────────
-		if ( ! RR_Limits::can_generate_faq() ) {
-			return RR_Limits::faq_limit_error();
-		}
+		// Free build: unlimited manual generation. No cap to check.
 
 		// Resolve focus keyword.
 		if ( empty( $keyword ) ) {
@@ -589,7 +584,7 @@ class RR_Faq {
 
 		// Resolve FAQ count.
 		if ( $count < 3 || $count > 10 ) {
-			$count = (int) get_option( RR_OPT_FAQ_COUNT, 5 );
+			$count = (int) get_option( RNRD_OPT_FAQ_COUNT, 5 );
 			if ( $count < 3 || $count > 10 ) {
 				$count = 5;
 			}
@@ -598,21 +593,21 @@ class RR_Faq {
 		// Content hash check.
 		$content  = wp_strip_all_tags( do_shortcode( $post->post_content ) );
 		$new_hash = md5( $content . $keyword . $count );
-		$old_hash = (string) get_post_meta( $post_id, RR_META_FAQ_HASH, true );
+		$old_hash = (string) get_post_meta( $post_id, RNRD_META_FAQ_HASH, true );
 
-		if ( $new_hash === $old_hash && ! empty( get_post_meta( $post_id, RR_META_FAQ, true ) ) ) {
+		if ( $new_hash === $old_hash && ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) ) ) {
 			return self::get_faq_data( $post_id );
 		}
 
 		// Get brand terms. Prefer canonical brand list from AI Crawlers tab
-		// (RR_OPT_BRAND_TERMS — wired in v1.2.0). Fall back to FAQ-tab field
+		// (RNRD_OPT_BRAND_TERMS — wired in v1.2.0). Fall back to FAQ-tab field
 		// for backwards compatibility, then to the site title.
 		$brand_terms = '';
-		if ( class_exists( 'RR_Llms_Txt' ) ) {
-			$brand_terms = RR_Llms_Txt::get_brand_terms_string();
+		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
+			$brand_terms = RNRD_Llms_Txt::get_brand_terms_string();
 		}
 		if ( '' === $brand_terms ) {
-			$brand_terms = (string) get_option( RR_OPT_FAQ_BRAND_TERMS, '' );
+			$brand_terms = (string) get_option( RNRD_OPT_FAQ_BRAND_TERMS, '' );
 		}
 		if ( '' === $brand_terms ) {
 			$brand_terms = get_bloginfo( 'name' );
@@ -634,13 +629,13 @@ class RR_Faq {
 		$prompt = self::build_faq_prompt( $post, $keyword, $brand_terms, $dfs_questions, $internal_links, $count );
 
 		// Confirm an LLM provider is configured (OpenAI/Claude/Gemini/DeepSeek).
-		if ( ! RR_LLM::active_provider_ready() ) {
+		if ( ! RNRD_LLM::active_provider_ready() ) {
 			return new \WP_Error(
 				'no_api_key',
 				sprintf(
 					/* translators: %s: provider label */
-					__( 'No %s API key configured.', 'rankready' ),
-					RR_LLM::get_provider_label( RR_LLM::get_active_provider() )
+					__( 'No %s API key configured.', 'rankready-ai-llm-seo' ),
+					RNRD_LLM::get_provider_label( RNRD_LLM::get_active_provider() )
 				)
 			);
 		}
@@ -693,23 +688,23 @@ class RR_Faq {
 
 		// v1.2.0-rc.3 — Brand Identity About first, legacy product context fallback.
 		$product_context = '';
-		if ( class_exists( 'RR_Llms_Txt' ) ) {
-			$product_context = RR_Llms_Txt::get_brand_about();
+		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
+			$product_context = RNRD_Llms_Txt::get_brand_about();
 		}
 		if ( '' === $product_context ) {
-			$product_context = (string) get_option( RR_OPT_PRODUCT_CONTEXT, '' );
+			$product_context = (string) get_option( RNRD_OPT_PRODUCT_CONTEXT, '' );
 		}
 		if ( ! empty( $product_context ) ) {
 			$faq_system .= "\n\nPRODUCT CONTEXT (fact-check reference — never contradict this, never add details beyond what the page says):\n" . $product_context;
 		}
 
-		$custom_prompt = (string) get_option( RR_OPT_CUSTOM_PROMPT, '' );
+		$custom_prompt = (string) get_option( RNRD_OPT_CUSTOM_PROMPT, '' );
 		if ( ! empty( $custom_prompt ) ) {
 			$faq_system .= "\n\nAdditional instructions:\n" . $custom_prompt;
 		}
 
 		// Dispatch through the LLM abstraction — provider-agnostic.
-		$result = RR_LLM::generate( $faq_system, $prompt, array(
+		$result = RNRD_LLM::generate( $faq_system, $prompt, array(
 			'max_tokens'  => 2000,
 			'temperature' => 0.3,
 			'json'        => true,
@@ -719,12 +714,12 @@ class RR_Faq {
 		$source_label = 'FAQ/' . strtoupper( $result['provider'] );
 
 		if ( empty( $result['ok'] ) ) {
-			RR_Generator::log_error( $source_label, (string) $result['error'], $post_id );
+			RNRD_Generator::log_error( $source_label, (string) $result['error'], $post_id );
 			return new \WP_Error( 'llm_error', (string) $result['error'] );
 		}
 
 		// Track token usage (combined tokens).
-		RR_Generator::track_tokens( (int) $result['tokens_total'], $post_id, 'faq' );
+		RNRD_Generator::track_tokens( (int) $result['tokens_total'], $post_id, 'faq' );
 
 		$raw = (string) $result['content'];
 
@@ -779,23 +774,20 @@ class RR_Faq {
 		}
 
 		// Save to post meta.
-		update_post_meta( $post_id, RR_META_FAQ, wp_json_encode( $clean_faq ) );
-		update_post_meta( $post_id, RR_META_FAQ_HASH, $new_hash );
-		update_post_meta( $post_id, RR_META_FAQ_GENERATED, time() );
-		update_post_meta( $post_id, RR_META_FAQ_KEYWORD, $keyword );
-
-		// Record free tier usage after successful FAQ generation.
-		RR_Limits::record_faq();
+		update_post_meta( $post_id, RNRD_META_FAQ, wp_json_encode( $clean_faq ) );
+		update_post_meta( $post_id, RNRD_META_FAQ_HASH, $new_hash );
+		update_post_meta( $post_id, RNRD_META_FAQ_GENERATED, time() );
+		update_post_meta( $post_id, RNRD_META_FAQ_KEYWORD, $keyword );
 
 		// Bump dateModified by touching the post (legitimate content update).
 		// Set generator guard to prevent wp_update_post from re-triggering summary generation.
-		RR_Generator::$generating = true;
+		RNRD_Generator::$generating = true;
 		wp_update_post( array(
 			'ID'            => $post_id,
 			'post_modified' => current_time( 'mysql' ),
 			'post_modified_gmt' => current_time( 'mysql', true ),
 		) );
-		RR_Generator::$generating = false;
+		RNRD_Generator::$generating = false;
 
 		return $clean_faq;
 	}
@@ -871,7 +863,7 @@ class RR_Faq {
 		// v1.2.0-beta.4 — under WP-Cron / async we must NOT execute shortcodes.
 		// Many shortcodes (Elementor, EDD, BBPress, JetEngine, MailPoet) assume
 		// a frontend / current_user context and either crash or trigger side
-		// effects when invoked from cron. Same pattern RR_Llms_Txt uses.
+		// effects when invoked from cron. Same pattern RNRD_Llms_Txt uses.
 		// (Audit beta.3 #8.)
 		$content = wp_doing_cron()
 			? wp_strip_all_tags( strip_shortcodes( $post->post_content ) )
@@ -1028,7 +1020,7 @@ class RR_Faq {
 	 * @return array Array of {question, answer} items.
 	 */
 	public static function get_faq_data( int $post_id ): array {
-		$raw = get_post_meta( $post_id, RR_META_FAQ, true );
+		$raw = get_post_meta( $post_id, RNRD_META_FAQ, true );
 		if ( empty( $raw ) ) {
 			return array();
 		}

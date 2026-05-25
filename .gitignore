@@ -9,3 +9,4 @@ node_modules/
 
 # Orbit pre-release checklist — local-only, never push to GitHub
 ORBIT-PRE-RELEASE.md
+.wp-org-prefix

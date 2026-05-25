@@ -18,7 +18,7 @@
  *   - Skips bots, admin requests, REST/AJAX/cron, and own-site referrers.
  *   - Honours DNT / GDPR by tracking only domain + date — no IP, no path.
  *
- * Storage shape (rr_ai_referral_stats option):
+ * Storage shape (rnrd_ai_referral_stats option):
  *   [
  *     'YYYY-MM-DD' => [ 'chatgpt' => 5, 'perplexity' => 2, ... ],
  *     ...
@@ -30,7 +30,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_AI_Referral {
+class RNRD_AI_Referral {
 
 	/**
 	 * Known AI engine referrer hosts. Add entries here as new engines emerge.
@@ -48,7 +48,7 @@ class RR_AI_Referral {
 
 	public static function init(): void {
 		add_action( 'init', array( self::class, 'maybe_record_referral' ), 5 );
-		// Note: dashboard widget registration handled by RR_Agent_Dashboard
+		// Note: dashboard widget registration handled by RNRD_Agent_Dashboard
 		// — single consolidated "Agent Visibility" widget replaces the two
 		// separate widgets shipped in beta.1.
 	}
@@ -62,11 +62,11 @@ class RR_AI_Referral {
 		if ( 0 === $total ) {
 			?>
 			<div style="padding:8px 0;">
-				<p style="margin:0 0 8px;font-size:var(--rr-text-md,13px);color:var(--rr-color-ink-soft,#3c434a);">
-					<?php esc_html_e( 'Tracking is live. Counters fill in as ChatGPT, Perplexity, Gemini, Claude, or Copilot send their first visitor.', 'rankready' ); ?>
+				<p style="margin:0 0 8px;font-size:var(--rnrd-text-md,13px);color:var(--rnrd-color-ink-soft,#3c434a);">
+					<?php esc_html_e( 'Tracking is live. Counters fill in as ChatGPT, Perplexity, Gemini, Claude, or Copilot send their first visitor.', 'rankready-ai-llm-seo' ); ?>
 				</p>
-				<p style="margin:0 0 0;font-size:var(--rr-text-sm,12px);color:var(--rr-color-text-muted,#646970);">
-					<?php esc_html_e( 'Typical first citation: 2–6 weeks after enabling. Add FAQs to your top posts to speed this up.', 'rankready' ); ?>
+				<p style="margin:0 0 0;font-size:var(--rnrd-text-sm,12px);color:var(--rnrd-color-text-muted,#646970);">
+					<?php esc_html_e( 'Typical first citation: 2–6 weeks after enabling. Add FAQs to your top posts to speed this up.', 'rankready-ai-llm-seo' ); ?>
 				</p>
 			</div>
 			<?php
@@ -75,7 +75,7 @@ class RR_AI_Referral {
 
 		echo '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">';
 		echo '<strong style="font-size:28px;line-height:1;">' . esc_html( number_format_i18n( $total ) ) . '</strong>';
-		echo '<span style="color:#646970;font-size:12px;">' . esc_html__( 'total AI-sourced visits', 'rankready' ) . '</span>';
+		echo '<span style="color:#646970;font-size:12px;">' . esc_html__( 'total AI-sourced visits', 'rankready-ai-llm-seo' ) . '</span>';
 		echo '</div>';
 
 		// Bars.
@@ -98,7 +98,7 @@ class RR_AI_Referral {
 		echo '</ul>';
 
 		echo '<p style="margin-top:10px;font-size:11px;color:#646970;">';
-		esc_html_e( 'Cited brands earn 23× higher conversion rates than non-cited competitors. Each visit here is a person clicking from an AI engine to your site.', 'rankready' );
+		esc_html_e( 'Cited brands earn 23× higher conversion rates than non-cited competitors. Each visit here is a person clicking from an AI engine to your site.', 'rankready-ai-llm-seo' );
 		echo '</p>';
 	}
 
@@ -119,7 +119,7 @@ class RR_AI_Referral {
 	 */
 	public static function maybe_record_referral(): void {
 		// Master toggle (v1.2.0-beta.3) — users can disable from AI Crawlers tab.
-		if ( 'on' !== get_option( RR_OPT_AI_REFERRAL_ENABLE, 'on' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' ) ) {
 			return;
 		}
 
@@ -226,9 +226,9 @@ class RR_AI_Referral {
 		// Object-cache atomic path. wp_cache_incr() returns false on miss;
 		// initialise then retry.
 		if ( wp_using_ext_object_cache() ) {
-			$cache_key = 'rr_referral_' . $key;
-			if ( false === wp_cache_incr( $cache_key, 1, 'rr-referral' ) ) {
-				wp_cache_add( $cache_key, 1, 'rr-referral', DAY_IN_SECONDS * ( self::RETENTION_DAYS + 1 ) );
+			$cache_key = 'rnrd_referral_' . $key;
+			if ( false === wp_cache_incr( $cache_key, 1, 'rnrd-referral' ) ) {
+				wp_cache_add( $cache_key, 1, 'rnrd-referral', DAY_IN_SECONDS * ( self::RETENTION_DAYS + 1 ) );
 			}
 		}
 
@@ -256,7 +256,7 @@ class RR_AI_Referral {
 			return;
 		}
 
-		$stats = get_option( RR_OPT_AI_REFERRAL_STATS, array() );
+		$stats = get_option( RNRD_OPT_AI_REFERRAL_STATS, array() );
 		if ( ! is_array( $stats ) ) {
 			$stats = array();
 		}
@@ -277,7 +277,7 @@ class RR_AI_Referral {
 			}
 		}
 
-		update_option( RR_OPT_AI_REFERRAL_STATS, $stats, false );
+		update_option( RNRD_OPT_AI_REFERRAL_STATS, $stats, false );
 		self::$pending_increments = array();
 	}
 
@@ -289,7 +289,7 @@ class RR_AI_Referral {
 	 *   [ 'chatgpt' => 47, 'perplexity' => 18, ... ]
 	 */
 	public static function aggregate_last_n_days( int $days = 30 ): array {
-		$stats = (array) get_option( RR_OPT_AI_REFERRAL_STATS, array() );
+		$stats = (array) get_option( RNRD_OPT_AI_REFERRAL_STATS, array() );
 		$out   = array_fill_keys( array_keys( self::SOURCES ), 0 );
 
 		$cutoff = strtotime( '-' . max( 1, $days ) . ' days' );

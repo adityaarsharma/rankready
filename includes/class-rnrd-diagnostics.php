@@ -33,7 +33,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Diagnostics {
+class RNRD_Diagnostics {
 
 	/**
 	 * REST namespace.
@@ -53,22 +53,22 @@ class RR_Diagnostics {
 		'openai'    => array(
 			'url'    => 'https://api.openai.com/v1/models',
 			'header' => 'Authorization: Bearer %s',
-			'option' => 'rr_openai_api_key',
+			'option' => 'rnrd_openai_api_key',
 		),
 		'anthropic' => array(
 			'url'    => 'https://api.anthropic.com/v1/models',
 			'header' => 'x-api-key: %s',
-			'option' => 'rr_anthropic_api_key',
+			'option' => 'rnrd_anthropic_api_key',
 		),
 		'gemini'    => array(
 			'url'    => 'https://generativelanguage.googleapis.com/v1beta/models?key=%s',
 			'header' => '',
-			'option' => 'rr_gemini_api_key',
+			'option' => 'rnrd_gemini_api_key',
 		),
 		'deepseek'  => array(
 			'url'    => 'https://api.deepseek.com/v1/models',
 			'header' => 'Authorization: Bearer %s',
-			'option' => 'rr_deepseek_api_key',
+			'option' => 'rnrd_deepseek_api_key',
 		),
 	);
 
@@ -184,7 +184,7 @@ class RR_Diagnostics {
 			'totals'       => $totals,
 			'environment'  => self::get_environment(),
 			'generated_at' => current_time( 'mysql', true ),
-			'version'      => defined( 'RR_VERSION' ) ? RR_VERSION : 'unknown',
+			'version'      => defined( 'RNRD_VERSION' ) ? RNRD_VERSION : 'unknown',
 			'site_url'     => home_url(),
 			'include_api'  => $include_api,
 		);
@@ -195,7 +195,7 @@ class RR_Diagnostics {
 	// ═════════════════════════════════════════════════════════════════════════
 
 	private static function probe_llms_txt(): array {
-		if ( 'on' !== get_option( 'rr_llms_enable', 'off' ) ) {
+		if ( 'on' !== get_option( 'rnrd_llms_enable', 'off' ) ) {
 			return self::result( 'llms_txt', '/llms.txt loads', 'info',
 				'Toggle is OFF in AI Crawlers → LLMs.txt.',
 				'Enable LLMs.txt to expose your site index to AI engines.'
@@ -270,7 +270,7 @@ class RR_Diagnostics {
 	}
 
 	private static function probe_llms_full_txt(): array {
-		if ( 'on' !== get_option( 'rr_llms_enable', 'off' ) ) {
+		if ( 'on' !== get_option( 'rnrd_llms_enable', 'off' ) ) {
 			return self::result( 'llms_full_txt', '/llms-full.txt loads', 'info',
 				'Requires LLMs.txt to be enabled (it\'s OFF).',
 				'Enable AI Crawlers → LLMs.txt first.'
@@ -325,7 +325,7 @@ class RR_Diagnostics {
 	}
 
 	private static function probe_homepage_md(): array {
-		if ( 'on' !== get_option( 'rr_md_enable', 'off' ) ) {
+		if ( 'on' !== get_option( 'rnrd_md_enable', 'off' ) ) {
 			return self::result( 'homepage_md', 'Homepage .md route', 'info',
 				'Toggle is OFF in AI Crawlers → Markdown Endpoints.',
 				'Enable Markdown Endpoints to serve .md versions of pages.'
@@ -375,7 +375,7 @@ class RR_Diagnostics {
 	}
 
 	private static function probe_post_md(): array {
-		if ( 'on' !== get_option( 'rr_md_enable', 'off' ) ) {
+		if ( 'on' !== get_option( 'rnrd_md_enable', 'off' ) ) {
 			return self::result( 'post_md', 'Post .md route', 'info',
 				'Markdown Endpoints disabled.',
 				'Enable AI Crawlers → Markdown Endpoints.'
@@ -457,7 +457,7 @@ class RR_Diagnostics {
 			);
 		}
 
-		$robots_enabled = (bool) get_option( 'rr_robots_enable', false );
+		$robots_enabled = (bool) get_option( 'rnrd_robots_enable', false );
 
 		if ( ! $robots_enabled ) {
 			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'info',
@@ -473,8 +473,8 @@ class RR_Diagnostics {
 			// rc.9 — Detect SEO plugins that intercept /robots.txt via
 			// custom rewrite (bypasses WP's robots_txt filter entirely).
 			$interceptor = '';
-			if ( class_exists( 'RR_Llms_Txt' ) && method_exists( 'RR_Llms_Txt', 'detect_robots_txt_interceptor' ) ) {
-				$interceptor = RR_Llms_Txt::detect_robots_txt_interceptor();
+			if ( class_exists( 'RNRD_Llms_Txt' ) && method_exists( 'RNRD_Llms_Txt', 'detect_robots_txt_interceptor' ) ) {
+				$interceptor = RNRD_Llms_Txt::detect_robots_txt_interceptor();
 			}
 			$has_physical = file_exists( ABSPATH . 'robots.txt' );
 
@@ -513,7 +513,7 @@ class RR_Diagnostics {
 	}
 
 	private static function probe_mcp_manifest(): array {
-		if ( 'on' !== get_option( 'rr_mcp_enable', 'off' ) ) {
+		if ( 'on' !== get_option( 'rnrd_mcp_enable', 'off' ) ) {
 			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'info',
 				'WebMCP toggle is OFF.',
 				'Enable AI Crawlers → WebMCP Manifest to expose 16 abilities to Claude/Cursor/VS Code.'
@@ -588,7 +588,7 @@ class RR_Diagnostics {
 		$has_llms     = false !== strpos( $rules_string, 'llms' );
 		$has_md       = false !== strpos( $rules_string, '\\.md' ) || false !== strpos( $rules_string, '.md' );
 
-		if ( ! $has_llms && 'on' === get_option( 'rr_llms_enable', 'off' ) ) {
+		if ( ! $has_llms && 'on' === get_option( 'rnrd_llms_enable', 'off' ) ) {
 			return self::result( 'rewrite_rules', 'Rewrite rules flushed', 'fail',
 				'LLMs.txt enabled but rewrite rule missing.',
 				'Settings → Permalinks → Save (no changes) — re-flushes rules.'
@@ -621,7 +621,7 @@ class RR_Diagnostics {
 	private static function probe_db_tables(): array {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'rr_crawler_log';
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$exists = (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
 
@@ -670,7 +670,7 @@ class RR_Diagnostics {
 			);
 		}
 
-		// RR_Cache::exclude_url_patterns() ships exclusions for these. Verify the filter ran.
+		// RNRD_Cache::exclude_url_patterns() ships exclusions for these. Verify the filter ran.
 		$known_with_bypass = array(
 			'LiteSpeed Cache' => 'LITESPEED_VERSION',
 			'WP Rocket'       => 'WP_ROCKET_VERSION',
@@ -751,9 +751,9 @@ class RR_Diagnostics {
 	// ═════════════════════════════════════════════════════════════════════════
 
 	private static function probe_brand_identity(): array {
-		$name    = trim( (string) get_option( 'rr_brand_name', '' ) );
-		$summary = trim( (string) get_option( 'rr_brand_summary', '' ) );
-		$about   = trim( (string) get_option( 'rr_brand_about', '' ) );
+		$name    = trim( (string) get_option( 'rnrd_brand_name', '' ) );
+		$summary = trim( (string) get_option( 'rnrd_brand_summary', '' ) );
+		$about   = trim( (string) get_option( 'rnrd_brand_about', '' ) );
 
 		$missing = array();
 		if ( '' === $name )    $missing[] = 'Site / brand name';
@@ -877,8 +877,8 @@ class RR_Diagnostics {
 	}
 
 	private static function probe_dataforseo(): array {
-		$login    = trim( (string) get_option( 'rr_dataforseo_login', '' ) );
-		$password = trim( (string) get_option( 'rr_dataforseo_password', '' ) );
+		$login    = trim( (string) get_option( 'rnrd_dataforseo_login', '' ) );
+		$password = trim( (string) get_option( 'rnrd_dataforseo_password', '' ) );
 
 		if ( '' === $login || '' === $password ) {
 			return self::result( 'provider_dataforseo', 'Provider: DataForSEO', 'info',
@@ -933,7 +933,7 @@ class RR_Diagnostics {
 			'sslverify'   => false, // Loopback often hits self-signed certs in dev
 			'redirection' => 2,
 			'headers'     => array_merge( array(
-				'User-Agent' => 'RankReady-Diagnostics/' . ( defined( 'RR_VERSION' ) ? RR_VERSION : '1.0' ),
+				'User-Agent' => 'RankReady-Diagnostics/' . ( defined( 'RNRD_VERSION' ) ? RNRD_VERSION : '1.0' ),
 			), $headers ),
 		) );
 	}
@@ -992,7 +992,7 @@ class RR_Diagnostics {
 		$theme = wp_get_theme();
 
 		return array(
-			'rankready_version' => defined( 'RR_VERSION' ) ? RR_VERSION : 'unknown',
+			'rankready_version' => defined( 'RNRD_VERSION' ) ? RNRD_VERSION : 'unknown',
 			'wordpress_version' => $wp_version,
 			'php_version'       => PHP_VERSION,
 			'mysql_version'     => $wpdb->db_version(),
@@ -1067,9 +1067,9 @@ class RR_Diagnostics {
 			  || false !== strpos( $regex, '\\.md' )
 			  || false !== strpos( $regex, '.md' )
 			  || false !== strpos( $regex, 'mcp' )
-			  || false !== strpos( $query, 'rr_llms' )
-			  || false !== strpos( $query, 'rr_mcp' )
-			  || false !== strpos( $query, 'rr_md' ) ) {
+			  || false !== strpos( $query, 'rnrd_llms' )
+			  || false !== strpos( $query, 'rnrd_mcp' )
+			  || false !== strpos( $query, 'rnrd_md' ) ) {
 				$out[ $regex ] = $query;
 			}
 		}
@@ -1222,7 +1222,7 @@ class RR_Diagnostics {
 	/**
 	 * Verify each detected cache plugin's exclusion for our endpoints.
 	 * For LiteSpeed, WP Rocket, W3TC, etc. — check whether RankReady's
-	 * RR_Cache::exclude_url_patterns() actually registered the rule.
+	 * RNRD_Cache::exclude_url_patterns() actually registered the rule.
 	 */
 	public static function dump_cache_exclusion_status(): array {
 		$out = array();
@@ -1260,7 +1260,7 @@ class RR_Diagnostics {
 		$out   = array();
 		foreach ( $hooks as $line ) {
 			// Surface only non-RankReady callbacks at priority < 10 (could race us).
-			if ( false === strpos( $line, 'RR_' )
+			if ( false === strpos( $line, 'RNRD_' )
 			  && ( 0 === strpos( $line, 'priority 1 ' )
 			    || 0 === strpos( $line, 'priority 2 ' )
 			    || 0 === strpos( $line, 'priority 3 ' )

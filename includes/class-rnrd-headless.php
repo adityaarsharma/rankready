@@ -27,7 +27,7 @@
  *   - Observability: diagnostic response headers (X-RR-*) for debugging
  *
  * Security model:
- *   - Master toggle (RR_OPT_HEADLESS_ENABLE) — off by default
+ *   - Master toggle (RNRD_OPT_HEADLESS_ENABLE) — off by default
  *   - Only published posts of public post types
  *   - No secrets, no admin data, no user PII exposed
  *   - CORS restricted to configured frontend origins (wildcard if empty)
@@ -39,7 +39,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Headless {
+class RNRD_Headless {
 
 	private const NS             = 'rankready/v1';
 	private const ROUTE_PREFIX   = '/rankready/v1/public/';
@@ -74,7 +74,7 @@ class RR_Headless {
 	 * Master enable check.
 	 */
 	public static function is_enabled(): bool {
-		return 'on' === get_option( RR_OPT_HEADLESS_ENABLE, 'off' );
+		return 'on' === get_option( RNRD_OPT_HEADLESS_ENABLE, 'off' );
 	}
 
 	// ── Route registration ────────────────────────────────────────────────────
@@ -215,19 +215,19 @@ class RR_Headless {
 			return true;
 		}
 
-		$limit = (int) get_option( RR_OPT_HEADLESS_RATE_LIMIT, self::DEFAULT_RATE );
+		$limit = (int) get_option( RNRD_OPT_HEADLESS_RATE_LIMIT, self::DEFAULT_RATE );
 		if ( $limit <= 0 ) {
 			return true; // Rate limiting disabled.
 		}
 
 		$ip  = self::get_real_ip();
-		$key = 'rr_rl_' . md5( $ip );
+		$key = 'rnrd_rl_' . md5( $ip );
 
 		$hits = (int) get_transient( $key );
 		if ( $hits >= $limit ) {
 			return new WP_Error(
-				'rr_rate_limited',
-				__( 'Too many requests. Please slow down.', 'rankready' ),
+				'rnrd_rate_limited',
+				__( 'Too many requests. Please slow down.', 'rankready-ai-llm-seo' ),
 				array(
 					'status'      => 429,
 					'retry_after' => 60,
@@ -249,17 +249,17 @@ class RR_Headless {
 		}
 
 		$provided = (string) $request->get_header( 'x_rr_secret' );
-		$expected = (string) get_option( RR_OPT_HEADLESS_REVALIDATE_SEC, '' );
+		$expected = (string) get_option( RNRD_OPT_HEADLESS_REVALIDATE_SEC, '' );
 
 		if ( empty( $expected ) ) {
-			return new WP_Error( 'rr_no_secret', __( 'Revalidate secret not configured.', 'rankready' ), array( 'status' => 503 ) );
+			return new WP_Error( 'rnrd_no_secret', __( 'Revalidate secret not configured.', 'rankready-ai-llm-seo' ), array( 'status' => 503 ) );
 		}
 
 		if ( ! empty( $provided ) && hash_equals( $expected, $provided ) ) {
 			return true;
 		}
 
-		return new WP_Error( 'rr_forbidden', __( 'Invalid credentials.', 'rankready' ), array( 'status' => 403 ) );
+		return new WP_Error( 'rnrd_forbidden', __( 'Invalid credentials.', 'rankready-ai-llm-seo' ), array( 'status' => 403 ) );
 	}
 
 	/**
@@ -273,13 +273,13 @@ class RR_Headless {
 	// ── REST meta registration (core /wp/v2/posts/{id}) ──────────────────────
 
 	/**
-	 * Expose _rr_faq and _rr_summary under core post responses.
+	 * Expose _rnrd_faq and _rnrd_summary under core post responses.
 	 */
 	public static function register_rest_meta(): void {
 		if ( ! self::is_enabled() ) {
 			return;
 		}
-		if ( 'on' !== get_option( RR_OPT_HEADLESS_EXPOSE_META, 'on' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_HEADLESS_EXPOSE_META, 'on' ) ) {
 			return;
 		}
 
@@ -292,10 +292,10 @@ class RR_Headless {
 					if ( $post_id <= 0 ) {
 						return array();
 					}
-					return RR_Faq::get_faq_data( $post_id );
+					return RNRD_Faq::get_faq_data( $post_id );
 				},
 				'schema'       => array(
-					'description' => __( 'RankReady FAQ items (question/answer pairs).', 'rankready' ),
+					'description' => __( 'RankReady FAQ items (question/answer pairs).', 'rankready-ai-llm-seo' ),
 					'type'        => 'array',
 					'context'     => array( 'view' ),
 					'readonly'    => true,
@@ -308,10 +308,10 @@ class RR_Headless {
 					if ( $post_id <= 0 ) {
 						return '';
 					}
-					return (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
+					return (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 				},
 				'schema'       => array(
-					'description' => __( 'RankReady AI-generated summary.', 'rankready' ),
+					'description' => __( 'RankReady AI-generated summary.', 'rankready-ai-llm-seo' ),
 					'type'        => 'string',
 					'context'     => array( 'view' ),
 					'readonly'    => true,
@@ -324,11 +324,11 @@ class RR_Headless {
 					if ( $post_id <= 0 ) {
 						return null;
 					}
-					$schema = RR_Faq::build_faq_schema_array( $post_id );
+					$schema = RNRD_Faq::build_faq_schema_array( $post_id );
 					return empty( $schema ) ? null : $schema;
 				},
 				'schema'       => array(
-					'description' => __( 'RankReady FAQPage JSON-LD schema.', 'rankready' ),
+					'description' => __( 'RankReady FAQPage JSON-LD schema.', 'rankready-ai-llm-seo' ),
 					'type'        => array( 'object', 'null' ),
 					'context'     => array( 'view' ),
 					'readonly'    => true,
@@ -384,7 +384,7 @@ class RR_Headless {
 	 * Parse configured CORS origins.
 	 */
 	private static function get_allowed_origins(): array {
-		$raw = (string) get_option( RR_OPT_HEADLESS_CORS_ORIGINS, '' );
+		$raw = (string) get_option( RNRD_OPT_HEADLESS_CORS_ORIGINS, '' );
 		if ( '' === $raw ) {
 			return array();
 		}
@@ -409,9 +409,9 @@ class RR_Headless {
 			return $post;
 		}
 
-		$faq_data  = RR_Faq::get_faq_data( $post_id );
-		$generated = (int) get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
-		$keyword   = (string) get_post_meta( $post_id, RR_META_FAQ_KEYWORD, true );
+		$faq_data  = RNRD_Faq::get_faq_data( $post_id );
+		$generated = (int) get_post_meta( $post_id, RNRD_META_FAQ_GENERATED, true );
+		$keyword   = (string) get_post_meta( $post_id, RNRD_META_FAQ_KEYWORD, true );
 
 		$payload = array(
 			'post_id'       => $post_id,
@@ -434,8 +434,8 @@ class RR_Headless {
 			return $post;
 		}
 
-		$summary   = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
-		$generated = (int) get_post_meta( $post_id, RR_META_GENERATED, true );
+		$summary   = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
+		$generated = (int) get_post_meta( $post_id, RNRD_META_GENERATED, true );
 
 		$payload = array(
 			'post_id'      => $post_id,
@@ -457,13 +457,13 @@ class RR_Headless {
 		}
 
 		$schemas    = array();
-		$faq_schema = RR_Faq::build_faq_schema_array( $post_id );
+		$faq_schema = RNRD_Faq::build_faq_schema_array( $post_id );
 		if ( ! empty( $faq_schema ) ) {
 			$schemas['faq_page'] = $faq_schema;
 		}
 
-		$schema_type = get_post_meta( $post_id, RR_META_SCHEMA_TYPE, true );
-		$schema_data = get_post_meta( $post_id, RR_META_SCHEMA_DATA, true );
+		$schema_type = get_post_meta( $post_id, RNRD_META_SCHEMA_TYPE, true );
+		$schema_data = get_post_meta( $post_id, RNRD_META_SCHEMA_DATA, true );
 		if ( ! empty( $schema_type ) && ! empty( $schema_data ) ) {
 			$decoded = is_string( $schema_data ) ? json_decode( $schema_data, true ) : $schema_data;
 			if ( is_array( $decoded ) ) {
@@ -502,7 +502,7 @@ class RR_Headless {
 
 		$public_types = get_post_types( array( 'public' => true ), 'names' );
 		if ( ! in_array( $post_type, $public_types, true ) ) {
-			return new WP_Error( 'rr_invalid_post_type', __( 'Invalid post type.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_invalid_post_type', __( 'Invalid post type.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		// Polylang: set language filter if provided and plugin active.
@@ -525,7 +525,7 @@ class RR_Headless {
 		$posts = get_posts( $query_args );
 
 		if ( empty( $posts ) ) {
-			return new WP_Error( 'rr_not_found', __( 'Post not found.', 'rankready' ), array( 'status' => 404 ) );
+			return new WP_Error( 'rnrd_not_found', __( 'Post not found.', 'rankready-ai-llm-seo' ), array( 'status' => 404 ) );
 		}
 
 		return self::respond_with_cache( $request, self::build_post_payload( $posts[0] ), $posts[0] );
@@ -547,7 +547,7 @@ class RR_Headless {
 
 		$public_types = get_post_types( array( 'public' => true ), 'names' );
 		if ( ! in_array( $post_type, $public_types, true ) ) {
-			return new WP_Error( 'rr_invalid_post_type', __( 'Invalid post type.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_invalid_post_type', __( 'Invalid post type.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		// Clamp per_page to the hard cap.
@@ -594,8 +594,8 @@ class RR_Headless {
 				'title'     => get_the_title( $p ),
 				'modified'  => gmdate( 'c', (int) strtotime( $p->post_modified_gmt ) ),
 				'lang'      => self::get_post_language( (int) $p->ID ),
-				'has_faq'   => (bool) get_post_meta( (int) $p->ID, RR_META_FAQ, true ),
-				'has_summary' => (bool) get_post_meta( (int) $p->ID, RR_META_SUMMARY, true ),
+				'has_faq'   => (bool) get_post_meta( (int) $p->ID, RNRD_META_FAQ, true ),
+				'has_summary' => (bool) get_post_meta( (int) $p->ID, RNRD_META_SUMMARY, true ),
 			);
 		}
 
@@ -614,7 +614,7 @@ class RR_Headless {
 		// Short cache for lists — they update more often than individual posts.
 		$ttl = max( 30, (int) ( self::get_cache_ttl() / 5 ) );
 		$response->header( 'Cache-Control', 'public, s-maxage=' . $ttl . ', stale-while-revalidate=' . self::SWR_WINDOW );
-		$response->header( 'X-RR-Version', RR_VERSION );
+		$response->header( 'X-RR-Version', RNRD_VERSION );
 
 		return $response;
 	}
@@ -660,7 +660,7 @@ class RR_Headless {
 		$last_modified_header = gmdate( 'D, d M Y H:i:s', $last_modified_ts ) . ' GMT';
 
 		// ETag: hash of payload + plugin version (busts on plugin upgrade).
-		$etag = 'W/"' . md5( wp_json_encode( $payload ) . '|' . RR_VERSION ) . '"';
+		$etag = 'W/"' . md5( wp_json_encode( $payload ) . '|' . RNRD_VERSION ) . '"';
 
 		// Handle conditional GET.
 		$if_none_match     = trim( (string) $request->get_header( 'if_none_match' ) );
@@ -693,13 +693,13 @@ class RR_Headless {
 			$ttl,
 			self::SWR_WINDOW
 		) );
-		$response->header( 'X-RR-Version', RR_VERSION );
+		$response->header( 'X-RR-Version', RNRD_VERSION );
 		$response->header( 'X-RR-Cache', 'MISS' );
 		$response->header( 'X-RR-Request-Id', wp_generate_uuid4() );
 	}
 
 	private static function get_cache_ttl(): int {
-		$ttl = (int) get_option( RR_OPT_HEADLESS_CACHE_TTL, self::DEFAULT_TTL );
+		$ttl = (int) get_option( RNRD_OPT_HEADLESS_CACHE_TTL, self::DEFAULT_TTL );
 		if ( $ttl <= 0 ) {
 			$ttl = self::DEFAULT_TTL;
 		}
@@ -734,7 +734,7 @@ class RR_Headless {
 
 		$problem = array(
 			'type'     => 'https://rankready.dev/errors/' . $data['code'],
-			'title'    => isset( $data['message'] ) ? $data['message'] : __( 'Error', 'rankready' ),
+			'title'    => isset( $data['message'] ) ? $data['message'] : __( 'Error', 'rankready-ai-llm-seo' ),
 			'status'   => $status,
 			'detail'   => isset( $data['message'] ) ? $data['message'] : '',
 			'instance' => $route,
@@ -760,7 +760,7 @@ class RR_Headless {
 		if ( ! self::is_enabled() ) {
 			return;
 		}
-		$watched = array( RR_META_FAQ, RR_META_SUMMARY, RR_META_SCHEMA_DATA );
+		$watched = array( RNRD_META_FAQ, RNRD_META_SUMMARY, RNRD_META_SCHEMA_DATA );
 		if ( ! in_array( $meta_key, $watched, true ) ) {
 			return;
 		}
@@ -798,8 +798,8 @@ class RR_Headless {
 	 * on the frontend's revalidation work.
 	 */
 	public static function send_revalidate_webhook( int $post_id, string $slug, string $reason ): bool {
-		$url    = (string) get_option( RR_OPT_HEADLESS_REVALIDATE_URL, '' );
-		$secret = (string) get_option( RR_OPT_HEADLESS_REVALIDATE_SEC, '' );
+		$url    = (string) get_option( RNRD_OPT_HEADLESS_REVALIDATE_URL, '' );
+		$secret = (string) get_option( RNRD_OPT_HEADLESS_REVALIDATE_SEC, '' );
 		if ( empty( $url ) || empty( $secret ) ) {
 			return false;
 		}
@@ -823,7 +823,7 @@ class RR_Headless {
 			'headers'     => array(
 				'Content-Type' => 'application/json',
 				'X-RR-Secret'  => $secret,
-				'User-Agent'   => 'RankReady/' . RR_VERSION,
+				'User-Agent'   => 'RankReady/' . RNRD_VERSION,
 			),
 			'body'        => wp_json_encode( $body ),
 			'sslverify'   => true,
@@ -844,7 +844,7 @@ class RR_Headless {
 		if ( ! self::is_enabled() ) {
 			return;
 		}
-		if ( 'on' !== get_option( RR_OPT_HEADLESS_GRAPHQL, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_HEADLESS_GRAPHQL, 'off' ) ) {
 			return;
 		}
 		if ( ! function_exists( 'register_graphql_field' ) ) {
@@ -861,38 +861,38 @@ class RR_Headless {
 
 			register_graphql_field( $gql_type, 'rankReadyFaq', array(
 				'type'        => array( 'list_of' => 'String' ),
-				'description' => __( 'RankReady FAQ items (JSON-encoded).', 'rankready' ),
+				'description' => __( 'RankReady FAQ items (JSON-encoded).', 'rankready-ai-llm-seo' ),
 				'resolve'     => function ( $post ) {
 					$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : 0;
 					if ( $post_id <= 0 ) {
 						return array();
 					}
-					$items = RR_Faq::get_faq_data( $post_id );
+					$items = RNRD_Faq::get_faq_data( $post_id );
 					return array_map( 'wp_json_encode', $items );
 				},
 			) );
 
 			register_graphql_field( $gql_type, 'rankReadySummary', array(
 				'type'        => 'String',
-				'description' => __( 'RankReady AI-generated summary.', 'rankready' ),
+				'description' => __( 'RankReady AI-generated summary.', 'rankready-ai-llm-seo' ),
 				'resolve'     => function ( $post ) {
 					$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : 0;
 					if ( $post_id <= 0 ) {
 						return '';
 					}
-					return (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
+					return (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 				},
 			) );
 
 			register_graphql_field( $gql_type, 'rankReadySchema', array(
 				'type'        => 'String',
-				'description' => __( 'RankReady FAQPage JSON-LD schema (JSON-encoded).', 'rankready' ),
+				'description' => __( 'RankReady FAQPage JSON-LD schema (JSON-encoded).', 'rankready-ai-llm-seo' ),
 				'resolve'     => function ( $post ) {
 					$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : 0;
 					if ( $post_id <= 0 ) {
 						return '';
 					}
-					$schema = RR_Faq::build_faq_schema_array( $post_id );
+					$schema = RNRD_Faq::build_faq_schema_array( $post_id );
 					return empty( $schema ) ? '' : (string) wp_json_encode( $schema );
 				},
 			) );
@@ -988,26 +988,26 @@ class RR_Headless {
 	 */
 	private static function validate_public_post( int $post_id ) {
 		if ( $post_id <= 0 ) {
-			return new WP_Error( 'rr_invalid_id', __( 'Invalid post ID.', 'rankready' ), array( 'status' => 400 ) );
+			return new WP_Error( 'rnrd_invalid_id', __( 'Invalid post ID.', 'rankready-ai-llm-seo' ), array( 'status' => 400 ) );
 		}
 
 		$post = get_post( $post_id );
 		if ( ! $post instanceof WP_Post ) {
-			return new WP_Error( 'rr_not_found', __( 'Post not found.', 'rankready' ), array( 'status' => 404 ) );
+			return new WP_Error( 'rnrd_not_found', __( 'Post not found.', 'rankready-ai-llm-seo' ), array( 'status' => 404 ) );
 		}
 
 		if ( 'publish' !== $post->post_status ) {
-			return new WP_Error( 'rr_not_public', __( 'Post is not published.', 'rankready' ), array( 'status' => 404 ) );
+			return new WP_Error( 'rnrd_not_public', __( 'Post is not published.', 'rankready-ai-llm-seo' ), array( 'status' => 404 ) );
 		}
 
 		$post_type_obj = get_post_type_object( $post->post_type );
 		if ( ! $post_type_obj || ! $post_type_obj->public ) {
-			return new WP_Error( 'rr_not_public', __( 'Post type is not public.', 'rankready' ), array( 'status' => 404 ) );
+			return new WP_Error( 'rnrd_not_public', __( 'Post type is not public.', 'rankready-ai-llm-seo' ), array( 'status' => 404 ) );
 		}
 
 		// Require explicit password-protected flag to be empty (no unlocked content leaks).
 		if ( ! empty( $post->post_password ) ) {
-			return new WP_Error( 'rr_password_protected', __( 'Post is password-protected.', 'rankready' ), array( 'status' => 403 ) );
+			return new WP_Error( 'rnrd_password_protected', __( 'Post is password-protected.', 'rankready-ai-llm-seo' ), array( 'status' => 403 ) );
 		}
 
 		return $post;
@@ -1019,21 +1019,21 @@ class RR_Headless {
 	private static function build_post_payload( WP_Post $post ): array {
 		$post_id = (int) $post->ID;
 
-		$faq_data      = RR_Faq::get_faq_data( $post_id );
-		$faq_generated = (int) get_post_meta( $post_id, RR_META_FAQ_GENERATED, true );
-		$faq_keyword   = (string) get_post_meta( $post_id, RR_META_FAQ_KEYWORD, true );
+		$faq_data      = RNRD_Faq::get_faq_data( $post_id );
+		$faq_generated = (int) get_post_meta( $post_id, RNRD_META_FAQ_GENERATED, true );
+		$faq_keyword   = (string) get_post_meta( $post_id, RNRD_META_FAQ_KEYWORD, true );
 
-		$summary       = (string) get_post_meta( $post_id, RR_META_SUMMARY, true );
-		$sum_generated = (int) get_post_meta( $post_id, RR_META_GENERATED, true );
+		$summary       = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
+		$sum_generated = (int) get_post_meta( $post_id, RNRD_META_GENERATED, true );
 
 		$schemas    = array();
-		$faq_schema = RR_Faq::build_faq_schema_array( $post_id );
+		$faq_schema = RNRD_Faq::build_faq_schema_array( $post_id );
 		if ( ! empty( $faq_schema ) ) {
 			$schemas['faq_page'] = $faq_schema;
 		}
 
-		$schema_type = get_post_meta( $post_id, RR_META_SCHEMA_TYPE, true );
-		$schema_data = get_post_meta( $post_id, RR_META_SCHEMA_DATA, true );
+		$schema_type = get_post_meta( $post_id, RNRD_META_SCHEMA_TYPE, true );
+		$schema_data = get_post_meta( $post_id, RNRD_META_SCHEMA_DATA, true );
 		if ( ! empty( $schema_type ) && ! empty( $schema_data ) ) {
 			$decoded = is_string( $schema_data ) ? json_decode( $schema_data, true ) : $schema_data;
 			if ( is_array( $decoded ) ) {

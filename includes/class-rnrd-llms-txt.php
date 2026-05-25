@@ -22,7 +22,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class RR_Llms_Txt {
+class RNRD_Llms_Txt {
 
 	public static function init(): void {
 		add_action( 'init',             array( self::class, 'add_rewrite_rules' ) );
@@ -41,12 +41,28 @@ class RR_Llms_Txt {
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_txt_trailing_slash' ), 10, 2 );
 
 		// Flush rewrite rules when settings change.
-		add_action( 'update_option_' . RR_OPT_LLMS_ENABLE,      array( self::class, 'flush_rules' ) );
-		add_action( 'update_option_' . RR_OPT_LLMS_FULL_ENABLE, array( self::class, 'flush_rules' ) );
+		add_action( 'update_option_' . RNRD_OPT_LLMS_ENABLE,      array( self::class, 'flush_rules' ) );
+		add_action( 'update_option_' . RNRD_OPT_LLMS_FULL_ENABLE, array( self::class, 'flush_rules' ) );
 
 		// Bust cache when posts are published/updated/deleted.
 		add_action( 'transition_post_status', array( self::class, 'bust_cache_on_status_change' ), 10, 3 );
 		add_action( 'deleted_post',           array( self::class, 'bust_cache' ) );
+
+		// rc.16 audit fix C1 — bust transient + purge CDN/page-cache on EVERY
+		// option that mutates llms.txt output. Without this, brand identity
+		// edits stay invisible for up to 1 hour (default TTL) and CDN/page-cache
+		// layers serve the prior version even longer. (slift.co user report.)
+		$busters = array(
+			RNRD_OPT_LLMS_ENABLE,           RNRD_OPT_LLMS_FULL_ENABLE,
+			RNRD_OPT_LLMS_SITE_NAME,        RNRD_OPT_LLMS_SUMMARY,
+			RNRD_OPT_LLMS_ABOUT,            RNRD_OPT_BRAND_TERMS,
+			RNRD_OPT_LLMS_POST_TYPES,       RNRD_OPT_LLMS_MAX_POSTS,
+			RNRD_OPT_LLMS_EXCLUDE_CATS,     RNRD_OPT_LLMS_EXCLUDE_TAGS,
+			RNRD_OPT_LLMS_SHOW_CATEGORIES,  RNRD_OPT_LLMS_CACHE_TTL,
+		);
+		foreach ( $busters as $opt ) {
+			add_action( 'update_option_' . $opt, array( self::class, 'bust_cache_and_purge_cdn' ) );
+		}
 
 		// Add llms.txt reference to robots.txt so AI crawlers discover it.
 		// rc.8 fix: bump priority to PHP_INT_MAX so RankReady's block
@@ -60,15 +76,15 @@ class RR_Llms_Txt {
 		add_action( 'wp_head',      array( self::class, 'add_discovery_link_tags' ) );
 
 		// Sync to physical robots.txt when settings change.
-		add_action( 'update_option_' . RR_OPT_ROBOTS_ENABLE,             array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_ROBOTS_CRAWLERS,           array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_LLMS_ENABLE,               array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_LLMS_FULL_ENABLE,          array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_MD_ENABLE,                 array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_CONTENT_SIGNALS_ENABLE,   array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_CONTENT_SIGNALS_AI_TRAIN, array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_CONTENT_SIGNALS_SEARCH,   array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RR_OPT_CONTENT_SIGNALS_AI_INPUT, array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_ROBOTS_ENABLE,             array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_ROBOTS_CRAWLERS,           array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_LLMS_ENABLE,               array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_LLMS_FULL_ENABLE,          array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_MD_ENABLE,                 array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_ENABLE,   array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN, array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_SEARCH,   array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_INPUT, array( self::class, 'sync_physical_robots_txt' ) );
 	}
 
 	/**
@@ -127,20 +143,40 @@ class RR_Llms_Txt {
 			return;
 		}
 
-		if ( 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
 			header( 'Link: <' . esc_url( home_url( '/llms.txt' ) ) . '>; rel="llms-txt"', false );
 		}
 
-		if ( 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
 			header( 'Link: <' . esc_url( home_url( '/llms-full.txt' ) ) . '>; rel="llms-full-txt"', false );
 		}
 
-		if ( 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			header( 'Link: <' . esc_url( home_url( '/' ) ) . '>; rel="alternate"; type="text/markdown"', false );
 		}
 
-		$sitemap_url = get_option( 'permalink_structure' ) ? home_url( '/sitemap_index.xml' ) : home_url( '/?sitemap=1' );
-		header( 'Link: <' . esc_url( $sitemap_url ) . '>; rel="sitemap"; type="application/xml"', false );
+		// rc.16 audit — sitemap Link header removed. Sitemap discovery belongs
+		// in robots.txt per Google Search Central docs, NOT in HTTP Link
+		// headers for LLM/agent discovery.
+
+		// rc.16 — emit hreflang alternate Link headers for each detected
+		// multilingual plugin so agents can discover language variants.
+		// Per-language /es/llms.txt generation ships in v1.3 Pro.
+		$ml = self::detect_multilingual();
+		if ( ! empty( $ml ) && 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
+			$emitted = array();
+			foreach ( $ml as $set ) {
+				foreach ( (array) $set['langs'] as $code ) {
+					$code = strtolower( (string) $code );
+					if ( '' === $code || isset( $emitted[ $code ] ) ) {
+						continue;
+					}
+					$emitted[ $code ] = true;
+					$lang_url         = home_url( '/' . $code . '/llms.txt' );
+					header( 'Link: <' . esc_url( $lang_url ) . '>; rel="alternate"; hreflang="' . esc_attr( $code ) . '"', false );
+				}
+			}
+		}
 	}
 
 	/**
@@ -150,11 +186,11 @@ class RR_Llms_Txt {
 	 * (and tools that don't inspect response headers) can also discover endpoints.
 	 */
 	public static function add_discovery_link_tags(): void {
-		if ( 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
 			echo '<link rel="llms-txt" type="text/plain" href="' . esc_url( home_url( '/llms.txt' ) ) . '" />' . "\n";
 		}
 
-		if ( 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
 			echo '<link rel="llms-full-txt" type="text/plain" href="' . esc_url( home_url( '/llms-full.txt' ) ) . '" />' . "\n";
 		}
 	}
@@ -165,11 +201,11 @@ class RR_Llms_Txt {
 	 * Used both by the `robots_txt` filter (virtual) and physical file sync.
 	 */
 	public static function generate_robots_block(): string {
-		$llms_on    = 'on' === get_option( RR_OPT_LLMS_ENABLE, 'off' );
-		$full_on    = 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' );
-		$md_on      = 'on' === get_option( RR_OPT_MD_ENABLE, 'off' );
-		$robots_on  = 'on' === get_option( RR_OPT_ROBOTS_ENABLE, 'on' );
-		$signals_on = 'on' === get_option( RR_OPT_CONTENT_SIGNALS_ENABLE, 'off' );
+		$llms_on    = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$full_on    = 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
+		$md_on      = 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
+		$robots_on  = 'on' === get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
+		$signals_on = 'on' === get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' );
 
 		if ( ! $llms_on && ! $md_on && ! $robots_on && ! $signals_on ) {
 			return '';
@@ -205,8 +241,8 @@ class RR_Llms_Txt {
 		// grouped User-agent lines share the same Allow/Disallow rules.
 		if ( $robots_on ) {
 			$enabled_crawlers = (array) get_option(
-				RR_OPT_ROBOTS_CRAWLERS,
-				array_keys( RR_Admin::get_llm_crawlers() )
+				RNRD_OPT_ROBOTS_CRAWLERS,
+				array_keys( RNRD_Admin::get_llm_crawlers() )
 			);
 
 			if ( ! empty( $enabled_crawlers ) ) {
@@ -225,9 +261,9 @@ class RR_Llms_Txt {
 		// Format per isitagentready.com check: Content-Signal: ai-train=yes, search=yes, ai-input=yes
 		// Options stored as allow/deny internally; mapped to yes/no for output.
 		if ( $signals_on ) {
-			$ai_train = 'allow' === get_option( RR_OPT_CONTENT_SIGNALS_AI_TRAIN, 'allow' ) ? 'yes' : 'no';
-			$search   = 'allow' === get_option( RR_OPT_CONTENT_SIGNALS_SEARCH, 'allow' ) ? 'yes' : 'no';
-			$ai_input = 'allow' === get_option( RR_OPT_CONTENT_SIGNALS_AI_INPUT, 'allow' ) ? 'yes' : 'no';
+			$ai_train = 'allow' === get_option( RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN, 'allow' ) ? 'yes' : 'no';
+			$search   = 'allow' === get_option( RNRD_OPT_CONTENT_SIGNALS_SEARCH, 'allow' ) ? 'yes' : 'no';
+			$ai_input = 'allow' === get_option( RNRD_OPT_CONTENT_SIGNALS_AI_INPUT, 'allow' ) ? 'yes' : 'no';
 
 			$block .= "# Content Signals (contentsignals.org)\n";
 			$block .= "Content-Signal: ai-train={$ai_train}, search={$search}, ai-input={$ai_input}\n";
@@ -243,19 +279,13 @@ class RR_Llms_Txt {
 	/**
 	 * Whether the "Generated from RankReady" credit line should be hidden.
 	 *
-	 * Free tier: always returns false (credit shows).
-	 * Pro tier (future): returns the value of `rr_hide_branding` option.
-	 *
-	 * Gated through `rr_is_pro()` so non-Pro installs can't simply flip the
-	 * option to remove the credit — keeps the Pro upgrade path meaningful.
+	 * WP.org Free build: always returns false (credit shows). The branding
+	 * toggle is a Coming Soon placeholder.
 	 *
 	 * @since 1.2.0-rc.11
 	 */
 	public static function should_hide_branding(): bool {
-		if ( ! ( function_exists( 'rr_is_pro' ) && rr_is_pro() ) ) {
-			return false;
-		}
-		return 'on' === get_option( RR_OPT_HIDE_BRANDING, 'off' );
+		return false;
 	}
 
 	/**
@@ -294,7 +324,7 @@ class RR_Llms_Txt {
 		// non-empty block to write — otherwise we'd leave an empty file
 		// around that could surprise users.
 		if ( ! $wp_filesystem->exists( $file ) ) {
-			$robots_on = (bool) get_option( RR_OPT_ROBOTS_ENABLE, false );
+			$robots_on = (bool) get_option( RNRD_OPT_ROBOTS_ENABLE, false );
 			$block     = self::generate_robots_block();
 			if ( ! $robots_on || empty( trim( $block ) ) ) {
 				// Filter handles it — no need for physical file.
@@ -357,12 +387,12 @@ class RR_Llms_Txt {
 	/**
 	 * Purge robots.txt from every active cache layer.
 	 *
-	 * Delegates to RR_Cache::purge_url() which covers all major WordPress cache
+	 * Delegates to RNRD_Cache::purge_url() which covers all major WordPress cache
 	 * plugins and CDN layers — no user configuration needed, safe no-op when
-	 * a plugin is not active. See class-rr-cache.php for the full layer list.
+	 * a plugin is not active. See class-rnrd-cache.php for the full layer list.
 	 */
 	public static function purge_robots_cache(): void {
-		RR_Cache::purge_url( home_url( '/robots.txt' ) );
+		RNRD_Cache::purge_url( home_url( '/robots.txt' ) );
 	}
 
 	/**
@@ -407,18 +437,18 @@ class RR_Llms_Txt {
 	// ── Rewrite rules ─────────────────────────────────────────────────────────
 
 	public static function add_rewrite_rules(): void {
-		if ( 'on' !== get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
 			return;
 		}
 
 		// Skip llms.txt if a major SEO plugin already generates it.
 		// RankReady still registers llms-full.txt since no SEO plugin does that.
 		if ( ! self::another_plugin_handles_llms_txt() ) {
-			add_rewrite_rule( '^llms\.txt$', 'index.php?rr_llms_txt=1', 'top' );
+			add_rewrite_rule( '^llms\.txt$', 'index.php?rnrd_llms_txt=1', 'top' );
 		}
 
-		if ( 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
-			add_rewrite_rule( '^llms-full\.txt$', 'index.php?rr_llms_full_txt=1', 'top' );
+		if ( 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
+			add_rewrite_rule( '^llms-full\.txt$', 'index.php?rnrd_llms_full_txt=1', 'top' );
 		}
 
 		add_filter( 'query_vars', array( self::class, 'register_query_vars' ) );
@@ -489,8 +519,8 @@ class RR_Llms_Txt {
 	}
 
 	public static function register_query_vars( array $vars ): array {
-		$vars[] = 'rr_llms_txt';
-		$vars[] = 'rr_llms_full_txt';
+		$vars[] = 'rnrd_llms_txt';
+		$vars[] = 'rnrd_llms_full_txt';
 		return $vars;
 	}
 
@@ -501,13 +531,13 @@ class RR_Llms_Txt {
 	// ── Request handler ───────────────────────────────────────────────────────
 
 	public static function handle_request(): void {
-		if ( get_query_var( 'rr_llms_txt' ) ) {
-			RR_Crawler_Log::log( 'llms_txt' );
+		if ( get_query_var( 'rnrd_llms_txt' ) ) {
+			RNRD_Crawler_Log::log( 'llms_txt' );
 			self::serve_llms_txt( false );
 		}
 
-		if ( get_query_var( 'rr_llms_full_txt' ) ) {
-			RR_Crawler_Log::log( 'llms_full' );
+		if ( get_query_var( 'rnrd_llms_full_txt' ) ) {
+			RNRD_Crawler_Log::log( 'llms_full' );
 			self::serve_llms_txt( true );
 		}
 	}
@@ -515,31 +545,45 @@ class RR_Llms_Txt {
 	// ── Serve ─────────────────────────────────────────────────────────────────
 
 	private static function serve_llms_txt( bool $full = false ): void {
-		if ( 'on' !== get_option( RR_OPT_LLMS_ENABLE, 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
 			status_header( 404 );
 			exit;
 		}
 
-		if ( $full && 'on' !== get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
+		if ( $full && 'on' !== get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
 			status_header( 404 );
 			exit;
 		}
 
-		$cache_key = $full ? RR_LLMS_FULL_CACHE_KEY : RR_LLMS_CACHE_KEY;
+		$cache_key = $full ? RNRD_LLMS_FULL_CACHE_KEY : RNRD_LLMS_CACHE_KEY;
 		$cached    = get_transient( $cache_key );
 
 		if ( false !== $cached ) {
+			/**
+			 * rc.16 — programmatic override hook for the rendered llms.txt body.
+			 *
+			 * Chosen over a UI placeholder template editor (which would have
+			 * required ~15 placeholders, preview UI, and would generate broken
+			 * llmstxt.org-spec output from 99% of users who don't read the doc).
+			 *
+			 * @param string $content Final llms.txt body about to be served.
+			 * @param array  $context ['full' => bool] full or index variant.
+			 */
+			$cached = (string) apply_filters( 'rankready_llms_txt_content', $cached, array( 'full' => $full ) );
 			self::output_txt( $cached );
 			return; // output_txt calls exit, but guard against refactoring.
 		}
 
 		$content = $full ? self::generate_full() : self::generate();
 
-		$ttl = (int) get_option( RR_OPT_LLMS_CACHE_TTL, 3600 );
+		$ttl = (int) get_option( RNRD_OPT_LLMS_CACHE_TTL, 3600 );
 		if ( $ttl < 60 ) {
 			$ttl = 3600;
 		}
 		set_transient( $cache_key, $content, $ttl );
+
+		// rc.16 — same filter as above, applied on the fresh-generation path.
+		$content = (string) apply_filters( 'rankready_llms_txt_content', $content, array( 'full' => $full ) );
 
 		self::output_txt( $content );
 	}
@@ -548,8 +592,8 @@ class RR_Llms_Txt {
 		// v1.2.0-rc.2 — bypass WP page-cache plugins (LiteSpeed Cache, WP Rocket,
 		// W3TC, etc.) but keep our public 1-hour cache header for browsers / CDNs.
 		// RankReady manages its own caching via wp_transient.
-		if ( class_exists( 'RR_Cache' ) ) {
-			RR_Cache::bypass_page_cache_plugins_only();
+		if ( class_exists( 'RNRD_Cache' ) ) {
+			RNRD_Cache::bypass_page_cache_plugins_only();
 		}
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/plain; charset=utf-8' );
@@ -569,17 +613,17 @@ class RR_Llms_Txt {
 	 * @since 1.2.0-rc.2
 	 */
 	public static function register_cache_exclusions(): void {
-		if ( ! class_exists( 'RR_Cache' ) ) {
+		if ( ! class_exists( 'RNRD_Cache' ) ) {
 			return;
 		}
 		$patterns = array( '/llms.txt', '/llms-full.txt' );
-		// Add per-post .md when markdown is on (RR_Markdown registers its own
+		// Add per-post .md when markdown is on (RNRD_Markdown registers its own
 		// exclusions; we list here so a misconfigured cache plugin still
 		// honours at least one filter).
-		if ( 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			$patterns[] = '.md';
 		}
-		RR_Cache::exclude_url_patterns( $patterns );
+		RNRD_Cache::exclude_url_patterns( $patterns );
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -624,16 +668,19 @@ class RR_Llms_Txt {
 			$lines[] = '- RSS Feed: ' . $feed_url;
 		}
 
-		$sitemap_url = home_url( '/sitemap.xml' );
-		$lines[]     = '- Sitemap: ' . $sitemap_url;
+		// rc.16 audit — sitemap intentionally NOT listed in llms.txt body.
+		// llmstxt.org spec does not require it; Google requires Sitemap: in
+		// robots.txt (where RankReady already emits it). Anthropic / OpenAI /
+		// Perplexity have published no docs requiring it in llms.txt. Real-
+		// world llms.txt files (Anthropic docs, Lovable, Mintlify) omit it.
 
 		// Link to llms-full.txt if enabled.
-		if ( 'on' === get_option( RR_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
 			$lines[] = '- Full version: ' . home_url( '/llms-full.txt' );
 		}
 
 		// Tell crawlers that markdown is available per page.
-		if ( 'on' === get_option( RR_OPT_MD_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			$lines[] = '- Markdown: Append .md to any page URL for clean markdown (e.g., /page-slug.md)';
 			$lines[] = '- Content negotiation: Send `Accept: text/markdown` header on any page URL';
 		}
@@ -641,16 +688,16 @@ class RR_Llms_Txt {
 		$lines[] = '';
 
 		// ── Post type sections (H2-delimited file lists) ──────────────────
-		$post_types = (array) get_option( RR_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) );
-		$max_posts  = (int) get_option( RR_OPT_LLMS_MAX_POSTS, 100 );
+		$post_types = (array) get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) );
+		$max_posts  = (int) get_option( RNRD_OPT_LLMS_MAX_POSTS, 100 );
 
 		if ( $max_posts < 1 ) {
 			$max_posts = 100;
 		}
 
 		// Get taxonomy exclusions from settings.
-		$exclude_cats = (array) get_option( RR_OPT_LLMS_EXCLUDE_CATS, array() );
-		$exclude_tags = (array) get_option( RR_OPT_LLMS_EXCLUDE_TAGS, array() );
+		$exclude_cats = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_CATS, array() );
+		$exclude_tags = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_TAGS, array() );
 
 		foreach ( $post_types as $pt ) {
 			$type_obj = get_post_type_object( $pt );
@@ -696,7 +743,7 @@ class RR_Llms_Txt {
 
 		// ── Optional section (per spec: secondary/skippable content) ──────
 		// Controlled by admin setting — user can toggle it off entirely.
-		if ( 'on' === get_option( RR_OPT_LLMS_SHOW_CATEGORIES, 'on' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_LLMS_SHOW_CATEGORIES, 'on' ) ) {
 			$cat_args = array(
 				'orderby'    => 'count',
 				'order'      => 'DESC',
@@ -775,16 +822,16 @@ class RR_Llms_Txt {
 		$lines[] = '';
 
 		// ── Inline each page as clean markdown ────────────────────────────
-		$post_types = (array) get_option( RR_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) );
-		$max_posts  = (int) get_option( RR_OPT_LLMS_MAX_POSTS, 100 );
+		$post_types = (array) get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) );
+		$max_posts  = (int) get_option( RNRD_OPT_LLMS_MAX_POSTS, 100 );
 
 		if ( $max_posts < 1 ) {
 			$max_posts = 100;
 		}
 
 		// Get taxonomy exclusions from settings.
-		$exclude_cats = (array) get_option( RR_OPT_LLMS_EXCLUDE_CATS, array() );
-		$exclude_tags = (array) get_option( RR_OPT_LLMS_EXCLUDE_TAGS, array() );
+		$exclude_cats = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_CATS, array() );
+		$exclude_tags = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_TAGS, array() );
 
 		foreach ( $post_types as $pt ) {
 			$type_obj = get_post_type_object( $pt );
@@ -841,8 +888,101 @@ class RR_Llms_Txt {
 	}
 
 	public static function bust_cache(): void {
-		delete_transient( RR_LLMS_CACHE_KEY );
-		delete_transient( RR_LLMS_FULL_CACHE_KEY );
+		delete_transient( RNRD_LLMS_CACHE_KEY );
+		delete_transient( RNRD_LLMS_FULL_CACHE_KEY );
+	}
+
+	/**
+	 * Bust transient AND purge upstream CDN / page-cache layers.
+	 *
+	 * Called from update_option hooks for every setting that mutates llms.txt
+	 * output. Without the CDN/page-cache purge, edits stay invisible at the
+	 * edge even after we delete the transient.
+	 *
+	 * @since 1.2.0-rc.16 (audit C1 fix)
+	 */
+	public static function bust_cache_and_purge_cdn(): void {
+		self::bust_cache();
+		if ( class_exists( 'RNRD_Cache' ) ) {
+			RNRD_Cache::purge_url( home_url( '/llms.txt' ) );
+			RNRD_Cache::purge_url( home_url( '/llms-full.txt' ) );
+		}
+	}
+
+	// ── Multilingual detection ────────────────────────────────────────────────
+
+	/**
+	 * Detect active multilingual plugins so the admin can be warned that
+	 * /llms.txt currently serves only the default language.
+	 *
+	 * Per-language generation (/es/llms.txt etc.) is planned for a future
+	 * release. Today the plugin emits hreflang `<link rel="alternate">`
+	 * discovery tags for each detected language pointing to language-prefixed URLs.
+	 *
+	 * @since 1.2.0-rc.16
+	 * @return array<int, array{plugin:string,langs:string[],default:string}>
+	 */
+	public static function detect_multilingual(): array {
+		$found = array();
+
+		// WPML — most common, ships its own API.
+		if ( defined( 'ICL_SITEPRESS_VERSION' ) ) {
+			$langs   = (array) apply_filters( 'wpml_active_languages', null );
+			$default = (string) apply_filters( 'wpml_default_language', 'en' );
+			$found[] = array(
+				'plugin'  => 'WPML ' . ICL_SITEPRESS_VERSION,
+				'langs'   => array_keys( $langs ),
+				'default' => $default,
+			);
+		}
+
+		// Polylang.
+		if ( function_exists( 'pll_languages_list' ) ) {
+			$langs   = (array) pll_languages_list();
+			$default = function_exists( 'pll_default_language' ) ? (string) pll_default_language() : '';
+			$found[] = array(
+				'plugin'  => 'Polylang' . ( defined( 'POLYLANG_VERSION' ) ? ' ' . POLYLANG_VERSION : '' ),
+				'langs'   => $langs,
+				'default' => $default,
+			);
+		}
+
+		// TranslatePress.
+		if ( defined( 'TRP_PLUGIN_VERSION' ) ) {
+			$settings = (array) get_option( 'trp_settings', array() );
+			$langs    = (array) ( $settings['translation-languages'] ?? array() );
+			$default  = (string) ( $settings['default-language'] ?? '' );
+			$found[]  = array(
+				'plugin'  => 'TranslatePress ' . TRP_PLUGIN_VERSION,
+				'langs'   => $langs,
+				'default' => $default,
+			);
+		}
+
+		// Weglot.
+		if ( class_exists( 'Weglot\\Util\\Helper_Util_Weglot' ) || defined( 'WEGLOT_VERSION' ) ) {
+			$weglot   = (array) get_option( 'weglot_options', array() );
+			$langs    = (array) ( $weglot['destination_language'] ?? array() );
+			$default  = (string) ( $weglot['original_language'] ?? '' );
+			$found[]  = array(
+				'plugin'  => 'Weglot' . ( defined( 'WEGLOT_VERSION' ) ? ' ' . WEGLOT_VERSION : '' ),
+				'langs'   => $langs,
+				'default' => $default,
+			);
+		}
+
+		// GTranslate — minimal data exposed via options.
+		if ( defined( 'GTRANSLATE_VERSION' ) || function_exists( 'gtranslate' ) ) {
+			$opts    = (array) get_option( 'GTranslate', array() );
+			$langs   = ! empty( $opts['flag_codes'] ) ? explode( ',', (string) $opts['flag_codes'] ) : array();
+			$found[] = array(
+				'plugin'  => 'GTranslate',
+				'langs'   => array_filter( array_map( 'trim', $langs ) ),
+				'default' => '',
+			);
+		}
+
+		return $found;
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -1101,7 +1241,7 @@ class RR_Llms_Txt {
 
 		// ── Per-post RankReady opt-out (v1.2.0) ──────────────────────────
 		// Editors can tick "Exclude from llms.txt" in the meta box.
-		if ( '1' === (string) get_post_meta( $post_id, RR_META_LLMS_EXCLUDE, true ) ) {
+		if ( '1' === (string) get_post_meta( $post_id, RNRD_META_LLMS_EXCLUDE, true ) ) {
 			return true;
 		}
 
@@ -1154,13 +1294,13 @@ class RR_Llms_Txt {
 	 *   - generate()             llms.txt header metadata
 	 *   - generate_full()        llms-full.txt header metadata
 	 *   - generate_robots_block() robots.txt comment line
-	 *   - RR_Faq::generate_faq()  augments FAQ prompt brand context
-	 *   - RR_Generator           augments summary system prompt
+	 *   - RNRD_Faq::generate_faq()  augments FAQ prompt brand context
+	 *   - RNRD_Generator           augments summary system prompt
 	 *
-	 * Single source of truth: RR_OPT_BRAND_TERMS option (AI Crawlers tab).
+	 * Single source of truth: RNRD_OPT_BRAND_TERMS option (AI Crawlers tab).
 	 */
 	public static function get_brand_terms_list(): array {
-		$raw = (string) get_option( RR_OPT_BRAND_TERMS, '' );
+		$raw = (string) get_option( RNRD_OPT_BRAND_TERMS, '' );
 		if ( '' === trim( $raw ) ) {
 			return array();
 		}
@@ -1193,9 +1333,9 @@ class RR_Llms_Txt {
 	/**
 	 * Unified Brand Identity getter (v1.2.0-beta.4).
 	 *
-	 * Replaces five fragmented inputs (RR_OPT_LLMS_SITE_NAME,
-	 * RR_OPT_LLMS_SUMMARY, RR_OPT_LLMS_ABOUT, RR_OPT_BRAND_TERMS,
-	 * RR_OPT_FAQ_BRAND_TERMS) with one consistent record so every consumer
+	 * Replaces five fragmented inputs (RNRD_OPT_LLMS_SITE_NAME,
+	 * RNRD_OPT_LLMS_SUMMARY, RNRD_OPT_LLMS_ABOUT, RNRD_OPT_BRAND_TERMS,
+	 * RNRD_OPT_FAQ_BRAND_TERMS) with one consistent record so every consumer
 	 * — llms.txt, llms-full.txt, robots.txt, FAQ prompt, summary prompt,
 	 * MCP ability, homepage .md — sees the same brand truth.
 	 *
@@ -1216,19 +1356,19 @@ class RR_Llms_Txt {
 	 */
 	public static function get_brand_identity(): array {
 		// Name: explicit > legacy > WP site title.
-		$name = (string) get_option( RR_OPT_LLMS_SITE_NAME, '' );
+		$name = (string) get_option( RNRD_OPT_LLMS_SITE_NAME, '' );
 		if ( '' === trim( $name ) ) {
 			$name = (string) get_bloginfo( 'name' );
 		}
 
 		// Summary: legacy LLMS summary > WP tagline.
-		$summary = (string) get_option( RR_OPT_LLMS_SUMMARY, '' );
+		$summary = (string) get_option( RNRD_OPT_LLMS_SUMMARY, '' );
 		if ( '' === trim( $summary ) ) {
 			$summary = (string) get_bloginfo( 'description' );
 		}
 
 		// About: only the dedicated LLMS_ABOUT option.
-		$about = (string) get_option( RR_OPT_LLMS_ABOUT, '' );
+		$about = (string) get_option( RNRD_OPT_LLMS_ABOUT, '' );
 
 		// Terms: the canonical Brand Terms list (already a getter).
 		$terms = self::get_brand_terms_list();

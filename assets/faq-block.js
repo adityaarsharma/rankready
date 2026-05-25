@@ -36,7 +36,7 @@
 	}
 
 	// ── Global fonts (theme.json → Nexter Theme / Nexter Blocks / Kadence / core) ─
-	function rrGlobalFontOptions() {
+	function rnrdGlobalFontOptions() {
 		var opts = [ { label: '— Theme default —', value: '' } ];
 		try {
 			var settings = wp.data.select( 'core/block-editor' ).getSettings();
@@ -62,7 +62,7 @@
 		return opts;
 	}
 
-	var rrWeightOptions = [
+	var rnrdWeightOptions = [
 		{ label: '— Inherit —', value: '' },
 		{ label: '100 Thin', value: '100' },
 		{ label: '200 Extra Light', value: '200' },
@@ -206,7 +206,7 @@
 			if ( attrs.dividerColor ) dividerStyle.borderBottomColor = attrs.dividerColor;
 
 			var HeadingTag = attrs.headingTag || 'h3';
-			var blockProps = useBlockProps( { className: 'rr-faq-wrapper rr-editor-preview', style: boxStyle } );
+			var blockProps = useBlockProps( { className: 'rnrd-faq-wrapper rnrd-editor-preview', style: boxStyle } );
 
 			return el( Fragment, null,
 
@@ -311,14 +311,14 @@
 							label: 'Font Family',
 							help: 'Pulls from your theme.json fonts (Nexter Theme, Nexter Blocks, Kadence, any block theme). Leave blank to inherit.',
 							value: attrs.questionFontFamily || '',
-							options: rrGlobalFontOptions(),
+							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { questionFontFamily: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( SelectControl, {
 							label: 'Font Weight',
 							value: attrs.questionFontWeight || '',
-							options: rrWeightOptions,
+							options: rnrdWeightOptions,
 							onChange: function ( v ) { setAttrs( { questionFontWeight: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
@@ -347,14 +347,14 @@
 							label: 'Font Family',
 							help: 'Pulls from your theme.json fonts. Leave blank to inherit from theme.',
 							value: attrs.answerFontFamily || '',
-							options: rrGlobalFontOptions(),
+							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { answerFontFamily: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( SelectControl, {
 							label: 'Font Weight',
 							value: attrs.answerFontWeight || '',
-							options: rrWeightOptions,
+							options: rnrdWeightOptions,
 							onChange: function ( v ) { setAttrs( { answerFontWeight: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
@@ -382,7 +382,7 @@
 				el( 'div', blockProps,
 
 					attrs.showTitle && el( HeadingTag, {
-						className: 'rr-faq-title',
+						className: 'rnrd-faq-title',
 						style: attrs.questionColor ? { color: attrs.questionColor } : {},
 					}, attrs.titleText || 'Frequently Asked Questions' ),
 
@@ -396,7 +396,7 @@
 							el( Spinner ), el( 'span', null, 'Generating FAQ from DataForSEO + OpenAI...' )
 						)
 						: faq.length > 0
-							? el( 'div', { className: 'rr-faq-list' },
+							? el( 'div', { className: 'rnrd-faq-list' },
 								faq.map( function ( item, i ) {
 									var itemStyle = Object.assign( {}, dividerStyle, {
 										cursor: 'grab',
@@ -405,7 +405,7 @@
 										transition: 'opacity 0.15s',
 									} );
 									return el( 'div', {
-										className: 'rr-faq-item',
+										className: 'rnrd-faq-item',
 										key: i,
 										style: itemStyle,
 										draggable: true,
@@ -430,11 +430,11 @@
 											el( 'span', { style: { color: '#999', fontSize: '12px', cursor: 'grab', userSelect: 'none', lineHeight: '1.6' } }, '\u2261' ),
 											el( 'div', { style: { flex: 1 } },
 												el( 'h4', {
-													className: 'rr-faq-question',
+													className: 'rnrd-faq-question',
 													style: questionStyle,
 												}, item.question ),
 												el( 'p', {
-													className: 'rr-faq-answer',
+													className: 'rnrd-faq-answer',
 													style: answerStyle,
 												}, item.answer )
 											)
@@ -442,7 +442,7 @@
 									);
 								} ),
 								attrs.showReviewed && generated && el( 'p', {
-									className: 'rr-faq-reviewed',
+									className: 'rnrd-faq-reviewed',
 								}, 'Last reviewed: ' + generated )
 							)
 							: el( 'p', { style: { opacity: 0.5, fontStyle: 'italic', margin: 0, padding: '12px 0' } },

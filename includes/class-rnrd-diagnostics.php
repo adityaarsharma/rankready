@@ -145,6 +145,8 @@ class RNRD_Diagnostics {
 
 		// Group 2 — WordPress runtime
 		$checks[] = self::probe_rewrite_rules();
+		$checks[] = self::probe_webserver();      // rc.16 — Apache / Nginx / LiteSpeed / IIS / Caddy
+		$checks[] = self::probe_rest_reachable(); // rc.16 — verifies /wp-json/ routes
 		$checks[] = self::probe_wp_cron();
 		$checks[] = self::probe_db_tables();
 		$checks[] = self::probe_abilities_api();
@@ -598,6 +600,124 @@ class RNRD_Diagnostics {
 		return self::result( 'rewrite_rules', 'Rewrite rules flushed', 'pass',
 			sprintf( '%d rewrite rules registered.', is_array( $rules ) ? count( $rules ) : 0 ),
 			null
+		);
+	}
+
+	/**
+	 * Detect webserver family + return the snippet most likely to help if
+	 * rewrites are misconfigured. Works on Apache, LiteSpeed (LSWS),
+	 * OpenLiteSpeed, Nginx, IIS, Caddy, and Cloudflare.
+	 *
+	 * @since 1.2.0-rc.16
+	 */
+	private static function probe_webserver(): array {
+		$sw = isset( $_SERVER['SERVER_SOFTWARE'] )
+			? strtolower( sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) )
+			: '';
+
+		$family   = 'unknown';
+		$friendly = 'Unknown';
+
+		if ( false !== strpos( $sw, 'litespeed' ) || false !== strpos( $sw, 'openlitespeed' ) ) {
+			$family   = 'litespeed';
+			$friendly = 'LiteSpeed Web Server';
+		} elseif ( false !== strpos( $sw, 'nginx' ) ) {
+			$family   = 'nginx';
+			$friendly = 'Nginx';
+		} elseif ( false !== strpos( $sw, 'apache' ) ) {
+			$family   = 'apache';
+			$friendly = 'Apache';
+		} elseif ( false !== strpos( $sw, 'iis' ) || false !== strpos( $sw, 'microsoft' ) ) {
+			$family   = 'iis';
+			$friendly = 'Microsoft IIS';
+		} elseif ( false !== strpos( $sw, 'caddy' ) ) {
+			$family   = 'caddy';
+			$friendly = 'Caddy';
+		} elseif ( false !== strpos( $sw, 'cloudflare' ) ) {
+			$family   = 'cloudflare';
+			$friendly = 'Cloudflare proxy';
+		}
+
+		// Per-family hint about how routing is configured. Diagnostics doesn't
+		// require any specific webserver — WordPress core handles the routing,
+		// and RankReady reaches the REST API via rest_url() which produces the
+		// correct URL format regardless of permalink structure.
+		$hints = array(
+			'apache'     => 'Apache uses .htaccess rules (mod_rewrite). RankReady ships an Apache snippet via the "Server bypass snippet" section below.',
+			'litespeed'  => 'LiteSpeed reads .htaccess (Apache-compatible) PLUS its own LSCACHE module. RankReady ships X-LiteSpeed-* response headers + .htaccess bypass rules to handle both.',
+			'nginx'      => 'Nginx requires server-block configuration (no .htaccess support). RankReady ships an Nginx snippet via the "Server bypass snippet" section below. The standard WP server block "try_files $uri $uri/ /index.php?$args;" rule is required for REST routes.',
+			'iis'        => 'IIS uses web.config. WordPress generates the rewrite rules automatically when Permalinks are saved. REST API works via the same routing.',
+			'caddy'      => 'Caddy handles WordPress via "try_files" directive in the Caddyfile. REST routes work automatically.',
+			'cloudflare' => 'Cloudflare is a proxy in front of your origin server. The origin\'s webserver still handles routing — check the origin separately. Cloudflare APO + Cache rules respect RankReady\'s CDN-Cache-Control + cf-edge-cache headers.',
+			'unknown'    => 'Could not detect server family from SERVER_SOFTWARE. RankReady works on any webserver that routes /wp-json/ to WordPress.',
+		);
+
+		return self::result(
+			'webserver',
+			'Webserver detected',
+			'info',
+			$friendly . ' — ' . $hints[ $family ],
+			null,
+			array(
+				'family'          => $family,
+				'server_software' => isset( $_SERVER['SERVER_SOFTWARE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) : '',
+				'recommended_snippet' => 'nginx' === $family ? 'nginx' : 'apache',
+			)
+		);
+	}
+
+	/**
+	 * Loopback test — fetch the plugin's own REST root via wp_remote_get to
+	 * confirm /wp-json/ is reachable from PHP. Catches misconfigured Nginx
+	 * (missing try_files), missing .htaccess on Apache, and proxy issues.
+	 *
+	 * @since 1.2.0-rc.16
+	 */
+	private static function probe_rest_reachable(): array {
+		$url = rest_url( 'rankready/v1' );
+
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout'   => 8,
+				'sslverify' => false, // staging sites often have self-signed certs
+				'headers'   => array( 'X-WP-Nonce' => wp_create_nonce( 'wp_rest' ) ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return self::result(
+				'rest_reachable',
+				'REST API reachable (loopback)',
+				'fail',
+				'wp_remote_get to ' . $url . ' failed: ' . $response->get_error_message(),
+				'Check firewall / DNS — your site cannot reach its own REST API. Loopback test failed.',
+				array( 'url' => $url )
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( $code >= 200 && $code < 400 ) {
+			return self::result(
+				'rest_reachable',
+				'REST API reachable (loopback)',
+				'pass',
+				sprintf( 'HTTP %d from %s', $code, $url ),
+				null,
+				array( 'url' => $url, 'code' => $code )
+			);
+		}
+
+		// 404 commonly = empty .htaccess on Apache OR Nginx missing try_files
+		$fix = 'Visit Settings → Permalinks → Save (rewrites .htaccess on Apache/LiteSpeed). On Nginx, add the "Server bypass snippet → Nginx" block from below to your server config.';
+		return self::result(
+			'rest_reachable',
+			'REST API reachable (loopback)',
+			'fail',
+			sprintf( 'HTTP %d from %s — REST API is not routing. Diagnostics + bulk operations + freshness scan will fail until this resolves.', $code, $url ),
+			$fix,
+			array( 'url' => $url, 'code' => $code )
 		);
 	}
 

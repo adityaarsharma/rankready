@@ -4783,6 +4783,29 @@ class RNRD_Admin {
 				</table>
 			</div>
 
+			<!-- Server bypass snippets — Apache / Nginx / LiteSpeed -->
+			<details style="margin-top:14px;padding:10px 12px;background:#f6f7f7;border:1px solid #c3c4c7;border-radius:4px;">
+				<summary style="cursor:pointer;font-weight:600;font-size:13px;color:#1d2327;">
+					<?php esc_html_e( 'Server bypass snippet — Apache / LiteSpeed / Nginx', 'rankready-ai-llm-seo' ); ?>
+				</summary>
+				<p style="margin:10px 0 8px;font-size:12px;color:#646970;line-height:1.55;">
+					<?php esc_html_e( 'Paste the snippet that matches your webserver into the right config file. Most users do not need this — only required when the diagnostic above reports a routing failure or when a cache layer keeps serving stale /llms.txt content.', 'rankready-ai-llm-seo' ); ?>
+				</p>
+				<?php $apache_snip = class_exists( 'RNRD_Cache' ) ? RNRD_Cache::apache_htaccess_snippet() : ''; ?>
+				<?php $nginx_snip  = class_exists( 'RNRD_Cache' ) ? RNRD_Cache::nginx_snippet() : ''; ?>
+				<p style="margin:8px 0 4px;font-size:12px;font-weight:600;color:#1d2327;">
+					<?php esc_html_e( 'Apache / LiteSpeed (.htaccess)', 'rankready-ai-llm-seo' ); ?>
+				</p>
+				<textarea readonly style="width:100%;height:140px;font-family:Menlo,Consolas,monospace;font-size:11px;background:#fff;border:1px solid #c3c4c7;border-radius:3px;padding:8px;"><?php echo esc_textarea( $apache_snip ); ?></textarea>
+				<p style="margin:14px 0 4px;font-size:12px;font-weight:600;color:#1d2327;">
+					<?php esc_html_e( 'Nginx (server block)', 'rankready-ai-llm-seo' ); ?>
+				</p>
+				<textarea readonly style="width:100%;height:160px;font-family:Menlo,Consolas,monospace;font-size:11px;background:#fff;border:1px solid #c3c4c7;border-radius:3px;padding:8px;"><?php echo esc_textarea( $nginx_snip ); ?></textarea>
+				<p style="margin:10px 0 0;font-size:12px;color:#646970;line-height:1.55;">
+					<?php esc_html_e( 'IIS, Caddy, and Cloudflare-proxied origins: WordPress core handles routing automatically once permalinks are saved. Visit Settings → Permalinks → Save to regenerate the rewrite rules.', 'rankready-ai-llm-seo' ); ?>
+				</p>
+			</details>
+
 			<!-- Copy support report -->
 			<div id="rnrd-diag-copy-row" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid #e5e5e5;">
 				<p style="margin:0 0 6px;font-size:13px;color:#1d2327;">

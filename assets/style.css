@@ -1,0 +1,452 @@
+/**
+ * RankReady — Frontend styles.
+ * CSS custom properties used for block-level style overrides.
+ */
+
+/* ── Summary Wrapper ───────────────────────────────────────────────────────── */
+
+.rnrd-summary {
+	border-left: 3px solid currentColor;
+	padding: 1em 1.25em;
+	margin: 1.5em 0;
+	box-sizing: border-box;
+}
+
+/* ── Label ─────────────────────────────────────────────────────────────────── */
+
+.rnrd-label {
+	margin-top: 0;
+	margin-bottom: 0.5em;
+}
+
+/* ── Bullet list ───────────────────────────────────────────────────────────── */
+
+.rnrd-bullets {
+	margin: 0;
+	padding-left: 1.4em;
+	list-style-type: disc;
+}
+
+.rnrd-bullet {
+	margin-bottom: 0.45em;
+	line-height: 1.65;
+}
+
+.rnrd-bullet:last-child {
+	margin-bottom: 0;
+}
+
+/* Marker color via CSS custom property (set by block inline styles) */
+.rnrd-bullet::marker {
+	color: var(--rnrd-marker-color, currentColor);
+}
+
+/* ── Legacy plain-text fallback ────────────────────────────────────────────── */
+
+.rnrd-text {
+	margin: 0;
+	line-height: 1.7;
+}
+
+/* ── Editor dashed outline ─────────────────────────────────────────────────── */
+
+.rnrd-editor-preview {
+	outline: 1px dashed rgba(0, 115, 170, 0.35);
+	outline-offset: 2px;
+}
+
+/* ── Elementor container reset ─────────────────────────────────────────────── */
+
+.elementor-widget-container .rnrd-summary {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+/* ── FAQ Wrapper ──────────────────────────────────────────────────────── */
+
+.rnrd-faq-wrapper {
+	margin: 2em 0;
+	box-sizing: border-box;
+}
+
+.rnrd-faq-title {
+	margin-top: 0;
+	margin-bottom: 1.25em;
+}
+
+/* ── FAQ Item ─────────────────────────────────────────────────────────── */
+
+.rnrd-faq-item {
+	padding: 0;
+	margin-bottom: 1.25em;
+}
+
+.rnrd-faq-item:last-child {
+	margin-bottom: 0;
+}
+
+.rnrd-faq-question {
+	font-weight: 600;
+	margin: 0 0 0.35em;
+	line-height: 1.45;
+}
+
+.rnrd-faq-answer {
+	margin: 0;
+	line-height: 1.7;
+	color: inherit;
+	opacity: 0.85;
+}
+
+.rnrd-faq-answer a {
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+/* ── Reviewed Date ────────────────────────────────────────────────────── */
+
+.rnrd-faq-reviewed {
+	margin-top: 1em;
+	font-size: 0.85em;
+	color: #6b7280;
+	font-style: italic;
+}
+
+/* ── Elementor container reset ────────────────────────────────────────── */
+
+.elementor-widget-container .rnrd-faq-wrapper {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+/* ── Author Box ──────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.rnrd-author-box {
+	box-sizing: border-box;
+	margin: 2em 0;
+	background: var(--rnrd-ab-bg, transparent);
+	border: var(--rnrd-ab-border-width, 0) solid var(--rnrd-ab-border, transparent);
+	border-radius: var(--rnrd-ab-radius, 0);
+	padding: var(--rnrd-ab-padding, 0);
+}
+
+.rnrd-author-box * {
+	box-sizing: border-box;
+}
+
+.rnrd-ab-heading {
+	margin: 0 0 1em;
+	color: var(--rnrd-ab-heading-color, inherit);
+	font-size: var(--rnrd-ab-heading-size, inherit);
+	font-family: var(--rnrd-ab-heading-ff, inherit);
+	font-weight: var(--rnrd-ab-heading-fw, inherit);
+}
+
+.rnrd-ab-inner {
+	display: flex;
+	gap: 20px;
+	align-items: flex-start;
+}
+
+.rnrd-ab-headshot img {
+	display: block;
+	width: var(--rnrd-ab-img-size, 96px);
+	height: var(--rnrd-ab-img-size, 96px);
+	object-fit: cover;
+	border-radius: var(--rnrd-ab-img-radius, 50%);
+	flex-shrink: 0;
+}
+
+.rnrd-ab-body {
+	flex: 1;
+	min-width: 0;
+}
+
+.rnrd-ab-name-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 0 0 4px;
+}
+
+.rnrd-ab-name {
+	text-decoration: none;
+	color: var(--rnrd-ab-name-color, inherit);
+	font-size: var(--rnrd-ab-name-size, 1.15em);
+	font-family: var(--rnrd-ab-name-ff, inherit);
+	font-weight: var(--rnrd-ab-name-fw, 600);
+	line-height: 1.3;
+}
+
+.rnrd-ab-name:hover {
+	text-decoration: underline;
+}
+
+.rnrd-ab-suffix {
+	opacity: 0.7;
+	font-weight: 400;
+}
+
+.rnrd-ab-meta {
+	margin: 2px 0 6px;
+	font-size: var(--rnrd-ab-meta-size, 0.92em);
+	color: var(--rnrd-ab-meta-color, currentColor);
+	font-family: var(--rnrd-ab-meta-ff, inherit);
+	opacity: 0.82;
+	line-height: 1.5;
+}
+
+.rnrd-ab-meta a {
+	color: inherit;
+	text-decoration: none;
+	border-bottom: 1px dotted currentColor;
+}
+
+.rnrd-ab-sep {
+	opacity: 0.5;
+	padding: 0 4px;
+}
+
+.rnrd-ab-bio {
+	margin: 8px 0 10px;
+	font-size: var(--rnrd-ab-bio-size, 0.96em);
+	color: var(--rnrd-ab-bio-color, inherit);
+	font-family: var(--rnrd-ab-bio-ff, inherit);
+	line-height: var(--rnrd-ab-bio-lh, 1.6);
+}
+
+.rnrd-ab-expertise {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 10px 0;
+}
+
+.rnrd-ab-topic {
+	display: inline-block;
+	font-size: 0.78em;
+	padding: 3px 10px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.06);
+	color: inherit;
+	line-height: 1.5;
+}
+
+.rnrd-ab-credentials {
+	margin: 10px 0;
+	font-size: 0.88em;
+	line-height: 1.7;
+	opacity: 0.85;
+}
+
+.rnrd-ab-cred-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.rnrd-ab-cred-icon {
+	flex-shrink: 0;
+	opacity: 0.7;
+}
+
+.rnrd-ab-socials {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 12px 0 0;
+}
+
+.rnrd-ab-social {
+	display: inline-block;
+	padding: 4px 10px;
+	font-size: var(--rnrd-ab-social-size, 0.78em);
+	text-decoration: none;
+	color: var(--rnrd-ab-social-color, inherit);
+	border: 1px solid currentColor;
+	border-radius: 4px;
+	line-height: 1.5;
+	opacity: 0.85;
+	transition: opacity 0.15s;
+}
+
+.rnrd-ab-social:hover {
+	opacity: 1;
+	text-decoration: none;
+}
+
+.rnrd-ab-reviewed {
+	margin-top: 10px;
+	font-size: 0.82em;
+	opacity: 0.75;
+	line-height: 1.5;
+}
+
+.rnrd-ab-reviewed a {
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.rnrd-ab-policy {
+	margin-top: 12px;
+	padding-top: 10px;
+	border-top: 1px solid rgba(0, 0, 0, 0.08);
+	font-size: 0.8em;
+	opacity: 0.7;
+}
+
+.rnrd-ab-policy a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.rnrd-ab-policy a:hover {
+	text-decoration: underline;
+}
+
+/* ── Card layout (default) ──────────────────────────────────── */
+
+.rnrd-ab-card {
+	background: var(--rnrd-ab-bg, #f8f9fa);
+	border-radius: var(--rnrd-ab-radius, 10px);
+	padding: var(--rnrd-ab-padding, 24px);
+	border: 1px solid var(--rnrd-ab-border, rgba(0, 0, 0, 0.08));
+}
+
+/* ── Compact layout ─────────────────────────────────────────── */
+
+.rnrd-ab-compact {
+	padding: var(--rnrd-ab-padding, 12px);
+}
+
+.rnrd-ab-compact .rnrd-ab-inner {
+	gap: 14px;
+}
+
+.rnrd-ab-compact .rnrd-ab-headshot img {
+	width: var(--rnrd-ab-img-size, 64px);
+	height: var(--rnrd-ab-img-size, 64px);
+}
+
+.rnrd-ab-compact .rnrd-ab-heading {
+	font-size: 1em;
+	margin-bottom: 8px;
+}
+
+.rnrd-ab-compact .rnrd-ab-bio {
+	font-size: 0.88em;
+}
+
+/* ── Inline byline layout (Healthline-style) ───────────────── */
+
+.rnrd-ab-inline {
+	margin: 0.75em 0 1.5em;
+	padding: 0;
+	background: transparent;
+	border: none;
+}
+
+.rnrd-ab-inline .rnrd-ab-inner {
+	gap: 12px;
+	align-items: center;
+}
+
+.rnrd-ab-inline .rnrd-ab-headshot img {
+	width: var(--rnrd-ab-img-size, 40px);
+	height: var(--rnrd-ab-img-size, 40px);
+}
+
+.rnrd-ab-inline .rnrd-ab-body {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.rnrd-ab-inline .rnrd-ab-name {
+	font-size: 0.95em;
+	font-weight: 600;
+}
+
+.rnrd-ab-inline .rnrd-ab-meta {
+	font-size: 0.8em;
+}
+
+.rnrd-ab-inline .rnrd-ab-bio,
+.rnrd-ab-inline .rnrd-ab-expertise,
+.rnrd-ab-inline .rnrd-ab-credentials,
+.rnrd-ab-inline .rnrd-ab-socials,
+.rnrd-ab-inline .rnrd-ab-policy {
+	display: none;
+}
+
+/* ── Editor placeholder notice ─────────────────────────────── */
+
+.rnrd-ab-editor {
+	outline: 1px dashed rgba(0, 115, 170, 0.35);
+	outline-offset: 4px;
+}
+
+.rnrd-ab-placeholder {
+	padding: 24px;
+	background: #f6f7f7;
+	border: 1px dashed #ccc;
+	color: #555;
+	font-style: italic;
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+	.rnrd-ab-card .rnrd-ab-inner {
+		flex-direction: column;
+		gap: 14px;
+	}
+	.rnrd-ab-card .rnrd-ab-headshot img {
+		width: 72px;
+		height: 72px;
+	}
+}
+
+/* ── Elementor container reset ────────────────────────────────── */
+
+.elementor-widget-container .rnrd-author-box {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   v1.2.0-rc.6 — IA finalization
+   - .rnrd-subsection-title: H3 divider used inside merged cards
+     (AI Summary, FAQ Generator, Author Box, Provider Configuration).
+   - .rnrd-provider-card-inner: renamed from .rnrd-provider-card after the
+     4 provider cards merged into one outer .rnrd-card.
+   - .rnrd-scorecard: Dashboard "Agentic Ready Scorecard" container.
+   ───────────────────────────────────────────────────────────────────── */
+
+.rnrd-card .rnrd-subsection-title {
+	margin: 22px 0 10px;
+	padding: 6px 0 4px;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--rnrd-color-ink, #1d2327);
+	border-bottom: 1px solid var(--rnrd-color-border, #e5e5e7);
+	letter-spacing: 0.01em;
+}
+
+.rnrd-card > .rnrd-subsection-title:first-of-type {
+	margin-top: 8px;
+}
+
+.rnrd-provider-card-inner {
+	padding-top: 6px;
+}
+
+.rnrd-scorecard .rnrd-scorecard-group ul li:hover {
+	background: var(--rnrd-color-surface-2, #f6f7f7);
+	border-radius: 4px;
+}

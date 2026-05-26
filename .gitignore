@@ -1,0 +1,21 @@
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.log
+.phpunit.result.cache
+
+# Build artefacts
+*.zip
+node_modules/
+
+# Internal docs — local-only, never push to GitHub
+CLAUDE.md
+CHANGELOG.md
+AI-Standards-Whitepaper.md
+ORBIT-PRE-RELEASE.md
+SCREENSHOTS.md
+
+# Build / dev env
+.wp-env.json
+.wp-org-prefix

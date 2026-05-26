@@ -1,0 +1,32 @@
+# Files/directories excluded from the release zip.
+# Used by `wp dist-archive` and any zip build script.
+
+.git
+.github
+.gitignore
+.gitattributes
+.distignore
+.DS_Store
+*.map
+
+# Internal docs — never ship these
+CLAUDE.md
+ORBIT-PRE-RELEASE.md
+AI-Standards-Whitepaper.md
+README.md
+CHANGELOG.md
+
+# Dev tooling
+node_modules
+vendor
+composer.json
+composer.lock
+package.json
+package-lock.json
+phpcs.xml
+phpunit.xml
+.phpcs.xml
+
+# Test artefacts
+tests
+reports

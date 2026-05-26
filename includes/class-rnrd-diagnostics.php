@@ -1,0 +1,1827 @@
+<?php
+/**
+ * RankReady — Live Diagnostics
+ *
+ * Replaces the legacy "Health Check" with **real probes** that actually
+ * fetch each endpoint and validate the response. Every failure ships with
+ * a specific conflict diagnosis + one-line fix.
+ *
+ * Probe categories
+ * ────────────────
+ *   1. Endpoint reachability (llms.txt, llms-full.txt, robots.txt, mcp.json, .md routes)
+ *   2. Environment conflict detection (page-cache plugin, page builder, SEO plugin)
+ *   3. WordPress runtime (rewrite rules flushed, cron, DB tables, abilities API)
+ *   4. LLM provider reachability (opt-in — costs an API call)
+ *   5. Site configuration (Brand Identity filled, PHP / WP versions)
+ *
+ * Output shape per probe:
+ *   [
+ *     'id'     => string,          // stable identifier ('llms_txt')
+ *     'label'  => string,          // human label ('/llms.txt loads')
+ *     'status' => 'pass'|'warn'|'fail'|'info',
+ *     'detail' => string,          // what we observed
+ *     'fix'    => string|null,     // one-line action to take
+ *     'meta'   => array|null,      // optional extras (url, http_code, body_len, etc.)
+ *   ]
+ *
+ * Designed for: live page-load diagnostics + 1-click copy-to-clipboard
+ * support report.
+ *
+ * @package RankReady
+ * @since   1.2.0-rc.5
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+class RNRD_Diagnostics {
+
+	/**
+	 * REST namespace.
+	 */
+	const NS = 'rankready/v1';
+
+	/**
+	 * Default HTTP timeout per probe (seconds).
+	 */
+	const TIMEOUT = 8;
+
+	/**
+	 * Provider endpoints for reachability tests. Each value is a low-cost
+	 * GET that just verifies the key — no completion is generated.
+	 */
+	const PROVIDER_PROBES = array(
+		'openai'    => array(
+			'url'    => 'https://api.openai.com/v1/models',
+			'header' => 'Authorization: Bearer %s',
+			'option' => 'rnrd_openai_api_key',
+		),
+		'anthropic' => array(
+			'url'    => 'https://api.anthropic.com/v1/models',
+			'header' => 'x-api-key: %s',
+			'option' => 'rnrd_anthropic_api_key',
+		),
+		'gemini'    => array(
+			'url'    => 'https://generativelanguage.googleapis.com/v1beta/models?key=%s',
+			'header' => '',
+			'option' => 'rnrd_gemini_api_key',
+		),
+		'deepseek'  => array(
+			'url'    => 'https://api.deepseek.com/v1/models',
+			'header' => 'Authorization: Bearer %s',
+			'option' => 'rnrd_deepseek_api_key',
+		),
+	);
+
+	/**
+	 * Bootstrap REST endpoints.
+	 */
+	public static function init(): void {
+		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );
+	}
+
+	public static function register_routes(): void {
+		register_rest_route( self::NS, '/diagnostics', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( self::class, 'rest_run' ),
+			'permission_callback' => array( self::class, 'permission_check' ),
+			'args'                => array(
+				'include_api' => array(
+					'type'        => 'boolean',
+					'default'     => false,
+					'description' => 'Include LLM provider reachability tests (costs 1 API call per provider).',
+				),
+			),
+		) );
+
+		register_rest_route( self::NS, '/diagnostics/report', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( self::class, 'rest_report' ),
+			'permission_callback' => array( self::class, 'permission_check' ),
+			'args'                => array(
+				'include_api' => array( 'type' => 'boolean', 'default' => false ),
+			),
+		) );
+	}
+
+	public static function permission_check(): bool {
+		return current_user_can( 'manage_options' );
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// REST handlers
+	// ─────────────────────────────────────────────────────────────────────────
+
+	public static function rest_run( WP_REST_Request $request ) {
+		$include_api = (bool) $request->get_param( 'include_api' );
+		return rest_ensure_response( self::run( $include_api ) );
+	}
+
+	public static function rest_report( WP_REST_Request $request ) {
+		$include_api = (bool) $request->get_param( 'include_api' );
+		$result      = self::run( $include_api );
+
+		$report = self::format_plaintext_report( $result );
+
+		return rest_ensure_response( array(
+			'report' => $report,
+			'length' => strlen( $report ),
+		) );
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// Main orchestrator
+	// ─────────────────────────────────────────────────────────────────────────
+
+	public static function run( bool $include_api = false ): array {
+		$checks = array();
+
+		// Group 1 — Endpoint reachability
+		$checks[] = self::probe_llms_txt();
+		$checks[] = self::probe_llms_full_txt();
+		$checks[] = self::probe_homepage_md();
+		$checks[] = self::probe_post_md();
+		$checks[] = self::probe_robots_txt();
+		$checks[] = self::probe_mcp_manifest();
+
+		// Group 2 — WordPress runtime
+		$checks[] = self::probe_rewrite_rules();
+		$checks[] = self::probe_webserver();      // rc.16 — Apache / Nginx / LiteSpeed / IIS / Caddy
+		$checks[] = self::probe_rest_reachable(); // rc.16 — verifies /wp-json/ routes
+		$checks[] = self::probe_wp_cron();
+		$checks[] = self::probe_db_tables();
+		$checks[] = self::probe_abilities_api();
+
+		// Group 3 — Environment conflict detection
+		$checks[] = self::probe_cache_plugin();
+		$checks[] = self::probe_page_builder();
+		$checks[] = self::probe_seo_plugin();
+		$checks[] = self::probe_cache_constants();
+		$checks[] = self::probe_edge_cache_hit();           // FREE-99 — external HIT detection
+		$checks[] = self::probe_template_redirect_race();   // FREE-99 — Bricks/Oxygen priority race
+
+		// Group 4 — Site configuration
+		$checks[] = self::probe_brand_identity();
+		$checks[] = self::probe_php_version();
+		$checks[] = self::probe_wp_version();
+
+		// Group 5 — LLM provider reachability (opt-in, costs API calls)
+		if ( $include_api ) {
+			$checks[] = self::probe_provider( 'openai' );
+			$checks[] = self::probe_provider( 'anthropic' );
+			$checks[] = self::probe_provider( 'gemini' );
+			$checks[] = self::probe_provider( 'deepseek' );
+			$checks[] = self::probe_dataforseo();
+		} else {
+			$checks[] = self::placeholder_provider();
+		}
+
+		// Roll up totals
+		$totals = array( 'pass' => 0, 'warn' => 0, 'fail' => 0, 'info' => 0 );
+		foreach ( $checks as $c ) {
+			if ( isset( $totals[ $c['status'] ] ) ) {
+				$totals[ $c['status'] ]++;
+			}
+		}
+
+		return array(
+			'checks'       => $checks,
+			'totals'       => $totals,
+			'environment'  => self::get_environment(),
+			'generated_at' => current_time( 'mysql', true ),
+			'version'      => defined( 'RNRD_VERSION' ) ? RNRD_VERSION : 'unknown',
+			'site_url'     => home_url(),
+			'include_api'  => $include_api,
+		);
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// Endpoint probes — actually fetch each URL
+	// ═════════════════════════════════════════════════════════════════════════
+
+	private static function probe_llms_txt(): array {
+		if ( 'on' !== get_option( 'rnrd_llms_enable', 'off' ) ) {
+			return self::result( 'llms_txt', '/llms.txt loads', 'info',
+				'Toggle is OFF in AI Crawlers → LLMs.txt.',
+				'Enable LLMs.txt to expose your site index to AI engines.'
+			);
+		}
+
+		$url      = home_url( '/llms.txt' );
+		$response = self::fetch( $url );
+
+		if ( is_wp_error( $response ) ) {
+			return self::loopback_aware_result( 'llms_txt', '/llms.txt loads', $response, $url,
+				'Server can\'t reach itself via loopback. Check firewall / hosts file.'
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$body = (string) wp_remote_retrieve_body( $response );
+
+		if ( 404 === $code ) {
+			return self::result( 'llms_txt', '/llms.txt loads', 'fail',
+				'HTTP 404 — endpoint not registered with WordPress.',
+				'Visit Settings → Permalinks → Save (no changes). This re-flushes rewrite rules.',
+				array( 'url' => $url, 'http_code' => 404 )
+			);
+		}
+
+		if ( 200 !== $code ) {
+			return self::result( 'llms_txt', '/llms.txt loads', 'fail',
+				"HTTP $code returned.",
+				'Check wp-content/debug.log for fatal errors during the request.',
+				array( 'url' => $url, 'http_code' => $code )
+			);
+		}
+
+		// Detect HTML interception
+		if ( preg_match( '#<(html|body|head|!doctype)#i', substr( $body, 0, 500 ) ) ) {
+			$builder = self::detect_active_page_builder();
+			$cause   = $builder
+				? "Page builder ($builder) is intercepting the request despite our priority 1 hook."
+				: 'A theme template or plugin is intercepting the request.';
+
+			return self::result( 'llms_txt', '/llms.txt loads', 'fail',
+				'HTTP 200 but body is HTML, not plaintext.',
+				$cause . ' Disable theme/builder temporarily to identify the conflict.',
+				array( 'url' => $url, 'http_code' => 200, 'body_preview' => substr( $body, 0, 100 ) )
+			);
+		}
+
+		if ( strlen( $body ) < 50 ) {
+			return self::result( 'llms_txt', '/llms.txt loads', 'warn',
+				'HTTP 200 but body is near-empty (' . strlen( $body ) . ' bytes).',
+				'Fill Brand Identity in E-E-A-T tab — Site name + Summary populate llms.txt.',
+				array( 'url' => $url, 'body_len' => strlen( $body ) )
+			);
+		}
+
+		if ( false === strpos( substr( $body, 0, 200 ), '# ' ) ) {
+			return self::result( 'llms_txt', '/llms.txt loads', 'warn',
+				'HTTP 200 but missing H1 marker (# ). Format may be corrupted.',
+				'Toggle AI Crawlers → LLMs.txt OFF then ON to regenerate.',
+				array( 'url' => $url )
+			);
+		}
+
+		return self::result( 'llms_txt', '/llms.txt loads', 'pass',
+			sprintf( 'HTTP 200, %s bytes, valid LLMs.txt format.', number_format( strlen( $body ) ) ),
+			null,
+			array( 'url' => $url, 'body_len' => strlen( $body ) )
+		);
+	}
+
+	private static function probe_llms_full_txt(): array {
+		if ( 'on' !== get_option( 'rnrd_llms_enable', 'off' ) ) {
+			return self::result( 'llms_full_txt', '/llms-full.txt loads', 'info',
+				'Requires LLMs.txt to be enabled (it\'s OFF).',
+				'Enable AI Crawlers → LLMs.txt first.'
+			);
+		}
+
+		$url      = home_url( '/llms-full.txt' );
+		$response = self::fetch( $url );
+
+		if ( is_wp_error( $response ) ) {
+			return self::loopback_aware_result( 'llms_full_txt', '/llms-full.txt loads', $response, $url,
+				'Server can\'t reach itself via loopback.'
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$body = (string) wp_remote_retrieve_body( $response );
+
+		if ( 200 !== $code ) {
+			return self::result( 'llms_full_txt', '/llms-full.txt loads', 'fail',
+				"HTTP $code.",
+				404 === $code
+					? 'Re-flush rewrite rules (Settings → Permalinks → Save).'
+					: 'Check error log for fatals.',
+				array( 'url' => $url, 'http_code' => $code )
+			);
+		}
+
+		if ( preg_match( '#<(html|body|head)#i', substr( $body, 0, 500 ) ) ) {
+			return self::result( 'llms_full_txt', '/llms-full.txt loads', 'fail',
+				'HTTP 200 but HTML returned (intercepted).',
+				'Page builder priority conflict. Disable theme to isolate.',
+				array( 'url' => $url )
+			);
+		}
+
+		if ( strlen( $body ) < 500 ) {
+			return self::result( 'llms_full_txt', '/llms-full.txt loads', 'warn',
+				'Body is short (' . strlen( $body ) . ' bytes) — likely no published posts yet.',
+				'Publish at least one post to populate llms-full.txt.',
+				array( 'url' => $url, 'body_len' => strlen( $body ) )
+			);
+		}
+
+		return self::result( 'llms_full_txt', '/llms-full.txt loads', 'pass',
+			sprintf( 'HTTP 200, %s bytes.', number_format( strlen( $body ) ) ),
+			null,
+			array( 'url' => $url, 'body_len' => strlen( $body ) )
+		);
+	}
+
+	private static function probe_homepage_md(): array {
+		if ( 'on' !== get_option( 'rnrd_md_enable', 'off' ) ) {
+			return self::result( 'homepage_md', 'Homepage .md route', 'info',
+				'Toggle is OFF in AI Crawlers → Markdown Endpoints.',
+				'Enable Markdown Endpoints to serve .md versions of pages.'
+			);
+		}
+
+		$url      = home_url( '/' );
+		$response = self::fetch( $url, array( 'Accept' => 'text/markdown' ) );
+
+		if ( is_wp_error( $response ) ) {
+			return self::loopback_aware_result( 'homepage_md', 'Homepage .md route', $response, $url,
+				'Loopback request blocked.',
+				array( 'Accept' => 'text/markdown' ),
+				function ( $body, $resp ) {
+					$ctype = strtolower( (string) wp_remote_retrieve_header( $resp, 'content-type' ) );
+					return strpos( $ctype, 'markdown' ) !== false || ! preg_match( '#<(html|body|head)#i', substr( $body, 0, 200 ) );
+				}
+			);
+		}
+
+		$code  = (int) wp_remote_retrieve_response_code( $response );
+		$ctype = (string) wp_remote_retrieve_header( $response, 'content-type' );
+		$body  = (string) wp_remote_retrieve_body( $response );
+
+		if ( 200 !== $code ) {
+			return self::result( 'homepage_md', 'Homepage .md route', 'fail',
+				"HTTP $code.",
+				'Check rewrite rules.',
+				array( 'url' => $url, 'http_code' => $code )
+			);
+		}
+
+		// Either Content-Type negotiation worked, or the page builder won
+		if ( false === stripos( $ctype, 'markdown' ) && preg_match( '#<(html|body|head)#i', substr( $body, 0, 200 ) ) ) {
+			$builder = self::detect_active_page_builder();
+			return self::result( 'homepage_md', 'Homepage .md route', 'fail',
+				sprintf( 'HTTP 200 but Content-Type is %s (HTML returned).', $ctype ?: 'unknown' ),
+				$builder
+					? "Page builder ($builder) is rendering before our Markdown handler. RankReady uses priority 1; check for mu-plugins overriding template_redirect."
+					: 'Theme template is winning. Add ?format=md to URL as a workaround.',
+				array( 'url' => $url, 'content_type' => $ctype )
+			);
+		}
+
+		return self::result( 'homepage_md', 'Homepage .md route', 'pass',
+			sprintf( 'HTTP 200, Content-Type: %s, %s bytes.', $ctype, number_format( strlen( $body ) ) ),
+			null,
+			array( 'url' => $url, 'content_type' => $ctype )
+		);
+	}
+
+	private static function probe_post_md(): array {
+		if ( 'on' !== get_option( 'rnrd_md_enable', 'off' ) ) {
+			return self::result( 'post_md', 'Post .md route', 'info',
+				'Markdown Endpoints disabled.',
+				'Enable AI Crawlers → Markdown Endpoints.'
+			);
+		}
+
+		$posts = get_posts( array(
+			'numberposts' => 1,
+			'post_status' => 'publish',
+			'post_type'   => 'post',
+			'fields'      => 'ids',
+		) );
+
+		if ( empty( $posts ) ) {
+			return self::result( 'post_md', 'Post .md route', 'info',
+				'No published posts to test.',
+				'Publish at least one post.'
+			);
+		}
+
+		$post_url = get_permalink( $posts[0] );
+		$response = self::fetch( $post_url, array( 'Accept' => 'text/markdown' ) );
+
+		if ( is_wp_error( $response ) ) {
+			return self::loopback_aware_result( 'post_md', 'Post .md route', $response, $post_url,
+				'Loopback request blocked.',
+				array( 'Accept' => 'text/markdown' ),
+				function ( $body, $resp ) {
+					$ctype = strtolower( (string) wp_remote_retrieve_header( $resp, 'content-type' ) );
+					return strpos( $ctype, 'markdown' ) !== false || ! preg_match( '#<(html|body|head)#i', substr( $body, 0, 200 ) );
+				}
+			);
+		}
+
+		$code  = (int) wp_remote_retrieve_response_code( $response );
+		$ctype = (string) wp_remote_retrieve_header( $response, 'content-type' );
+		$body  = (string) wp_remote_retrieve_body( $response );
+
+		if ( 200 !== $code ) {
+			return self::result( 'post_md', 'Post .md route', 'fail',
+				"HTTP $code for $post_url.",
+				'Check rewrite rules.',
+				array( 'url' => $post_url, 'http_code' => $code )
+			);
+		}
+
+		if ( false === stripos( $ctype, 'markdown' ) && preg_match( '#<(html|body|head)#i', substr( $body, 0, 200 ) ) ) {
+			return self::result( 'post_md', 'Post .md route', 'fail',
+				'HTML returned instead of Markdown.',
+				'Page builder intercepting. Check template_redirect priority conflicts.',
+				array( 'url' => $post_url, 'content_type' => $ctype )
+			);
+		}
+
+		return self::result( 'post_md', 'Post .md route', 'pass',
+			sprintf( 'HTTP 200, %s, %s bytes.', $ctype, number_format( strlen( $body ) ) ),
+			null,
+			array( 'url' => $post_url, 'content_type' => $ctype )
+		);
+	}
+
+	private static function probe_robots_txt(): array {
+		$url      = home_url( '/robots.txt' );
+		$response = self::fetch( $url );
+
+		if ( is_wp_error( $response ) ) {
+			$robots_enabled = (bool) get_option( 'rnrd_robots_enable', false );
+			return self::loopback_aware_result( 'robots_txt', '/robots.txt has RankReady block', $response, $url,
+				'Server can\'t reach itself.',
+				array(),
+				function ( $body ) use ( $robots_enabled ) {
+					// If toggle is OFF, just confirm we got *any* robots.txt back.
+					if ( ! $robots_enabled ) {
+						return strpos( $body, 'User-agent' ) !== false || strpos( $body, 'Sitemap' ) !== false;
+					}
+					// Toggle is ON — body must contain RankReady marker.
+					return strpos( $body, '# BEGIN RankReady' ) !== false;
+				}
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$body = (string) wp_remote_retrieve_body( $response );
+
+		if ( 200 !== $code ) {
+			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'fail',
+				"HTTP $code.",
+				'A physical robots.txt file may be blocking WordPress.',
+				array( 'url' => $url, 'http_code' => $code )
+			);
+		}
+
+		$robots_enabled = (bool) get_option( 'rnrd_robots_enable', false );
+
+		if ( ! $robots_enabled ) {
+			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'info',
+				'AI Crawler robots.txt toggle is OFF.',
+				'Enable AI Crawlers → LLM Crawler Access to inject the bot block.'
+			);
+		}
+
+		$has_marker  = false !== strpos( $body, '# BEGIN RankReady' );
+		$has_agent   = false !== strpos( $body, 'User-agent:' );
+
+		if ( ! $has_marker ) {
+			// rc.9 — Detect SEO plugins that intercept /robots.txt via
+			// custom rewrite (bypasses WP's robots_txt filter entirely).
+			$interceptor = '';
+			if ( class_exists( 'RNRD_Llms_Txt' ) && method_exists( 'RNRD_Llms_Txt', 'detect_robots_txt_interceptor' ) ) {
+				$interceptor = RNRD_Llms_Txt::detect_robots_txt_interceptor();
+			}
+			$has_physical = file_exists( ABSPATH . 'robots.txt' );
+
+			$detail = 'RankReady block missing from /robots.txt response.';
+			$fix    = 'Re-save AI Crawlers → LLM Crawler Access to trigger a physical robots.txt write.';
+
+			if ( $interceptor ) {
+				$detail = "RankReady block missing — {$interceptor} is intercepting /robots.txt via custom rewrite, so the robots_txt filter never fires.";
+				$fix    = $has_physical
+					? "Disable {$interceptor}'s robots.txt feature, OR delete the physical robots.txt at /robots.txt — RankReady's filter (priority PHP_INT_MAX) will then win."
+					: "Disable {$interceptor}'s robots.txt feature in its settings — RankReady will then take over via filter, OR re-save AI Crawlers → LLM Crawler Access to write a physical robots.txt that wins at the webserver level.";
+			} elseif ( $has_physical ) {
+				$detail = 'RankReady block missing from physical robots.txt at ' . ABSPATH . 'robots.txt.';
+				$fix    = 'Re-save AI Crawlers → LLM Crawler Access — sync_physical_robots_txt() will rewrite the file with the RankReady block appended.';
+			}
+
+			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'fail',
+				$detail, $fix,
+				array( 'url' => $url, 'interceptor' => $interceptor, 'has_physical' => $has_physical )
+			);
+		}
+
+		if ( ! $has_agent ) {
+			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'warn',
+				'RankReady block present but no User-agent directives.',
+				'Re-save AI Crawlers → LLM Crawler Access to regenerate.',
+				array( 'url' => $url )
+			);
+		}
+
+		return self::result( 'robots_txt', '/robots.txt has RankReady block', 'pass',
+			'RankReady block present with crawler directives.',
+			null,
+			array( 'url' => $url, 'body_len' => strlen( $body ) )
+		);
+	}
+
+	private static function probe_mcp_manifest(): array {
+		if ( 'on' !== get_option( 'rnrd_mcp_enable', 'off' ) ) {
+			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'info',
+				'WebMCP toggle is OFF.',
+				'Enable AI Crawlers → WebMCP Manifest to expose 16 abilities to Claude/Cursor/VS Code.'
+			);
+		}
+
+		$url      = home_url( '/.well-known/mcp.json' );
+		$response = self::fetch( $url );
+
+		if ( is_wp_error( $response ) ) {
+			return self::loopback_aware_result( 'mcp_manifest', '/.well-known/mcp.json loads', $response, $url,
+				'Loopback blocked.'
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$body = (string) wp_remote_retrieve_body( $response );
+
+		if ( 503 === $code ) {
+			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'warn',
+				'HTTP 503 (Service Unavailable) — MCP toggle is OFF at request time.',
+				'Confirm AI Crawlers → WebMCP toggle is actually saved as ON.',
+				array( 'url' => $url, 'http_code' => 503 )
+			);
+		}
+
+		if ( 200 !== $code ) {
+			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'fail',
+				"HTTP $code.",
+				'Re-flush rewrite rules.',
+				array( 'url' => $url, 'http_code' => $code )
+			);
+		}
+
+		$decoded = json_decode( $body, true );
+		if ( ! is_array( $decoded ) || empty( $decoded['name'] ) ) {
+			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'fail',
+				'HTTP 200 but JSON is invalid or missing "name" key.',
+				'Toggle WebMCP off/on to regenerate manifest.',
+				array( 'url' => $url )
+			);
+		}
+
+		$ability_count = isset( $decoded['abilities'] ) && is_array( $decoded['abilities'] )
+			? count( $decoded['abilities'] )
+			: 0;
+
+		return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'pass',
+			sprintf( 'HTTP 200, valid JSON, %d abilities exposed.', $ability_count ),
+			null,
+			array( 'url' => $url, 'abilities' => $ability_count )
+		);
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// WordPress runtime probes
+	// ═════════════════════════════════════════════════════════════════════════
+
+	private static function probe_rewrite_rules(): array {
+		$rules = get_option( 'rewrite_rules', array() );
+
+		if ( empty( $rules ) ) {
+			return self::result( 'rewrite_rules', 'Rewrite rules flushed', 'warn',
+				'WordPress rewrite_rules option is empty.',
+				'Visit Settings → Permalinks → Save Changes.'
+			);
+		}
+
+		$rules_string = is_array( $rules ) ? implode( "\n", array_keys( $rules ) ) : (string) $rules;
+		$has_llms     = false !== strpos( $rules_string, 'llms' );
+		$has_md       = false !== strpos( $rules_string, '\\.md' ) || false !== strpos( $rules_string, '.md' );
+
+		if ( ! $has_llms && 'on' === get_option( 'rnrd_llms_enable', 'off' ) ) {
+			return self::result( 'rewrite_rules', 'Rewrite rules flushed', 'fail',
+				'LLMs.txt enabled but rewrite rule missing.',
+				'Settings → Permalinks → Save (no changes) — re-flushes rules.'
+			);
+		}
+
+		return self::result( 'rewrite_rules', 'Rewrite rules flushed', 'pass',
+			sprintf( '%d rewrite rules registered.', is_array( $rules ) ? count( $rules ) : 0 ),
+			null
+		);
+	}
+
+	/**
+	 * Detect webserver family + return the snippet most likely to help if
+	 * rewrites are misconfigured. Works on Apache, LiteSpeed (LSWS),
+	 * OpenLiteSpeed, Nginx, IIS, Caddy, and Cloudflare.
+	 *
+	 * @since 1.2.0-rc.16
+	 */
+	private static function probe_webserver(): array {
+		$sw = isset( $_SERVER['SERVER_SOFTWARE'] )
+			? strtolower( sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) )
+			: '';
+
+		$family   = 'unknown';
+		$friendly = 'Unknown';
+
+		if ( false !== strpos( $sw, 'litespeed' ) || false !== strpos( $sw, 'openlitespeed' ) ) {
+			$family   = 'litespeed';
+			$friendly = 'LiteSpeed Web Server';
+		} elseif ( false !== strpos( $sw, 'nginx' ) ) {
+			$family   = 'nginx';
+			$friendly = 'Nginx';
+		} elseif ( false !== strpos( $sw, 'apache' ) ) {
+			$family   = 'apache';
+			$friendly = 'Apache';
+		} elseif ( false !== strpos( $sw, 'iis' ) || false !== strpos( $sw, 'microsoft' ) ) {
+			$family   = 'iis';
+			$friendly = 'Microsoft IIS';
+		} elseif ( false !== strpos( $sw, 'caddy' ) ) {
+			$family   = 'caddy';
+			$friendly = 'Caddy';
+		} elseif ( false !== strpos( $sw, 'cloudflare' ) ) {
+			$family   = 'cloudflare';
+			$friendly = 'Cloudflare proxy';
+		}
+
+		// Per-family hint about how routing is configured. Diagnostics doesn't
+		// require any specific webserver — WordPress core handles the routing,
+		// and RankReady reaches the REST API via rest_url() which produces the
+		// correct URL format regardless of permalink structure.
+		$hints = array(
+			'apache'     => 'Apache uses .htaccess rules (mod_rewrite). RankReady ships an Apache snippet via the "Server bypass snippet" section below.',
+			'litespeed'  => 'LiteSpeed reads .htaccess (Apache-compatible) PLUS its own LSCACHE module. RankReady ships X-LiteSpeed-* response headers + .htaccess bypass rules to handle both.',
+			'nginx'      => 'Nginx requires server-block configuration (no .htaccess support). RankReady ships an Nginx snippet via the "Server bypass snippet" section below. The standard WP server block "try_files $uri $uri/ /index.php?$args;" rule is required for REST routes.',
+			'iis'        => 'IIS uses web.config. WordPress generates the rewrite rules automatically when Permalinks are saved. REST API works via the same routing.',
+			'caddy'      => 'Caddy handles WordPress via "try_files" directive in the Caddyfile. REST routes work automatically.',
+			'cloudflare' => 'Cloudflare is a proxy in front of your origin server. The origin\'s webserver still handles routing — check the origin separately. Cloudflare APO + Cache rules respect RankReady\'s CDN-Cache-Control + cf-edge-cache headers.',
+			'unknown'    => 'Could not detect server family from SERVER_SOFTWARE. RankReady works on any webserver that routes /wp-json/ to WordPress.',
+		);
+
+		return self::result(
+			'webserver',
+			'Webserver detected',
+			'info',
+			$friendly . ' — ' . $hints[ $family ],
+			null,
+			array(
+				'family'          => $family,
+				'server_software' => isset( $_SERVER['SERVER_SOFTWARE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) : '',
+				'recommended_snippet' => 'nginx' === $family ? 'nginx' : 'apache',
+			)
+		);
+	}
+
+	/**
+	 * Loopback test — fetch the plugin's own REST root via wp_remote_get to
+	 * confirm /wp-json/ is reachable from PHP. Catches misconfigured Nginx
+	 * (missing try_files), missing .htaccess on Apache, and proxy issues.
+	 *
+	 * @since 1.2.0-rc.16
+	 */
+	private static function probe_rest_reachable(): array {
+		$url = rest_url( 'rankready/v1' );
+
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout'   => 8,
+				'sslverify' => false, // staging sites often have self-signed certs
+				'headers'   => array( 'X-WP-Nonce' => wp_create_nonce( 'wp_rest' ) ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return self::loopback_aware_result(
+				'rest_reachable',
+				'REST API reachable (loopback)',
+				$response,
+				$url,
+				'Check firewall / DNS — your site cannot reach its own REST API. Loopback test failed.'
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( $code >= 200 && $code < 400 ) {
+			return self::result(
+				'rest_reachable',
+				'REST API reachable (loopback)',
+				'pass',
+				sprintf( 'HTTP %d from %s', $code, $url ),
+				null,
+				array( 'url' => $url, 'code' => $code )
+			);
+		}
+
+		// 404 commonly = empty .htaccess on Apache OR Nginx missing try_files
+		$fix = 'Visit Settings → Permalinks → Save (rewrites .htaccess on Apache/LiteSpeed). On Nginx, add the "Server bypass snippet → Nginx" block from below to your server config.';
+		return self::result(
+			'rest_reachable',
+			'REST API reachable (loopback)',
+			'fail',
+			sprintf( 'HTTP %d from %s — REST API is not routing. Diagnostics + bulk operations + freshness scan will fail until this resolves.', $code, $url ),
+			$fix,
+			array( 'url' => $url, 'code' => $code )
+		);
+	}
+
+	private static function probe_wp_cron(): array {
+		if ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) {
+			return self::result( 'wp_cron', 'WP Cron available', 'warn',
+				'DISABLE_WP_CRON constant is true.',
+				'Set up real cron at server level (crontab -e: */15 * * * * wget -q -O - https://YOURSITE/wp-cron.php) or freshness scans won\'t run.'
+			);
+		}
+
+		$cron = _get_cron_array();
+		$count = is_array( $cron ) ? count( $cron ) : 0;
+
+		return self::result( 'wp_cron', 'WP Cron available', 'pass',
+			sprintf( '%d cron events scheduled.', $count ),
+			null
+		);
+	}
+
+	private static function probe_db_tables(): array {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'rnrd_crawler_log';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$exists = (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+
+		if ( ! $exists ) {
+			return self::result( 'db_tables', 'Crawler log DB table', 'fail',
+				"Table {$table} is missing.",
+				'Deactivate then reactivate RankReady — tables are created on activation.'
+			);
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$row_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+
+		return self::result( 'db_tables', 'Crawler log DB table', 'pass',
+			sprintf( 'Table exists, %s rows logged.', number_format( $row_count ) ),
+			null,
+			array( 'table' => $table, 'rows' => $row_count )
+		);
+	}
+
+	private static function probe_abilities_api(): array {
+		if ( function_exists( 'wp_register_ability' ) ) {
+			return self::result( 'abilities_api', 'WP Abilities API (6.9+)', 'pass',
+				'wp_register_ability() is available — MCP uses native registration.',
+				null
+			);
+		}
+
+		return self::result( 'abilities_api', 'WP Abilities API (6.9+)', 'info',
+			'WP Abilities API not loaded (requires WP 6.9+ or Abilities plugin).',
+			'Optional. RankReady ships its own MCP manifest as a fallback — no action needed.'
+		);
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// Environment conflict detection
+	// ═════════════════════════════════════════════════════════════════════════
+
+	private static function probe_cache_plugin(): array {
+		$detected = self::detect_active_cache_plugins();
+
+		if ( empty( $detected ) ) {
+			return self::result( 'cache_plugin', 'Page cache plugin', 'info',
+				'No known page-cache plugin detected.',
+				null
+			);
+		}
+
+		// RNRD_Cache::exclude_url_patterns() ships exclusions for these. Verify the filter ran.
+		$known_with_bypass = array(
+			'LiteSpeed Cache' => 'LITESPEED_VERSION',
+			'WP Rocket'       => 'WP_ROCKET_VERSION',
+			'W3 Total Cache'  => 'W3TC',
+			'WP Super Cache'  => 'WPSC_VERSION',
+			'Autoptimize'     => 'AUTOPTIMIZE_PLUGIN_DIR',
+			'WP Fastest Cache'=> 'WPFC_WP_PLUGIN_DIR',
+			'SG Optimizer'    => 'SiteGround_Optimizer\\VERSION',
+			'Hummingbird'     => 'WPHB_VERSION',
+		);
+
+		$reports = array();
+		foreach ( $detected as $name ) {
+			$reports[] = $name . ' — RankReady bypass rules applied';
+		}
+
+		return self::result( 'cache_plugin', 'Page cache plugin', 'pass',
+			implode( '; ', $reports ),
+			null,
+			array( 'detected' => $detected )
+		);
+	}
+
+	/**
+	 * FREE-99 — External edge-cache HIT probe.
+	 *
+	 * Fetches /llms.txt over HTTP and inspects response cache headers to detect
+	 * server-level caches (nginx FastCGI, Varnish, Cloudflare APO, LSWS) that
+	 * sit in front of PHP and cannot be detected from inside WordPress.
+	 *
+	 * If a HIT is reported, surfaces the .htaccess / nginx snippet as the fix.
+	 */
+	private static function probe_edge_cache_hit(): array {
+		if ( ! class_exists( 'RNRD_Cache' ) ) {
+			return self::result( 'edge_cache_hit', 'Edge cache HIT scan', 'info',
+				'RNRD_Cache unavailable; skipped.', null );
+		}
+		if ( 'on' !== get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
+			return self::result( 'edge_cache_hit', 'Edge cache HIT scan', 'info',
+				'/llms.txt is disabled; skipped.', null );
+		}
+
+		$probe = RNRD_Cache::probe_edge_cache_status( home_url( '/llms.txt' ) );
+
+		if ( 'error' === $probe['status'] ) {
+			return self::result( 'edge_cache_hit', 'Edge cache HIT scan', 'info',
+				'External probe could not run (' . $probe['detail'] . '). Common in Docker / local dev — not a real-site issue.',
+				null );
+		}
+
+		if ( 'hit' === $probe['status'] ) {
+			$layer = (string) $probe['layer'];
+			$fix   = ( 'litespeed-server' === $layer || 'unknown-edge' === $layer )
+				? 'Server-level cache is serving /llms.txt before PHP runs. Apply the LiteSpeed/Apache .htaccess snippet (Diagnostics → Server bypass snippet) or rebuild your edge cache.'
+				: 'Edge cache (' . $layer . ') is holding /llms.txt. Purge the edge cache for this URL and verify Cache-Control: no-store reaches your CDN.';
+			return self::result( 'edge_cache_hit', 'Edge cache HIT scan', 'warn',
+				$probe['detail'] . ' — ' . $layer . ' is caching this endpoint.',
+				$fix,
+				array( 'probe' => $probe ) );
+		}
+
+		if ( 'miss' === $probe['status'] ) {
+			return self::result( 'edge_cache_hit', 'Edge cache HIT scan', 'pass',
+				$probe['detail'] . ' — edge layer correctly bypasses /llms.txt.',
+				null,
+				array( 'probe' => $probe ) );
+		}
+
+		return self::result( 'edge_cache_hit', 'Edge cache HIT scan', 'pass',
+			'No edge-cache indicator headers detected. Either no CDN/proxy in front, or it is correctly bypassing this URL.',
+			null,
+			array( 'probe' => $probe ) );
+	}
+
+	/**
+	 * FREE-99 — Detect third-party `template_redirect` callbacks that may
+	 * race RankReady's priority 1 handlers (Bricks Builder, Oxygen, Cwicly).
+	 */
+	private static function probe_template_redirect_race(): array {
+		global $wp_filter;
+		if ( ! isset( $wp_filter['template_redirect'] ) ) {
+			return self::result( 'tpl_redirect_race', 'template_redirect priority race', 'pass',
+				'No competing template_redirect hooks registered.', null );
+		}
+
+		$callbacks = $wp_filter['template_redirect']->callbacks ?? array();
+		$racers    = array();
+		foreach ( $callbacks as $priority => $cbs ) {
+			if ( $priority > 5 ) {
+				continue; // RankReady runs at 1; anything > 5 cannot race us.
+			}
+			foreach ( (array) $cbs as $cb ) {
+				$fn = $cb['function'] ?? null;
+				$name = '';
+				if ( is_string( $fn ) ) {
+					$name = $fn;
+				} elseif ( is_array( $fn ) && isset( $fn[0], $fn[1] ) ) {
+					$class = is_object( $fn[0] ) ? get_class( $fn[0] ) : (string) $fn[0];
+					$name  = $class . '::' . (string) $fn[1];
+				}
+				if ( '' === $name || false !== stripos( $name, 'RNRD_' ) || false !== stripos( $name, 'RankReady' ) ) {
+					continue; // skip ours
+				}
+				$racers[] = 'priority ' . $priority . ': ' . $name;
+			}
+		}
+
+		if ( empty( $racers ) ) {
+			return self::result( 'tpl_redirect_race', 'template_redirect priority race', 'pass',
+				'No third-party callbacks at priority ≤ 5. RankReady (priority 1) wins.', null );
+		}
+
+		return self::result( 'tpl_redirect_race', 'template_redirect priority race', 'warn',
+			count( $racers ) . ' competing hook(s) at priority ≤ 5: ' . implode( '; ', array_slice( $racers, 0, 3 ) ),
+			'If /llms.txt or /.well-known/mcp.json returns HTML, ask the conflicting plugin to lower its template_redirect priority below 1. RankReady cannot go any earlier.',
+			array( 'racers' => $racers ) );
+	}
+
+	private static function probe_page_builder(): array {
+		$builder = self::detect_active_page_builder();
+
+		if ( ! $builder ) {
+			return self::result( 'page_builder', 'Page builder', 'info',
+				'No major page builder detected.',
+				null
+			);
+		}
+
+		return self::result( 'page_builder', 'Page builder', 'pass',
+			"$builder detected — RankReady uses template_redirect priority 1 to beat default builder hooks.",
+			null,
+			array( 'builder' => $builder )
+		);
+	}
+
+	private static function probe_seo_plugin(): array {
+		$plugin = '';
+		if ( defined( 'RANK_MATH_VERSION' ) )         $plugin = 'Rank Math ' . RANK_MATH_VERSION;
+		elseif ( defined( 'WPSEO_VERSION' ) )         $plugin = 'Yoast SEO ' . WPSEO_VERSION;
+		elseif ( defined( 'AIOSEO_VERSION' ) )        $plugin = 'All in One SEO ' . AIOSEO_VERSION;
+		elseif ( ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) ) )      $plugin = 'SEOPress ' . ( defined( 'SEOPRESS_VERSION' ) ? SEOPRESS_VERSION : SEOPRESS_PRO_VERSION );
+		elseif ( defined( 'THE_SEO_FRAMEWORK_VERSION' ) ) $plugin = 'The SEO Framework ' . THE_SEO_FRAMEWORK_VERSION;
+
+		if ( '' === $plugin ) {
+			return self::result( 'seo_plugin', 'SEO plugin', 'info',
+				'No SEO plugin detected — RankReady will emit standalone Article + Speakable schema.',
+				null
+			);
+		}
+
+		return self::result( 'seo_plugin', 'SEO plugin', 'pass',
+			"$plugin detected. Schema merging active, double meta-robots tag prevented.",
+			null,
+			array( 'plugin' => $plugin )
+		);
+	}
+
+	private static function probe_cache_constants(): array {
+		$states = array();
+		$states[] = 'WP_CACHE = ' . ( defined( 'WP_CACHE' ) && WP_CACHE ? 'true' : 'false' );
+		$states[] = 'DONOTCACHEPAGE = ' . ( defined( 'DONOTCACHEPAGE' ) ? 'defined' : '(unset)' );
+		$states[] = 'DISABLE_WP_CRON = ' . ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ? 'true' : 'false' );
+
+		return self::result( 'cache_constants', 'Cache constants', 'info',
+			implode( '; ', $states ),
+			null,
+			array( 'constants' => $states )
+		);
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// Site configuration probes
+	// ═════════════════════════════════════════════════════════════════════════
+
+	private static function probe_brand_identity(): array {
+		$name    = trim( (string) get_option( 'rnrd_brand_name', '' ) );
+		$summary = trim( (string) get_option( 'rnrd_brand_summary', '' ) );
+		$about   = trim( (string) get_option( 'rnrd_brand_about', '' ) );
+
+		$missing = array();
+		if ( '' === $name )    $missing[] = 'Site / brand name';
+		if ( '' === $summary ) $missing[] = 'One-line summary';
+		if ( '' === $about )   $missing[] = 'About';
+
+		if ( empty( $missing ) ) {
+			return self::result( 'brand_identity', 'Brand Identity filled', 'pass',
+				'All 3 core fields are populated (name, summary, about).',
+				null
+			);
+		}
+
+		return self::result( 'brand_identity', 'Brand Identity filled', 'warn',
+			'Missing: ' . implode( ', ', $missing ) . '.',
+			'Fill in E-E-A-T → Brand Identity. These feed llms.txt, FAQ prompts, AI summaries, MCP abilities.',
+			array( 'missing' => $missing )
+		);
+	}
+
+	private static function probe_php_version(): array {
+		$v  = PHP_VERSION;
+		$ok = version_compare( $v, '7.4', '>=' );
+
+		return self::result( 'php_version', 'PHP version', $ok ? 'pass' : 'fail',
+			"PHP $v",
+			$ok ? null : 'Upgrade to PHP 8.0+ for performance and security.'
+		);
+	}
+
+	private static function probe_wp_version(): array {
+		global $wp_version;
+		$ok = version_compare( $wp_version, '6.0', '>=' );
+
+		return self::result( 'wp_version', 'WordPress version', $ok ? 'pass' : 'fail',
+			"WordPress $wp_version",
+			$ok ? null : 'Upgrade WordPress to 6.0+.'
+		);
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// LLM Provider reachability (opt-in — costs an API call each)
+	// ═════════════════════════════════════════════════════════════════════════
+
+	private static function placeholder_provider(): array {
+		return self::result( 'provider_keys', 'LLM provider keys', 'info',
+			'Not tested — click "Test API keys" to verify reachability (uses 1 API call per provider).',
+			null
+		);
+	}
+
+	private static function probe_provider( string $provider ): array {
+		$cfg = self::PROVIDER_PROBES[ $provider ] ?? null;
+		if ( ! $cfg ) {
+			return self::result( "provider_$provider", "Provider: $provider", 'fail',
+				'Unknown provider.', null );
+		}
+
+		$key = trim( (string) get_option( $cfg['option'], '' ) );
+
+		if ( '' === $key ) {
+			return self::result( "provider_$provider", "Provider: $provider", 'info',
+				'No API key configured.',
+				"Add key in Settings → AI Provider → $provider."
+			);
+		}
+
+		$url     = sprintf( $cfg['url'], $key );
+		$headers = array();
+		if ( ! empty( $cfg['header'] ) ) {
+			$parts = explode( ': ', sprintf( $cfg['header'], $key ), 2 );
+			if ( 2 === count( $parts ) ) {
+				$headers[ $parts[0] ] = $parts[1];
+			}
+		}
+
+		// Anthropic also needs a version header
+		if ( 'anthropic' === $provider ) {
+			$headers['anthropic-version'] = '2023-06-01';
+		}
+
+		$response = wp_remote_get( $url, array(
+			'timeout' => self::TIMEOUT,
+			'headers' => $headers,
+		) );
+
+		if ( is_wp_error( $response ) ) {
+			return self::result( "provider_$provider", "Provider: $provider", 'fail',
+				'Network error: ' . $response->get_error_message(),
+				'Server can\'t reach provider. Check firewall / outbound HTTPS.'
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( 200 === $code || 201 === $code ) {
+			return self::result( "provider_$provider", "Provider: $provider", 'pass',
+				"HTTP $code — key valid and provider reachable.",
+				null
+			);
+		}
+
+		if ( 401 === $code || 403 === $code ) {
+			return self::result( "provider_$provider", "Provider: $provider", 'fail',
+				"HTTP $code — invalid API key.",
+				'Regenerate key from provider dashboard and re-save in Settings.'
+			);
+		}
+
+		if ( 429 === $code ) {
+			return self::result( "provider_$provider", "Provider: $provider", 'warn',
+				"HTTP 429 — rate limited.",
+				'Wait a minute and retest. Key is valid.'
+			);
+		}
+
+		return self::result( "provider_$provider", "Provider: $provider", 'warn',
+			"HTTP $code returned (unexpected).",
+			'Provider may be having an outage. Retest later.'
+		);
+	}
+
+	private static function probe_dataforseo(): array {
+		$login    = trim( (string) get_option( 'rnrd_dataforseo_login', '' ) );
+		$password = trim( (string) get_option( 'rnrd_dataforseo_password', '' ) );
+
+		if ( '' === $login || '' === $password ) {
+			return self::result( 'provider_dataforseo', 'Provider: DataForSEO', 'info',
+				'No credentials configured.',
+				'Add login + password in Settings → DataForSEO (optional — only for FAQ question discovery).'
+			);
+		}
+
+		$response = wp_remote_get( 'https://api.dataforseo.com/v3/appendix/user_data', array(
+			'timeout' => self::TIMEOUT,
+			'headers' => array(
+				'Authorization' => 'Basic ' . base64_encode( "$login:$password" ),
+			),
+		) );
+
+		if ( is_wp_error( $response ) ) {
+			return self::result( 'provider_dataforseo', 'Provider: DataForSEO', 'fail',
+				'Network error: ' . $response->get_error_message(),
+				'Check outbound HTTPS to api.dataforseo.com.'
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( 200 === $code ) {
+			return self::result( 'provider_dataforseo', 'Provider: DataForSEO', 'pass',
+				'HTTP 200 — credentials valid.',
+				null
+			);
+		}
+
+		if ( 401 === $code ) {
+			return self::result( 'provider_dataforseo', 'Provider: DataForSEO', 'fail',
+				'HTTP 401 — invalid credentials.',
+				'Verify login + password from DataForSEO dashboard.'
+			);
+		}
+
+		return self::result( 'provider_dataforseo', 'Provider: DataForSEO', 'warn',
+			"HTTP $code (unexpected).",
+			'Retest later.'
+		);
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// Helpers
+	// ═════════════════════════════════════════════════════════════════════════
+
+	private static function fetch( string $url, array $headers = array() ) {
+		return wp_remote_get( $url, array(
+			'timeout'     => self::TIMEOUT,
+			'sslverify'   => false, // Loopback often hits self-signed certs in dev
+			'redirection' => 2,
+			'headers'     => array_merge( array(
+				'User-Agent' => 'RankReady-Diagnostics/' . ( defined( 'RNRD_VERSION' ) ? RNRD_VERSION : '1.0' ),
+			), $headers ),
+		) );
+	}
+
+	/**
+	 * Detect known "server can't reach itself" failures (Docker, local dev,
+	 * containers behind reverse proxies). Returns true when the WP_Error is
+	 * a connection-level failure where the URL is reachable from the public
+	 * internet but the server can't curl its own public hostname.
+	 *
+	 * @since 1.2.0-rc.16
+	 */
+	private static function is_loopback_failure( $response ): bool {
+		if ( ! is_wp_error( $response ) ) {
+			return false;
+		}
+		$msg = strtolower( $response->get_error_message() );
+		return (
+			strpos( $msg, 'curl error 7' ) !== false  // CURLE_COULDNT_CONNECT
+			|| strpos( $msg, 'curl error 28' ) !== false // CURLE_OPERATION_TIMEDOUT
+			|| strpos( $msg, 'could not connect' ) !== false
+			|| strpos( $msg, 'connection refused' ) !== false
+			|| strpos( $msg, 'failed to connect' ) !== false
+			|| strpos( $msg, 'name or service not known' ) !== false
+		);
+	}
+
+	/**
+	 * Build the appropriate result for a wp_error response.
+	 *
+	 * On loopback failure we attempt a SECONDARY probe via the container's
+	 * own internal address (`http://localhost/<path>`). The internal probe
+	 * preserves the same Accept headers as the original (so markdown
+	 * negotiation still works) and optionally runs a body-content check
+	 * (e.g. robots.txt must contain "# BEGIN RankReady"). When the internal
+	 * probe passes BOTH status AND content checks, we upgrade to 'pass'.
+	 *
+	 * @since 1.2.0-rc.16
+	 *
+	 * @param array         $headers    Headers to pass to the internal probe (preserve Accept etc).
+	 * @param callable|null $body_check Optional fn(string $body) → bool; pass = content valid.
+	 */
+	private static function loopback_aware_result( string $key, string $label, $response, string $url, string $default_hint, array $headers = array(), ?callable $body_check = null ) {
+		if ( ! self::is_loopback_failure( $response ) ) {
+			return self::result( $key, $label, 'fail',
+				'HTTP request failed: ' . $response->get_error_message(),
+				$default_hint,
+				array( 'url' => $url )
+			);
+		}
+
+		// Try internal probe — strip host+port, use container's own httpd.
+		// Suppress redirects: WP canonicalises `localhost` → `home_url` (the
+		// public URL the loopback already failed on). With redirection: 0
+		// we capture the 200 directly OR see the 301/302 that proves WP is
+		// recognising the route (just unreachable via public URL).
+		$parts = wp_parse_url( $url );
+		$path  = ( $parts['path'] ?? '/' ) . ( isset( $parts['query'] ) ? '?' . $parts['query'] : '' );
+		$internal_url = 'http://localhost' . $path;
+		$internal     = wp_remote_get( $internal_url, array(
+			'timeout'     => self::TIMEOUT,
+			'sslverify'   => false,
+			'redirection' => 0,
+			'headers'     => array_merge( array(
+				'User-Agent' => 'RankReady-Diagnostics-Internal/' . ( defined( 'RNRD_VERSION' ) ? RNRD_VERSION : '1.0' ),
+			), $headers ),
+		) );
+
+		if ( ! is_wp_error( $internal ) ) {
+			$code = (int) wp_remote_retrieve_response_code( $internal );
+			// 200/204 = direct serve. 301/302 = WP recognised the route and
+			// canonicalises — proves the handler is registered.
+			if ( ( $code >= 200 && $code < 300 ) || $code === 301 || $code === 302 ) {
+				$body_ok = true;
+				if ( $body_check !== null && $code >= 200 && $code < 300 ) {
+					$body    = (string) wp_remote_retrieve_body( $internal );
+					$body_ok = (bool) $body_check( $body, $internal );
+				}
+				if ( $body_ok ) {
+					return self::result( $key, $label, 'pass',
+						'Serving correctly (verified via internal probe — public-URL loopback unavailable on this host).',
+						'No action needed. Open ' . $url . ' in a browser to confirm.',
+						array( 'url' => $url, 'http_code' => $code, 'internal_verified' => true )
+					);
+				}
+			}
+		}
+
+		return self::result( $key, $label, 'warn',
+			'Public-URL loopback failed; internal probe also did not return 2xx.',
+			'Common on Docker / local dev / reverse-proxy hosting. Open ' . $url . ' in a browser to verify it actually works for visitors.',
+			array( 'url' => $url )
+		);
+	}
+
+	private static function result( string $id, string $label, string $status, string $detail, ?string $fix, array $meta = array() ): array {
+		return array(
+			'id'     => $id,
+			'label'  => $label,
+			'status' => in_array( $status, array( 'pass', 'warn', 'fail', 'info' ), true ) ? $status : 'info',
+			'detail' => $detail,
+			'fix'    => $fix,
+			'meta'   => $meta ?: null,
+		);
+	}
+
+	public static function detect_active_page_builder(): string {
+		if ( defined( 'BRICKS_VERSION' ) )                  return 'Bricks Builder ' . BRICKS_VERSION;
+		if ( defined( 'ELEMENTOR_VERSION' ) )               return 'Elementor ' . ELEMENTOR_VERSION;
+		if ( defined( 'OXY_VERSION' ) || defined( 'CT_VERSION' ) ) return 'Oxygen Builder';
+		if ( defined( 'ET_BUILDER_VERSION' ) || defined( 'ET_CORE_VERSION' ) ) return 'Divi / ET Builder';
+		if ( defined( 'BREAKDANCE_VERSION' ) )              return 'Breakdance';
+		if ( defined( 'BB_PLUGIN_VERSION' ) )               return 'Beaver Builder';
+		return '';
+	}
+
+	public static function detect_active_cache_plugins(): array {
+		$found = array();
+		if ( defined( 'LITESPEED_VERSION' ) || defined( 'LSCWP_V' ) ) $found[] = 'LiteSpeed Cache';
+		if ( defined( 'WP_ROCKET_VERSION' ) )                          $found[] = 'WP Rocket';
+		if ( defined( 'W3TC' ) )                                       $found[] = 'W3 Total Cache';
+		if ( defined( 'WPSC_VERSION' ) || function_exists( 'wpsc_init' ) ) $found[] = 'WP Super Cache';
+		if ( defined( 'AUTOPTIMIZE_PLUGIN_DIR' ) )                     $found[] = 'Autoptimize';
+		if ( defined( 'WPFC_WP_PLUGIN_DIR' ) )                         $found[] = 'WP Fastest Cache';
+		if ( class_exists( 'SiteGround_Optimizer\\Loader\\Loader' ) )  $found[] = 'SG Optimizer';
+		if ( defined( 'WPHB_VERSION' ) )                               $found[] = 'Hummingbird';
+		if ( defined( 'NITROPACK_VERSION' ) )                          $found[] = 'NitroPack';
+		if ( defined( 'PERFMATTERS_VERSION' ) )                        $found[] = 'Perfmatters';
+		return $found;
+	}
+
+	public static function get_environment(): array {
+		global $wp_version, $wpdb;
+
+		$active_plugins = array();
+		$plugins        = (array) get_option( 'active_plugins', array() );
+		foreach ( $plugins as $plugin_file ) {
+			$plugin_path = WP_PLUGIN_DIR . '/' . $plugin_file;
+			if ( file_exists( $plugin_path ) ) {
+				$data = get_file_data( $plugin_path, array( 'Name' => 'Plugin Name', 'Version' => 'Version' ) );
+				$active_plugins[] = $data['Name'] . ' ' . $data['Version'];
+			} else {
+				$active_plugins[] = $plugin_file;
+			}
+		}
+
+		$theme = wp_get_theme();
+
+		return array(
+			'rankready_version' => defined( 'RNRD_VERSION' ) ? RNRD_VERSION : 'unknown',
+			'wordpress_version' => $wp_version,
+			'php_version'       => PHP_VERSION,
+			'mysql_version'     => $wpdb->db_version(),
+			'site_url'          => home_url(),
+			'theme'             => $theme->get( 'Name' ) . ' ' . $theme->get( 'Version' ),
+			'multisite'         => is_multisite(),
+			'is_https'          => is_ssl(),
+			'server_software'   => isset( $_SERVER['SERVER_SOFTWARE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) : 'unknown',
+			'php_sapi'          => PHP_SAPI,
+			'permalink_struct'  => get_option( 'permalink_structure', '' ),
+			'wp_debug'          => defined( 'WP_DEBUG' ) && WP_DEBUG,
+			'wp_debug_log'      => defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG,
+			'active_plugins'    => $active_plugins,
+			'mu_plugins'        => self::dump_mu_plugins(),
+		);
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// Forensic dumps — extra detail for support reports
+	// ═════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * List all must-use plugins (these often intercept template_redirect
+	 * and are invisible from Plugins screen).
+	 */
+	public static function dump_mu_plugins(): array {
+		if ( ! function_exists( 'get_mu_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		$out = array();
+		foreach ( (array) get_mu_plugins() as $file => $data ) {
+			$out[] = ( $data['Name'] ?? $file ) . ' ' . ( $data['Version'] ?? '' );
+		}
+		return $out;
+	}
+
+	/**
+	 * Physical files in the WordPress webroot that affect our endpoints.
+	 * Reports presence + size + mtime for robots.txt, llms.txt, llms-full.txt,
+	 * .htaccess. These trump WordPress rewrite at the webserver layer.
+	 */
+	public static function dump_physical_files(): array {
+		$targets = array( 'robots.txt', 'llms.txt', 'llms-full.txt', '.htaccess' );
+		$out     = array();
+		foreach ( $targets as $name ) {
+			$path = ABSPATH . $name;
+			if ( file_exists( $path ) ) {
+				$out[ $name ] = array(
+					'exists'   => true,
+					'path'     => $path,
+					'size'     => filesize( $path ),
+					'modified' => gmdate( 'Y-m-d H:i:s', filemtime( $path ) ) . ' UTC',
+					'writable' => is_writable( $path ), // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable -- diagnostics-only check, WP_Filesystem unnecessary for read-only inspection
+				);
+			} else {
+				$out[ $name ] = array( 'exists' => false, 'path' => $path );
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Dump WordPress rewrite rules that match RankReady endpoint patterns.
+	 * Shows the regex + which `index.php?…` query it routes to.
+	 */
+	public static function dump_matching_rewrite_rules(): array {
+		$rules = (array) get_option( 'rewrite_rules', array() );
+		$out   = array();
+		foreach ( $rules as $regex => $query ) {
+			if ( false !== strpos( $regex, 'llms' )
+			  || false !== strpos( $regex, 'robots' )
+			  || false !== strpos( $regex, '\\.md' )
+			  || false !== strpos( $regex, '.md' )
+			  || false !== strpos( $regex, 'mcp' )
+			  || false !== strpos( $query, 'rnrd_llms' )
+			  || false !== strpos( $query, 'rnrd_mcp' )
+			  || false !== strpos( $query, 'rnrd_md' ) ) {
+				$out[ $regex ] = $query;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Dump every callback hooked into a WP filter/action, with priority.
+	 * Lets us see "who else is filtering robots_txt and at what priority".
+	 */
+	public static function dump_hooks_on( string $hook, int $limit = 40 ): array {
+		global $wp_filter;
+		if ( ! isset( $wp_filter[ $hook ] ) ) {
+			return array( '(no hooks registered)' );
+		}
+		$obj = $wp_filter[ $hook ];
+		$out = array();
+		// $wp_filter[hook]->callbacks is array<priority, array<id, ['function'=>cb, 'accepted_args'=>n]>>
+		$callbacks = is_object( $obj ) && isset( $obj->callbacks ) ? $obj->callbacks : (array) $obj;
+		ksort( $callbacks );
+		foreach ( $callbacks as $priority => $hooks_at_pri ) {
+			foreach ( (array) $hooks_at_pri as $id => $cb_entry ) {
+				$cb = $cb_entry['function'] ?? $cb_entry;
+				$name = self::callback_name( $cb );
+				$out[] = 'priority ' . $priority . '  ' . $name;
+				if ( count( $out ) >= $limit ) {
+					$out[] = '... (truncated)';
+					return $out;
+				}
+			}
+		}
+		return $out;
+	}
+
+	private static function callback_name( $cb ): string {
+		if ( is_string( $cb ) )    return $cb;
+		if ( is_array( $cb ) ) {
+			$cls = is_object( $cb[0] ) ? get_class( $cb[0] ) : (string) $cb[0];
+			return $cls . '::' . (string) $cb[1];
+		}
+		if ( $cb instanceof \Closure ) {
+			try {
+				$r = new \ReflectionFunction( $cb );
+				return 'Closure@' . basename( (string) $r->getFileName() ) . ':' . $r->getStartLine();
+			} catch ( \Throwable $e ) {
+				return 'Closure';
+			}
+		}
+		if ( is_object( $cb ) )    return get_class( $cb ) . '::__invoke';
+		return '(unknown callback)';
+	}
+
+	/**
+	 * Dump key response headers from a URL — Cache-Control, Server,
+	 * X-Powered-By, X-LiteSpeed-Cache, X-Cache, etc.
+	 */
+	public static function dump_response_headers( string $url ): array {
+		$response = self::fetch( $url );
+		if ( is_wp_error( $response ) ) {
+			return array( 'error' => $response->get_error_message() );
+		}
+		$want = array(
+			'server', 'x-powered-by', 'cache-control', 'pragma', 'age',
+			'x-cache', 'x-cache-status', 'x-litespeed-cache', 'x-litespeed-cache-control',
+			'cf-cache-status', 'x-served-by', 'content-type', 'content-length',
+			'link', 'x-redirect-by',
+		);
+		$headers = wp_remote_retrieve_headers( $response );
+		$out     = array( '_http_code' => (int) wp_remote_retrieve_response_code( $response ) );
+		foreach ( $want as $h ) {
+			$v = '';
+			if ( is_object( $headers ) && method_exists( $headers, 'offsetGet' ) ) {
+				$v = $headers->offsetExists( $h ) ? $headers->offsetGet( $h ) : '';
+			} elseif ( is_array( $headers ) ) {
+				$v = $headers[ $h ] ?? '';
+			}
+			if ( '' !== $v ) {
+				$out[ $h ] = is_array( $v ) ? implode( ', ', $v ) : (string) $v;
+			}
+		}
+		// Body preview — first 300 bytes
+		$body = (string) wp_remote_retrieve_body( $response );
+		$out['_body_len']     = strlen( $body );
+		$out['_body_preview'] = substr( $body, 0, 300 );
+		return $out;
+	}
+
+	/**
+	 * Dump SEO plugin actual configuration — which features are toggled
+	 * on right now. This tells us whether to expect Yoast/SEOPress/etc.
+	 * to be serving llms.txt or robots.txt instead of us.
+	 */
+	public static function dump_seo_plugin_config(): array {
+		$out = array();
+
+		if ( defined( 'WPSEO_VERSION' ) ) {
+			$yoast = (array) get_option( 'wpseo', array() );
+			$out['Yoast SEO ' . WPSEO_VERSION] = array(
+				'enable_llms_txt'  => ! empty( $yoast['enable_llms_txt'] ) ? 'YES' : 'no',
+				'wpseo_robots_set' => ! empty( get_option( 'wpseo_robots' ) ) ? 'YES (custom robots.txt set)' : 'no',
+				'enable_schema'    => isset( $yoast['enable_xml_sitemap'] ) ? 'managed by Yoast schema (default ON)' : 'unknown',
+			);
+		}
+
+		if ( defined( 'RANK_MATH_VERSION' ) ) {
+			$rm_modules = (array) get_option( 'rank_math_modules', array() );
+			$rm_general = (array) get_option( 'rank-math-options-general', array() );
+			$out['Rank Math ' . RANK_MATH_VERSION] = array(
+				'llms-txt module'    => in_array( 'llms-txt', $rm_modules, true ) ? 'YES' : 'no',
+				'custom robots.txt'  => ! empty( $rm_general['robots_txt_content'] ) ? 'YES (' . strlen( $rm_general['robots_txt_content'] ) . ' chars set)' : 'no',
+				'schema module'      => in_array( 'rich-snippet', $rm_modules, true ) ? 'YES' : 'no',
+			);
+		}
+
+		if ( defined( 'AIOSEO_VERSION' ) ) {
+			$aio_raw  = get_option( 'aioseo_options', '' );
+			$aio      = is_string( $aio_raw ) && $aio_raw ? json_decode( $aio_raw, true ) : array();
+			$out['All in One SEO ' . AIOSEO_VERSION] = array(
+				'llmsTxt.enable'   => ! empty( $aio['llmsTxt']['enable'] ) ? 'YES' : 'no',
+				'robots editor'    => ! empty( $aio['tools']['robots']['enable'] ?? null ) ? 'YES' : 'no',
+				'schema graph'     => 'managed by AIOSEO (default ON when active)',
+			);
+		}
+
+		if ( ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) ) ) {
+			$sp_pro = (array) get_option( 'seopress_pro_option_name', array() );
+			$sp_tit = (array) get_option( 'seopress_titles_option_name', array() );
+			$out['SEOPress ' . SEOPRESS_VERSION] = array(
+				'pro_llms_txt'    => ! empty( $sp_pro['seopress_pro_llms_txt'] ) ? 'YES' : 'no',
+				'pro_robots'      => ! empty( $sp_pro['seopress_pro_robots'] ) ? 'YES (SEOPress overriding /robots.txt)' : 'no',
+				'schema_enabled'  => ! empty( $sp_tit['seopress_titles_single_titles'] ) ? 'managed by SEOPress (default ON)' : 'unknown',
+			);
+		}
+
+		if ( defined( 'THE_SEO_FRAMEWORK_VERSION' ) ) {
+			$out['The SEO Framework ' . THE_SEO_FRAMEWORK_VERSION] = array(
+				'schema_enabled' => 'managed by TSF (default ON when active)',
+			);
+		}
+
+		if ( defined( 'SLIM_SEO_VER' ) ) {
+			$out['Slim SEO ' . SLIM_SEO_VER] = array(
+				'schema_enabled' => 'managed by Slim SEO (default ON when active)',
+			);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Verify each detected cache plugin's exclusion for our endpoints.
+	 * For LiteSpeed, WP Rocket, W3TC, etc. — check whether RankReady's
+	 * RNRD_Cache::exclude_url_patterns() actually registered the rule.
+	 */
+	public static function dump_cache_exclusion_status(): array {
+		$out = array();
+		foreach ( self::detect_active_cache_plugins() as $name ) {
+			$status = 'unknown — RankReady applies exclusion filters but cache plugin doesn\'t expose verification API';
+			if ( 'LiteSpeed Cache' === $name ) {
+				$ls = (array) get_option( 'litespeed.conf.cache-exc', array() );
+				$has = false;
+				foreach ( $ls as $line ) {
+					if ( false !== stripos( $line, 'llms.txt' ) || false !== stripos( $line, '.well-known/mcp' ) ) { $has = true; break; }
+				}
+				$status = $has ? 'EXCLUSION REGISTERED ✓' : 'exclusion not visible in litespeed.conf.cache-exc — RankReady uses no_cache_headers fallback';
+			}
+			if ( 'WP Rocket' === $name ) {
+				$rocket = (array) get_option( 'wp_rocket_settings', array() );
+				$reject = (array) ( $rocket['cache_reject_uri'] ?? array() );
+				$has    = false;
+				foreach ( $reject as $line ) {
+					if ( false !== stripos( $line, 'llms' ) || false !== stripos( $line, 'mcp' ) ) { $has = true; break; }
+				}
+				$status = $has ? 'EXCLUSION REGISTERED ✓' : 'add /llms\\.txt, /llms-full\\.txt, /.*\\.md, /\\.well-known/mcp\\.json to WP Rocket → Advanced Rules → Never Cache URLs';
+			}
+			$out[ $name ] = $status;
+		}
+		return $out;
+	}
+
+	/**
+	 * Find any active page-builder mu-plugins or actions that might
+	 * still intercept template_redirect at default priority despite
+	 * our priority 1. Useful when /llms.txt returns HTML.
+	 */
+	public static function dump_template_redirect_competitors(): array {
+		$hooks = self::dump_hooks_on( 'template_redirect', 80 );
+		$out   = array();
+		foreach ( $hooks as $line ) {
+			// Surface only non-RankReady callbacks at priority < 10 (could race us).
+			if ( false === strpos( $line, 'RNRD_' )
+			  && ( 0 === strpos( $line, 'priority 1 ' )
+			    || 0 === strpos( $line, 'priority 2 ' )
+			    || 0 === strpos( $line, 'priority 3 ' )
+			    || 0 === strpos( $line, 'priority 4 ' )
+			    || 0 === strpos( $line, 'priority 5 ' ) ) ) {
+				$out[] = '⚠ ' . $line;
+			} elseif ( 0 === strpos( $line, 'priority 1 ' )
+			        || 0 === strpos( $line, 'priority 2 ' )
+			        || 0 === strpos( $line, 'priority 3 ' ) ) {
+				$out[] = '✓ ' . $line;
+			}
+		}
+		return $out;
+	}
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// Plaintext report formatter — for 1-click copy-to-clipboard
+	// ═════════════════════════════════════════════════════════════════════════
+
+	public static function format_plaintext_report( array $result ): string {
+		$env    = $result['environment'];
+		$checks = $result['checks'];
+		$totals = $result['totals'];
+
+		$lines = array();
+		$L = function( string $s = '' ) use ( &$lines ) { $lines[] = $s; };
+		$H = function( string $title ) use ( &$lines ) {
+			$lines[] = '';
+			$lines[] = '═══ ' . $title . ' ' . str_repeat( '═', max( 1, 70 - strlen( $title ) ) );
+		};
+
+		// ── HEADER ──────────────────────────────────────────────────────────
+		$L( '╔══════════════════════════════════════════════════════════════════════╗' );
+		$L( '║         RankReady Diagnostic Report — Support Bundle                ║' );
+		$L( '╚══════════════════════════════════════════════════════════════════════╝' );
+		$L( '' );
+		$L( 'Generated:    ' . $result['generated_at'] . ' UTC' );
+		$L( 'Site URL:     ' . $result['site_url'] );
+		$L( 'Plugin:       RankReady ' . $result['version'] );
+		$L( 'WordPress:    ' . $env['wordpress_version'] );
+		$L( 'PHP:          ' . $env['php_version'] . '  (SAPI: ' . ( $env['php_sapi'] ?? '?' ) . ')' );
+		$L( 'MySQL:        ' . $env['mysql_version'] );
+		$L( 'Theme:        ' . $env['theme'] );
+		$L( 'Server:       ' . ( $env['server_software'] ?? 'unknown' ) );
+		$L( 'Multisite:    ' . ( $env['multisite'] ? 'yes' : 'no' ) );
+		$L( 'HTTPS:        ' . ( $env['is_https'] ? 'yes' : 'no' ) );
+		$L( 'Permalinks:   ' . ( ! empty( $env['permalink_struct'] ) ? $env['permalink_struct'] : '⚠ default/plain (this BREAKS our endpoints — switch to Post name)' ) );
+		$L( 'WP_DEBUG:     ' . ( $env['wp_debug'] ? 'true' : 'false' ) . '   WP_DEBUG_LOG: ' . ( $env['wp_debug_log'] ? 'true' : 'false' ) );
+		$L( '' );
+		$L( sprintf( 'Summary:   %d pass · %d warn · %d fail · %d info',
+			$totals['pass'], $totals['warn'], $totals['fail'], $totals['info']
+		) );
+
+		// ── PROBE RESULTS ──────────────────────────────────────────────────
+		$H( 'PROBE RESULTS' );
+		foreach ( $checks as $c ) {
+			$icon = array( 'pass' => '✓ PASS', 'warn' => '⚠ WARN', 'fail' => '✗ FAIL', 'info' => 'ℹ INFO' )[ $c['status'] ] ?? '? ' . strtoupper( $c['status'] );
+			$L( '' );
+			$L( $icon . '  ' . $c['label'] );
+			$L( '       ' . $c['detail'] );
+			if ( ! empty( $c['fix'] ) ) {
+				$L( '       FIX → ' . $c['fix'] );
+			}
+			if ( ! empty( $c['meta'] ) && is_array( $c['meta'] ) ) {
+				foreach ( $c['meta'] as $k => $v ) {
+					if ( is_scalar( $v ) ) {
+						$L( '       (' . $k . ': ' . self::truncate( (string) $v, 160 ) . ')' );
+					}
+				}
+			}
+		}
+
+		// ── PLAIN ENGLISH FAILURE EXPLAINER ────────────────────────────────
+		$fails = array_filter( $checks, function ( $c ) { return 'fail' === $c['status']; } );
+		if ( $fails ) {
+			$H( 'WHAT TO FIX FIRST (plain English)' );
+			$n = 1;
+			foreach ( $fails as $c ) {
+				$L( '' );
+				$L( $n . '. ' . $c['label'] );
+				$L( '   What we saw: ' . $c['detail'] );
+				if ( ! empty( $c['fix'] ) ) {
+					$L( '   What to do:  ' . $c['fix'] );
+				}
+				$L( '   Why it matters: ' . self::why_matters( $c['id'] ) );
+				$n++;
+			}
+		}
+
+		// ── ENDPOINT RESPONSE HEADERS (forensic) ───────────────────────────
+		$H( 'LIVE ENDPOINT RESPONSE HEADERS' );
+		$L( '(What an AI crawler actually sees when it fetches each URL right now.)' );
+		foreach ( array( '/llms.txt', '/llms-full.txt', '/robots.txt', '/.well-known/mcp.json' ) as $path ) {
+			$L( '' );
+			$L( '── GET ' . $path . ' ──' );
+			$h = self::dump_response_headers( home_url( $path ) );
+			if ( isset( $h['error'] ) ) {
+				$L( '   ERROR: ' . $h['error'] );
+				continue;
+			}
+			$L( '   HTTP status:     ' . ( $h['_http_code'] ?? '?' ) );
+			$L( '   Body bytes:      ' . ( $h['_body_len'] ?? 0 ) );
+			foreach ( array( 'server', 'x-powered-by', 'content-type', 'content-length',
+			                 'cache-control', 'pragma', 'age',
+			                 'x-cache', 'x-cache-status', 'x-litespeed-cache',
+			                 'x-litespeed-cache-control', 'cf-cache-status',
+			                 'x-served-by', 'link', 'x-redirect-by' ) as $hk ) {
+				if ( isset( $h[ $hk ] ) ) {
+					$L( '   ' . str_pad( $hk . ':', 17 ) . self::truncate( $h[ $hk ], 140 ) );
+				}
+			}
+			if ( ! empty( $h['_body_preview'] ) ) {
+				$L( '   Body preview:    ' . self::oneline( substr( $h['_body_preview'], 0, 220 ) ) );
+			}
+		}
+
+		// ── PHYSICAL FILES IN WEBROOT ──────────────────────────────────────
+		$H( 'PHYSICAL FILES IN WEBROOT' );
+		$L( '(These trump WordPress rewrite rules. A physical robots.txt wins at the' );
+		$L( ' webserver level before WP even runs.)' );
+		foreach ( self::dump_physical_files() as $name => $info ) {
+			if ( ! $info['exists'] ) {
+				$L( '   ' . str_pad( $name, 16 ) . '(not present)  ' . $info['path'] );
+			} else {
+				$L( '   ' . str_pad( $name, 16 ) . sprintf( '%d bytes  modified %s  writable=%s',
+					$info['size'], $info['modified'], $info['writable'] ? 'yes' : 'NO ⚠' ) );
+			}
+		}
+
+		// ── REWRITE RULES MATCHING OUR ENDPOINTS ───────────────────────────
+		$H( 'REWRITE RULES MATCHING llms.txt / robots / .md / mcp' );
+		$rr = self::dump_matching_rewrite_rules();
+		if ( empty( $rr ) ) {
+			$L( '   ⚠ NO MATCHING RULES — flush rewrite rules: Settings → Permalinks → Save' );
+		} else {
+			foreach ( $rr as $regex => $query ) {
+				$L( '   ' . self::truncate( $regex, 50 ) . '  →  ' . self::truncate( $query, 80 ) );
+			}
+		}
+
+		// ── HOOKS ON robots_txt + template_redirect ────────────────────────
+		$H( 'HOOKS ON `robots_txt` FILTER (priority order, lower = earlier)' );
+		foreach ( self::dump_hooks_on( 'robots_txt' ) as $line ) {
+			$L( '   ' . $line );
+		}
+
+		$H( 'HOOKS ON `template_redirect` (early priorities only — these race for /llms.txt etc.)' );
+		$comp = self::dump_template_redirect_competitors();
+		if ( empty( $comp ) ) {
+			$L( '   (none at priority ≤ 5)' );
+		} else {
+			foreach ( $comp as $line ) {
+				$L( '   ' . $line );
+			}
+			$L( '   ' );
+			$L( '   Legend: ✓ = RankReady (expected), ⚠ = other plugin/theme racing us' );
+		}
+
+		// ── SEO PLUGIN CONFIG ──────────────────────────────────────────────
+		$H( 'SEO PLUGIN ACTUAL CONFIG (what RankReady defers to vs. takes over)' );
+		$seo = self::dump_seo_plugin_config();
+		if ( empty( $seo ) ) {
+			$L( '   (no SEO plugin detected — RankReady serves everything standalone)' );
+		} else {
+			foreach ( $seo as $plugin => $cfg ) {
+				$L( '   ' . $plugin );
+				foreach ( $cfg as $k => $v ) {
+					$L( '     • ' . str_pad( $k, 22 ) . $v );
+				}
+			}
+		}
+
+		// ── CACHE EXCLUSION STATUS ─────────────────────────────────────────
+		$H( 'CACHE PLUGIN EXCLUSION STATUS' );
+		$ce = self::dump_cache_exclusion_status();
+		if ( empty( $ce ) ) {
+			$L( '   (no cache plugin detected)' );
+		} else {
+			foreach ( $ce as $name => $status ) {
+				$L( '   ' . str_pad( $name, 24 ) . $status );
+			}
+		}
+
+		// ── ACTIVE PLUGINS + MU-PLUGINS ────────────────────────────────────
+		$H( 'ACTIVE PLUGINS (' . count( $env['active_plugins'] ) . ')' );
+		foreach ( $env['active_plugins'] as $p ) {
+			$L( '   • ' . $p );
+		}
+		if ( ! empty( $env['mu_plugins'] ) ) {
+			$L( '' );
+			$L( 'MU-PLUGINS (' . count( $env['mu_plugins'] ) . ') — invisible from Plugins screen:' );
+			foreach ( $env['mu_plugins'] as $p ) {
+				$L( '   • ' . $p );
+			}
+		}
+
+		// ── HOW TO SEND THIS ───────────────────────────────────────────────
+		$H( 'HOW TO SEND THIS REPORT' );
+		$L( 'Paste this whole block into:' );
+		$L( '  • A WordPress.org plugin support topic' );
+		$L( '  • A bug report or issue tracker' );
+		$L( '  • Your hosting provider when reporting a server issue' );
+		$L( '' );
+		$L( 'No personal data is included — only public URLs, plugin names, server' );
+		$L( 'software, and your toggle states. No API keys, no post content.' );
+
+		$L( '' );
+		$L( '═══════════════════ End Diagnostic Report ═══════════════════' );
+
+		return implode( "\n", $lines );
+	}
+
+	private static function truncate( string $s, int $n ): string {
+		return strlen( $s ) > $n ? substr( $s, 0, $n - 1 ) . '…' : $s;
+	}
+
+	private static function oneline( string $s ): string {
+		return preg_replace( '/\s+/', ' ', trim( $s ) );
+	}
+
+	/**
+	 * Plain-English explanation of why a given probe failure matters
+	 * for the user's AI visibility goals. Non-technical wording.
+	 */
+	private static function why_matters( string $probe_id ): string {
+		$map = array(
+			'llms_txt'        => 'AI engines like ChatGPT and Perplexity look at /llms.txt first to understand your site. If it 404s, they fall back to crawling your HTML — slower, less accurate citations.',
+			'llms_full_txt'   => '/llms-full.txt is your entire site as one AI-readable file. Perplexity caches it. Without it, every citation request re-crawls dozens of pages.',
+			'homepage_md'     => 'AI bots request your homepage with Accept: text/markdown. If you return HTML, they parse it inefficiently or skip you.',
+			'post_md'         => 'Each post needs a .md route so AI bots can grab clean Markdown instead of parsing your full HTML/JS bundle.',
+			'robots_txt'      => 'Without the RankReady block, AI bots have no signal which crawlers you allow. Many default to blocking everything unknown.',
+			'mcp_manifest'    => 'WebMCP is how Claude Desktop / Cursor / VS Code read your site as a data source. Without /.well-known/mcp.json, those tools never discover you.',
+			'rewrite_rules'   => 'WordPress needs rewrite rules registered before any of our /llms.txt or /.md URLs can resolve. Without them, every endpoint returns 404.',
+			'wp_cron'         => 'Content freshness scans and bulk operations need WP cron to run on schedule. If cron is disabled, those features silently stop working.',
+			'db_tables'       => 'The crawler log table stores which AI bots visited which pages. Without it, the Insights tab has nothing to show.',
+			'abilities_api'   => 'WordPress 6.9+ ships a native MCP integration. RankReady uses it when available, falls back to its own manifest otherwise — either is fine.',
+			'cache_plugin'    => 'Cache plugins can serve stale or HTML versions of /llms.txt to AI bots. RankReady tries to add bypass rules but some plugins need manual setup.',
+			'page_builder'    => 'Page builders (Bricks, Elementor, Oxygen, Divi) intercept WordPress template loading. RankReady runs at priority 1 to beat them — if you still see HTML on /llms.txt, a mu-plugin is racing us.',
+			'seo_plugin'      => 'Your SEO plugin emits its own schema markup. RankReady merges into it via filters to avoid double tags. If your SEO plugin schema is OFF, RankReady\'s standalone schema is also OFF — use the rankready_force_standalone_schema filter to override.',
+			'cache_constants' => 'WP_CACHE / DONOTCACHEPAGE / DISABLE_WP_CRON change how content caching and scheduling behave. Info-only here — for context, not a fix.',
+			'brand_identity'  => 'Brand name + summary + about are the only AI-facing description of your site. Empty Brand Identity means llms.txt has no useful header for AI engines.',
+			'php_version'     => 'Old PHP versions are slower and miss security patches. PHP 8.0+ is the modern baseline.',
+			'wp_version'      => 'Old WordPress versions miss security patches and the new Abilities API needed for native MCP.',
+		);
+		return $map[ $probe_id ] ?? 'See the FIX line above for the action to take.';
+	}
+}
+
+// Bootstrap is invoked from rankready.php in plugins_loaded.

@@ -4,12 +4,10 @@
 
 ### Get cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews — without conflicting with your existing SEO plugin.
 
-[![WordPress.org Plugin Version](https://img.shields.io/wordpress/plugin/v/rankready-ai-llm-seo?label=WordPress.org&style=for-the-badge&color=10b981)](https://wordpress.org/plugins/rankready-ai-llm-seo/)
-[![WordPress.org Downloads](https://img.shields.io/wordpress/plugin/dt/rankready-ai-llm-seo?style=for-the-badge&color=10b981)](https://wordpress.org/plugins/rankready-ai-llm-seo/)
-[![WordPress.org Rating](https://img.shields.io/wordpress/plugin/rating/rankready-ai-llm-seo?style=for-the-badge&color=10b981)](https://wordpress.org/plugins/rankready-ai-llm-seo/#reviews)
-[![Tested up to](https://img.shields.io/wordpress/plugin/tested/rankready-ai-llm-seo?style=for-the-badge&color=10b981)](https://wordpress.org/plugins/rankready-ai-llm-seo/)
-[![PHP Required](https://img.shields.io/wordpress/plugin/required-php/rankready-ai-llm-seo?style=for-the-badge&color=10b981)](https://wordpress.org/plugins/rankready-ai-llm-seo/)
-[![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2+-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-2.0)
+[![Version](https://img.shields.io/badge/Version-1.0.0-10b981?style=for-the-badge)](https://github.com/adityaarsharma/rankready/releases/tag/v1.0.0)
+[![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-10b981?style=for-the-badge)](https://wordpress.org/)
+[![PHP](https://img.shields.io/badge/PHP-7.4%2B-10b981?style=for-the-badge)](https://www.php.net/)
+[![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2+-blue?style=for-the-badge)](https://www.gnu.org/licenses/gpl-2.0)
 
 **[Download from WordPress.org →](https://wordpress.org/plugins/rankready-ai-llm-seo/)** · **[Official Page](https://store.posimyth.com/plugins/rankready/?ref=github)** · **[Support Forum](https://wordpress.org/support/plugin/rankready-ai-llm-seo/)**
 

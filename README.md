@@ -17,7 +17,7 @@
 
 ---
 
-## Complete Walkthrough
+## Full Walkthrough
 
 <div align="center">
 

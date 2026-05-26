@@ -17,9 +17,15 @@
 
 ---
 
-## 2-Minute Walkthrough
+## Watch the Demo
 
-https://www.youtube.com/watch?v=JA-rEwMbqNo
+<div align="center">
+
+[![Watch the RankReady walkthrough on YouTube](https://img.youtube.com/vi/JA-rEwMbqNo/maxresdefault.jpg)](https://www.youtube.com/watch?v=JA-rEwMbqNo "Watch the RankReady walkthrough")
+
+▶ **[Watch on YouTube](https://www.youtube.com/watch?v=JA-rEwMbqNo)**
+
+</div>
 
 ---
 

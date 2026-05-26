@@ -17,7 +17,7 @@
 
 ---
 
-## Watch the Demo
+## Complete Walkthrough
 
 <div align="center">
 

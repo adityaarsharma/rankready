@@ -303,13 +303,17 @@ class RNRD_Admin {
 			'default'           => 'deepseek-v4-flash',
 		) );
 
-		register_setting( self::SETTINGS_GROUP, RNRD_OPT_POST_TYPES, array(
+		// v1.0.1 — These 8 options were previously registered against
+		// SETTINGS_GROUP but the Content AI tab's <form> (render_tab_content_ai)
+		// posts to CONTENT_GROUP. options.php silently dropped them on save.
+		// Repointed to CONTENT_GROUP to match the form they're actually in.
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_POST_TYPES, array(
 			'type'              => 'array',
 			'sanitize_callback' => array( self::class, 'sanitize_post_types' ),
 			'default'           => array( 'post' ),
 		) );
 
-		register_setting( self::SETTINGS_GROUP, RNRD_OPT_CUSTOM_PROMPT, array(
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_CUSTOM_PROMPT, array(
 			'type'              => 'string',
 			'sanitize_callback' => 'sanitize_textarea_field',
 			'default'           => '',
@@ -320,13 +324,13 @@ class RNRD_Admin {
 		// the Brand Identity card now serves both llms.txt content AND prompt
 		// injection (RNRD_Generator + RNRD_Faq read RNRD_Llms_Txt::get_brand_about()
 		// with rnrd_product_context as legacy fallback).
-		register_setting( self::SETTINGS_GROUP, RNRD_OPT_PRODUCT_CONTEXT, array(
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_PRODUCT_CONTEXT, array(
 			'type'              => 'string',
 			'sanitize_callback' => 'sanitize_textarea_field',
 			'default'           => '',
 		) );
 
-		register_setting( self::SETTINGS_GROUP, RNRD_OPT_AUTO_GENERATE, array(
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_AUTO_GENERATE, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
 			'default'           => 'off',
@@ -342,31 +346,31 @@ class RNRD_Admin {
 			'default'           => 'off',
 		) );
 
-		register_setting( self::SETTINGS_GROUP, RNRD_OPT_AUTO_DISPLAY, array(
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_AUTO_DISPLAY, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_auto_display' ),
 			'default'           => 'off',
 		) );
 
-		register_setting( self::SETTINGS_GROUP, RNRD_OPT_DISPLAY_POSITION, array(
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_DISPLAY_POSITION, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_display_position' ),
 			'default'           => 'before',
 		) );
 
-		register_setting( self::SETTINGS_GROUP, RNRD_OPT_LABEL, array(
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_LABEL, array(
 			'type'              => 'string',
 			'sanitize_callback' => 'sanitize_text_field',
 			'default'           => 'Key Takeaways',
 		) );
 
-		register_setting( self::SETTINGS_GROUP, RNRD_OPT_SHOW_LABEL, array(
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_SHOW_LABEL, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_checkbox_field' ),
 			'default'           => '1',
 		) );
 
-		register_setting( self::SETTINGS_GROUP, RNRD_OPT_HEADING_TAG, array(
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_HEADING_TAG, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_heading_tag' ),
 			'default'           => 'h4',
@@ -2974,24 +2978,6 @@ class RNRD_Admin {
 							</label>
 						</td>
 					</tr>
-					<?php if ( 'on' !== $enable ) : ?>
-					<tr>
-						<td colspan="2">
-							<?php
-							self::render_locked_preview( array(
-								'option_key'   => 'rnrd_author_enable',
-								'enable_label' => __( 'Enable Author Box', 'rankready-ai-llm-seo' ),
-								'bullets'      => array(
-									__( 'Person JSON-LD with bio, expertise, sameAs (Wikidata, ORCID, LinkedIn)', 'rankready-ai-llm-seo' ),
-									__( 'Display via Gutenberg block / Elementor widget', 'rankready-ai-llm-seo' ),
-									__( 'Pulls existing WP user profile + RankReady-specific fields', 'rankready-ai-llm-seo' ),
-									__( 'E-E-A-T trust signals AI engines weight heavily', 'rankready-ai-llm-seo' ),
-								),
-							) );
-							?>
-						</td>
-					</tr>
-					<?php endif; ?>
 					<tr>
 						<th><label for="rnrd_author_auto_display"><?php esc_html_e( 'Auto-display', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
@@ -3203,19 +3189,6 @@ class RNRD_Admin {
 				<h2 class="rnrd-card-title"><?php esc_html_e( 'Schema Types', 'rankready-ai-llm-seo' ); ?></h2>
 				<p class="rnrd-card-goal"><?php esc_html_e( 'Auto-emit Article + Speakable + HowTo + ItemList JSON-LD. No manual schema work.', 'rankready-ai-llm-seo' ); ?></p>
 
-				<?php if ( ! $rnrd_any_schema_on ) :
-					self::render_locked_preview( array(
-						'option_key'   => 'rnrd_schema_article',
-						'enable_label' => __( 'Enable Article schema', 'rankready-ai-llm-seo' ),
-						'bullets'      => array(
-							__( 'Article JSON-LD on every post — required by AI engines for attribution', 'rankready-ai-llm-seo' ),
-							__( 'Speakable schema for Alexa, Assistant, Siri voice answers', 'rankready-ai-llm-seo' ),
-							__( 'HowTo auto-detection from tutorial content', 'rankready-ai-llm-seo' ),
-							__( 'ItemList auto-detection from listicles', 'rankready-ai-llm-seo' ),
-						),
-					) );
-				else : ?>
-
 				<table class="form-table rnrd-form-table">
 
 					<!-- Article + Speakable -->
@@ -3358,7 +3331,6 @@ class RNRD_Admin {
 					</tr>
 					<?php endif; // is_pro — ItemList ?>
 				</table>
-				<?php endif; /* /rnrd_any_schema_on locked-state gate (rc.7) */ ?>
 				<?php submit_button( __( 'Save Schema Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_schema', false ); ?>
 			</div>
 
@@ -3816,18 +3788,6 @@ class RNRD_Admin {
 					<?php endif; ?>
 				</table>
 
-				<?php if ( 'on' !== $rnrd_mcp_enable ) :
-					self::render_locked_preview( array(
-						'option_key'   => 'rnrd_mcp_enable',
-						'enable_label' => __( 'Enable WebMCP', 'rankready-ai-llm-seo' ),
-						'bullets'      => array(
-							__( '/.well-known/mcp.json manifest endpoint', 'rankready-ai-llm-seo' ),
-							__( '16 read-only abilities (get-site-info, search-posts, get-post, list-pages, get-author, ...)', 'rankready-ai-llm-seo' ),
-							__( 'Per-ability toggle controls — keep sensitive resources gated', 'rankready-ai-llm-seo' ),
-							__( 'Cache-busted on toggle changes', 'rankready-ai-llm-seo' ),
-						),
-					) );
-				endif; ?>
 				<?php submit_button( __( 'Save WebMCP Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_mcp', false ); ?>
 			</div>
 			<!-- ── /WebMCP ──────────────────────────────────────────────────────── -->
@@ -3857,19 +3817,6 @@ class RNRD_Admin {
 						</td>
 					</tr>
 				</table>
-
-				<?php if ( 'on' !== $llms_enable ) :
-					self::render_locked_preview( array(
-						'option_key'   => 'rnrd_llms_enable',
-						'enable_label' => __( 'Enable LLMs.txt', 'rankready-ai-llm-seo' ),
-						'bullets'      => array(
-							__( '/llms.txt serves your site index in the llmstxt.org spec', 'rankready-ai-llm-seo' ),
-							__( '/llms-full.txt dumps every post in one AI-readable file', 'rankready-ai-llm-seo' ),
-							__( 'Brand Identity values render in both files automatically', 'rankready-ai-llm-seo' ),
-							__( 'Cache-friendly with bypass rules for 10 page-cache plugins', 'rankready-ai-llm-seo' ),
-						),
-					) );
-				endif; ?>
 
 				<div id="rnrd-llms-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $llms_enable ? 'style="display:none;"' : ''; ?>>
 					<table class="form-table rnrd-form-table">
@@ -4022,19 +3969,6 @@ class RNRD_Admin {
 					</tr>
 				</table>
 
-				<?php if ( 'on' !== $md_enable ) :
-					self::render_locked_preview( array(
-						'option_key'   => 'rnrd_md_enable',
-						'enable_label' => __( 'Enable Markdown Endpoints', 'rankready-ai-llm-seo' ),
-						'bullets'      => array(
-							__( 'Every post available at /post-slug.md', 'rankready-ai-llm-seo' ),
-							__( 'Content negotiation via Accept: text/markdown', 'rankready-ai-llm-seo' ),
-							__( 'YAML frontmatter (title, author, date, taxonomies) for AI agents', 'rankready-ai-llm-seo' ),
-							__( 'AI bot auto-serve when User-Agent matches GPTBot, ClaudeBot, PerplexityBot, etc.', 'rankready-ai-llm-seo' ),
-						),
-					) );
-				endif; ?>
-
 				<div id="rnrd-md-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $md_enable ? 'style="display:none;"' : ''; ?>>
 					<table class="form-table rnrd-form-table">
 						<tr>
@@ -4113,19 +4047,6 @@ class RNRD_Admin {
 					</tr>
 				</table>
 
-				<?php if ( 'on' !== $robots_enable ) :
-					self::render_locked_preview( array(
-						'option_key'   => 'rnrd_robots_enable',
-						'enable_label' => __( 'Enable Crawler Rules', 'rankready-ai-llm-seo' ),
-						'bullets'      => array(
-							__( '31 named AI crawler directives (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot-Extended, ...)', 'rankready-ai-llm-seo' ),
-							__( 'Allow/block per-bot toggle for fine-grained control', 'rankready-ai-llm-seo' ),
-							__( 'Brand block comment with canonical site name + summary', 'rankready-ai-llm-seo' ),
-							__( 'Auto-syncs to physical /robots.txt (diff-before-write)', 'rankready-ai-llm-seo' ),
-						),
-					) );
-				endif; ?>
-
 				<div id="rnrd-robots-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $robots_enable ? 'style="display:none;"' : ''; ?>>
 					<table class="form-table rnrd-form-table">
 						<tr>
@@ -4188,19 +4109,6 @@ class RNRD_Admin {
 						</td>
 					</tr>
 				</table>
-
-				<?php if ( 'on' !== $signals_enable ) :
-					self::render_locked_preview( array(
-						'option_key'   => 'rnrd_content_signals_enable',
-						'enable_label' => __( 'Enable Content Signals', 'rankready-ai-llm-seo' ),
-						'bullets'      => array(
-							__( 'ai-train directive — control whether AI engines train on your content', 'rankready-ai-llm-seo' ),
-							__( 'search directive — control inclusion in AI search results', 'rankready-ai-llm-seo' ),
-							__( 'ai-input directive — control runtime prompt use by AI engines', 'rankready-ai-llm-seo' ),
-							__( 'Per contentsignals.org spec', 'rankready-ai-llm-seo' ),
-						),
-					) );
-				endif; ?>
 
 				<div id="rnrd-content-signals-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $signals_enable ? 'style="display:none;"' : ''; ?>>
 					<table class="form-table rnrd-form-table">
@@ -5094,16 +5002,21 @@ class RNRD_Admin {
 			// Hidden in a collapsed accordion so it stays out of the way when
 			// not needed — appears below the run-diagnostics results.
 			if ( class_exists( 'RNRD_Cache' ) ) :
-				$htaccess_snippet = RNRD_Cache::apache_htaccess_snippet();
-				$nginx_snippet    = RNRD_Cache::nginx_snippet();
+				$htaccess_snippet   = RNRD_Cache::apache_htaccess_snippet();
+				$nginx_snippet      = RNRD_Cache::nginx_snippet();
+				$cloudflare_snippet = RNRD_Cache::cloudflare_cache_rule_snippet();
 			?>
 			<details class="rnrd-diag-snippet" style="margin-top:16px;padding:12px 14px;border:1px solid #E5E7E0;border-radius:8px;background:#fafbfa;">
 				<summary style="cursor:pointer;font-weight:600;font-size:13px;color:#1d2327;">
-					<?php esc_html_e( 'Server bypass snippets (advanced)', 'rankready-ai-llm-seo' ); ?>
+					<?php esc_html_e( 'Server / CDN cache bypass snippets (advanced)', 'rankready-ai-llm-seo' ); ?>
 				</summary>
 				<p style="margin:10px 0 6px;font-size:12px;color:#646970;line-height:1.5;">
-					<?php esc_html_e( 'Only needed when a server-level cache (LiteSpeed Web Server, nginx FastCGI, Varnish) caches dynamic endpoints before PHP runs — e.g. /llms.txt returns stale HTML on a LiteSpeed host. Add the matching snippet to your server config, then purge the cache.', 'rankready-ai-llm-seo' ); ?>
+					<?php esc_html_e( 'Apply these only when a cache layer is serving stale or wrong-type responses to AI crawlers (e.g. Cloudflare returning HTML to Accept: text/markdown requests, or LSWS caching /llms.txt before PHP runs).', 'rankready-ai-llm-seo' ); ?>
 				</p>
+				<p style="margin:14px 0 4px;font-size:12px;font-weight:600;color:#1d2327;">
+					<?php esc_html_e( 'Cloudflare — paste into Cache Rules → Custom filter expression', 'rankready-ai-llm-seo' ); ?>
+				</p>
+				<textarea readonly class="rnrd-diag-snippet-text" style="width:100%;height:140px;font-family:Menlo,Consolas,monospace;font-size:11px;background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:8px;"><?php echo esc_textarea( $cloudflare_snippet ); ?></textarea>
 				<p style="margin:14px 0 4px;font-size:12px;font-weight:600;color:#1d2327;">
 					<?php esc_html_e( 'Apache / LiteSpeed — paste at top of .htaccess', 'rankready-ai-llm-seo' ); ?>
 				</p>
@@ -5692,65 +5605,26 @@ class RNRD_Admin {
 	// ═══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Render the "locked preview" body for a togglable card.
+	 * v1.0.1 — Locked-preview pattern removed.
 	 *
-	 * Shown when a card's master toggle is OFF. Lists what the feature delivers
-	 * + offers an Enable button. The button is a nonce-protected GET link to
-	 * the same admin page (NOT a nested <form>, which is invalid HTML when
-	 * the card sits inside the tab's outer settings form). The handler runs
-	 * on admin_init via handle_quick_enable().
+	 * Previously this rendered a "What you get when enabled" bullet list with
+	 * a separate Enable button. The pattern added a redundant intermediate
+	 * step: user had to click Enable, get redirected, then come back and click
+	 * Save. Users repeatedly asked for the simpler flow — tick the master
+	 * checkbox, hit the Save button at the bottom, done.
 	 *
-	 * @param array $config {
-	 *     @type string $option_key   Option name to flip (e.g. 'rnrd_llms_enable').
-	 *     @type string $on_value     Value to write when enabling (default 'on').
-	 *     @type string $enable_label Button label (default "Enable").
-	 *     @type array  $bullets      Plain-text bullet list of what the user gets.
-	 * }
+	 * Kept as a no-op so existing call sites (`if (!$enable) render_locked_preview(...)`)
+	 * remain valid without me having to touch every callsite. The actual
+	 * settings table that used to be in the `else` branch now always renders
+	 * once the user is on the page. The master-toggle row at the top of every
+	 * card still controls whether the rest of the settings collapse on save.
+	 *
+	 * @param array $config Unused. Kept for back-compat of existing callers.
 	 */
 	private static function render_locked_preview( array $config ): void {
-		$option_key = $config['option_key'] ?? '';
-		$on_value   = $config['on_value'] ?? 'on';
-		$btn_label  = $config['enable_label'] ?? __( 'Enable', 'rankready-ai-llm-seo' );
-		$bullets    = $config['bullets'] ?? array();
-
-		// Build the nonce-protected enable URL. GET-based so it nests safely
-		// inside the outer settings form without producing invalid HTML.
-		$enable_url = wp_nonce_url(
-			add_query_arg(
-				array(
-					'rnrd_enable_action' => $option_key,
-					'rnrd_enable_value'  => $on_value,
-				),
-				admin_url( 'admin.php' )
-			),
-			'rnrd_enable_' . $option_key,
-			'_rnrd_enable_nonce'
-		);
-		// Preserve current admin context (page=rankready-ai-llm-seo&tab=...).
-		$enable_url = add_query_arg(
-			array(
-				'page' => self::MENU_SLUG,
-				'tab'  => isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'dashboard',
-			),
-			$enable_url
-		);
-		?>
-		<div class="rnrd-card-locked">
-			<p class="rnrd-card-locked__heading">
-				<strong><?php esc_html_e( 'What you get when enabled:', 'rankready-ai-llm-seo' ); ?></strong>
-			</p>
-			<ul class="rnrd-card-locked__bullets">
-				<?php foreach ( $bullets as $b ) : ?>
-					<li><?php echo esc_html( $b ); ?></li>
-				<?php endforeach; ?>
-			</ul>
-			<p class="rnrd-card-locked__form" style="margin:0;">
-				<a href="<?php echo esc_url( $enable_url ); ?>" class="button button-primary rnrd-card-locked__btn">
-					<?php echo esc_html( $btn_label ); ?>
-				</a>
-			</p>
-		</div>
-		<?php
+		// Intentionally empty — no Enable button, no bullets, no preview card.
+		// The card's master toggle checkbox + Save button is the entire flow now.
+		unset( $config ); // Silence "unused parameter" linters.
 	}
 
 	/**

@@ -157,6 +157,7 @@ class RNRD_Diagnostics {
 		$checks[] = self::probe_seo_plugin();
 		$checks[] = self::probe_cache_constants();
 		$checks[] = self::probe_edge_cache_hit();           // FREE-99 — external HIT detection
+		$checks[] = self::probe_markdown_negotiation();     // FREE-108 — Accept: text/markdown end-to-end
 		$checks[] = self::probe_template_redirect_race();   // FREE-99 — Bricks/Oxygen priority race
 
 		// Group 4 — Site configuration
@@ -731,19 +732,63 @@ class RNRD_Diagnostics {
 	}
 
 	private static function probe_wp_cron(): array {
-		if ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) {
-			return self::result( 'wp_cron', 'WP Cron available', 'warn',
-				'DISABLE_WP_CRON constant is true.',
-				'Set up real cron at server level (crontab -e: */15 * * * * wget -q -O - https://YOURSITE/wp-cron.php) or freshness scans won\'t run.'
+		// v1.0.1 — Don't fail just because DISABLE_WP_CRON is set. Many managed
+		// hosts (RunCloud, Kinsta, WP Engine, Pantheon) disable WP-Cron and run
+		// /wp-cron.php from system crontab. What actually matters is whether
+		// scheduled events are firing on time — so we measure THAT directly.
+		$cron       = _get_cron_array();
+		$count      = is_array( $cron ) ? count( $cron ) : 0;
+		$disabled   = defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON;
+		$mechanism  = $disabled ? 'external cron' : 'WP-Cron';
+
+		if ( 0 === $count ) {
+			// Fresh install or freshly-cleared queue — nothing to measure yet.
+			return self::result( 'wp_cron', 'Cron firing', 'pass',
+				sprintf( 'No events scheduled (%s).', $mechanism ),
+				null
 			);
 		}
 
-		$cron = _get_cron_array();
-		$count = is_array( $cron ) ? count( $cron ) : 0;
+		// Find the oldest event that should have already fired.
+		$now            = time();
+		$oldest_overdue = null;
+		foreach ( $cron as $timestamp => $events ) {
+			if ( $timestamp <= $now && ( null === $oldest_overdue || $timestamp < $oldest_overdue ) ) {
+				$oldest_overdue = $timestamp;
+			}
+		}
 
-		return self::result( 'wp_cron', 'WP Cron available', 'pass',
-			sprintf( '%d cron events scheduled.', $count ),
-			null
+		// Everything scheduled for the future — cron is presumably keeping up.
+		if ( null === $oldest_overdue ) {
+			return self::result( 'wp_cron', 'Cron firing', 'pass',
+				sprintf( '%d events scheduled (%s). None overdue.', $count, $mechanism ),
+				null
+			);
+		}
+
+		$minutes_late = (int) round( ( $now - $oldest_overdue ) / 60 );
+
+		// Up to 20 minutes late is acceptable — WP-Cron piggybacks on traffic,
+		// system cron usually runs every 5–15 minutes. Beyond that something
+		// real is wrong.
+		if ( $minutes_late <= 20 ) {
+			return self::result( 'wp_cron', 'Cron firing', 'pass',
+				sprintf( '%d events scheduled (%s). Oldest overdue %d min — within normal range.', $count, $mechanism, $minutes_late ),
+				null
+			);
+		}
+
+		// Truly stuck — cron is not firing regardless of which mechanism owns it.
+		$fix = $disabled
+			? sprintf(
+				'DISABLE_WP_CRON is on but external cron does not appear to be firing. Add a system cron: */10 * * * * wget -q -O - https://%s/wp-cron.php?doing_wp_cron',
+				wp_parse_url( home_url(), PHP_URL_HOST )
+			)
+			: 'WP-Cron is enabled but events have been overdue for a long time. Check that the site receives traffic, or switch to a real system cron and set DISABLE_WP_CRON = true.';
+
+		return self::result( 'wp_cron', 'Cron firing', 'warn',
+			sprintf( '%d events scheduled (%s). Oldest overdue %d min — cron not firing.', $count, $mechanism, $minutes_late ),
+			$fix
 		);
 	}
 
@@ -832,6 +877,76 @@ class RNRD_Diagnostics {
 	 *
 	 * If a HIT is reported, surfaces the .htaccess / nginx snippet as the fix.
 	 */
+	/**
+	 * FREE-108 — End-to-end Accept: text/markdown probe.
+	 *
+	 * Hits the live homepage with `Accept: text/markdown` and inspects the
+	 * Content-Type of the FINAL response (post-CDN, post-cache). Three failure
+	 * modes detected:
+	 *
+	 *   1. Returns text/html → some cache layer (most commonly Cloudflare)
+	 *      is serving the cached HTML response to markdown requests because
+	 *      its cache key doesn't vary by Accept. Surface the Cloudflare
+	 *      Cache Rule snippet as the fix.
+	 *   2. Returns 4xx/5xx → routing or rewrite-rule problem.
+	 *   3. Returns text/markdown → all good.
+	 *
+	 * @since 1.0.1
+	 */
+	private static function probe_markdown_negotiation(): array {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			return self::result( 'md_negotiation', 'Accept: text/markdown end-to-end', 'info',
+				'Markdown endpoints disabled; skipped.', null );
+		}
+
+		$home    = home_url( '/' );
+		$response = wp_remote_get( $home, array(
+			'timeout'     => 5,
+			'redirection' => 2,
+			'headers'     => array( 'Accept' => 'text/markdown' ),
+			'user-agent'  => 'RankReady-Diagnostic/1.0',
+		) );
+		if ( is_wp_error( $response ) ) {
+			return self::result( 'md_negotiation', 'Accept: text/markdown end-to-end', 'info',
+				'External probe could not run (' . $response->get_error_message() . '). Common in Docker / local dev — not a real-site issue.',
+				null );
+		}
+
+		$status = (int) wp_remote_retrieve_response_code( $response );
+		$ctype  = (string) wp_remote_retrieve_header( $response, 'content-type' );
+		$ctype_short = strtok( $ctype, ';' );
+		$cf_cache    = (string) wp_remote_retrieve_header( $response, 'cf-cache-status' );
+
+		if ( $status >= 400 ) {
+			return self::result( 'md_negotiation', 'Accept: text/markdown end-to-end', 'fail',
+				'Homepage returned HTTP ' . $status . ' to Accept: text/markdown request.',
+				'Check rewrite rules: Settings → Permalinks → Save. Then re-run.',
+				array( 'status' => $status, 'content-type' => $ctype ) );
+		}
+
+		if ( 'text/markdown' === $ctype_short ) {
+			return self::result( 'md_negotiation', 'Accept: text/markdown end-to-end', 'pass',
+				'Homepage returned text/markdown as requested. Content negotiation works end-to-end.' .
+					( '' !== $cf_cache ? ' (Cloudflare cf-cache-status: ' . $cf_cache . ')' : '' ),
+				null,
+				array( 'content-type' => $ctype, 'cf_cache' => $cf_cache ) );
+		}
+
+		// Returned HTML when markdown was requested → cache layer is overriding.
+		$fix = '';
+		if ( '' !== $cf_cache && false !== stripos( $cf_cache, 'hit' ) ) {
+			$fix = 'Cloudflare is serving cached HTML to markdown requests (its default cache key does not vary by Accept). Fix: add a Cache Rule that bypasses cache when Accept contains text/markdown. Snippet in Settings → Diagnostics → Cloudflare Cache Rule.';
+		} else {
+			$fix = 'Some intermediate cache is serving HTML to markdown requests. If on Cloudflare, apply the Cache Rule snippet. If on Varnish/Fastly/LSWS, ensure Vary: Accept is respected at the cache layer.';
+		}
+
+		return self::result( 'md_negotiation', 'Accept: text/markdown end-to-end', 'warn',
+			'Got Content-Type: ' . $ctype . ' when markdown was requested.' .
+				( '' !== $cf_cache ? ' Cloudflare cf-cache-status: ' . $cf_cache . '.' : '' ),
+			$fix,
+			array( 'content-type' => $ctype, 'cf_cache' => $cf_cache ) );
+	}
+
 	private static function probe_edge_cache_hit(): array {
 		if ( ! class_exists( 'RNRD_Cache' ) ) {
 			return self::result( 'edge_cache_hit', 'Edge cache HIT scan', 'info',

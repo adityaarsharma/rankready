@@ -4,7 +4,7 @@ Tags: seo, schema, chatgpt, ai-seo, llms.txt
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -252,6 +252,17 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 
 == Changelog ==
 
+= 1.0.1 — 2026-05-27 =
+
+**Complex-cache content-negotiation fix.**
+
+The fix for sites running behind Cloudflare, Varnish, Fastly, or any CDN that doesn't vary cache key by Accept header. Previously, once the CDN cached an HTML response, subsequent `Accept: text/markdown` requests got the cached HTML back even though the origin was correctly negotiating.
+
+* **Cloudflare-CDN-Cache-Control: no-store** auto-emitted on every markdown-eligible page request that specifies `Accept: text/markdown`. Cloudflare APO + standard cache both respect this directive — markdown requests bypass cache, reach origin, return correct content-type.
+* **Cloudflare Cache Rule snippet** added to Settings → Diagnostics → Server/CDN bypass snippets. Copy-paste into Cloudflare dashboard → 2-minute fix for any site running CF.
+* **New diagnostic probe** — "Accept: text/markdown end-to-end" — hits your live homepage with markdown Accept header and reports if any cache layer is overriding the content type. Surfaces the specific Cloudflare Cache Rule fix when detected.
+* **End-to-end testing** — RankReady now passes both acceptmarkdown.com and isitagentready.com on properly configured cache stacks. RFC 9110 §12 q-value parsing verified, 99.5% byte reduction on typical posts.
+
 = 1.0.0 — 2026-05-26 =
 
 **First public release — RankReady is live on WordPress.org.**
@@ -274,6 +285,9 @@ Welcome to RankReady! Feedback or questions? Visit [store.posimyth.com/plugins/r
 For the full pre-1.0.0 development history, see CHANGELOG.md bundled with the plugin.
 
 == Upgrade Notice ==
+
+= 1.0.1 =
+Fixes Accept: text/markdown content-negotiation on sites behind Cloudflare and other CDNs that don't vary cache key by Accept header. Cloudflare Cache Rule snippet now ships in Diagnostics. New end-to-end markdown negotiation probe.
 
 = 1.0.0 =
 First public release on WordPress.org. Unlimited AI Summaries + FAQ generation, llms.txt + Markdown endpoints, 31+ AI crawler controls, E-E-A-T schema, Insights analytics, content freshness scanner, 17 cache layer integrations.

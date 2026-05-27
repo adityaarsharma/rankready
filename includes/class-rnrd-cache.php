@@ -747,4 +747,48 @@ class RNRD_Cache {
 		);
 		return implode( "\n", $lines );
 	}
+
+	/**
+	 * Cloudflare Cache Rule expression for content-negotiated Markdown.
+	 *
+	 * The problem: Cloudflare's default cache key does NOT vary by the
+	 * `Accept` header — only by URL + Vary: Accept-Encoding. So once
+	 * Cloudflare caches the HTML representation of a post, every subsequent
+	 * request with `Accept: text/markdown` gets the cached HTML back, even
+	 * though RankReady's origin correctly emits `Vary: Accept`.
+	 *
+	 * The fix: a single Cache Rule in Cloudflare dashboard that bypasses
+	 * cache whenever the request asks for markdown. HTML requests still
+	 * cache normally — both audiences served correctly.
+	 *
+	 * Returns the Cloudflare Cache Rule expression a user pastes into:
+	 *   Cloudflare → Caching → Cache Rules → Create rule → Custom filter expression
+	 *
+	 * @since 1.0.1 (FREE-108)
+	 */
+	public static function cloudflare_cache_rule_snippet(): string {
+		$lines = array(
+			'# RankReady — Cloudflare Cache Rule for AI content negotiation',
+			'#',
+			'# Dashboard path: Cloudflare → Caching → Cache Rules → Create rule',
+			'#',
+			'# 1. Rule name:',
+			'#    RankReady: bypass cache for AI markdown requests',
+			'#',
+			'# 2. When incoming requests match (Custom filter expression):',
+			'(any(http.request.headers["accept"][*] contains "text/markdown"))',
+			'#',
+			'# 3. Then:',
+			'#    Cache eligibility: Bypass cache',
+			'#',
+			'# Effect: requests with Accept: text/markdown bypass the edge cache,',
+			'# always reach origin, get the markdown response. Regular browser',
+			'# requests (Accept: text/html) still hit the cache as normal.',
+			'#',
+			'# Alternative — if you have Cloudflare Enterprise, add Accept to the',
+			'# custom cache key instead:',
+			'#   Cache Rules → Custom Cache Key → Headers → Accept',
+		);
+		return implode( "\n", $lines );
+	}
 }

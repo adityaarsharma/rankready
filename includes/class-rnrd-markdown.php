@@ -366,6 +366,23 @@ class RNRD_Markdown {
 		if ( ( is_front_page() || is_home() ) && $wants_md ) {
 			RNRD_Cache::no_cache_headers();
 		}
+
+		// FREE-108 / v1.0.1 — When the page has a markdown variant AND the
+		// request explicitly asks for markdown, bypass every CDN/edge cache so
+		// the markdown response always reaches the AI client. Cloudflare's
+		// default cache key does NOT vary by Accept, so without this an HTML
+		// response cached for one visitor gets served to every subsequent
+		// markdown request. The headers below force a re-fetch from origin.
+		//
+		// We only fire this on Accept: text/markdown requests — regular browser
+		// requests still hit the CDN cache normally, so cache-hit ratios stay
+		// healthy for the 99% of traffic that is humans loading HTML.
+		if ( $wants_md && ! headers_sent() ) {
+			header( 'Cloudflare-CDN-Cache-Control: no-store' );
+			header( 'CDN-Cache-Control: no-store' );
+			header( 'cf-edge-cache: no-cache' );
+			header( 'Surrogate-Control: no-store' );
+		}
 	}
 
 	// ── Link tag + header to .md version ─────────────────────────────────────

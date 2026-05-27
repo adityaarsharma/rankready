@@ -216,20 +216,27 @@
 /* ── Form table overrides ──────────────────────────────────────────────────── */
 
 .rnrd-form-table th {
-	padding: 12px 10px 12px 0;
+	padding: 16px 10px 16px 0;
 	font-size: 13px;
 	font-weight: 600;
 	color: #1d2327;
+	vertical-align: top;
 }
 
 .rnrd-form-table td {
-	padding: 12px 0;
+	padding: 16px 0;
+}
+
+.rnrd-form-table tr + tr th,
+.rnrd-form-table tr + tr td {
+	border-top: 1px solid #f0f0f1;
 }
 
 .rnrd-form-table .description {
 	font-size: 12px;
 	color: #646970;
-	margin-top: 4px;
+	margin-top: 6px;
+	line-height: 1.55;
 }
 
 /* ── Toggle controls ───────────────────────────────────────────────────────── */
@@ -247,10 +254,21 @@
 
 /* ── Conditional fields ────────────────────────────────────────────────────── */
 
+/* v1.0.1 — Enable-button pattern removed. Settings sit directly under the
+   master toggle row, so the divider needs to breathe a bit more to read as
+   "this section belongs to that toggle" rather than "row glued to row". */
 .rnrd-conditional-fields {
-	border-top: 1px solid #f0f0f1;
-	margin-top: 8px;
-	padding-top: 8px;
+	border-top: 1px solid #e5e7eb;
+	margin-top: 22px;
+	padding-top: 22px;
+}
+.rnrd-conditional-fields .rnrd-form-table:first-child {
+	margin-top: 0;
+}
+.rnrd-conditional-fields > .rnrd-form-table th,
+.rnrd-conditional-fields > .rnrd-form-table td {
+	padding-top: 14px;
+	padding-bottom: 14px;
 }
 
 /* ── Checkboxes inline ─────────────────────────────────────────────────────── */

@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
@@ -51,7 +51,7 @@ if ( defined( 'RNRD_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RNRD_VERSION' ) ) {
-	define( 'RNRD_VERSION',  '1.0.0' );
+	define( 'RNRD_VERSION',  '1.0.1' );
 	define( 'RNRD_FILE',     __FILE__ );
 	define( 'RNRD_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RNRD_URL',      plugin_dir_url( __FILE__ ) );
@@ -291,12 +291,20 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_LLMS_FULL_CACHE_KEY', 'rnrd_llms_full_txt_cache' );
 }
 
-// ── rnrd_is_pro() stub — Free build short-circuit ───────────────────────────
-// The WP.org-distributed Free build has no Pro tier. Any gated code path that
-// still checks rnrd_is_pro() will cleanly fall through to the Free branch.
+// ── rnrd_is_pro() — Pro extension point ─────────────────────────────────────
+// The Free build always returns false by default. The companion Pro addon
+// (or any third party with permission) opts in by attaching to the
+// `rnrd_is_pro` filter:
+//
+//     add_filter( 'rnrd_is_pro', '__return_true' );
+//
+// This filter pattern means Pro never needs to win a function_exists race,
+// never needs a mu-plugin trick, never needs to load before Free in the
+// plugin order — it just hooks in like any other WordPress filter. Free
+// stays the single source of truth for the function itself.
 if ( ! function_exists( 'rnrd_is_pro' ) ) {
 	function rnrd_is_pro(): bool {
-		return false;
+		return (bool) apply_filters( 'rnrd_is_pro', false );
 	}
 }
 
@@ -615,6 +623,17 @@ add_action( 'plugins_loaded', function (): void {
 	RNRD_MCP::init();              // WebMCP — WordPress Abilities API + /.well-known/mcp.json.
 	RNRD_Diagnostics::init();      // v1.2.0-rc.5 — Live endpoint probes + conflict detection.
 	RNRD_Cache::init();            // FREE-99 — cache compat init (Autoptimize asset excludes, etc).
+
+	/**
+	 * Fires after every core RankReady class has booted.
+	 *
+	 * The Pro addon attaches its own classes here so it has a guaranteed-safe
+	 * moment to call the Free classes it composes with (RNRD_Generator,
+	 * RNRD_Faq, etc.) without race conditions or order dependencies.
+	 *
+	 * @since 1.0.1
+	 */
+	do_action( 'rnrd_loaded' );
 
 	// Free tier limits — REST endpoint for admin JS usage display.
 	add_action( 'rest_api_init', array( 'RNRD_Limits', 'register_rest' ) );

@@ -130,11 +130,11 @@
 	}
 
 	registerBlockType( 'rankready/author-box', {
-		title:       'RankReady Author Box',
+		title:       'Author Box — RankReady',
 		icon:        'businessperson',
-		category:    'widgets',
+		category:    'rankready',
 		description: 'EEAT-optimized author box with Person JSON-LD schema (sameAs, knowsAbout, credentials, memberOf, awards). Pulls from user profile fields added by RankReady.',
-		keywords:    [ 'author', 'box', 'rankready', 'eeat', 'person', 'schema', 'bio' ],
+		keywords:    [ 'author', 'box', 'bio', 'rankready', 'eeat', 'e-e-a-t', 'person', 'schema', 'ai seo', 'llm', 'geo' ],
 		supports:    { html: false, align: [ 'wide', 'full' ] },
 
 		attributes: {

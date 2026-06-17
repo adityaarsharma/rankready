@@ -45,6 +45,16 @@
 
 defined( 'ABSPATH' ) || exit;
 
+// File-scoped suppression. This entire class is the integration layer with
+// EVERY major WordPress page-cache plugin and CDN. Each do_action() call below
+// is to another plugin's PUBLISHED action name (litespeed_purge_all,
+// w3tc_flush_all, breeze_clear_all_cache, wphb_clear_cache, cache_enabler_*,
+// nitropack_*, autoptimize_*, swift_performance_*). We MUST use their hook
+// names verbatim to trigger their cache-purge APIs — prefixing them would
+// break the integration entirely. Same rationale as how Yoast / Rank Math /
+// AIOSEO call into each other's hooks.
+// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+
 class RNRD_Cache {
 
 	/**
@@ -59,6 +69,16 @@ class RNRD_Cache {
 	 * @since 1.2.1 (FREE-99)
 	 */
 	public static function init(): void {
+		// v1.1.3 — SWIS Performance exclusion notice. SWIS's static-file page
+		// cache has no programmatic bypass — the only fix is the
+		// SWIS_CACHE_EXCLUSIONS wp-config constant, which a plugin cannot set.
+		// Surface a dismissible admin notice with the exact define() snippet,
+		// same pattern as the Cloudflare APO notice.
+		if ( is_admin() ) {
+			add_action( 'admin_notices', array( self::class, 'maybe_swis_notice' ) );
+			add_action( 'admin_init',    array( self::class, 'handle_swis_dismiss' ) );
+		}
+
 		// Autoptimize — exclude RankReady admin assets from JS/CSS combine.
 		// AJAX save handler in admin.js depends on rnrdAjax localized object,
 		// which Autoptimize's combine can break by moving the script tag.
@@ -168,6 +188,7 @@ class RNRD_Cache {
 		add_filter( 'wp_cache_get_cookies_values', function ( $string ) use ( $patterns ) {
 			global $cache_rejected_uri;
 			if ( is_array( $cache_rejected_uri ) ) {
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- WP Super Cache global; reading it is part of the integration handshake.
 				$cache_rejected_uri = array_values( array_unique( array_merge( $cache_rejected_uri, $patterns ) ) );
 			}
 			return $string;
@@ -268,6 +289,7 @@ class RNRD_Cache {
 			$merged   = array_values( array_unique( array_merge( $existing, $patterns ) ) );
 			if ( $merged !== $existing ) {
 				update_option( 'litespeed.conf.cache-exc', $merged );
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- LiteSpeed Cache published action; must use its name to integrate.
 				do_action( 'litespeed_purge_all' );
 			}
 		}
@@ -330,15 +352,19 @@ class RNRD_Cache {
 		// skip this response. We're NOT setting Cache-Control here — that's
 		// the caller's responsibility.
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- WordPress-standard cache-bypass constant respected by all major page-cache plugins.
 			define( 'DONOTCACHEPAGE', true );
 		}
 		if ( ! defined( 'DONOTCACHEOBJECT' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- W3 Total Cache standard bypass constant.
 			define( 'DONOTCACHEOBJECT', true );
 		}
 		if ( ! defined( 'DONOTCACHEDB' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- W3 Total Cache standard bypass constant.
 			define( 'DONOTCACHEDB', true );
 		}
 		if ( ! defined( 'LSCWP_NO_CACHE' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- LiteSpeed Cache plugin's published bypass constant.
 			define( 'LSCWP_NO_CACHE', true );
 		}
 
@@ -353,45 +379,62 @@ class RNRD_Cache {
 		}
 	}
 
+	/**
+	 * v1.0.1 — Canonical no-cache header set for dynamic endpoints.
+	 *
+	 * Audit reference: see docs/CACHE-HEADER-AUDIT.md. Headers in Title-Case
+	 * (RFC 9110 convention; case-insensitive in transport, but enterprise tools
+	 * present consistent casing). Each layer reads a different header — every
+	 * one of the directives below points the same direction (no-cache /
+	 * no-store), so no conflicts arise even when multiple layers coexist.
+	 */
 	public static function no_cache_headers(): void {
 		if ( headers_sent() ) {
 			return;
 		}
 
+		// ── HTTP standard (RFC 9111) ─────────────────────────────────────────
+		// `no-store` is the strongest directive; `no-cache` blocks reuse without
+		// revalidation; `must-revalidate` forbids serving stale responses.
+		// Combined, they cover every HTTP/1.1 cache and browser.
+		header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+
+		// Belt-and-suspenders for ancient HTTP/1.0 proxies that ignore
+		// Cache-Control. Modern caches ignore Expires when Cache-Control is set.
+		header( 'Expires: 0' );
+
+		// NOTE — Pragma: no-cache removed (was here pre-v1.0.1). Per RFC 9111
+		// §5.4, Pragma is a request-direction header; sending it on a response
+		// is a spec violation. Modern caches ignore it; legacy ones honour
+		// Expires: 0 anyway.
+
 		// ── CDN / reverse-proxy ──────────────────────────────────────────────
+		// Cloudflare APO: the only header APO actually reads. CDN-Cache-Control
+		// alone does not stop APO.
+		header( 'CF-Edge-Cache: no-cache' );
 
-		// Cloudflare APO: the canonical APO bypass directive.
-		// CDN-Cache-Control alone does NOT stop APO — APO ignores it.
-		// cf-edge-cache: no-cache is the only response header APO reads.
-		header( 'cf-edge-cache: no-cache' );
+		// Cloudflare standard cache (non-APO): Cloudflare's own override that
+		// wins over CDN-Cache-Control when both are present.
+		header( 'Cloudflare-CDN-Cache-Control: no-store' );
 
-		// Cloudflare non-APO, BunnyCDN, and generic CDN proxy layer.
+		// Generic CDN cache directive (Bunny, KeyCDN, Cloudflare non-APO).
 		header( 'CDN-Cache-Control: no-store' );
 
-		// Varnish, Fastly, and any surrogate cache.
+		// Varnish / Fastly / any RFC-5861-compatible surrogate cache.
 		header( 'Surrogate-Control: no-store' );
 
-		// Akamai edge cache directive.
+		// Akamai — both the modern header and the legacy one for max coverage.
+		header( 'Akamai-Cache-Control: no-store' );
 		header( 'Edge-Control: no-store' );
 
 		// ── Server / FastCGI ─────────────────────────────────────────────────
-
-		// nginx FastCGI cache — 0 means do not cache this response at all.
+		// Nginx FastCGI cache — `0` means do not store this response at all.
 		header( 'X-Accel-Expires: 0' );
 
-		// rc.16 audit fix C2 — LiteSpeed Web Server (LSWS) server-level cache
-		// bypass. Distinct from the LSCWP plugin constant — LSWS reads the
-		// X-LiteSpeed-Cache-Control response header to decide on-disk storage.
+		// LiteSpeed Web Server (LSWS) — reads response headers to decide
+		// on-disk caching. Distinct from the LSCWP PHP plugin constant.
 		header( 'X-LiteSpeed-Cache-Control: no-cache' );
 		header( 'X-LiteSpeed-Tag: rnrd-dynamic' );
-
-		// ── HTTP standard ────────────────────────────────────────────────────
-
-		// Any HTTP/1.1 intermediate proxy not matched above + client browser.
-		header( 'Cache-Control: no-store, no-cache, must-revalidate' );
-
-		// HTTP/1.0 proxy compatibility (still needed for some CDN edge nodes).
-		header( 'Pragma: no-cache' );
 
 		// ── PHP page-cache plugin constants ──────────────────────────────────
 
@@ -399,19 +442,23 @@ class RNRD_Cache {
 		// bail-out: WP Rocket, W3TC, WP Super Cache, WP Fastest Cache,
 		// Cache Enabler, Comet Cache, Breeze, SG Optimizer.
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Cross-plugin standard cache-bypass constant.
 			define( 'DONOTCACHEPAGE', true );
 		}
 
 		// W3 Total Cache: separate constants for object cache and DB cache.
 		if ( ! defined( 'DONOTCACHEOBJECT' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- W3 Total Cache standard bypass constant.
 			define( 'DONOTCACHEOBJECT', true );
 		}
 		if ( ! defined( 'DONOTCACHEDB' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- W3 Total Cache standard bypass constant.
 			define( 'DONOTCACHEDB', true );
 		}
 
 		// LiteSpeed Cache: uses its own constant, does not check DONOTCACHEPAGE.
 		if ( ! defined( 'LSCWP_NO_CACHE' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- LiteSpeed Cache plugin's published bypass constant.
 			define( 'LSCWP_NO_CACHE', true );
 		}
 	}
@@ -434,9 +481,11 @@ class RNRD_Cache {
 		}
 
 		// LiteSpeed Cache.
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- LiteSpeed published action; integration.
 		do_action( 'litespeed_purge_url', $url );
 
 		// W3 Total Cache.
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- W3 Total Cache published action; integration.
 		do_action( 'w3tc_flush_url', $url );
 
 		// WP Super Cache — no per-URL API; clears the full site cache.
@@ -450,6 +499,7 @@ class RNRD_Cache {
 		}
 
 		// Cloudflare official WP plugin (non-APO).
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Cloudflare plugin published action; integration.
 		do_action( 'cloudflare_purge_by_url', [ $url ] );
 
 		// Cloudflare APO — official plugin's `cloudflare_purge_by_url` is
@@ -477,6 +527,7 @@ class RNRD_Cache {
 		}
 
 		// Nginx Helper / FastCGI cache.
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Nginx Helper published action; integration.
 		do_action( 'rt_nginx_helper_purge_url', $url );
 
 		// SG Optimizer (SiteGround).
@@ -485,9 +536,11 @@ class RNRD_Cache {
 		}
 
 		// Breeze (Cloudways).
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Breeze published action; integration.
 		do_action( 'breeze_clear_all_cache' );
 
 		// Hummingbird (WPMU Dev).
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Hummingbird published action; integration.
 		do_action( 'wphb_clear_cache_url', $url );
 
 		// Cache Enabler — needs a post ID.
@@ -614,8 +667,114 @@ class RNRD_Cache {
 		if ( defined( 'CLOUDFLARE_APO' ) || apply_filters( 'rankready_cloudflare_apo_active', false ) ) $active['cloudflare-apo'] = 'Cloudflare APO';
 		if ( class_exists( '\\Kinsta\\Cache' ) )                                           $active['kinsta']         = 'Kinsta Edge';
 		if ( class_exists( '\\WpeCommon' ) )                                               $active['wp-engine']      = 'WP Engine Edge';
+		// v1.1.3 — SWIS Performance (Exactly WWW). Premium, closed-source; the
+		// `swis()` global + `\SWIS\Cache` class are the canonical detection used
+		// by its sibling plugin EWWW (ewww-image-optimizer/common.php:441). SWIS's
+		// page cache is a server-level static-file cache with NO per-request
+		// DONOTCACHEPAGE and NO public purge hook — exclusion is only via the
+		// SWIS_CACHE_EXCLUSIONS wp-config constant, surfaced as an admin notice.
+		if ( function_exists( 'swis' ) && class_exists( '\\SWIS\\Cache' ) )                $active['swis']           = 'SWIS Performance';
 
 		return $active;
+	}
+
+	/**
+	 * v1.1.3 — Dismissible admin notice for SWIS Performance.
+	 *
+	 * SWIS caches finished HTML to disk at the server layer; a PHP-set
+	 * DONOTCACHEPAGE cannot reliably stop a static-file cache HIT, and SWIS
+	 * exposes no purge action hook. The documented (and only) way to keep our
+	 * dynamic endpoints out of its cache is the SWIS_CACHE_EXCLUSIONS wp-config
+	 * constant — which a plugin cannot write. So we show the user the exact
+	 * snippet to paste, scoped to RankReady screens and only when a dynamic
+	 * endpoint is actually enabled.
+	 *
+	 * Sources: docs.ewww.io/article/87-swis-overrides (constant),
+	 * docs.ewww.io/article/103-page-caching (static-file cache behaviour).
+	 */
+	public static function maybe_swis_notice(): void {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || false === strpos( (string) $screen->id, 'rankready' ) ) {
+			return;
+		}
+
+		// SWIS active?
+		$active = self::detect_active();
+		if ( ! isset( $active['swis'] ) ) {
+			return;
+		}
+
+		// At least one dynamic endpoint enabled (otherwise nothing to exclude).
+		$llms = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$md   = 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
+		$mcp  = 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'off' );
+		if ( ! $llms && ! $md && ! $mcp ) {
+			return;
+		}
+
+		// Dismissed forever?
+		if ( get_user_meta( get_current_user_id(), '_rnrd_swis_notice_dismissed', true ) ) {
+			return;
+		}
+
+		$dismiss_url = wp_nonce_url(
+			add_query_arg( 'rnrd_dismiss_swis_notice', '1', admin_url( 'admin.php?page=rankready-ai-llm-seo' ) ),
+			'rnrd_dismiss_swis_notice',
+			'_rnrd_nonce'
+		);
+
+		// Build the exclusion list from the endpoints that are actually on.
+		$paths = array();
+		if ( $llms ) {
+			$paths[] = '/llms.txt';
+			$paths[] = '/llms-full.txt';
+		}
+		if ( $mcp ) {
+			$paths[] = '/.well-known/mcp.json';
+		}
+		if ( $md ) {
+			$paths[] = '.md';
+		}
+		$snippet  = "define( 'SWIS_CACHE_EXCLUSIONS', array(\n";
+		foreach ( $paths as $p ) {
+			$snippet .= "\t'" . $p . "',\n";
+		}
+		$snippet .= ") );";
+		?>
+		<div class="notice notice-info is-dismissible">
+			<p>
+				<strong><?php esc_html_e( 'SWIS Performance detected — add one line to wp-config.php so AI agents get fresh content.', 'rankready-ai-llm-seo' ); ?></strong>
+			</p>
+			<p>
+				<?php esc_html_e( 'SWIS stores finished pages as static files, which can serve a cached copy of RankReady\'s dynamic endpoints (llms.txt, Markdown, the WebMCP manifest) to AI crawlers. SWIS has no per-request bypass or purge hook, so the fix is its documented exclusion constant. Add this to wp-config.php, above the "That\'s all, stop editing" line:', 'rankready-ai-llm-seo' ); ?>
+			</p>
+			<p><code style="display:block;white-space:pre;padding:10px;background:#f6f7f7;border:1px solid #dcdcde;border-radius:4px;"><?php echo esc_html( $snippet ); ?></code></p>
+			<p style="font-size:12.5px;color:#646970;">
+				<?php esc_html_e( 'SWIS matches these as simple substrings of the request URL. Distinct .md URLs (e.g. /post-slug.md) are covered by the ".md" entry. After adding it, clear the SWIS cache once from the admin bar.', 'rankready-ai-llm-seo' ); ?>
+				<a href="<?php echo esc_url( $dismiss_url ); ?>" style="margin-left:8px;"><?php esc_html_e( 'Don\'t show again', 'rankready-ai-llm-seo' ); ?></a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Handle the "Don't show again" click on the SWIS notice.
+	 * Hooked on admin_init so wp_safe_redirect() fires before any output.
+	 */
+	public static function handle_swis_dismiss(): void {
+		if ( empty( $_GET['rnrd_dismiss_swis_notice'] ) || empty( $_GET['_rnrd_nonce'] ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- passed to wp_verify_nonce() which validates; unslashed.
+		if ( ! wp_verify_nonce( wp_unslash( $_GET['_rnrd_nonce'] ), 'rnrd_dismiss_swis_notice' ) ) {
+			return;
+		}
+		update_user_meta( get_current_user_id(), '_rnrd_swis_notice_dismissed', 1 );
+		wp_safe_redirect( remove_query_arg( array( 'rnrd_dismiss_swis_notice', '_rnrd_nonce' ) ) );
+		exit;
 	}
 
 	/**

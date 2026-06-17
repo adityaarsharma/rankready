@@ -10,10 +10,12 @@ defined( 'ABSPATH' ) || exit;
 class RNRD_Elementor_Faq_Widget extends \Elementor\Widget_Base {
 
 	public function get_name(): string        { return 'rnrd_faq'; }
-	public function get_title(): string       { return esc_html__( 'FAQ (RankReady)', 'rankready-ai-llm-seo' ); }
+	public function get_title(): string       { return esc_html__( 'FAQ — RankReady', 'rankready-ai-llm-seo' ); }
 	public function get_icon(): string        { return 'eicon-help-o'; }
-	public function get_categories(): array   { return array( 'general' ); }
-	public function get_keywords(): array     { return array( 'faq', 'questions', 'ai', 'rankready-ai-llm-seo', 'schema', 'seo' ); }
+	public function get_categories(): array   { return array( 'rankready' ); }
+	public function get_keywords(): array     { return array( 'faq', 'questions', 'qa', 'ai', 'ai seo', 'llm', 'geo', 'answer engine', 'seo', 'rankready', 'schema' ); }
+	// Elementor enqueues the scoped CSS only when this widget is on the page.
+	public function get_style_depends(): array { return array( 'rankready-style' ); }
 
 	protected function register_controls(): void {
 
@@ -21,6 +23,27 @@ class RNRD_Elementor_Faq_Widget extends \Elementor\Widget_Base {
 		$this->start_controls_section( 'section_content', array(
 			'label' => esc_html__( 'Content', 'rankready-ai-llm-seo' ),
 			'tab'   => \Elementor\Controls_Manager::TAB_CONTENT,
+		) );
+
+		// 1.0.30 — Manual Generate/Regenerate FAQ button in the panel (mirrors
+		// the Gutenberg FAQ block + the AI Summary widget). Shared builder/JS.
+		$this->add_control( 'rnrd_faq_regen', array(
+			'type'            => \Elementor\Controls_Manager::RAW_HTML,
+			'raw'             => class_exists( 'RNRD_Elementor_Widget' )
+				? RNRD_Elementor_Widget::regen_control_html(
+					'faq',
+					esc_html__( 'Generate FAQ', 'rankready-ai-llm-seo' ),
+					esc_html__( 'FAQs auto-generate from your content. Use this to (re)generate manually.', 'rankready-ai-llm-seo' )
+				)
+				: '',
+			'content_classes' => 'rnrd-el-regen-control',
+		) );
+
+		$this->add_control( 'keyword', array(
+			'label'       => esc_html__( 'Focus Keyword', 'rankready-ai-llm-seo' ),
+			'type'        => \Elementor\Controls_Manager::TEXT,
+			'placeholder' => esc_html__( 'Auto-detected from Rank Math / Yoast', 'rankready-ai-llm-seo' ),
+			'description' => esc_html__( 'Leave empty to use your SEO plugin focus keyword.', 'rankready-ai-llm-seo' ),
 		) );
 
 		$this->add_control( 'show_title', array(
@@ -174,26 +197,15 @@ class RNRD_Elementor_Faq_Widget extends \Elementor\Widget_Base {
 	protected function render(): void {
 		$settings = $this->get_settings_for_display();
 		$post_id  = get_the_ID();
+
+		// Canvas shows the FAQ ONLY. No post bound or no FAQ yet → render
+		// nothing; the manual Generate/Regenerate control lives in the panel.
 		if ( ! $post_id ) {
 			return;
 		}
 
 		$faq_data = RNRD_Faq::get_faq_data( $post_id );
-
 		if ( empty( $faq_data ) ) {
-			if ( isset( \Elementor\Plugin::$instance->editor ) && \Elementor\Plugin::$instance->editor->is_edit_mode() ) {
-				$tag = RNRD_Block::validate_heading_tag( isset( $settings['heading_tag'] ) ? $settings['heading_tag'] : 'h3' );
-				echo '<div class="rnrd-faq-wrapper">';
-				if ( 'yes' === ( $settings['show_title'] ?? 'yes' ) ) {
-					$title = ! empty( $settings['title_text'] ) ? $settings['title_text'] : 'Frequently Asked Questions';
-					echo '<' . esc_attr( $tag ) . ' class="rnrd-faq-title">' . esc_html( $title ) . '</' . esc_attr( $tag ) . '>';
-				}
-				echo '<div class="rnrd-faq-list">'
-					. '<div class="rnrd-faq-item">'
-					. '<h4 class="rnrd-faq-question" style="opacity:0.4;">'
-					. esc_html__( 'FAQ will appear here after generating. Go to RankReady > FAQ Generator tab or use the Gutenberg block to generate.', 'rankready-ai-llm-seo' )
-					. '</h4></div></div></div>';
-			}
 			return;
 		}
 

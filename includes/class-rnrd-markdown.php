@@ -28,6 +28,13 @@ defined( 'ABSPATH' ) || exit;
 class RNRD_Markdown {
 
 	public static function init(): void {
+		// Admin-only hooks — gated so the markdown class (which MUST load on the
+		// frontend to serve .md) doesn't register no-op admin handlers on public
+		// requests. The APO notice + its dismiss handler only matter in wp-admin.
+		if ( is_admin() ) {
+			add_action( 'admin_init',    array( self::class, 'handle_apo_dismiss' ) );
+			add_action( 'admin_notices', array( self::class, 'maybe_cloudflare_apo_notice' ) );
+		}
 		add_action( 'init',              array( self::class, 'add_rewrite_rules' ) );
 		// v1.2.0-rc.2 — priority 1 beats page builders (Bricks ~ default 10).
 		add_action( 'template_redirect', array( self::class, 'handle_request' ), 1 );
@@ -58,6 +65,251 @@ class RNRD_Markdown {
 
 		// Register query vars via named method (not anonymous closure).
 		add_filter( 'query_vars', array( self::class, 'register_query_vars' ) );
+
+		// v1.0.1 — Per-post .md URL purge on save/update/trash so any cache
+		// (Cloudflare APO, LiteSpeed, Nginx FCGI, Rocket, NitroPack, Hummingbird)
+		// always serves fresh markdown for the post that just changed. The
+		// global bust_cache_and_purge_cdn() handles llms.txt + robots + mcp.json +
+		// /index.md on setting changes; this handles per-post .md on content
+		// changes. Together they cover every RankReady-managed URL.
+		add_action( 'save_post',              array( self::class, 'purge_post_md_url' ), 20, 1 );
+		add_action( 'transition_post_status', array( self::class, 'purge_post_md_on_status' ), 20, 3 );
+		add_action( 'before_delete_post',     array( self::class, 'purge_post_md_url' ), 20, 1 );
+
+		// v1.0.1 — The Cloudflare APO ↔ content-negotiation notice
+		// (maybe_cloudflare_apo_notice) is registered above, inside the is_admin()
+		// guard. APO's cache key ignores the Accept request header, so once a URL's
+		// HTML is cached at the edge a markdown request for the same URL receives
+		// the HTML instead; distinct-URL endpoints (/post.md, /index.md) are
+		// unaffected.
+	}
+
+	/**
+	 * Show a one-time, dismissible admin notice if Cloudflare APO is detected
+	 * AND markdown endpoints are enabled. Provides the exact Cache Rule snippet
+	 * the user needs to paste into Cloudflare → Caching → Cache Rules.
+	 *
+	 * The notice is only shown on RankReady's own admin pages so it doesn't
+	 * pollute every wp-admin screen.
+	 */
+	public static function maybe_cloudflare_apo_notice(): void {
+		// Only on RankReady screens — never spam other plugin pages.
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || false === strpos( (string) $screen->id, 'rankready' ) ) {
+			return;
+		}
+
+		// Feature must be on.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			return;
+		}
+
+		// v1.1.2 — This notice only matters when same-URL Accept negotiation is
+		// enabled. With it off (the default), markdown is served only at distinct
+		// `.md` URLs, which work through Cloudflare APO automatically (separate
+		// cache key per URL). No Cache Rule needed, so don't nag the user.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' ) ) {
+			return;
+		}
+
+		// User dismissed it forever?
+		if ( get_user_meta( get_current_user_id(), '_rnrd_apo_notice_dismissed', true ) ) {
+			return;
+		}
+
+		// APO detection — defer to the cache class, which knows.
+		if ( ! class_exists( 'RNRD_Cache' ) || ! method_exists( 'RNRD_Cache', 'detect_active' ) ) {
+			return;
+		}
+		$active = RNRD_Cache::detect_active();
+		if ( ! isset( $active['cloudflare-apo'] ) ) {
+			return;
+		}
+
+		$dismiss_url = wp_nonce_url(
+			add_query_arg( 'rnrd_dismiss_apo_notice', '1', admin_url( 'admin.php?page=' . self::menu_slug_safe() ) ),
+			'rnrd_dismiss_apo_notice',
+			'_rnrd_nonce'
+		);
+		?>
+		<div class="notice notice-info is-dismissible">
+			<p>
+				<strong><?php esc_html_e( 'Cloudflare APO detected — purge cache once to activate markdown content negotiation.', 'rankready-ai-llm-seo' ); ?></strong>
+			</p>
+			<p>
+				<strong><?php esc_html_e( 'Step 1 — required, one-time:', 'rankready-ai-llm-seo' ); ?></strong>
+				<?php
+				printf(
+					/* translators: %s: link to Cloudflare Purge Cache */
+					wp_kses_post( __( 'In Cloudflare, open %s. This clears any stale HTML APO cached before RankReady was installed. Going forward, RankReady auto-purges every relevant URL when you change settings or save a post.', 'rankready-ai-llm-seo' ) ),
+					'<a href="https://dash.cloudflare.com/?to=/:account/:zone/caching/configuration" target="_blank" rel="noopener"><strong>Caching → Configuration → Purge Everything</strong></a>'
+				);
+				?>
+			</p>
+			<p>
+				<?php esc_html_e( 'After the purge, RankReady\'s distinct Markdown URLs (/post-slug.md, /index.md) and Accept-header content negotiation both work through APO. Validators like AcceptMarkdown.com score 4/4.', 'rankready-ai-llm-seo' ); ?>
+			</p>
+			<p>
+				<strong><?php esc_html_e( 'Optional Step 2 — for sites that publish very frequently:', 'rankready-ai-llm-seo' ); ?></strong>
+				<?php esc_html_e( 'If you push content edits every minute and APO\'s 5-minute TTL feels slow, either option below makes negotiation instant. Most sites do not need this.', 'rankready-ai-llm-seo' ); ?>
+			</p>
+			<ol style="margin-left:18px;">
+				<li>
+					<strong><?php echo wp_kses_post( __( 'Best — turn on Cloudflare\'s built-in Markdown for Agents', 'rankready-ai-llm-seo' ) ); ?></strong><br />
+					<?php
+					printf(
+						/* translators: %s: link to Cloudflare AI Crawl Control */
+						wp_kses_post( __( 'In your Cloudflare dashboard (Pro/Business plan), open %s. Cloudflare\'s edge converts HTML to Markdown automatically on Accept: text/markdown requests — happens before APO caching kicks in.', 'rankready-ai-llm-seo' ) ),
+						'<a href="https://dash.cloudflare.com/?to=/:account/:zone/ai-crawl-control" target="_blank" rel="noopener"><strong>AI Crawl Control → Markdown for Agents</strong></a>'
+					);
+					?>
+				</li>
+				<li style="margin-top:8px;">
+					<strong><?php echo wp_kses_post( __( 'Alternative — add a Cache Rule (any plan, including free)', 'rankready-ai-llm-seo' ) ); ?></strong><br />
+					<?php
+					printf(
+						/* translators: %s: link to Cloudflare Cache Rules */
+						wp_kses_post( __( 'In %s create a rule. Match: <code>(http.request.headers["accept"][0] contains "text/markdown")</code>. Then: <strong>Cache eligibility → Bypass cache</strong>.', 'rankready-ai-llm-seo' ) ),
+						'<a href="https://dash.cloudflare.com/?to=/:account/:zone/caching/cache-rules" target="_blank" rel="noopener"><strong>Caching → Cache Rules → Create rule</strong></a>'
+					);
+					?>
+				</li>
+			</ol>
+			<p style="margin-top:10px;font-size:12.5px;color:#646970;">
+				<?php esc_html_e( 'Both options are Cloudflare-side toggles, not PHP changes. RankReady cannot influence APO\'s cache key from origin — that\'s an architectural limit of APO. Research notes: Joost de Valk\'s Markdown Alternate plugin reaches the same conclusion and uses distinct URLs as the primary mechanism; illodev\'s markdown-negotiation-for-agents plugin recommends Cache Rules; the squin.org production guide explicitly says it does not address APO.', 'rankready-ai-llm-seo' ); ?>
+				<a href="<?php echo esc_url( $dismiss_url ); ?>" style="margin-left:8px;"><?php esc_html_e( 'Don\'t show again', 'rankready-ai-llm-seo' ); ?></a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Handle the "Don't show again" click on the APO notice.
+	 * Hooked on admin_init so wp_safe_redirect() fires before any output.
+	 */
+	public static function handle_apo_dismiss(): void {
+		if ( empty( $_GET['rnrd_dismiss_apo_notice'] ) || empty( $_GET['_rnrd_nonce'] ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Nonce read passed to wp_verify_nonce() which validates; also unslashed.
+		if ( ! wp_verify_nonce( wp_unslash( $_GET['_rnrd_nonce'] ), 'rnrd_dismiss_apo_notice' ) ) {
+			return;
+		}
+		update_user_meta( get_current_user_id(), '_rnrd_apo_notice_dismissed', 1 );
+		wp_safe_redirect( remove_query_arg( array( 'rnrd_dismiss_apo_notice', '_rnrd_nonce' ) ) );
+		exit;
+	}
+
+	/**
+	 * Resolve RNRD_Admin::MENU_SLUG without forcing a load order dependency.
+	 */
+	private static function menu_slug_safe(): string {
+		if ( defined( '\\RNRD_Admin::MENU_SLUG' ) ) {
+			return constant( '\\RNRD_Admin::MENU_SLUG' );
+		}
+		return 'rankready-ai-llm-seo';
+	}
+
+
+	/**
+	 * Purge a post's .md URL across every cache layer when its content changes.
+	 * No-op when markdown endpoints are disabled, when the post type isn't
+	 * enabled, or when RNRD_Cache is unavailable.
+	 *
+	 * Also delete the per-post transient that memoises the rendered markdown
+	 * so the next request rebuilds from current post_content.
+	 *
+	 * @since 1.0.1
+	 * @param int $post_id Post ID being saved/trashed.
+	 */
+	public static function purge_post_md_url( $post_id ): void {
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+			return;
+		}
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			return;
+		}
+
+		// v1.1.5 (#6) — the homepage /index.md transient key depends only on
+		// permalink_structure (no modified-timestamp), so it was never invalidated and
+		// "Recent Posts" on /index.md could lag up to an hour behind a publish/edit/delete.
+		// Drop it on every post change (cheap; regenerates on next request) regardless of
+		// the post's type, since the front-page list can include any post type.
+		delete_transient( 'rnrd_md_homepage_' . md5( (string) get_option( 'permalink_structure', '' ) ) );
+
+		$post = get_post( $post_id );
+		if ( ! $post instanceof WP_Post ) {
+			return;
+		}
+		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+			return;
+		}
+
+		// v1.1.5 (#7) — purge ALL rendered-markdown transients for this post. The cache
+		// key is rnrd_md_<id>_<locale>_<mtime> (set at render time), but the old explicit
+		// delete used 'rnrd_md_<id>_<mtime>' — it omitted the locale AND rebuilt the key
+		// with the *new* post_modified time, so it never matched the stored entry (it only
+		// self-expired via the 5-min TTL, and multilingual locale variants leaked as orphan
+		// transients). Sweep by the post-ID prefix so every locale/timestamp variant is
+		// dropped and explicit busts actually work. (DB transients; with an external object
+		// cache the per-key TTL + mtime-in-key still guarantees freshness.)
+		global $wpdb;
+		$rnrd_md_key_like = $wpdb->esc_like( '_transient_rnrd_md_' . (int) $post->ID . '_' ) . '%';
+		$rnrd_md_to_like  = $wpdb->esc_like( '_transient_timeout_rnrd_md_' . (int) $post->ID . '_' ) . '%';
+		$rnrd_md_opts     = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", $rnrd_md_key_like, $rnrd_md_to_like ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- transient prefix lookup
+		foreach ( (array) $rnrd_md_opts as $rnrd_md_opt ) {
+			delete_option( $rnrd_md_opt ); // object-cache-aware: clears both the DB row and the in-memory options cache so a same-request re-read misses too.
+		}
+
+		if ( ! class_exists( 'RNRD_Cache' ) ) {
+			return;
+		}
+
+		$md_url = self::get_md_url( $post );
+		if ( empty( $md_url ) ) {
+			return;
+		}
+
+		// Also purge the canonical post URL — Accept-header negotiation means
+		// HTML and markdown share the URL, so a stale HTML cache there would
+		// cross-serve to a later markdown request on the same URL.
+		$canonical = get_permalink( $post );
+
+		$urls = array( $md_url );
+		if ( ! empty( $canonical ) ) {
+			$urls[] = $canonical;
+		}
+
+		// Allow the Pro addon / third parties to extend the per-post purge list
+		// (e.g. translated permalinks, AMP variants).
+		$urls = (array) apply_filters( 'rankready_post_purge_urls', $urls, $post );
+
+		foreach ( $urls as $url ) {
+			RNRD_Cache::purge_url( $url );
+		}
+	}
+
+	/**
+	 * Wrapper for transition_post_status so purges fire on publish/unpublish/
+	 * trash even when save_post doesn't (e.g. quick edit, bulk actions).
+	 *
+	 * @since 1.0.1
+	 * @param string  $new_status New post status.
+	 * @param string  $old_status Old post status.
+	 * @param WP_Post $post       Post object.
+	 */
+	public static function purge_post_md_on_status( $new_status, $old_status, $post ): void {
+		if ( $new_status === $old_status ) {
+			return;
+		}
+		if ( ! $post instanceof WP_Post ) {
+			return;
+		}
+		self::purge_post_md_url( $post->ID );
 	}
 
 	/**
@@ -117,7 +369,23 @@ class RNRD_Markdown {
 		// Resolve the path to a post first so we can pass it to the logger.
 		$post = self::resolve_post_from_path( $md_path );
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+		// v1.1.2 — Homepage overview at the distinct `/index.md` URL.
+		// resolve_post_from_path('index') only returns a post when a STATIC page
+		// is set as the front page. On a blog-index front page (Reading Settings
+		// → "Your latest posts") there is no such post, so `/index.md` would 404
+		// and the site would have no cache-safe homepage markdown — its only
+		// homepage markdown used to come from the now-default-off Accept path.
+		// Serve the site overview here instead (cacheable: distinct URL, always
+		// markdown). serve_homepage_markdown() exits.
+		if ( ! $post instanceof WP_Post && 'index' === trim( $md_path, '/' ) ) {
+			RNRD_Crawler_Log::log( 'home_md' );
+			self::serve_homepage_markdown( false );
+		}
+
+		// Password-protected posts must not leak via .md — get_the_content()
+		// hides the body on the HTML side, but post_to_markdown() reads raw
+		// post_content, so gate explicitly here as the headless REST API does.
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
 			status_header( 404 );
 			header( 'Content-Type: text/plain; charset=utf-8' );
 			echo '# 404 Not Found';
@@ -133,10 +401,16 @@ class RNRD_Markdown {
 			exit;
 		}
 
+		// v1.1.17 — Switch to translated post if WPML / Polylang / TranslatePress
+		// resolves a translation for the active locale. Falls through to the
+		// original $post when no translation plugin is active.
+		$post   = self::translate_post( $post );
+		$locale = self::resolved_locale( $post );
+
 		// Log with the resolved post so CPT, title, and ID are captured.
 		RNRD_Crawler_Log::log( 'markdown', $post );
 
-		$cache_key = 'rnrd_md_' . $post->ID . '_' . strtotime( $post->post_modified );
+		$cache_key = 'rnrd_md_' . $post->ID . '_' . $locale . '_' . strtotime( $post->post_modified );
 		$markdown  = get_transient( $cache_key );
 		if ( false === $markdown ) {
 			$markdown = self::post_to_markdown( $post );
@@ -168,6 +442,20 @@ class RNRD_Markdown {
 		}
 
 		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			return;
+		}
+
+		// v1.1.2 — Same-URL Accept negotiation is OFF by default and must stay so
+		// on any cache that ignores `Vary: Accept` (Cloudflare APO, Varnish,
+		// Fastly, most shared hosts). Serving markdown on the canonical URL there
+		// poisons the edge cache: the markdown body gets stored under `/` and
+		// served to every later browser request, blanking the page. Cloudflare
+		// ignores Vary AND APO ignores origin Cache-Control at the edge, so no
+		// response header can make this safe. Markdown stays available at the
+		// distinct `.md` URLs (handle_request at priority 1) — a separate cache
+		// key that cannot be poisoned — and is advertised via the Link header +
+		// llms.txt. This is the llms.txt-spec / Vercel / Mintlify pattern.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' ) ) {
 			return;
 		}
 
@@ -229,7 +517,7 @@ class RNRD_Markdown {
 		}
 
 		$post = get_queried_object();
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
 			return;
 		}
 
@@ -238,16 +526,23 @@ class RNRD_Markdown {
 			return;
 		}
 
+		// v1.1.17 — Switch to translated post if a translation plugin resolves
+		// one for the active locale or for the visitor's Accept-Language.
+		$post   = self::translate_post( $post );
+		$locale = self::resolved_locale( $post );
+
 		// Log Accept-header markdown hit with the resolved post (CPT + title captured).
 		RNRD_Crawler_Log::log( 'markdown', $post );
 
-		$cache_key = 'rnrd_md_' . $post->ID . '_' . strtotime( $post->post_modified );
+		$cache_key = 'rnrd_md_' . $post->ID . '_' . $locale . '_' . strtotime( $post->post_modified );
 		$markdown  = get_transient( $cache_key );
 		if ( false === $markdown ) {
 			$markdown = self::post_to_markdown( $post );
 			set_transient( $cache_key, $markdown, 5 * MINUTE_IN_SECONDS );
 		}
-		self::serve_markdown( $markdown, get_permalink( $post ) );
+		// v1.0.33 — Shared URL (canonical post URL, NOT `.md`): force no-store
+		// so Cloudflare APO can't poison the cache with markdown for HTML clients.
+		self::serve_markdown( $markdown, get_permalink( $post ), true );
 	}
 
 	/**
@@ -289,7 +584,7 @@ class RNRD_Markdown {
 	 * Generates a clean markdown document describing the site and listing recent posts.
 	 * Cached for 1 hour and bust on post publish/update.
 	 */
-	private static function serve_homepage_markdown(): void {
+	private static function serve_homepage_markdown( bool $shared_url = true ): void {
 		// v1.2.0-rc.2 — hash the permalink structure so the transient name
 		// stays under WordPress's 172-char limit on exotic configurations
 		// (multilingual prefixes, custom CPT date paths, etc.).
@@ -322,6 +617,7 @@ class RNRD_Markdown {
 			$posts = get_posts( array(
 				'numberposts'      => 10,
 				'post_status'      => 'publish',
+				'has_password'     => false,
 				'suppress_filters' => false,
 			) );
 
@@ -339,7 +635,17 @@ class RNRD_Markdown {
 			set_transient( $cache_key, $markdown, HOUR_IN_SECONDS );
 		}
 
-		self::serve_markdown( $markdown, home_url( '/' ) );
+		// v1.1.2 — Cache policy depends on the URL this overview is served at:
+		//   - $shared_url = true  → served on the canonical `/` via Accept
+		//     negotiation (opt-in path). `/` is shared with the HTML homepage and
+		//     Cloudflare APO ignores Vary: Accept, so force no-store (bug seen on
+		//     nexterwp.com, 2026-06-02).
+		//   - $shared_url = false → served at the distinct `/index.md` URL
+		//     (default discovery path for blog-index front pages). A distinct URL
+		//     is its own cache key and always returns markdown, so it is safe to
+		//     cache publicly.
+		$canonical = $shared_url ? home_url( '/' ) : home_url( '/index.md' );
+		self::serve_markdown( $markdown, $canonical, $shared_url );
 	}
 
 	// ── Vary: Accept header ───────────────────────────────────────────────────
@@ -353,7 +659,48 @@ class RNRD_Markdown {
 		if ( is_admin() || defined( 'REST_REQUEST' ) ) {
 			return;
 		}
+
+		// v1.1.2 — Only relevant when same-URL Accept negotiation is enabled.
+		// With it OFF (the default), the canonical URL returns identical HTML
+		// for every Accept value, so emitting `Vary: Accept` would be incorrect
+		// (it fragments caches that DO honour Vary for no benefit) and the
+		// markdown no-cache branch below must not fire. Markdown discovery still
+		// works via the Link header + llms.txt pointing at the distinct `.md`
+		// URLs, which are cache-safe by construction.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' ) ) {
+			return;
+		}
+
 		header( 'Vary: Accept', false );
+
+		// NOTE — Why we DON'T try to defeat Cloudflare APO's cache key from PHP.
+		//
+		// Research (May 2026) of every WordPress plugin attempting markdown
+		// content negotiation (Joost de Valk's Markdown Alternate, illodev's
+		// markdown-negotiation-for-agents, the squin.org guide) found NONE of
+		// them solve Cloudflare APO from origin code. Cloudflare's own cache
+		// docs confirm APO's cache key is fixed: URL + querystring + device-
+		// type only. There is no Vary-on-Accept support at the APO layer; no
+		// PHP-emitted header can change that.
+		//
+		// The actual production answer is Cloudflare's "Markdown for Agents"
+		// feature (launched Feb 2026, Pro/Business plan). It performs
+		// HTML→Markdown conversion at the edge when `Accept: text/markdown` is
+		// received, before APO's cache key ever matters. Site owners enable
+		// it in Cloudflare Dashboard → AI Crawl Control. That's a one-toggle
+		// fix that requires no plugin code.
+		//
+		// What RankReady DOES guarantee:
+		//   - Distinct URLs (/post.md, /index.md, /llms.txt, /mcp.json) work
+		//     through APO automatically (different cache keys per URL). This
+		//     is how real AI agents discover content (via <link rel="alternate">
+		//     in the HTML head) — and that path is APO-proof.
+		//   - Origin-level content negotiation works on any CDN that respects
+		//     Vary: Accept (Varnish, Fastly, BunnyCDN, etc.). Cloudflare APO
+		//     specifically does not — that's a Cloudflare design choice.
+		//
+		// The admin notice for APO users explains both paths: Cloudflare's
+		// built-in feature (preferred) or distinct URLs (always works).
 
 		// rc.16 audit fix H1 — only fire the full cache-bypass stack when this
 		// request is ACTUALLY negotiating markdown. The prior behaviour ran
@@ -377,11 +724,12 @@ class RNRD_Markdown {
 		// We only fire this on Accept: text/markdown requests — regular browser
 		// requests still hit the CDN cache normally, so cache-hit ratios stay
 		// healthy for the 99% of traffic that is humans loading HTML.
+		// v1.0.1 — canonical no-cache set centralised in RNRD_Cache::no_cache_headers().
+		// Drops the previous duplicate emission here (was sending 4 of the same
+		// headers twice on every markdown request). Casing now Title-Case across
+		// the board.
 		if ( $wants_md && ! headers_sent() ) {
-			header( 'Cloudflare-CDN-Cache-Control: no-store' );
-			header( 'CDN-Cache-Control: no-store' );
-			header( 'cf-edge-cache: no-cache' );
-			header( 'Surrogate-Control: no-store' );
+			RNRD_Cache::no_cache_headers();
 		}
 	}
 
@@ -405,6 +753,13 @@ class RNRD_Markdown {
 
 		$md_url = self::get_md_url( $post );
 		echo '<link rel="alternate" type="text/markdown" href="' . esc_url( $md_url ) . '" />' . "\n";
+
+		// v1.1.17 — Emit per-language .md alternates when WPML / Polylang
+		// expose translations of this post. Lets AI agents pick the right
+		// language copy directly from <head>.
+		foreach ( self::get_translation_md_urls( $post ) as $code => $translated_md_url ) {
+			echo '<link rel="alternate" type="text/markdown" hreflang="' . esc_attr( $code ) . '" href="' . esc_url( $translated_md_url ) . '" />' . "\n";
+		}
 	}
 
 	/**
@@ -467,6 +822,11 @@ class RNRD_Markdown {
 
 		$md_url = self::get_md_url( $post );
 		header( 'Link: <' . esc_url( $md_url ) . '>; rel="alternate"; type="text/markdown"', false );
+
+		// v1.1.17 — per-language alternates as separate Link headers (RFC 8288).
+		foreach ( self::get_translation_md_urls( $post ) as $code => $translated_md_url ) {
+			header( 'Link: <' . esc_url( $translated_md_url ) . '>; rel="alternate"; type="text/markdown"; hreflang="' . $code . '"', false );
+		}
 	}
 
 	/**
@@ -482,6 +842,189 @@ class RNRD_Markdown {
 			return;
 		}
 		header( 'Link: <' . esc_url( home_url( '/llms.txt' ) ) . '>; rel="describedby"; type="text/plain"', false );
+	}
+
+	// ── Multilingual resolution (WPML / Polylang / TranslatePress / Weglot) ──
+	//
+	// Treats post translation as a four-step waterfall so any one plugin is
+	// enough. None of these hooks fire when no translation plugin is active,
+	// so the helper is a no-op on monolingual sites.
+
+	/**
+	 * Best-effort swap of $post to its translated counterpart for the active
+	 * locale (or the visitor's Accept-Language when no plugin language is set).
+	 *
+	 * Order: explicit lang query var → WPML → Polylang → original post.
+	 * Returns the original post if no translation plugin resolves anything.
+	 *
+	 * @param WP_Post $post Original post resolved from the URL.
+	 * @return WP_Post Translated post or the original if no translation exists.
+	 */
+	public static function translate_post( WP_Post $post ): WP_Post {
+		$lang = self::detect_request_language();
+
+		// WPML — `wpml_object_id` returns translated post ID for the given lang.
+		if ( has_filter( 'wpml_object_id' ) ) {
+			$translated_id = apply_filters( 'wpml_object_id', $post->ID, $post->post_type, false, $lang ?: null );
+			if ( $translated_id && (int) $translated_id !== $post->ID ) {
+				$translated = get_post( (int) $translated_id );
+				if ( $translated instanceof WP_Post && 'publish' === $translated->post_status ) {
+					return $translated;
+				}
+			}
+		}
+
+		// Polylang — `pll_get_post` returns translated post ID for given slug.
+		if ( $lang && function_exists( 'pll_get_post' ) ) {
+			$translated_id = pll_get_post( $post->ID, $lang );
+			if ( $translated_id && (int) $translated_id !== $post->ID ) {
+				$translated = get_post( (int) $translated_id );
+				if ( $translated instanceof WP_Post && 'publish' === $translated->post_status ) {
+					return $translated;
+				}
+			}
+		}
+
+		return $post;
+	}
+
+	/**
+	 * Resolve the locale string used by translate_post(). Returned value is
+	 * embedded in the markdown transient cache key so per-language responses
+	 * never collide.
+	 */
+	public static function resolved_locale( WP_Post $post ): string {
+		// WPML stores post language as a taxonomy term.
+		if ( function_exists( 'apply_filters' ) && has_filter( 'wpml_post_language_details' ) ) {
+			$details = apply_filters( 'wpml_post_language_details', null, $post->ID );
+			if ( is_array( $details ) && ! empty( $details['language_code'] ) ) {
+				return sanitize_key( (string) $details['language_code'] );
+			}
+		}
+
+		// Polylang per-post language.
+		if ( function_exists( 'pll_get_post_language' ) ) {
+			$pll = pll_get_post_language( $post->ID );
+			if ( ! empty( $pll ) ) {
+				return sanitize_key( (string) $pll );
+			}
+		}
+
+		// WP locale as last-resort fingerprint (monolingual sites still get
+		// a stable suffix; the transient name stays bounded).
+		return sanitize_key( (string) get_locale() );
+	}
+
+	/**
+	 * Pick the visitor's request language. Priority:
+	 *   1. ?lang= query var
+	 *   2. WPML current language filter
+	 *   3. Polylang current language function
+	 *   4. Accept-Language header (parsed for highest q-value)
+	 */
+	private static function detect_request_language(): string {
+		// 1. Explicit query var.
+		if ( ! empty( $_GET['lang'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return sanitize_key( wp_unslash( (string) $_GET['lang'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
+
+		// 2. WPML active language.
+		if ( has_filter( 'wpml_current_language' ) ) {
+			$wpml_lang = apply_filters( 'wpml_current_language', null );
+			if ( ! empty( $wpml_lang ) ) {
+				return sanitize_key( (string) $wpml_lang );
+			}
+		}
+
+		// 3. Polylang active language.
+		if ( function_exists( 'pll_current_language' ) ) {
+			$pll_lang = pll_current_language();
+			if ( ! empty( $pll_lang ) ) {
+				return sanitize_key( (string) $pll_lang );
+			}
+		}
+
+		// 4. Accept-Language header (best q-value).
+		if ( ! empty( $_SERVER['HTTP_ACCEPT_LANGUAGE'] ) ) {
+			$header = sanitize_text_field( wp_unslash( (string) $_SERVER['HTTP_ACCEPT_LANGUAGE'] ) );
+			$best   = '';
+			$best_q = 0.0;
+			foreach ( explode( ',', $header ) as $segment ) {
+				$segment = trim( $segment );
+				if ( '' === $segment ) {
+					continue;
+				}
+				$parts = explode( ';', $segment );
+				$tag   = strtolower( trim( $parts[0] ) );
+				if ( '' === $tag || '*' === $tag ) {
+					continue;
+				}
+				$q = 1.0;
+				foreach ( array_slice( $parts, 1 ) as $param ) {
+					$param = trim( $param );
+					if ( 0 === strncasecmp( $param, 'q=', 2 ) ) {
+						$q = (float) substr( $param, 2 );
+						break;
+					}
+				}
+				if ( $q > $best_q ) {
+					$best_q = $q;
+					// Trim region: en-US → en (matches WPML/Polylang language codes
+					// which are 2-letter by default).
+					$best = strtok( $tag, '-' );
+				}
+			}
+			if ( '' !== $best ) {
+				return sanitize_key( $best );
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Return [ language_code => translated_md_url ] pairs for hreflang
+	 * emission. Empty array when no translation plugin is active.
+	 *
+	 * @param WP_Post $post Source post.
+	 * @return array<string,string>
+	 */
+	public static function get_translation_md_urls( WP_Post $post ): array {
+		$out = array();
+
+		// WPML — `wpml_active_languages` returns all enabled languages with URLs.
+		if ( has_filter( 'wpml_active_languages' ) ) {
+			$langs = apply_filters( 'wpml_active_languages', null, array( 'skip_missing' => 1 ) );
+			if ( is_array( $langs ) ) {
+				foreach ( $langs as $code => $info ) {
+					$translated_id = apply_filters( 'wpml_object_id', $post->ID, $post->post_type, false, $code );
+					if ( $translated_id ) {
+						$translated = get_post( (int) $translated_id );
+						if ( $translated instanceof WP_Post && 'publish' === $translated->post_status ) {
+							$out[ sanitize_key( (string) $code ) ] = self::get_md_url( $translated );
+						}
+					}
+				}
+			}
+		}
+
+		// Polylang — `pll_the_languages` raw map.
+		if ( empty( $out ) && function_exists( 'pll_languages_list' ) && function_exists( 'pll_get_post' ) ) {
+			$langs = pll_languages_list();
+			if ( is_array( $langs ) ) {
+				foreach ( $langs as $code ) {
+					$translated_id = pll_get_post( $post->ID, $code );
+					if ( $translated_id ) {
+						$translated = get_post( (int) $translated_id );
+						if ( $translated instanceof WP_Post && 'publish' === $translated->post_status ) {
+							$out[ sanitize_key( (string) $code ) ] = self::get_md_url( $translated );
+						}
+					}
+				}
+			}
+		}
+
+		return $out;
 	}
 
 	// ── AI bot User-Agent detection ──────────────────────────────────────────
@@ -507,20 +1050,66 @@ class RNRD_Markdown {
 
 	// ── Serve markdown response ──────────────────────────────────────────────
 
-	private static function serve_markdown( string $markdown, string $canonical_url ): void {
-		// Block every cache layer from storing this response. Markdown and HTML
-		// are different representations of the same URL — a cache hit would
-		// serve the wrong content-type to the next client.
-		RNRD_Cache::no_cache_headers();
+	private static function serve_markdown( string $markdown, string $canonical_url, bool $shared_url = false ): void {
+		// v1.0.33 — Cache policy depends on whether the URL is DISTINCT or SHARED.
+		//
+		// DISTINCT URL (.md extension, e.g. `/post-slug.md`):
+		//   The URL ALWAYS returns markdown regardless of request headers, so it
+		//   is safe to cache publicly. We send a public Cache-Control with a TTL
+		//   so any CDN — Cloudflare APO included — stores it for speed. Per-post
+		//   purge on save keeps reachable layers fresh.
+		//
+		// SHARED URL (Accept-header negotiation on `/` or `/post-slug/`):
+		//   The same URL returns HTML to browsers and markdown to AI agents. The
+		//   correct cache key would include Accept, but Cloudflare APO and many
+		//   shared-hosting page caches IGNORE `Vary: Accept` — they would store
+		//   the markdown body under the canonical URL and serve it to every
+		//   subsequent browser request, breaking the homepage site-wide.
+		//   We therefore force `no-store` at every CDN layer for shared-URL
+		//   responses. AI agents pay a small latency cost; the site stays safe.
+		if ( $shared_url ) {
+			RNRD_Cache::no_cache_headers();
+		} else {
+			$rnrd_md_ttl = (int) apply_filters( 'rankready_md_cache_max_age', HOUR_IN_SECONDS );
+			if ( $rnrd_md_ttl > 0 ) {
+				header( 'Cache-Control: public, max-age=' . $rnrd_md_ttl . ', s-maxage=' . $rnrd_md_ttl );
+			} else {
+				RNRD_Cache::no_cache_headers();
+			}
+		}
 
+		// Security / typing
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/markdown; charset=utf-8' );
-		header( 'Vary: Accept' );
-		header( 'X-Robots-Tag: noindex' );
+
+		// v1.0.22 — For distinct `.md` URLs, the URL itself selects markdown so
+		// Accept is irrelevant; Vary only on Accept-Encoding for gzip/identity.
+		// v1.0.33 — For shared URLs (Accept-header path), include Accept in Vary.
+		// Cloudflare APO won't honour it, but well-behaved caches (Varnish, Fastly,
+		// Akamai, browser caches) will — combined with no-store above this still
+		// gives the strongest possible defence against cache poisoning.
+		if ( $shared_url ) {
+			header( 'Vary: Accept-Encoding, Accept' );
+		} else {
+			header( 'Vary: Accept-Encoding' );
+		}
+
+		// Robots / discovery
+		header( 'X-Robots-Tag: noindex, follow' );
+		header( 'Link: <' . esc_url( $canonical_url ) . '>; rel="canonical"', false );
+
+		// CORS — AI agents fetch from chat.openai.com, claude.ai, perplexity.ai
+		// (different origin from the WordPress site). Without these headers
+		// the browser-side fetch in the agent's runtime fails CORS preflight.
+		header( 'Access-Control-Allow-Origin: *' );
+		header( 'Access-Control-Allow-Methods: GET, HEAD, OPTIONS' );
+		header( 'Access-Control-Expose-Headers: Content-Type, ETag, Last-Modified, Link, X-Markdown-Tokens' );
+
+		// Diagnostic / observability (Title-Case standardised, drops the stray
+		// lowercase x-markdown-source from pre-v1.0.1).
+		header( 'X-RankReady-Source: markdown-accept' );
 		header( 'X-AEO-Version: 1.0' );
 		header( 'X-Markdown-Tokens: ' . max( 1, (int) ceil( mb_strlen( $markdown, 'UTF-8' ) / 4 ) ) );
-		header( 'x-markdown-source: accept' );
-		header( 'Link: <' . esc_url( $canonical_url ) . '>; rel="canonical"', false );
 
 		echo $markdown; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		exit;
@@ -547,6 +1136,19 @@ class RNRD_Markdown {
 
 		if ( empty( $path ) ) {
 			return null;
+		}
+
+		// v1.0.1 — Strategy 0: Front-page alias. get_md_url() emits "/index.md"
+		// for the site home when a static page is set as the front page. Map
+		// that path to the actual front-page post here.
+		if ( 'index' === $path ) {
+			$page_on_front = (int) get_option( 'page_on_front', 0 );
+			if ( $page_on_front > 0 ) {
+				$post = get_post( $page_on_front );
+				if ( $post instanceof WP_Post && 'publish' === $post->post_status ) {
+					return $post;
+				}
+			}
 		}
 
 		// Strategy 1: Use url_to_postid() — works for most permalink structures.
@@ -605,6 +1207,7 @@ class RNRD_Markdown {
 			'name'                   => $slug,
 			'post_type'              => $enabled_types,
 			'post_status'            => 'publish',
+			'has_password'           => false,
 			'posts_per_page'         => 1,
 			'no_found_rows'          => true,
 			'update_post_term_cache' => false,
@@ -722,9 +1325,21 @@ class RNRD_Markdown {
 	 */
 	public static function get_md_url( $post ): string {
 		$permalink = get_permalink( $post );
-		$permalink = untrailingslashit( $permalink );
 
-		return $permalink . '.md';
+		// v1.0.1 — Front-page edge case. When a static page is set as the site
+		// home (Reading Settings → "A static page"), get_permalink() returns
+		// the bare home URL like "https://example.com/". untrailingslashit() +
+		// ".md" would produce "https://example.com.md", which is a different
+		// host entirely (`.md` is the country TLD for Moldova). Use a stable
+		// "/index.md" path under the same domain instead. The rewrite rule
+		// already catches `.md` paths; resolve_post_from_path() recognises
+		// "index" as the front page.
+		$home_no_slash = untrailingslashit( home_url( '/' ) );
+		if ( untrailingslashit( $permalink ) === $home_no_slash ) {
+			return $home_no_slash . '/index.md';
+		}
+
+		return untrailingslashit( $permalink ) . '.md';
 	}
 
 	// ── Helpers ──────────────────────────────────────────────────────────────

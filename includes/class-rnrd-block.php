@@ -13,16 +13,28 @@ class RNRD_Block {
 		add_action( 'init',                        array( self::class, 'register_block' ) );
 		add_action( 'init',                        array( self::class, 'register_faq_block' ) );
 		add_action( 'init',                        array( self::class, 'register_author_box_block' ) );
+
+		// Register (not enqueue) the one scoped stylesheet early so BOTH the
+		// Gutenberg conditional enqueue AND the Elementor widgets' get_style_depends()
+		// can reference it. This is what makes the CSS load ONLY on pages that
+		// actually render a RankReady block/widget — no global asset weight.
+		add_action( 'wp_enqueue_scripts',                 array( self::class, 'register_style_handle' ), 1 );
+		add_action( 'elementor/frontend/after_register_styles', array( self::class, 'register_style_handle' ) );
+
+		// Dedicated "RankReady" block-inserter category (mirrors the Elementor
+		// panel category — keep both in sync).
+		add_filter( 'block_categories_all',        array( self::class, 'register_block_category' ) );
 		add_action( 'enqueue_block_editor_assets', array( self::class, 'enqueue_editor_assets' ) );
 		add_action( 'wp_enqueue_scripts',          array( self::class, 'enqueue_frontend_assets' ) );
 		add_action( 'wp_head',                     array( self::class, 'maybe_inject_schema' ), 1 );
-		add_action( 'wp_head',                     array( self::class, 'output_auto_schema' ), 25 );
 
-		// WP-Cron schema scanner.
-		add_action( RNRD_SCHEMA_CRON_HOOK,           array( self::class, 'cron_schema_scan' ) );
+		// NOTE: HowTo/ItemList auto-detection is a PRO engine. Its wp_head emit
+		// (output_auto_schema), the schema-scan cron (RNRD_SCHEMA_CRON_HOOK →
+		// cron_schema_scan), and the save_post re-scan trigger (invalidate_schema_cache)
+		// are registered by the Pro add-on (RNRD_Pro_Schema), not here. The Free
+		// build keeps only the Article/Speakable basic schema above + the SEO-plugin
+		// merge filters below.
 
-		// Re-scan on post save (deferred to avoid blocking the editor).
-		add_action( 'save_post',                   array( self::class, 'invalidate_schema_cache' ), 20, 2 );
 		add_filter( 'the_content',                 array( self::class, 'maybe_auto_display' ), 99 );
 
 		// Merge AI-friendly schema into ALL major SEO plugins.
@@ -33,6 +45,34 @@ class RNRD_Block {
 		add_filter( 'seopress_pro_get_json_data_article',       array( self::class, 'merge_seopress_schema' ), 99 );
 		add_filter( 'the_seo_framework_schema_graph_data',      array( self::class, 'merge_tsf_schema' ), 99 );
 		add_filter( 'slim_seo_schema_graph',                    array( self::class, 'merge_slim_seo_schema' ), 99 );
+		// v1.1.3 — Squirrly SEO. `sq_json_ld_data` filters the array of schema
+		// nodes before Squirrly wraps them in @graph — the same shape Yoast's
+		// `wpseo_schema_graph` uses. Verified in Squirrly source
+		// models/services/JsonLD.php:126.
+		add_filter( 'sq_json_ld_data',                          array( self::class, 'merge_squirrly_schema' ), 99 );
+	}
+
+	/**
+	 * Add a "RankReady" category to the block inserter so the AI Summary, FAQ,
+	 * and Author Box blocks group together (mirrors the Elementor panel
+	 * category). Appended so it sits BELOW the core categories, not pinned to
+	 * the top of the inserter.
+	 *
+	 * @param array $categories Existing block categories.
+	 * @return array
+	 */
+	public static function register_block_category( array $categories ): array {
+		foreach ( $categories as $cat ) {
+			if ( isset( $cat['slug'] ) && 'rankready' === $cat['slug'] ) {
+				return $categories; // already registered
+			}
+		}
+		$categories[] = array(
+			'slug'  => 'rankready',
+			'title' => __( 'RankReady', 'rankready-ai-llm-seo' ),
+			'icon'  => null,
+		);
+		return $categories;
 	}
 
 	// ── Block registration ────────────────────────────────────────────────────
@@ -200,8 +240,16 @@ class RNRD_Block {
 		}
 
 		// Build HTML.
-		$wrapper = get_block_wrapper_attributes( array( 'class' => 'rnrd-faq-wrapper' ) );
-		$out     = '<div ' . $wrapper . $box_style_attr . '>';
+		// v1.1.5 sweep — merge inline box styles INTO get_block_wrapper_attributes()
+		// rather than appending a second inline style attribute (WP.org Rule #12: the
+		// wrapper already emits one from block supports, so a separate one yields duplicate
+		// attributes and the browser drops one). The args form merges both cleanly.
+		$rnrd_wrap_args = array( 'class' => 'rnrd-faq-wrapper' );
+		if ( ! empty( $box_styles ) ) {
+			$rnrd_wrap_args['style'] = implode( ';', $box_styles );
+		}
+		$wrapper = get_block_wrapper_attributes( $rnrd_wrap_args );
+		$out     = '<div ' . $wrapper . '>';
 
 		if ( $show_title ) {
 			$out .= '<' . $heading_tag . ' class="rnrd-faq-title"' . $q_style_attr . '>'
@@ -368,8 +416,14 @@ class RNRD_Block {
 		// Build HTML
 		$class = 'rnrd-summary';
 		if ( $is_block ) {
-			$wrapper = get_block_wrapper_attributes( array( 'class' => $class ) );
-			$out     = '<div ' . $wrapper . $box_style_attr . '>';
+			// v1.1.5 sweep — merge box styles into the wrapper args (WP.org Rule #12),
+			// avoiding a duplicate inline style attribute alongside block-supports styles.
+			$rnrd_wrap_args = array( 'class' => $class );
+			if ( ! empty( $box_styles ) ) {
+				$rnrd_wrap_args['style'] = implode( ';', $box_styles );
+			}
+			$wrapper = get_block_wrapper_attributes( $rnrd_wrap_args );
+			$out     = '<div ' . $wrapper . '>';
 		} else {
 			$out = '<div class="' . esc_attr( $class ) . '"' . $box_style_attr . '>';
 		}
@@ -419,6 +473,12 @@ class RNRD_Block {
 		// Check post type — all public CPTs.
 		$post = get_post( $post_id );
 		if ( ! $post || ! is_post_type_viewable( $post->post_type ) ) {
+			return $content;
+		}
+
+		// Don't append the AI summary onto a non-published or password-protected
+		// post — the_content runs on the password-form page too.
+		if ( 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
 			return $content;
 		}
 
@@ -502,6 +562,16 @@ class RNRD_Block {
 		) );
 	}
 
+	/**
+	 * Register the single scoped stylesheet under the shared handle. Idempotent
+	 * (wp_register_style is a no-op if already registered). Never enqueues here.
+	 */
+	public static function register_style_handle(): void {
+		if ( ! wp_style_is( 'rankready-style', 'registered' ) ) {
+			wp_register_style( 'rankready-style', RNRD_URL . 'assets/style.css', array(), RNRD_VERSION );
+		}
+	}
+
 	public static function enqueue_frontend_assets(): void {
 		if ( ! is_singular() ) {
 			return;
@@ -522,7 +592,8 @@ class RNRD_Block {
 			|| 'off' !== (string) get_option( RNRD_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
 
 		if ( $has_summary || $has_faq || $has_author_box ) {
-			wp_enqueue_style( 'rankready-style', RNRD_URL . 'assets/style.css', array(), RNRD_VERSION );
+			self::register_style_handle();
+			wp_enqueue_style( 'rankready-style' );
 		}
 	}
 
@@ -563,6 +634,10 @@ class RNRD_Block {
 
 			// Slim SEO.
 			if ( defined( 'SLIM_SEO_VER' ) ) return;
+
+			// Squirrly SEO — emits its own @graph (Article/FAQ/Person) by default;
+			// we merge into it via sq_json_ld_data instead of duplicating.
+			if ( defined( 'SQ_VERSION' ) ) return;
 		}
 
 		if ( ! is_singular() ) return;
@@ -573,6 +648,11 @@ class RNRD_Block {
 
 		$post = get_post( $post_id );
 		if ( ! $post || ! is_post_type_viewable( $post->post_type ) ) return;
+
+		// Don't emit Article schema (with the AI summary as description) on
+		// non-published or password-protected posts — the head renders on the
+		// password-form page and would leak the summary in the page source.
+		if ( 'publish' !== $post->post_status || ! empty( $post->post_password ) ) return;
 
 		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( empty( $raw ) ) return;
@@ -746,6 +826,22 @@ class RNRD_Block {
 	// ── Slim SEO: slim_seo_schema_graph ──────────────────────────────────────
 
 	public static function merge_slim_seo_schema( $graph ): array {
+		if ( ! is_singular() || ! is_array( $graph ) ) return $graph;
+		$post_id = get_queried_object_id();
+		if ( $post_id ) self::merge_into_article_node( $graph, $post_id );
+		return $graph;
+	}
+
+	// ── Squirrly SEO: sq_json_ld_data ────────────────────────────────────────
+	// Squirrly passes its array of schema nodes (Article/FAQ/Person/...) before
+	// wrapping them in @graph — same node-array shape as Yoast's graph, so we
+	// reuse merge_into_article_node().
+	// NB: no `: array` return type (unlike merge_yoast_schema) — Squirrly's
+	// filter contract is third-party and less guaranteed, so we pass a non-array
+	// straight through instead of risking a TypeError. Do not "tidy" this to
+	// match the siblings.
+
+	public static function merge_squirrly_schema( $graph ) {
 		if ( ! is_singular() || ! is_array( $graph ) ) return $graph;
 		$post_id = get_queried_object_id();
 		if ( $post_id ) self::merge_into_article_node( $graph, $post_id );
@@ -1082,495 +1178,15 @@ class RNRD_Block {
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
-	// SCHEMA AUTO-DETECTION — WP-CRON BASED
+	// SCHEMA AUTO-DETECTION (HowTo + ItemList) — PRO ENGINE
 	//
-	// Detection runs in background via wp-cron.php (not on every page load).
-	// Results stored in post meta. wp_head just reads cached meta — zero regex.
-	//
-	// Flow:
-	// 1. WP-Cron fires every 5 min → cron_schema_scan()
-	// 2. Queries posts with stale/missing schema hash (batch size from options)
-	// 3. For each post: detect type → build schema → store in meta
-	// 4. wp_head → output_auto_schema() reads meta → outputs JSON-LD
-	// 5. save_post → invalidate_schema_cache() clears hash for re-scan
+	// The entire HowTo/ItemList auto-detection engine moved to the Pro add-on
+	// (RNRD_Pro_Schema): output_auto_schema, cron_schema_scan, scan_single_post,
+	// detect_howto_schema, detect_itemlist_schema, get_server_recommendation,
+	// invalidate_schema_cache, and the extraction helpers. The Free build keeps
+	// Article/Speakable basic schema (maybe_inject_schema) and the SEO-plugin
+	// merge filters only.
 	// ══════════════════════════════════════════════════════════════════════════
-
-	/**
-	 * Output auto-detected schema from post meta on frontend.
-	 * This is the only thing that runs on every page load — a simple meta read.
-	 */
-	public static function output_auto_schema(): void {
-		if ( ! is_singular() ) return;
-
-		$post = get_queried_object();
-		if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status ) return;
-
-		$schema_type = (string) get_post_meta( $post->ID, RNRD_META_SCHEMA_TYPE, true );
-		if ( empty( $schema_type ) ) return;
-
-		// Check if the schema type is enabled.
-		if ( 'howto' === $schema_type && 'on' !== get_option( RNRD_OPT_SCHEMA_HOWTO, 'on' ) ) return;
-		if ( 'itemlist' === $schema_type && 'on' !== get_option( RNRD_OPT_SCHEMA_ITEMLIST, 'on' ) ) return;
-
-		// Apply developer filters.
-		if ( 'howto' === $schema_type && ! apply_filters( 'rankready_inject_howto_schema', true ) ) return;
-		if ( 'itemlist' === $schema_type && ! apply_filters( 'rankready_inject_itemlist_schema', true ) ) return;
-
-		$schema_data = get_post_meta( $post->ID, RNRD_META_SCHEMA_DATA, true );
-		if ( empty( $schema_data ) || ! is_array( $schema_data ) ) return;
-
-		// Allow developer customization.
-		if ( 'itemlist' === $schema_type ) {
-			$schema_data = apply_filters( 'rankready_itemlist_schema', $schema_data, $post );
-		}
-
-		echo '<script type="application/ld+json">'
-			. wp_json_encode( $schema_data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT )
-			. '</script>' . "\n";
-	}
-
-	/**
-	 * Invalidate schema cache when a post is saved — forces re-scan on next cron run.
-	 */
-	public static function invalidate_schema_cache( int $post_id, \WP_Post $post ): void {
-		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) return;
-		if ( 'publish' !== $post->post_status ) return;
-		if ( ! is_post_type_viewable( $post->post_type ) ) return;
-
-		// Delete the hash so cron picks it up for re-scanning.
-		delete_post_meta( $post_id, RNRD_META_SCHEMA_HASH );
-	}
-
-	/**
-	 * WP-Cron callback — scans a batch of posts for HowTo/ItemList schema.
-	 * Runs every 5 minutes via wp-cron.php. Processes posts that have no
-	 * schema hash or whose content has changed since last scan.
-	 */
-	public static function cron_schema_scan(): void {
-		$batch_size = (int) get_option( RNRD_OPT_SCHEMA_BATCH_SIZE, 10 );
-		if ( $batch_size < 1 ) $batch_size = 1;
-		if ( $batch_size > 50 ) $batch_size = 50;
-
-		// Get viewable post types.
-		$post_types = get_post_types( array( 'public' => true ), 'names' );
-		unset( $post_types['attachment'] );
-		if ( empty( $post_types ) ) return;
-
-		global $wpdb;
-
-		// Find posts that need scanning:
-		// 1. No schema hash at all (never scanned)
-		// 2. Schema hash doesn't match current content hash (content changed)
-		// Build "%s,%s,..." placeholder list for the IN() clause. Only
-		// placeholder tokens — never user input. Actual post type slugs
-		// are passed to prepare() as trailing args.
-		$type_placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
-
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$post_ids = $wpdb->get_col( $wpdb->prepare(
-			"SELECT p.ID FROM {$wpdb->posts} p
-			 LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
-			 WHERE p.post_status = 'publish'
-			   AND p.post_type IN ({$type_placeholders})
-			   AND (pm.meta_value IS NULL OR pm.meta_value = '')
-			 ORDER BY p.post_modified DESC
-			 LIMIT %d",
-			array_merge( array( RNRD_META_SCHEMA_HASH ), $post_types, array( $batch_size ) )
-		) );
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-
-		if ( empty( $post_ids ) ) return;
-
-		foreach ( $post_ids as $post_id ) {
-			$post_id = (int) $post_id;
-			self::scan_single_post( $post_id );
-		}
-	}
-
-	/**
-	 * Scan a single post for HowTo or ItemList schema and store results in meta.
-	 *
-	 * @param int $post_id The post ID to scan.
-	 * @return string The detected schema type ('howto', 'itemlist', or '').
-	 */
-	public static function scan_single_post( int $post_id ): string {
-		$post = get_post( $post_id );
-		if ( ! $post || 'publish' !== $post->post_status ) return '';
-
-		$title   = get_the_title( $post_id );
-		$content = $post->post_content;
-
-		// Generate content hash for change detection.
-		$hash = md5( $title . '|' . $content );
-
-		// Check if already scanned with same content.
-		$stored_hash = (string) get_post_meta( $post_id, RNRD_META_SCHEMA_HASH, true );
-		if ( $hash === $stored_hash ) {
-			return (string) get_post_meta( $post_id, RNRD_META_SCHEMA_TYPE, true );
-		}
-
-		$schema_type = '';
-		$schema_data = array();
-
-		// ── Try HowTo detection first ─────────────────────────────────────
-		if ( 'on' === get_option( RNRD_OPT_SCHEMA_HOWTO, 'on' ) ) {
-			$schema_data = self::detect_howto_schema( $post );
-			if ( ! empty( $schema_data ) ) {
-				$schema_type = 'howto';
-			}
-		}
-
-		// ── Try ItemList if not HowTo ─────────────────────────────────────
-		if ( empty( $schema_type ) && 'on' === get_option( RNRD_OPT_SCHEMA_ITEMLIST, 'on' ) ) {
-			$schema_data = self::detect_itemlist_schema( $post );
-			if ( ! empty( $schema_data ) ) {
-				$schema_type = 'itemlist';
-			}
-		}
-
-		// Store results (even empty — so we know it was scanned).
-		update_post_meta( $post_id, RNRD_META_SCHEMA_TYPE, $schema_type );
-		update_post_meta( $post_id, RNRD_META_SCHEMA_DATA, $schema_data );
-		update_post_meta( $post_id, RNRD_META_SCHEMA_HASH, $hash );
-
-		return $schema_type;
-	}
-
-	/**
-	 * Detect HowTo schema from post content.
-	 * Returns complete schema array or empty array if not a HowTo post.
-	 */
-	private static function detect_howto_schema( \WP_Post $post ): array {
-		// Skip if Rank Math/Yoast HowTo block exists.
-		if ( false !== strpos( $post->post_content, 'rank-math/howto-block' ) ) return array();
-		if ( false !== strpos( $post->post_content, 'yoast/how-to-block' ) ) return array();
-		if ( false !== strpos( $post->post_content, 'yoast-seo/how-to' ) ) return array();
-
-		$title = strtolower( get_the_title( $post->ID ) );
-		$has_howto_title = (
-			false !== strpos( $title, 'how to' ) ||
-			false !== strpos( $title, 'how-to' ) ||
-			false !== strpos( $title, 'step by step' ) ||
-			false !== strpos( $title, 'step-by-step' ) ||
-			false !== strpos( $title, 'tutorial' ) ||
-			false !== strpos( $title, 'guide to' )
-		);
-		if ( ! $has_howto_title ) return array();
-
-		$steps = self::extract_howto_steps( $post->post_content );
-		if ( count( $steps ) < 2 ) return array();
-
-		// Build schema.
-		$schema_steps = array();
-		$position = 1;
-		foreach ( $steps as $step ) {
-			$s = array(
-				'@type'    => 'HowToStep',
-				'position' => $position,
-				'name'     => $step['name'],
-			);
-			if ( ! empty( $step['text'] ) )  $s['text']  = $step['text'];
-			if ( ! empty( $step['image'] ) ) $s['image'] = $step['image'];
-			$schema_steps[] = $s;
-			$position++;
-		}
-
-		$schema = array(
-			'@context' => 'https://schema.org',
-			'@type'    => 'HowTo',
-			'name'     => get_the_title( $post->ID ),
-			'step'     => $schema_steps,
-		);
-
-		// Description from summary or excerpt.
-		$raw_summary = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
-		if ( ! empty( $raw_summary ) ) {
-			$summary = RNRD_Generator::decode_summary( $raw_summary );
-			if ( 'bullets' === $summary['type'] && is_array( $summary['data'] ) ) {
-				$schema['description'] = implode( '. ', $summary['data'] ) . '.';
-			} elseif ( 'text' === $summary['type'] ) {
-				$schema['description'] = (string) $summary['data'];
-			}
-		} elseif ( ! empty( $post->post_excerpt ) ) {
-			$schema['description'] = wp_strip_all_tags( $post->post_excerpt );
-		}
-
-		// Featured image.
-		if ( has_post_thumbnail( $post->ID ) ) {
-			$img = wp_get_attachment_image_src( get_post_thumbnail_id( $post->ID ), 'large' );
-			if ( $img ) {
-				$schema['image'] = array(
-					'@type' => 'ImageObject', 'url' => $img[0],
-					'width' => $img[1], 'height' => $img[2],
-				);
-			}
-		}
-
-		return $schema;
-	}
-
-	/**
-	 * Detect ItemList schema from post content.
-	 * Returns complete schema array or empty array if not a listicle.
-	 */
-	private static function detect_itemlist_schema( \WP_Post $post ): array {
-		$title_lower = strtolower( get_the_title( $post->ID ) );
-
-		// Skip if title matches HowTo patterns (mutually exclusive).
-		$is_howto = (
-			false !== strpos( $title_lower, 'how to' ) ||
-			false !== strpos( $title_lower, 'how-to' ) ||
-			false !== strpos( $title_lower, 'step by step' ) ||
-			false !== strpos( $title_lower, 'step-by-step' ) ||
-			false !== strpos( $title_lower, 'tutorial' ) ||
-			false !== strpos( $title_lower, 'guide to' )
-		);
-		if ( $is_howto ) return array();
-
-		// Detect listicle title.
-		$has_listicle = (bool) preg_match(
-			'/\b(?:best|top|ultimate|essential|must.have|popular|leading|greatest|finest)\s+\d+|\d+\s+(?:best|top|must.have|essential|popular|leading|greatest|finest)\b/i',
-			$title_lower
-		);
-		if ( ! $has_listicle ) {
-			$has_listicle = (bool) preg_match(
-				'/\b\d+\s+(?:things|tools|plugins|addons|add-ons|ways|tips|resources|options|alternatives|examples|features|reasons|tricks|methods|strategies|ideas|sites|themes|extensions|widgets|apps|services|solutions|products|picks)\b/i',
-				$title_lower
-			);
-		}
-		if ( ! $has_listicle ) {
-			$has_listicle = (bool) preg_match(
-				'/^(?:the\s+)?(?:best|top|ultimate|essential)\s+\w+/i',
-				$title_lower
-			);
-		}
-		if ( ! $has_listicle ) return array();
-
-		$items = self::extract_listicle_items( $post->post_content );
-		if ( count( $items ) < 3 ) return array();
-
-		// Build schema.
-		$list_items = array();
-		$position = 1;
-		foreach ( $items as $item ) {
-			$el = array( '@type' => 'ListItem', 'position' => $position, 'name' => $item['name'] );
-			if ( ! empty( $item['url'] ) )         $el['url']         = $item['url'];
-			if ( ! empty( $item['description'] ) ) $el['description'] = $item['description'];
-			if ( ! empty( $item['image'] ) )       $el['image']       = $item['image'];
-			$list_items[] = $el;
-			$position++;
-		}
-
-		return array(
-			'@context'        => 'https://schema.org',
-			'@type'           => 'ItemList',
-			'name'            => get_the_title( $post->ID ),
-			'description'     => wp_strip_all_tags( get_the_excerpt( $post->ID ) ),
-			'url'             => get_permalink( $post->ID ),
-			'numberOfItems'   => count( $list_items ),
-			'itemListElement' => $list_items,
-		);
-	}
-
-	/**
-	 * Get recommended batch size based on server resources.
-	 * Called from admin UI to suggest optimal settings.
-	 */
-	public static function get_server_recommendation(): array {
-		$memory_limit   = wp_convert_hr_to_bytes( ini_get( 'memory_limit' ) ?: '128M' );
-		$max_exec_time  = (int) ini_get( 'max_execution_time' ) ?: 30;
-		$php_version    = PHP_VERSION;
-
-		global $wpdb;
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- query has no variables; no user input.
-		$total_posts = (int) $wpdb->get_var(
-			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type IN ('post','page')"
-		);
-		$unscanned = (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->posts} p
-			 LEFT JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID AND pm.meta_key = %s
-			 WHERE p.post_status = 'publish'
-			   AND p.post_type IN ('post','page')
-			   AND (pm.meta_value IS NULL OR pm.meta_value = '')",
-			RNRD_META_SCHEMA_HASH
-		) );
-
-		// Recommendation logic.
-		$recommended_batch = 10; // Safe default.
-
-		if ( $memory_limit >= 512 * MB_IN_BYTES && $max_exec_time >= 60 ) {
-			$recommended_batch = 25; // High-resource VPS.
-		} elseif ( $memory_limit >= 256 * MB_IN_BYTES && $max_exec_time >= 30 ) {
-			$recommended_batch = 15; // Mid-range server.
-		} elseif ( $memory_limit < 128 * MB_IN_BYTES ) {
-			$recommended_batch = 5;  // Shared hosting.
-		}
-
-		// Estimate time to complete.
-		$batches_needed  = $unscanned > 0 ? ceil( $unscanned / $recommended_batch ) : 0;
-		$minutes_to_complete = $batches_needed * 5; // 5 min interval.
-
-		return array(
-			'memory_limit'        => size_format( $memory_limit ),
-			'max_execution_time'  => $max_exec_time . 's',
-			'php_version'         => $php_version,
-			'total_posts'         => $total_posts,
-			'unscanned_posts'     => $unscanned,
-			'scanned_posts'       => $total_posts - $unscanned,
-			'recommended_batch'   => $recommended_batch,
-			'current_batch'       => (int) get_option( RNRD_OPT_SCHEMA_BATCH_SIZE, 10 ),
-			'est_minutes'         => $minutes_to_complete,
-			'cron_next_run'       => wp_next_scheduled( RNRD_SCHEMA_CRON_HOOK )
-				? human_time_diff( time(), wp_next_scheduled( RNRD_SCHEMA_CRON_HOOK ) )
-				: __( 'Not scheduled', 'rankready-ai-llm-seo' ),
-			'server_tier'         => $memory_limit >= 512 * MB_IN_BYTES ? 'high' : ( $memory_limit >= 256 * MB_IN_BYTES ? 'mid' : 'low' ),
-		);
-	}
-
-	// ══════════════════════════════════════════════════════════════════════════
-	// EXTRACTION HELPERS (used by both detect_howto_schema and detect_itemlist_schema)
-	// ══════════════════════════════════════════════════════════════════════════
-
-	private static function extract_howto_steps( string $content ): array {
-		$steps = array();
-
-		// Method 1: "Step N" headings.
-		if ( preg_match_all(
-			'/<h([2-4])[^>]*>\s*(?:Step\s+\d+\s*[:\-.\)]*\s*)(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-4][^>]*>\s*(?:Step\s+\d+|$)|$)/i',
-			$content, $matches, PREG_SET_ORDER
-		) && count( $matches ) >= 2 ) {
-			foreach ( $matches as $m ) {
-				$name = wp_strip_all_tags( trim( $m[2] ) );
-				$body = isset( $m[3] ) ? trim( $m[3] ) : '';
-				if ( empty( $name ) ) continue;
-				$steps[] = array( 'name' => $name, 'text' => self::extract_step_text( $body ), 'image' => self::extract_step_image( $body ) );
-			}
-			if ( count( $steps ) >= 2 ) return $steps;
-			$steps = array();
-		}
-
-		// Method 2: Numbered headings.
-		if ( preg_match_all(
-			'/<h([2-4])[^>]*>\s*(\d+)\s*[.\)\-:]+\s*(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-4][^>]*>\s*\d+\s*[.\)\-:]|$)/i',
-			$content, $matches, PREG_SET_ORDER
-		) && count( $matches ) >= 2 ) {
-			foreach ( $matches as $m ) {
-				$name = wp_strip_all_tags( trim( $m[3] ) );
-				$body = isset( $m[4] ) ? trim( $m[4] ) : '';
-				if ( empty( $name ) ) continue;
-				$steps[] = array( 'name' => $name, 'text' => self::extract_step_text( $body ), 'image' => self::extract_step_image( $body ) );
-			}
-			if ( count( $steps ) >= 2 ) return $steps;
-			$steps = array();
-		}
-
-		// Method 3: Ordered lists.
-		if ( preg_match_all( '/<ol[^>]*>([\s\S]*?)<\/ol>/i', $content, $ol_matches ) ) {
-			foreach ( $ol_matches[1] as $ol_content ) {
-				if ( preg_match_all( '/<li[^>]*>([\s\S]*?)<\/li>/i', $ol_content, $li_matches ) ) {
-					if ( count( $li_matches[1] ) < 2 ) continue;
-					$ol_steps = array();
-					foreach ( $li_matches[1] as $li ) {
-						$text = wp_strip_all_tags( trim( $li ) );
-						if ( empty( $text ) || strlen( $text ) < 5 ) continue;
-						$first_period = strpos( $text, '. ' );
-						if ( false !== $first_period && $first_period < 100 ) {
-							$name = substr( $text, 0, $first_period );
-							$desc = substr( $text, $first_period + 2 );
-						} else {
-							$name = $text;
-							$desc = '';
-						}
-						$step = array( 'name' => $name, 'image' => self::extract_step_image( $li ) );
-						if ( ! empty( $desc ) ) $step['text'] = $desc;
-						$ol_steps[] = $step;
-					}
-					if ( count( $ol_steps ) > count( $steps ) ) $steps = $ol_steps;
-				}
-			}
-		}
-		return $steps;
-	}
-
-	private static function extract_listicle_items( string $content ): array {
-		$items = array();
-
-		// Method 1: Numbered headings.
-		if ( preg_match_all(
-			'/<h([2-3])[^>]*>\s*(?:#?\d+[\.\)\-:\s]+)\s*(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-3][^>]*>\s*(?:#?\d+[\.\)\-:\s])|$)/i',
-			$content, $matches, PREG_SET_ORDER
-		) && count( $matches ) >= 3 ) {
-			foreach ( $matches as $m ) {
-				$name = wp_strip_all_tags( trim( $m[2] ) );
-				$body = isset( $m[3] ) ? trim( $m[3] ) : '';
-				if ( empty( $name ) ) continue;
-				$name = preg_replace( '/\s*[\-\–\—]\s*(?:Review|Overview|Pricing|Features).*$/i', '', $name );
-				$name = rtrim( $name, ' :-–—' );
-				$items[] = array(
-					'name' => $name, 'url' => self::extract_item_url( $body, $name ),
-					'description' => self::extract_item_description( $body ), 'image' => self::extract_step_image( $body ),
-				);
-			}
-			if ( count( $items ) >= 3 ) return $items;
-			$items = array();
-		}
-
-		// Method 2: Consecutive headings.
-		if ( preg_match_all(
-			'/<h([2-3])[^>]*>\s*(.+?)\s*<\/h\1>\s*([\s\S]*?)(?=<h[2-3][^>]*>|$)/i',
-			$content, $matches, PREG_SET_ORDER
-		) && count( $matches ) >= 3 ) {
-			$skip = '/^(?:introduction|conclusion|summary|overview|what\s+is|why|how|faq|frequently|final\s+thoughts|wrap.up|table\s+of\s+contents|related|bonus|honorable|key\s+takeaways)/i';
-			foreach ( $matches as $m ) {
-				$name = wp_strip_all_tags( trim( $m[2] ) );
-				$body = isset( $m[3] ) ? trim( $m[3] ) : '';
-				if ( empty( $name ) || strlen( $name ) < 3 ) continue;
-				if ( preg_match( $skip, $name ) ) continue;
-				if ( preg_match( '/^step\s+\d+/i', $name ) ) continue;
-				$name = rtrim( $name, ' :-–—' );
-				$items[] = array(
-					'name' => $name, 'url' => self::extract_item_url( $body, $name ),
-					'description' => self::extract_item_description( $body ), 'image' => self::extract_step_image( $body ),
-				);
-			}
-		}
-		return $items;
-	}
-
-	private static function extract_step_text( string $body ): string {
-		if ( empty( $body ) ) return '';
-		$body = preg_replace( '/<h[1-6][^>]*>.*?<\/h[1-6]>/is', '', $body );
-		$text = wp_strip_all_tags( $body );
-		$text = preg_replace( '/\s+/', ' ', trim( $text ) );
-		if ( strlen( $text ) > 500 ) $text = substr( $text, 0, 497 ) . '...';
-		return $text;
-	}
-
-	private static function extract_step_image( string $body ): string {
-		if ( empty( $body ) ) return '';
-		if ( preg_match( '/<img[^>]+src=["\']([^"\']+)["\']/', $body, $m ) ) return esc_url( $m[1] );
-		return '';
-	}
-
-	private static function extract_item_url( string $body, string $name ): string {
-		if ( empty( $body ) ) return '';
-		$esc = preg_quote( $name, '/' );
-		if ( preg_match( '/<a[^>]+href=["\']([^"\']+)["\'][^>]*>.*?' . $esc . '.*?<\/a>/is', $body, $m ) ) return esc_url( $m[1] );
-		if ( preg_match( '/<a[^>]+href=["\'](https?:\/\/[^"\']+)["\']/', $body, $m ) ) return esc_url( $m[1] );
-		return '';
-	}
-
-	private static function extract_item_description( string $body ): string {
-		if ( empty( $body ) ) return '';
-		if ( preg_match( '/<p[^>]*>([\s\S]*?)<\/p>/i', $body, $m ) ) {
-			$text = wp_strip_all_tags( $m[1] );
-		} else {
-			$text = wp_strip_all_tags( $body );
-		}
-		$text = preg_replace( '/\s+/', ' ', trim( $text ) );
-		if ( strlen( $text ) > 200 ) $text = substr( $text, 0, 197 ) . '...';
-		return $text;
-	}
 
 	// ── End of class ─────────────────────────────────────────────────────────
 }

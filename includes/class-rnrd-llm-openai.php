@@ -42,7 +42,11 @@ class RNRD_LLM_OpenAI {
 				'Authorization' => 'Bearer ' . $api_key,
 				'Content-Type'  => 'application/json',
 			),
-			'body' => wp_json_encode( $body ),
+			// Send non-Latin content (Turkish/CJK/Arabic/Hindi/Cyrillic) as
+			// real UTF-8 bytes rather than \uXXXX escapes — providers
+			// handle both, but explicit UTF-8 is smaller on the wire and
+			// removes a class of edge-case escape bugs.
+			'body' => wp_json_encode( $body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ),
 		) );
 
 		if ( is_wp_error( $response ) ) {

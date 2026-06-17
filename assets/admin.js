@@ -52,147 +52,10 @@
 	} );
 
 	/* ═══════════════════════════════════════════════════════════════════════
-	 * BULK SUMMARY GENERATION
+	 * BULK SUMMARY GENERATION — moved to RankReady Pro (assets/pro-admin.js).
+	 * The /bulk/* REST routes ship only in the Pro add-on, so the matching
+	 * handlers live there too. The Free build renders no bulk-summary card.
 	 * ═══════════════════════════════════════════════════════════════════════ */
-
-	var bulkStart = document.getElementById( 'rnrd-bulk-start' );
-	var bulkStop  = document.getElementById( 'rnrd-bulk-stop' );
-	var bulkProg  = document.getElementById( 'rnrd-bulk-progress' );
-	var bulkBar   = document.getElementById( 'rnrd-bulk-bar' );
-	var bulkStat  = document.getElementById( 'rnrd-bulk-status' );
-	var bulkRunning = false;
-
-	if ( bulkStart ) {
-		var bulkResume = document.getElementById( 'rnrd-bulk-resume' );
-
-		function bulkBegin( isResume ) {
-			var payload = isResume ? { resume: true } : {};
-
-			if ( ! isResume ) {
-				var types = [];
-				document.querySelectorAll( '.rnrd-bulk-type:checked' ).forEach( function ( cb ) {
-					types.push( cb.value );
-				} );
-				if ( ! types.length ) {
-					alert( 'Select at least one post type.' );
-					return;
-				}
-				payload.post_types = types;
-			}
-
-			bulkRunning           = true;
-			bulkStart.disabled    = true;
-			if ( bulkResume ) bulkResume.disabled = true;
-			bulkStart.textContent = 'Running...';
-			bulkStop.style.display  = 'inline-block';
-			bulkProg.style.display  = 'block';
-			if ( ! isResume ) {
-				bulkBar.style.width = '0%';
-			}
-			bulkStat.textContent    = isResume ? 'Resuming...' : 'Starting...';
-
-			rnrdFetch( '/bulk/start', 'POST', payload ).then( function ( data ) {
-				if ( data.code ) {
-					bulkStat.textContent = 'Error: ' + ( data.message || 'Unknown error' );
-					bulkFinish();
-					return;
-				}
-				bulkUpdate( data );
-				if ( data.total === 0 ) {
-					bulkStat.textContent = 'No published posts found.';
-					bulkFinish();
-				} else {
-					bulkNext();
-				}
-			} ).catch( function () {
-				bulkStat.textContent = 'Failed to start.';
-				bulkFinish();
-			} );
-		}
-
-		bulkStart.addEventListener( 'click', function () { bulkBegin( false ); } );
-		if ( bulkResume ) {
-			bulkResume.addEventListener( 'click', function () { bulkBegin( true ); } );
-		}
-
-		bulkStop.addEventListener( 'click', function () {
-			bulkRunning = false;
-			rnrdFetch( '/bulk/stop', 'POST' ).then( function ( data ) {
-				var msg = 'Stopped at ' + data.done + ' / ' + data.total + '.';
-				if ( data.queue_remaining > 0 ) {
-					msg += ' ' + data.queue_remaining + ' remaining — click Resume to continue.';
-				}
-				bulkStat.textContent = msg;
-			} );
-			bulkFinish();
-		} );
-	}
-
-	function bulkUpdate( data ) {
-		var pct = data.total > 0 ? Math.round( ( data.done / data.total ) * 100 ) : 0;
-		bulkBar.style.width = pct + '%';
-		var msg = data.done + ' / ' + data.total + ' posts (' + pct + '%)';
-		if ( data.skipped > 0 ) msg += ' | ' + data.skipped + ' unchanged (skipped)';
-		if ( data.failed > 0 ) msg += ' | ' + data.failed + ' failed';
-		bulkStat.textContent = msg;
-
-		// Show per-post activity log.
-		if ( data.processed && data.processed.length ) {
-			var log = document.getElementById( 'rnrd-bulk-log' );
-			if ( ! log ) {
-				log = document.createElement( 'div' );
-				log.id = 'rnrd-bulk-log';
-				log.style.cssText = 'margin-top:8px;max-height:200px;overflow-y:auto;font-size:12px;border:1px solid #e0e0e0;border-radius:4px;padding:6px 10px;background:#fafafa;';
-				bulkProg.appendChild( log );
-			}
-			data.processed.forEach( function ( p ) {
-				var line = document.createElement( 'div' );
-				line.style.cssText = 'padding:2px 0;border-bottom:1px solid #f0f0f0;';
-				var statusColor = p.status === 'generated' ? '#0F9C70' : ( p.status === 'failed' ? '#B42318' : '#999' );
-				var tokensStr = p.tokens > 0 ? ' &middot; ' + p.tokens.toLocaleString() + ' tokens' : '';
-				line.innerHTML = '<span style="color:' + statusColor + ';font-weight:600;">' + escHtml( p.status ) + '</span> '
-					+ '<a href="' + escHtml( p.link ) + '" target="_blank" style="text-decoration:none;">' + escHtml( p.title ) + '</a>'
-					+ tokensStr;
-				log.appendChild( line );
-				log.scrollTop = log.scrollHeight;
-			} );
-		}
-	}
-
-	function bulkNext() {
-		if ( ! bulkRunning ) return;
-		rnrdFetch( '/bulk/process', 'POST' ).then( function ( data ) {
-			if ( data.code ) {
-				bulkStat.textContent = 'Error: ' + ( data.message || 'Unknown' );
-				bulkFinish();
-				return;
-			}
-			bulkUpdate( data );
-			if ( data.running ) {
-				setTimeout( bulkNext, 300 );
-			} else {
-				var msg = 'Done! ' + data.done + ' processed';
-				if ( data.skipped > 0 ) msg += ', ' + data.skipped + ' skipped (unchanged)';
-				if ( data.failed > 0 ) msg += ', ' + data.failed + ' failed';
-				msg += '.';
-				bulkStat.textContent = msg;
-				bulkFinish();
-			}
-		} ).catch( function () {
-			bulkStat.textContent = 'Request failed — retrying in 5s...';
-			if ( bulkRunning ) setTimeout( bulkNext, 5000 );
-		} );
-	}
-
-	function bulkFinish() {
-		bulkRunning            = false;
-		bulkStart.disabled     = false;
-		bulkStart.textContent  = 'Start Bulk Generate';
-		bulkStop.style.display = 'none';
-		var bulkResume = document.getElementById( 'rnrd-bulk-resume' );
-		if ( bulkResume ) bulkResume.disabled = false;
-		// Keep the log visible so user can review results.
-	}
 
 	/* ═══════════════════════════════════════════════════════════════════════
 	 * BULK AUTHOR CHANGER
@@ -390,146 +253,10 @@
 	}
 
 	/* ═══════════════════════════════════════════════════════════════════════
-	 * BULK FAQ GENERATION
+	 * BULK FAQ GENERATION — moved to RankReady Pro (assets/pro-admin.js).
+	 * The /faq-bulk/* REST routes ship only in the Pro add-on, so the matching
+	 * handlers live there too. The Free build renders no bulk-FAQ card.
 	 * ═══════════════════════════════════════════════════════════════════════ */
-
-	var faqStart   = document.getElementById( 'rnrd-faq-bulk-start' );
-	var faqStop    = document.getElementById( 'rnrd-faq-bulk-stop' );
-	var faqProg    = document.getElementById( 'rnrd-faq-bulk-progress' );
-	var faqBar     = document.getElementById( 'rnrd-faq-bulk-bar' );
-	var faqStat    = document.getElementById( 'rnrd-faq-bulk-status' );
-	var faqRunning = false;
-
-	if ( faqStart ) {
-		var faqResume = document.getElementById( 'rnrd-faq-bulk-resume' );
-
-		function faqBegin( isResume ) {
-			var payload = isResume ? { resume: true } : {};
-
-			if ( ! isResume ) {
-				var types = [];
-				document.querySelectorAll( '.rnrd-faq-bulk-type:checked' ).forEach( function ( cb ) {
-					types.push( cb.value );
-				} );
-				if ( ! types.length ) {
-					alert( 'Select at least one post type.' );
-					return;
-				}
-				payload.post_types = types;
-			}
-
-			faqRunning           = true;
-			faqStart.disabled    = true;
-			if ( faqResume ) faqResume.disabled = true;
-			faqStart.textContent = 'Running...';
-			faqStop.style.display  = 'inline-block';
-			faqProg.style.display  = 'block';
-			if ( ! isResume ) {
-				faqBar.style.width = '0%';
-			}
-			faqStat.textContent = isResume ? 'Resuming...' : 'Starting...';
-
-			rnrdFetch( '/faq-bulk/start', 'POST', payload ).then( function ( data ) {
-				if ( data.code ) {
-					faqStat.textContent = 'Error: ' + ( data.message || 'Unknown error' );
-					faqFinish();
-					return;
-				}
-				faqUpdate( data );
-				if ( data.total === 0 ) {
-					faqStat.textContent = 'No published posts found.';
-					faqFinish();
-				} else {
-					faqNext();
-				}
-			} ).catch( function () {
-				faqStat.textContent = 'Failed to start.';
-				faqFinish();
-			} );
-		}
-
-		faqStart.addEventListener( 'click', function () { faqBegin( false ); } );
-		if ( faqResume ) {
-			faqResume.addEventListener( 'click', function () { faqBegin( true ); } );
-		}
-
-		faqStop.addEventListener( 'click', function () {
-			faqRunning = false;
-			rnrdFetch( '/faq-bulk/stop', 'POST' ).then( function ( data ) {
-				var msg = 'Stopped at ' + data.done + ' / ' + data.total + '.';
-				if ( data.queue_remaining > 0 ) {
-					msg += ' ' + data.queue_remaining + ' remaining — click Resume to continue.';
-				}
-				faqStat.textContent = msg;
-			} );
-			faqFinish();
-		} );
-	}
-
-	function faqUpdate( data ) {
-		var pct = data.total > 0 ? Math.round( ( data.done / data.total ) * 100 ) : 0;
-		faqBar.style.width = pct + '%';
-		var msg = data.done + ' / ' + data.total + ' posts (' + pct + '%)';
-		if ( data.skipped > 0 ) msg += ' | ' + data.skipped + ' unchanged (skipped)';
-		if ( data.failed > 0 ) msg += ' | ' + data.failed + ' failed';
-		faqStat.textContent = msg;
-
-		// Show per-post activity log.
-		if ( data.processed && data.processed.length ) {
-			var log = document.getElementById( 'rnrd-faq-bulk-log' );
-			if ( ! log ) {
-				log = document.createElement( 'div' );
-				log.id = 'rnrd-faq-bulk-log';
-				log.style.cssText = 'margin-top:8px;max-height:200px;overflow-y:auto;font-size:12px;border:1px solid #e0e0e0;border-radius:4px;padding:6px 10px;background:#fafafa;';
-				faqProg.appendChild( log );
-			}
-			data.processed.forEach( function ( p ) {
-				var line = document.createElement( 'div' );
-				line.style.cssText = 'padding:2px 0;border-bottom:1px solid #f0f0f0;';
-				var statusColor = p.status === 'generated' ? '#0F9C70' : ( p.status === 'failed' ? '#B42318' : '#999' );
-				var tokensStr = p.tokens > 0 ? ' &middot; ' + p.tokens.toLocaleString() + ' tokens' : '';
-				line.innerHTML = '<span style="color:' + statusColor + ';font-weight:600;">' + escHtml( p.status ) + '</span> '
-					+ '<a href="' + escHtml( p.link ) + '" target="_blank" style="text-decoration:none;">' + escHtml( p.title ) + '</a>'
-					+ tokensStr;
-				log.appendChild( line );
-				log.scrollTop = log.scrollHeight;
-			} );
-		}
-	}
-
-	function faqNext() {
-		if ( ! faqRunning ) return;
-		rnrdFetch( '/faq-bulk/process', 'POST' ).then( function ( data ) {
-			if ( data.code ) {
-				faqStat.textContent = 'Error: ' + ( data.message || 'Unknown' );
-				faqFinish();
-				return;
-			}
-			faqUpdate( data );
-			if ( data.running ) {
-				setTimeout( faqNext, 500 );
-			} else {
-				var msg = 'Done! ' + data.done + ' processed';
-				if ( data.skipped > 0 ) msg += ', ' + data.skipped + ' skipped (unchanged)';
-				if ( data.failed > 0 ) msg += ', ' + data.failed + ' failed';
-				msg += '.';
-				faqStat.textContent = msg;
-				faqFinish();
-			}
-		} ).catch( function () {
-			faqStat.textContent = 'Request failed — retrying in 5s...';
-			if ( faqRunning ) setTimeout( faqNext, 5000 );
-		} );
-	}
-
-	function faqFinish() {
-		faqRunning            = false;
-		faqStart.disabled     = false;
-		faqStart.textContent  = 'Start Bulk FAQ Generate';
-		faqStop.style.display = 'none';
-		var faqResume = document.getElementById( 'rnrd-faq-bulk-resume' );
-		if ( faqResume ) faqResume.disabled = false;
-	}
 
 	/* ═══════════════════════════════════════════════════════════════════════
 	 * FAQ POSTS LIST
@@ -1264,7 +991,8 @@
 		freshBtn.addEventListener( 'click', function () {
 			freshBtn.disabled    = true;
 			freshBtn.textContent = 'Scanning...';
-			freshStatus.style.display  = 'none';
+			// v1.1.5 — class-driven visibility (no inline style flicker)
+			freshStatus.className      = 'rnrd-fw-status';
 			freshSummary.style.display = 'none';
 			freshResults.style.display = 'none';
 
@@ -1302,9 +1030,8 @@
 					freshSummary.style.display = 'block';
 
 					if ( data.stale.length === 0 ) {
-						freshStatus.textContent   = 'All content is fresh!';
-						freshStatus.style.color   = '#0F9C70';
-						freshStatus.style.display = 'inline';
+						freshStatus.textContent = 'All content is fresh.';
+						freshStatus.className   = 'rnrd-fw-status is-visible is-ok';
 						return;
 					}
 
@@ -1329,15 +1056,13 @@
 					freshTbody.innerHTML       = html;
 					freshResults.style.display = 'block';
 
-					freshStatus.textContent   = data.stale.length + ' stale posts found (showing top 50)';
-					freshStatus.style.color   = '#dba617';
-					freshStatus.style.display = 'inline';
+					freshStatus.textContent = data.stale.length + ' stale posts found (showing top 50)';
+					freshStatus.className   = 'rnrd-fw-status is-visible';
 				} ).catch( function () {
 					freshBtn.disabled    = false;
 					freshBtn.textContent = 'Scan Content Freshness';
-					freshStatus.textContent   = 'Request failed.';
-					freshStatus.style.color   = '#B42318';
-					freshStatus.style.display = 'inline';
+					freshStatus.textContent = 'Request failed.';
+					freshStatus.className   = 'rnrd-fw-status is-visible is-err';
 				} );
 		} );
 	}

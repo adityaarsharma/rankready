@@ -26,102 +26,11 @@ class RNRD_Faq {
 		// Inject FAQPage schema into wp_head.
 		add_action( 'wp_head', array( self::class, 'inject_faq_schema' ), 20 );
 
-		// Auto-generate on publish/update (gated by RNRD_OPT_FAQ_AUTO_GENERATE option).
-		add_action( 'wp_after_insert_post', array( self::class, 'schedule_faq_generation' ), 20, 4 );
-
-		// FAQ cron runner (used by auto-generate, bulk, and manual triggers).
-		add_action( 'rnrd_async_faq_generate', array( self::class, 'run_faq_generation' ) );
-	}
-
-	// ── Auto-generate FAQ on publish ─────────────────────────────────────────
-
-	public static function schedule_faq_generation( $post_id, $post, $update, $post_before ): void {
-		$post_id = (int) $post_id;
-
-		// Auto-generate toggle: if off, only generate via manual/bulk actions.
-		// The toggle UI is presented as "Coming Soon" — defaults to 'off' and
-		// the form control is disabled, so this branch is effectively a no-op
-		// in the WP.org Free build unless the option is flipped via wp-cli.
-		if ( 'on' !== get_option( RNRD_OPT_FAQ_AUTO_GENERATE, 'off' ) ) {
-			return;
-		}
-
-		if ( ! $post || 'publish' !== $post->post_status ) {
-			return;
-		}
-		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-			return;
-		}
-		if ( wp_is_post_revision( $post_id ) ) {
-			return;
-		}
-
-		// REST API autosave check (Gutenberg).
-		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
-			$route = isset( $GLOBALS['wp']->query_vars['rest_route'] ) ? $GLOBALS['wp']->query_vars['rest_route'] : '';
-			if ( false !== strpos( $route, '/autosaves' ) ) {
-				return;
-			}
-		}
-
-		// Only run for public post types.
-		$public_types = get_post_types( array( 'public' => true ), 'names' );
-		if ( ! isset( $public_types[ $post->post_type ] ) || 'attachment' === $post->post_type ) {
-			return;
-		}
-
-		// Only run for FAQ-enabled post types from settings.
-		$enabled_types = (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) );
-		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
-			return;
-		}
-
-		// Per-post disable.
-		if ( get_post_meta( $post_id, RNRD_META_FAQ_DISABLE, true ) ) {
-			return;
-		}
-
-		// Need both an LLM provider key (whichever is active) AND DataForSEO.
-		if ( ! RNRD_LLM::active_provider_ready() || empty( get_option( RNRD_OPT_DFS_LOGIN ) ) || empty( get_option( RNRD_OPT_DFS_PASSWORD ) ) ) {
-			return;
-		}
-
-		// Hash check: only call API if content changed.
-		$content  = wp_strip_all_tags( do_shortcode( $post->post_content ) );
-		$keyword  = self::get_focus_keyword( $post_id );
-		$count    = (int) get_option( RNRD_OPT_FAQ_COUNT, 5 );
-		$new_hash = md5( $content . $keyword . $count );
-		$old_hash = (string) get_post_meta( $post_id, RNRD_META_FAQ_HASH, true );
-
-		if ( $new_hash === $old_hash && ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) ) ) {
-			return;
-		}
-
-		// Schedule via cron (FAQ takes longer due to DataForSEO + OpenAI calls).
-		wp_clear_scheduled_hook( 'rnrd_async_faq_generate', array( $post_id ) );
-		wp_schedule_single_event( time() + 15, 'rnrd_async_faq_generate', array( $post_id ) );
-		spawn_cron();
-	}
-
-	public static function run_faq_generation( $post_id ): void {
-		$post_id = (int) $post_id;
-		$post    = get_post( $post_id );
-		if ( ! $post || 'publish' !== $post->post_status ) {
-			return;
-		}
-
-		// Per-post disable check.
-		if ( get_post_meta( $post_id, RNRD_META_FAQ_DISABLE, true ) ) {
-			return;
-		}
-
-		// Rate limit: don't re-generate if done very recently.
-		$last = (int) get_post_meta( $post_id, RNRD_META_FAQ_GENERATED, true );
-		if ( $last && ( time() - $last ) < 60 ) {
-			return;
-		}
-
-		self::generate_faq( $post_id );
+		// NOTE: auto-generate-on-publish (`schedule_faq_generation`) and its cron
+		// runner (`run_faq_generation` on `rnrd_async_faq_generate`) are a PRO
+		// engine and are NOT registered here. The Pro add-on (RNRD_Pro_Autogen)
+		// registers them on its own init. The Free build keeps only manual
+		// single-post FAQ generation via RNRD_Faq::generate_faq().
 	}
 
 	// ── Auto-display ─────────────────────────────────────────────────────────
@@ -139,7 +48,7 @@ class RNRD_Faq {
 		}
 
 		$post = get_post();
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
 			return $content;
 		}
 
@@ -255,6 +164,13 @@ class RNRD_Faq {
 
 		$post = get_queried_object();
 		if ( ! $post instanceof WP_Post ) {
+			return;
+		}
+
+		// Never emit FAQ schema for non-published or password-protected posts —
+		// the head renders on the password-form page, so this would leak the
+		// FAQ Q&A in the page source of a protected post.
+		if ( 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
 			return;
 		}
 
@@ -592,7 +508,13 @@ class RNRD_Faq {
 		}
 
 		// Content hash check.
-		$content  = wp_strip_all_tags( do_shortcode( $post->post_content ) );
+		// v1.1.5 (#5) — guard do_shortcode under cron. generate_faq() runs via WP-Cron
+		// and the REST bulk job; many shortcodes (Elementor, EDD, BBPress, JetEngine,
+		// MailPoet) assume a frontend/current_user context and crash or fire side effects
+		// when invoked from cron. Mirror the guard already used at the generation site below.
+		$content  = wp_doing_cron()
+			? wp_strip_all_tags( strip_shortcodes( $post->post_content ) )
+			: wp_strip_all_tags( do_shortcode( $post->post_content ) );
 		$new_hash = md5( $content . $keyword . $count );
 		$old_hash = (string) get_post_meta( $post_id, RNRD_META_FAQ_HASH, true );
 
@@ -775,7 +697,9 @@ class RNRD_Faq {
 		}
 
 		// Save to post meta.
-		update_post_meta( $post_id, RNRD_META_FAQ, wp_json_encode( $clean_faq ) );
+		// JSON_UNESCAPED_UNICODE keeps non-Latin (Turkish/CJK/Arabic/Hindi/Cyrillic)
+		// as real UTF-8 — see generator.php for the slash-fragility rationale.
+		update_post_meta( $post_id, RNRD_META_FAQ, wp_json_encode( $clean_faq, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) );
 		update_post_meta( $post_id, RNRD_META_FAQ_HASH, $new_hash );
 		update_post_meta( $post_id, RNRD_META_FAQ_GENERATED, time() );
 		update_post_meta( $post_id, RNRD_META_FAQ_KEYWORD, $keyword );

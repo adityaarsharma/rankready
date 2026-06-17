@@ -13,10 +13,12 @@ defined( 'ABSPATH' ) || exit;
 class RNRD_Elementor_Author_Box_Widget extends \Elementor\Widget_Base {
 
 	public function get_name(): string      { return 'rnrd_author_box'; }
-	public function get_title(): string     { return esc_html__( 'RankReady Author Box', 'rankready-ai-llm-seo' ); }
+	public function get_title(): string     { return esc_html__( 'Author Box — RankReady', 'rankready-ai-llm-seo' ); }
 	public function get_icon(): string      { return 'eicon-person'; }
-	public function get_categories(): array { return array( 'general' ); }
-	public function get_keywords(): array   { return array( 'author', 'box', 'rankready-ai-llm-seo', 'eeat', 'person', 'schema', 'bio' ); }
+	public function get_categories(): array { return array( 'rankready' ); }
+	public function get_keywords(): array   { return array( 'author', 'box', 'bio', 'rankready', 'eeat', 'e-e-a-t', 'person', 'schema', 'ai seo', 'llm', 'geo' ); }
+	// Elementor enqueues the scoped CSS only when this widget is on the page.
+	public function get_style_depends(): array { return array( 'rankready-style' ); }
 
 	protected function register_controls(): void {
 

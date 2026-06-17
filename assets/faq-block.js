@@ -76,11 +76,11 @@
 	];
 
 	registerBlockType( 'rankready/faq', {
-		title:       'FAQ (RankReady)',
+		title:       'FAQ — RankReady',
 		icon:        'editor-help',
-		category:    'text',
+		category:    'rankready',
 		description: 'Display AI-generated FAQ with brand entity injection. Generate from DataForSEO + OpenAI.',
-		keywords:    [ 'faq', 'questions', 'ai', 'seo', 'rankready', 'schema' ],
+		keywords:    [ 'faq', 'questions', 'qa', 'ai', 'ai seo', 'llm', 'geo', 'answer engine', 'seo', 'rankready', 'schema' ],
 
 		attributes: {
 			// Content

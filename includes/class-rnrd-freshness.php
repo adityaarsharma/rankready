@@ -49,7 +49,7 @@ class RNRD_Freshness {
 		<div class="rnrd-freshness-widget" data-rnrd-api="<?php echo esc_attr( $api ); ?>" data-rnrd-nonce="<?php echo esc_attr( $nonce ); ?>">
 			<?php // FREE-103 — unified .rnrd-kpi chrome so freshness buckets match every other Insights tab. ?>
 			<div class="rnrd-kpi-row rnrd-fw-tabs" role="radiogroup" aria-label="<?php esc_attr_e( 'Freshness bucket filter', 'rankready-ai-llm-seo' ); ?>">
-				<button type="button" class="rnrd-kpi rnrd-fw-tab is-active" data-bucket="stale" role="radio" aria-checked="true">
+				<button type="button" class="rnrd-kpi rnrd-fw-tab" data-bucket="stale" role="radio" aria-checked="false">
 					<div class="rnrd-kpi__label"><?php esc_html_e( 'Stale', 'rankready-ai-llm-seo' ); ?></div>
 					<div class="rnrd-kpi__period"><?php esc_html_e( '60+ days', 'rankready-ai-llm-seo' ); ?></div>
 					<div class="rnrd-kpi__value"><?php echo esc_html( (string) $counts['stale'] ); ?></div>
@@ -199,7 +199,18 @@ class RNRD_Freshness {
 
 	// ── Internal queries ──────────────────────────────────────────────────
 
-	private static function bucket_counts(): array {
+	// Public so the dashboard summary widget can read the stale/going/fresh
+	// counts without re-implementing the query.
+	public static function bucket_counts(): array {
+		// Record that a freshness scan ran. The Agentic Ready Scorecard's
+		// "Freshness scanned" signal reads this option; before this, nothing wrote
+		// it, so that signal was permanently inactive and the score could never
+		// reach 100%. Throttled to once/day to avoid a write on every view.
+		$last_run = (int) get_option( 'rnrd_freshness_last_run', 0 );
+		if ( $last_run < ( time() - DAY_IN_SECONDS ) ) {
+			update_option( 'rnrd_freshness_last_run', time(), false );
+		}
+
 		return array(
 			'stale'       => self::count_bucket( 'stale' ),
 			'going_stale' => self::count_bucket( 'going_stale' ),
@@ -256,6 +267,7 @@ class RNRD_Freshness {
 		return (array) get_posts( array(
 			'post_type'              => $post_types,
 			'post_status'            => 'publish',
+			'has_password'           => false,
 			'orderby'                => 'modified',
 			'order'                  => 'ASC',
 			'posts_per_page'         => self::LIST_LIMIT,
@@ -267,11 +279,30 @@ class RNRD_Freshness {
 	}
 
 	private static function tracked_post_types(): array {
-		$types = (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) );
-		// Always include page since RankReady runs for pages by default.
+		// Track every post type the user has opted into for ANY RankReady
+		// feature — AI Summary, llms.txt, or Markdown — so a selected CPT shows
+		// up in the Freshness scan too (not just 'post'). Pro unlocks CPTs in
+		// those pickers; whatever the user selected is honoured here.
+		$types = array();
+		foreach ( array( RNRD_OPT_POST_TYPES, RNRD_OPT_LLMS_POST_TYPES, RNRD_OPT_MD_POST_TYPES ) as $opt ) {
+			$val = get_option( $opt, array() );
+			if ( is_array( $val ) ) {
+				$types = array_merge( $types, $val );
+			}
+		}
+		// Sensible default + page is always covered (RankReady runs on pages).
+		if ( empty( $types ) ) {
+			$types = array( 'post', 'page' );
+		}
 		if ( ! in_array( 'page', $types, true ) ) {
 			$types[] = 'page';
 		}
+		/**
+		 * Filter the post types scanned for content freshness.
+		 *
+		 * @param string[] $types Post type slugs.
+		 */
+		$types = (array) apply_filters( 'rankready_freshness_post_types', $types );
 		return array_values( array_unique( array_filter( array_map( 'sanitize_key', $types ) ) ) );
 	}
 

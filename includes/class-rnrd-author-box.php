@@ -82,6 +82,9 @@ class RNRD_Author_Box {
 		add_filter( 'seopress_pro_get_json_data_article',  array( self::class, 'merge_into_seopress' ), 100 );
 		add_filter( 'the_seo_framework_schema_graph_data', array( self::class, 'merge_into_tsf' ),      100 );
 		add_filter( 'slim_seo_schema_graph',               array( self::class, 'merge_into_slim_seo' ), 100 );
+		// v1.1.3 — Squirrly SEO (sq_json_ld_data); priority 100 runs after the
+		// Article merge so the author Person node is upgraded last.
+		add_filter( 'sq_json_ld_data',                     array( self::class, 'merge_into_squirrly' ), 100 );
 
 		// reviewedBy + lastReviewed into Article schema (all SEO plugins).
 		// Piggybacks on the existing RNRD_Block merge_into_article_node helper by providing data through filter.
@@ -199,7 +202,8 @@ class RNRD_Author_Box {
 				$clean[] = $row_clean;
 			}
 		}
-		return wp_json_encode( $clean );
+		// JSON_UNESCAPED_UNICODE preserves non-Latin author content as UTF-8.
+		return wp_json_encode( $clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
 	}
 
 	/**
@@ -234,23 +238,41 @@ class RNRD_Author_Box {
 
 		$profile_is_pro = function_exists( 'rnrd_is_pro' ) && rnrd_is_pro();
 		?>
-		<h2 id="rnrd-author-box"><?php esc_html_e( 'RankReady Author Box', 'rankready-ai-llm-seo' ); ?></h2>
-		<p class="description" style="max-width:780px;">
-			<?php if ( $profile_is_pro ) : ?>
-			<?php esc_html_e( 'Every field below emits Schema.org Person data for Google EEAT and AI citation (ChatGPT, Perplexity, Google AI Overviews). Fill in only what applies. RankReady merges into Rank Math / Yoast / AIOSEO Person schema automatically when those plugins are active.', 'rankready-ai-llm-seo' ); ?>
-			<?php else : ?>
-			<?php esc_html_e( 'Fill in your basic profile below — these fields power the Author Box display. Extended Person JSON-LD schema (credentials, Wikidata, ORCID, sameAs) is Coming Soon.', 'rankready-ai-llm-seo' ); ?>
-			<?php endif; ?>
-		</p>
+		<div class="rnrd-author-card">
+			<div class="rnrd-author-card__head">
+				<div class="rnrd-author-card__brand">
+					<span class="rnrd-author-card__brand-dot" aria-hidden="true"></span>
+					<span class="rnrd-author-card__brand-label"><?php esc_html_e( 'RankReady', 'rankready-ai-llm-seo' ); ?></span>
+				</div>
+				<h2 id="rnrd-author-box" class="rnrd-author-card__title"><?php esc_html_e( 'Author Profile for E-E-A-T', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-author-card__desc">
+					<?php if ( $profile_is_pro ) : ?>
+					<?php esc_html_e( 'Every field below emits Schema.org Person data for Google EEAT and AI citation (ChatGPT, Perplexity, Google AI Overviews). Fill in only what applies. RankReady merges into Rank Math, Yoast, and AIOSEO Person schema automatically when those plugins are active.', 'rankready-ai-llm-seo' ); ?>
+					<?php else : ?>
+					<?php esc_html_e( 'These fields power the on-page Author Box and the basic Person schema that ships with every post. Each input below explains the EEAT or AI-citation signal it produces. Extended schema for credentials, verified identity, and social profiles is listed under Coming Soon.', 'rankready-ai-llm-seo' ); ?>
+					<?php endif; ?>
+				</p>
+				<?php
+				/* v1.1.28 — Deep link to the E-E-A-T tab in the RankReady
+				 * settings screen. Lets users jump straight from this
+				 * profile page to the schema toggles + author box settings
+				 * that consume the fields below. */
+				$rnrd_eeat_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=authority' );
+				?>
+				<p class="rnrd-author-card__head-cta">
+					<a class="rnrd-author-card__head-link" href="<?php echo esc_url( $rnrd_eeat_url ); ?>">
+						<?php esc_html_e( 'Open RankReady E-E-A-T settings', 'rankready-ai-llm-seo' ); ?>
+						<span class="rnrd-author-card__head-link-arrow" aria-hidden="true">&rarr;</span>
+					</a>
+				</p>
+			</div>
 
-		<table class="form-table" role="presentation">
+		<table class="form-table rnrd-author-card__table" role="presentation">
 
 			<!-- ── Identity & Work — FREE ───────────────────────────────────── -->
 			<tr><th colspan="2">
-				<h3 style="margin:16px 0 0;"><?php esc_html_e( 'Identity & Work', 'rankready-ai-llm-seo' ); ?></h3>
-				<?php if ( ! $profile_is_pro ) : ?>
-				<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#00a32a;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'FREE', 'rankready-ai-llm-seo' ); ?></span>
-				<?php endif; ?>
+				<h3><?php esc_html_e( 'Identity & Work', 'rankready-ai-llm-seo' ); ?></h3>
+				<p class="rnrd-author-card__section-intro"><?php esc_html_e( 'The core entity block. Job title plus employer give AI systems a verifiable career identity to attach citations to.', 'rankready-ai-llm-seo' ); ?></p>
 			</th></tr>
 
 			<tr>
@@ -297,12 +319,10 @@ class RNRD_Author_Box {
 				</td>
 			</tr>
 
-			<!-- ── Experience — FREE ───────────────────────────────────────── -->
+			<!-- ── Experience ─────────────────────────────────────────────── -->
 			<tr><th colspan="2">
-				<h3 style="margin:24px 0 0;"><?php esc_html_e( 'Experience', 'rankready-ai-llm-seo' ); ?></h3>
-				<?php if ( ! $profile_is_pro ) : ?>
-				<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#00a32a;padding:2px 6px;border-radius:3px;vertical-align:middle;margin-left:8px;line-height:1.4;"><?php esc_html_e( 'FREE', 'rankready-ai-llm-seo' ); ?></span>
-				<?php endif; ?>
+				<h3><?php esc_html_e( 'Experience', 'rankready-ai-llm-seo' ); ?></h3>
+				<p class="rnrd-author-card__section-intro"><?php esc_html_e( 'The first-hand experience and topical authority signals. AI systems weight these heavily when deciding whether to cite a source on a given topic.', 'rankready-ai-llm-seo' ); ?></p>
 			</th></tr>
 
 			<tr>
@@ -321,15 +341,53 @@ class RNRD_Author_Box {
 			</tr>
 
 			<?php if ( ! $profile_is_pro ) : ?>
-			<!-- ── Pro gate separator ───────────────────────────────────────── -->
+			<!-- ── What's next — clean Coming Soon footer ─────────────────── -->
 			<tr>
-				<td colspan="2" style="padding:24px 0 8px;">
-					<div style="display:grid;grid-template-columns:24px 1fr;column-gap:14px;align-items:start;border:1px solid #e5e5e5;border-left:3px solid #1d2327;border-radius:4px;padding:16px 20px;background:#fff;min-height:72px;box-sizing:border-box;">
-						<span class="dashicons dashicons-lock" style="font-size:18px;width:18px;height:18px;color:#8c8f94;margin-top:2px;" aria-hidden="true"></span>
-						<div style="min-width:0;">
-							<strong style="font-size:13px;font-weight:600;color:#1d2327;display:inline-flex;align-items:center;gap:8px;line-height:1.4;"><?php esc_html_e( 'Full EEAT Schema', 'rankready-ai-llm-seo' ); ?> <span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#1d2327;padding:2px 6px;border-radius:3px;"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></strong>
-							<p style="margin:6px 0 0;color:#646970;font-size:12px;line-height:1.55;"><?php esc_html_e( 'Credentials, Verified Identity (Wikidata, ORCID, LinkedIn), Social sameAs links, and Contact — these fields will emit Person JSON-LD that AI systems use to verify authorship and increase citation probability.', 'rankready-ai-llm-seo' ); ?></p>
-							<span style="display:inline-block;margin-top:8px;font-size:11px;color:#9a6700;font-style:italic;letter-spacing:.01em;"><?php esc_html_e( 'Planned for a future release.', 'rankready-ai-llm-seo' ); ?></span>
+				<td colspan="2" class="rnrd-author-card__next">
+					<div class="rnrd-author-card__next-head">
+						<h4 class="rnrd-author-card__next-title"><?php esc_html_e( 'Coming Soon', 'rankready-ai-llm-seo' ); ?></h4>
+						<span class="rnrd-soon-tag rnrd-soon-tag--inverse"><?php esc_html_e( 'Extended schema', 'rankready-ai-llm-seo' ); ?></span>
+					</div>
+					<p class="rnrd-author-card__next-desc">
+						<?php esc_html_e( 'Four extra section groups will unlock here. Each one emits a distinct Schema.org Person property that AI ranking systems read when picking authors to cite. Names below match the JSON-LD fields RankReady will write.', 'rankready-ai-llm-seo' ); ?>
+					</p>
+					<div class="rnrd-author-card__next-grid">
+						<div class="rnrd-author-card__next-group">
+							<h5 class="rnrd-author-card__next-grouptitle"><?php esc_html_e( 'Credentials', 'rankready-ai-llm-seo' ); ?></h5>
+							<ul class="rnrd-author-card__next-list">
+								<li><?php esc_html_e( 'Credentials suffix — Person.honorificSuffix', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'Education — Person.alumniOf and hasCredential', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'Certifications — Person.hasCredential with verify URL', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'Memberships — Person.memberOf', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'Awards — Person.award', 'rankready-ai-llm-seo' ); ?></li>
+							</ul>
+						</div>
+						<div class="rnrd-author-card__next-group">
+							<h5 class="rnrd-author-card__next-grouptitle"><?php esc_html_e( 'Verified identity', 'rankready-ai-llm-seo' ); ?></h5>
+							<ul class="rnrd-author-card__next-list">
+								<li><?php esc_html_e( 'Wikidata QID — canonical entity URI', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'Wikipedia URL — high-trust entity anchor', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'ORCID iD — academic identifier (dual emit)', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'Google Scholar URL — academic authority', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'LinkedIn URL — top-weighted Perplexity signal', 'rankready-ai-llm-seo' ); ?></li>
+							</ul>
+						</div>
+						<div class="rnrd-author-card__next-group">
+							<h5 class="rnrd-author-card__next-grouptitle"><?php esc_html_e( 'Social profiles', 'rankready-ai-llm-seo' ); ?></h5>
+							<ul class="rnrd-author-card__next-list">
+								<li><?php esc_html_e( 'GitHub URL — sameAs technical authority', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'YouTube URL — sameAs media authority', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'X / Twitter URL — sameAs', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'Personal website URL — sameAs canonical', 'rankready-ai-llm-seo' ); ?></li>
+							</ul>
+						</div>
+						<div class="rnrd-author-card__next-group">
+							<h5 class="rnrd-author-card__next-grouptitle"><?php esc_html_e( 'Contact', 'rankready-ai-llm-seo' ); ?></h5>
+							<ul class="rnrd-author-card__next-list">
+								<li><?php esc_html_e( 'Contact form URL — Person.contactPoint', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'Public email — ContactPoint.email', 'rankready-ai-llm-seo' ); ?></li>
+								<li><?php esc_html_e( 'Mailing address — Person.address (PostalAddress)', 'rankready-ai-llm-seo' ); ?></li>
+							</ul>
 						</div>
 					</div>
 				</td>
@@ -338,7 +396,7 @@ class RNRD_Author_Box {
 
 			<!-- ── Credentials ─────────────────────────────────────────────── -->
 			<?php if ( $profile_is_pro ) : ?>
-			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Credentials', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-badge" style="vertical-align:middle;margin-left:8px;"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></h3></th></tr>
+			<tr><th colspan="2"><h3 style="margin:24px 0 0;"><?php esc_html_e( 'Credentials', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag" style="margin-left:8px;"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></h3></th></tr>
 			<?php endif; ?>
 			<?php if ( $profile_is_pro ) : ?>
 
@@ -477,6 +535,8 @@ class RNRD_Author_Box {
 			</tr>
 			<?php endif; // profile_is_pro — credentials + verified identity + social + contact ?>
 		</table>
+
+		</div><!-- /.rnrd-author-card -->
 
 		<script>
 		(function(){
@@ -692,131 +752,16 @@ class RNRD_Author_Box {
 			$person['worksFor'] = $works_for;
 		}
 
-		// knowsAbout → topics of expertise (highest LLM signal).
-		$expertise = $m( 'rnrd_author_expertise' );
-		if ( '' !== $expertise ) {
-			$topics = array_filter( array_map( 'trim', explode( ',', $expertise ) ) );
-			if ( ! empty( $topics ) ) {
-				$person['knowsAbout'] = array_values( $topics );
-			}
-		}
-
-		// sameAs (priority order: Wikidata → Wikipedia → ORCID → Scholar → LinkedIn → GitHub → YouTube → X → personal site).
-		$same_as = array();
-
-		$wikidata = $m( 'rnrd_author_wikidata' );
-		if ( '' !== $wikidata ) {
-			// Accept raw QID or full URL.
-			$wd_url = preg_match( '/^Q\d+$/', $wikidata )
-				? 'https://www.wikidata.org/entity/' . $wikidata
-				: $wikidata;
-			$same_as[] = $wd_url;
-		}
-		foreach ( array( 'rnrd_author_wikipedia', 'rnrd_author_linkedin', 'rnrd_author_scholar', 'rnrd_author_github', 'rnrd_author_youtube', 'rnrd_author_twitter', 'rnrd_author_website' ) as $k ) {
-			$v = $m( $k );
-			if ( '' !== $v ) $same_as[] = $v;
-		}
-
-		// ORCID → sameAs + identifier PropertyValue.
-		$orcid = $m( 'rnrd_author_orcid' );
-		if ( '' !== $orcid ) {
-			// Accept raw id or full URL.
-			$orcid_url = ( 0 === strpos( $orcid, 'http' ) ) ? $orcid : 'https://orcid.org/' . $orcid;
-			// Insert ORCID right after Wikipedia/Wikidata (position 2).
-			$insert_at = min( 2, count( $same_as ) );
-			array_splice( $same_as, $insert_at, 0, array( $orcid_url ) );
-
-			$person['identifier'] = array(
-				'@type'       => 'PropertyValue',
-				'propertyID'  => 'ORCID',
-				'value'       => preg_replace( '#^https?://orcid\.org/#', '', $orcid ),
-			);
-		}
-
-		// Wikidata identifier PropertyValue.
-		if ( '' !== $wikidata ) {
-			$qid = preg_match( '/Q\d+/', $wikidata, $mm ) ? $mm[0] : $wikidata;
-			if ( ! isset( $person['identifier'] ) ) {
-				$person['identifier'] = array(
-					'@type'      => 'PropertyValue',
-					'propertyID' => 'Wikidata',
-					'value'      => $qid,
-				);
-			}
-		}
-
-		if ( ! empty( $same_as ) ) {
-			$person['sameAs'] = array_values( array_unique( $same_as ) );
-		}
-
-		// Education → alumniOf[] + hasCredential[] (degree).
-		$education = self::decode_repeater( $m( 'rnrd_author_education' ) );
-		$alumni    = array();
-		$credentials = array();
-		foreach ( $education as $row ) {
-			if ( empty( $row['institution'] ) ) continue;
-			$alumni[] = array( '@type' => 'CollegeOrUniversity', 'name' => $row['institution'] );
-			if ( ! empty( $row['degree'] ) ) {
-				$credentials[] = array(
-					'@type'              => 'EducationalOccupationalCredential',
-					'credentialCategory' => 'degree',
-					'name'               => $row['degree'],
-					'recognizedBy'       => array( '@type' => 'CollegeOrUniversity', 'name' => $row['institution'] ),
-				);
-			}
-		}
-		if ( ! empty( $alumni ) )      $person['alumniOf']     = $alumni;
-
-		// Certifications → hasCredential[] (certification).
-		$certifications = self::decode_repeater( $m( 'rnrd_author_certifications' ) );
-		foreach ( $certifications as $row ) {
-			if ( empty( $row['name'] ) ) continue;
-			$cred = array(
-				'@type'              => 'EducationalOccupationalCredential',
-				'credentialCategory' => 'certification',
-				'name'               => $row['name'],
-			);
-			if ( ! empty( $row['issuer'] ) ) {
-				$cred['recognizedBy'] = array( '@type' => 'Organization', 'name' => $row['issuer'] );
-			}
-			if ( ! empty( $row['url'] ) ) $cred['url'] = $row['url'];
-			$credentials[] = $cred;
-		}
-		if ( ! empty( $credentials ) ) $person['hasCredential'] = $credentials;
-
-		// Memberships → memberOf[].
-		$memberships = self::decode_repeater( $m( 'rnrd_author_memberships' ) );
-		$member_of   = array();
-		foreach ( $memberships as $row ) {
-			if ( empty( $row['name'] ) ) continue;
-			$org = array( '@type' => 'Organization', 'name' => $row['name'] );
-			if ( ! empty( $row['url'] ) ) $org['url'] = $row['url'];
-			$member_of[] = $org;
-		}
-		if ( ! empty( $member_of ) ) $person['memberOf'] = $member_of;
-
-		// Awards → award[].
-		$awards = self::decode_repeater( $m( 'rnrd_author_awards' ) );
-		$award_names = array();
-		foreach ( $awards as $row ) {
-			if ( empty( $row['name'] ) ) continue;
-			$award_names[] = ! empty( $row['year'] ) ? $row['name'] . ' (' . $row['year'] . ')' : $row['name'];
-		}
-		if ( ! empty( $award_names ) ) $person['award'] = $award_names;
-
-		// Contact point.
-		$contact_url = $m( 'rnrd_author_contact_url' );
-		if ( '' !== $contact_url ) {
-			$person['contactPoint'] = array(
-				'@type'       => 'ContactPoint',
-				'contactType' => 'author',
-				'url'         => $contact_url,
-			);
-		}
-
-		// publishingPrinciples — site-wide editorial policy URL.
-		$editorial = (string) get_option( RNRD_OPT_AUTHOR_EDITORIAL_URL, '' );
-		if ( '' !== $editorial ) $person['publishingPrinciples'] = $editorial;
+		// ── Advanced EEAT fields are a PRO engine. ──────────────────────────
+		// Free emits only the basic Person above (name, jobTitle, worksFor,
+		// description, image, employer URL). The Pro add-on (RNRD_Pro_Schema)
+		// hooks `rnrd_person_schema` to add knowsAbout, sameAs (Wikidata /
+		// Wikipedia / ORCID / Scholar / LinkedIn / GitHub / YouTube / X /
+		// website), ORCID + Wikidata identifiers, education (alumniOf +
+		// hasCredential), certifications, memberships (memberOf), awards,
+		// contactPoint, and publishingPrinciples. When Pro is inactive the
+		// filter is a pass-through and only the basic node is emitted.
+		$person = apply_filters( 'rnrd_person_schema', $person, $user_id, $m );
 
 		// Filter count: if we only have the baseline (type/@id/name/url), don't bother emitting.
 		if ( count( $person ) <= 4 ) {
@@ -1087,6 +1032,16 @@ class RNRD_Author_Box {
 		return $graph;
 	}
 	public static function merge_into_slim_seo( $graph ) {
+		if ( ! is_singular() || ! is_array( $graph ) ) return $graph;
+		$post_id = get_queried_object_id();
+		if ( $post_id ) self::enhance_graph( $graph, $post_id );
+		return $graph;
+	}
+
+	// ── Squirrly SEO: sq_json_ld_data (node array, like Slim SEO) ────────────
+	// No `: array` return type by design — third-party filter, pass non-arrays
+	// through rather than risk a TypeError. Mirrors merge_into_slim_seo.
+	public static function merge_into_squirrly( $graph ) {
 		if ( ! is_singular() || ! is_array( $graph ) ) return $graph;
 		$post_id = get_queried_object_id();
 		if ( $post_id ) self::enhance_graph( $graph, $post_id );
@@ -1419,6 +1374,10 @@ class RNRD_Author_Box {
 
 		$post = get_post( $post_id );
 		if ( ! $post ) return $content;
+
+		// Don't append the author box onto a non-published or password-protected
+		// post — the_content runs on the password-form page too.
+		if ( 'publish' !== $post->post_status || ! empty( $post->post_password ) ) return $content;
 
 		// Per-post opt-out.
 		if ( get_post_meta( $post_id, RNRD_META_AUTHOR_DISABLE, true ) ) return $content;

@@ -121,6 +121,8 @@ $rnrd_options = array(
 	'rnrd_md_enable',
 	'rnrd_md_post_types',
 	'rnrd_md_include_meta',
+	'rnrd_okf_enable',
+	'rnrd_okf_post_types',
 	// LLMs.txt taxonomy controls.
 	'rnrd_llms_exclude_cats',
 	'rnrd_llms_exclude_tags',

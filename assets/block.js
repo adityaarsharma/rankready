@@ -101,11 +101,11 @@
 	}
 
 	registerBlockType( 'rankready/ai-summary', {
-		title:       'AI Summary',
+		title:       'AI Summary — RankReady',
 		icon:        'editor-ul',
-		category:    'text',
+		category:    'rankready',
 		description: 'Displays AI-generated key takeaways. Auto-generates on publish/update.',
-		keywords:    [ 'summary', 'takeaways', 'ai', 'seo', 'rankready' ],
+		keywords:    [ 'summary', 'takeaways', 'key points', 'ai', 'ai seo', 'llm', 'geo', 'answer engine', 'seo', 'rankready' ],
 
 		attributes: {
 			// Content
@@ -217,7 +217,15 @@
 
 			var summary    = decodeSummary( raw );
 			var HeadingTag = effectiveTag || 'h4';
-			var regenLabel = loading ? 'Generating...' : cooldown > 0 ? 'Wait ' + cooldown + 's' : 'Regenerate';
+			// "Generate" the first time (no summary yet) → "Regenerate" once one
+			// exists. Same logic for any post type / CPT — driven purely by
+			// whether the REST summary came back empty.
+			var hasSummary = summary.type !== 'empty';
+			var regenLabel = loading
+				? ( hasSummary ? 'Regenerating…' : 'Generating…' )
+				: cooldown > 0
+					? 'Wait ' + cooldown + 's'
+					: ( hasSummary ? 'Regenerate' : 'Generate' );
 
 			// Build preview styles
 			var boxStyle = {};

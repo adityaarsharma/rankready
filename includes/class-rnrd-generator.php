@@ -13,7 +13,11 @@ class RNRD_Generator {
 	private const MIN_INTERVAL = 30;
 
 	public static function init(): void {
-		add_action( 'wp_after_insert_post', array( self::class, 'schedule_generation' ), 10, 4 );
+		// NOTE: the save_post-driven auto-generation hook (`schedule_generation`)
+		// is a Pro engine. It is NOT registered here — the Pro add-on
+		// (RNRD_Pro_Autogen) hooks `wp_after_insert_post` → schedule_generation
+		// on its own init. The Free build only keeps the manual/cron runner
+		// below (used by the single-post Regenerate button + REST).
 		add_action( RNRD_CRON_HOOK, array( self::class, 'run_generation' ) );
 	}
 
@@ -22,6 +26,13 @@ class RNRD_Generator {
 	/** Guard against re-entrant calls from wp_update_post inside generators. */
 	public static $generating = false;
 
+	/**
+	 * Auto-generate-on-publish trigger. PRO ENGINE — this method is only hooked
+	 * to `wp_after_insert_post` by the Pro add-on (RNRD_Pro_Autogen). It stays
+	 * defined in Free so the bulk Author Changer can safely toggle it on/off
+	 * around author reassignment, and so Pro can reference it as a callable.
+	 * When Pro is inactive nothing hooks it, so it never fires.
+	 */
 	public static function schedule_generation( $post_id, $post, $update, $post_before ): void {
 		$post_id = (int) $post_id;
 
@@ -31,8 +42,6 @@ class RNRD_Generator {
 		}
 
 		// Auto-generate toggle: if off, only generate via manual/bulk actions.
-		// The toggle UI is presented as "Coming Soon" and defaults to 'off',
-		// so this branch is effectively dormant in the WP.org Free build.
 		if ( 'on' !== get_option( RNRD_OPT_AUTO_GENERATE, 'off' ) ) {
 			return;
 		}
@@ -293,7 +302,14 @@ Blog Post:
 			)
 		);
 
-		return wp_json_encode( $decoded );
+		// JSON_UNESCAPED_UNICODE keeps Turkish (ı, ş, ğ), CJK (中文/日本語/한국어),
+		// Arabic, Hindi, Cyrillic, and every other non-Latin alphabet as actual
+		// UTF-8 bytes in storage. Default json_encode escapes them to \uXXXX,
+		// which is valid JSON but fragile across WP's slash-handling layers
+		// (sanitize_meta filters, magic-quotes, translation plugins) — a single
+		// dropped backslash turns "Yatırım" into visible "Yu0131lu0131".
+		// JSON_UNESCAPED_SLASHES keeps URLs and paths readable.
+		return wp_json_encode( $decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
 	}
 
 	// ── Connection test ───────────────────────────────────────────────────────

@@ -259,6 +259,18 @@ class RNRD_Crawler_Log {
 			? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) )
 			: '';
 
+		// v1.1.5 (#9) — real-time write throttle. Bot detection is User-Agent-substring
+		// based and therefore spoofable, so a single client replaying a request with a bot
+		// UA could insert unbounded rows between the once-daily prune(). Collapse repeated
+		// identical hits (same IP + bot + path) to one row per 5 minutes — this kills the
+		// flood vector while still logging genuine crawls of distinct pages.
+		$rnrd_cl_ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		$rnrd_cl_key = 'rnrd_cl_' . md5( $rnrd_cl_ip . '|' . $bot . '|' . $uri );
+		if ( get_transient( $rnrd_cl_key ) ) {
+			return;
+		}
+		set_transient( $rnrd_cl_key, 1, 5 * MINUTE_IN_SECONDS );
+
 		// Resolve post metadata.
 		$post_id    = 0;
 		$post_type  = '';
@@ -275,7 +287,10 @@ class RNRD_Crawler_Log {
 		// llms_txt / llms_full: virtual files, no post — fields stay empty.
 
 		global $wpdb;
-		$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// Direct insert into our own custom crawler-log table — no WP-API equivalent;
+		// caching is not appropriate for a write operation.
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		$wpdb->insert(
 			$wpdb->prefix . 'rnrd_crawler_log',
 			array(
 				'logged_at'  => current_time( 'mysql' ),
@@ -288,6 +303,7 @@ class RNRD_Crawler_Log {
 			),
 			array( '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
 		);
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery
 	}
 
 	// ── Stat queries ───────────────────────────────────────────────────────

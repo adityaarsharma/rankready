@@ -158,16 +158,18 @@
 
 /* Inline info callout used by the SEO Plugin Compatibility 1-liner. */
 .rnrd-info-callout {
-	background: #f0f6fc;
-	border-left: 3px solid #2271b1;
-	padding: 8px 12px;
-	margin: 0 0 14px;
+	/* v1.1.13 — RankReady mint palette, not WP-core blue. */
+	background: var(--rnrd-mint-50, #ECFDF6);
+	border-left: 3px solid var(--rnrd-mint-500, #59F7C2);
+	padding: 10px 14px;
+	margin: 0 0 16px;
 	font-size: 13px;
-	color: #1d2327;
-	border-radius: 3px;
+	line-height: 1.55;
+	color: var(--rnrd-text-secondary, #3D423F);
+	border-radius: 8px;
 }
 .rnrd-info-callout .dashicons {
-	color: #2271b1;
+	color: var(--rnrd-mint-700, #047857);
 	margin-right: 4px;
 	vertical-align: middle;
 }
@@ -215,18 +217,32 @@
 
 /* ── Form table overrides ──────────────────────────────────────────────────── */
 
+/* v1.0.3 — collapse borders so the single 1px row separator below renders
+   as exactly one hairline. WordPress core sets `border-spacing: 2px` on
+   tables by default which leaves a gap between cells that, combined with
+   `border-top` on `tr + tr`, reads as a doubled line on retina displays. */
+.rnrd-form-table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
 .rnrd-form-table th {
 	padding: 16px 10px 16px 0;
 	font-size: 13px;
 	font-weight: 600;
 	color: #1d2327;
 	vertical-align: top;
+	border-bottom: 0; /* WP core sometimes adds bottom — kill it. */
 }
 
 .rnrd-form-table td {
 	padding: 16px 0;
+	border-bottom: 0; /* WP core sometimes adds bottom — kill it. */
 }
 
+/* DESIGN-MD rule #3: a single, subtle divider after every option row for
+   scannability. ONE clean hairline (border-collapse prevents retina doubling) —
+   never heavy, never a second line stacked on top of a section border. */
 .rnrd-form-table tr + tr th,
 .rnrd-form-table tr + tr td {
 	border-top: 1px solid #f0f0f1;
@@ -243,9 +259,16 @@
 
 .rnrd-toggle {
 	display: flex;
-	align-items: center;
+	/* Top-align the checkbox with the first line of a multi-line label instead of
+	   floating it to the vertical middle. */
+	align-items: flex-start;
 	gap: 8px;
 	cursor: pointer;
+}
+
+.rnrd-toggle > input[type="checkbox"] {
+	margin-top: 2px;
+	flex-shrink: 0;
 }
 
 .rnrd-toggle-label {
@@ -258,7 +281,7 @@
    master toggle row, so the divider needs to breathe a bit more to read as
    "this section belongs to that toggle" rather than "row glued to row". */
 .rnrd-conditional-fields {
-	border-top: 1px solid #e5e7eb;
+	border-top: 1px solid var(--rnrd-border-subtle);
 	margin-top: 22px;
 	padding-top: 22px;
 }
@@ -559,9 +582,9 @@
 	text-decoration: underline;
 }
 
-/* ── Select width fix ──────────────────────────────────────────────────────── */
-
-select.regular-text {
+/* ── Select width fix ──────────────────────────────────────────────────────
+ * v1.1.26 — Scoped under .rnrd-wrap. */
+.rnrd-wrap select.regular-text {
 	min-width: 300px;
 }
 
@@ -1328,9 +1351,15 @@ select.regular-text {
 	font-weight: 600;
 }
 
-/* ── 3. Buttons (WP core .button family) ────────────────────────────────── */
-.button-primary,
-.button.button-primary {
+/* ── 3. Buttons (WP core .button family) ─────────────────────────────────
+ * v1.1.26 — All WP-core button overrides scoped under .rnrd-wrap so they
+ * only fire on the RankReady settings screen. Without this scope they
+ * applied to every wp-admin page where admin.css was enqueued (post-edit
+ * meta-box screen, profile.php, user-edit.php) and recoloured WP-core's
+ * own buttons — exactly what Aditya flagged as "should not touch any
+ * other element". */
+.rnrd-wrap .button-primary,
+.rnrd-wrap .button.button-primary {
 	background: var(--rnrd-mint-400);
 	border: 1px solid var(--rnrd-mint-500);
 	color: var(--rnrd-text-on-mint);
@@ -1347,16 +1376,16 @@ select.regular-text {
 		border-color var(--rnrd-motion-fast);
 }
 
-.button-primary:hover,
-.button.button-primary:hover {
+.rnrd-wrap .button-primary:hover,
+.rnrd-wrap .button.button-primary:hover {
 	background: var(--rnrd-mint-300);
 	border-color: var(--rnrd-mint-500);
 	color: var(--rnrd-text-on-mint);
 	box-shadow: var(--rnrd-shadow-md), var(--rnrd-shadow-mint-soft);
 }
 
-.button-primary:focus,
-.button.button-primary:focus {
+.rnrd-wrap .button-primary:focus,
+.rnrd-wrap .button.button-primary:focus {
 	background: var(--rnrd-mint-400);
 	border-color: var(--rnrd-mint-600);
 	color: var(--rnrd-text-on-mint);
@@ -1364,9 +1393,9 @@ select.regular-text {
 	outline: none;
 }
 
-.button-primary:disabled,
-.button.button-primary:disabled,
-.button-primary[disabled] {
+.rnrd-wrap .button-primary:disabled,
+.rnrd-wrap .button.button-primary:disabled,
+.rnrd-wrap .button-primary[disabled] {
 	background: var(--rnrd-bg-surface-2);
 	border-color: var(--rnrd-border-default);
 	color: var(--rnrd-text-muted);
@@ -1374,8 +1403,8 @@ select.regular-text {
 	cursor: not-allowed;
 }
 
-.button-secondary,
-.button:not(.button-primary):not(.button-link) {
+.rnrd-wrap .button-secondary,
+.rnrd-wrap .button:not(.button-primary):not(.button-link) {
 	background: var(--rnrd-bg-surface);
 	border: 1px solid var(--rnrd-border-default);
 	color: var(--rnrd-text-primary);
@@ -1391,23 +1420,29 @@ select.regular-text {
 		border-color var(--rnrd-motion-fast);
 }
 
-.button-secondary:hover,
-.button:not(.button-primary):not(.button-link):hover {
+.rnrd-wrap .button-secondary:hover,
+.rnrd-wrap .button:not(.button-primary):not(.button-link):hover {
 	background: var(--rnrd-bg-surface-2);
 	border-color: var(--rnrd-border-strong);
 	color: var(--rnrd-text-primary);
 	box-shadow: var(--rnrd-shadow-xs);
 }
 
-/* ── 4. Inputs / selects / textareas ────────────────────────────────────── */
-input[type="text"],
-input[type="email"],
-input[type="url"],
-input[type="password"],
-input[type="search"],
-input[type="number"],
-select,
-textarea {
+/* ── 4. Inputs / selects / textareas ──────────────────────────────────────
+ * v1.1.26 — Scoped under .rnrd-wrap. The old un-scoped rules recoloured
+ * every WP-core input on profile.php (Account Management Set New Password
+ * trigger, Application Passwords name field, Yoast / Rank Math meta box
+ * inputs in post-edit, etc.). The Author Profile card has its own form
+ * inputs that ARE styled — those go through .rnrd-author-card__table
+ * selectors below, which only fire inside our card. */
+.rnrd-wrap input[type="text"],
+.rnrd-wrap input[type="email"],
+.rnrd-wrap input[type="url"],
+.rnrd-wrap input[type="password"],
+.rnrd-wrap input[type="search"],
+.rnrd-wrap input[type="number"],
+.rnrd-wrap select,
+.rnrd-wrap textarea {
 	background: var(--rnrd-bg-surface);
 	border: 1px solid var(--rnrd-border-default);
 	border-radius: var(--rnrd-radius-md);
@@ -1420,26 +1455,30 @@ textarea {
 	transition: border-color var(--rnrd-motion-fast), box-shadow var(--rnrd-motion-fast);
 }
 
-textarea {
+.rnrd-wrap textarea {
 	padding: 10px 12px;
 	min-height: auto;
 }
 
-input[type="text"]:focus,
-input[type="email"]:focus,
-input[type="url"]:focus,
-input[type="password"]:focus,
-input[type="search"]:focus,
-input[type="number"]:focus,
-select:focus,
-textarea:focus {
+.rnrd-wrap input[type="text"]:focus,
+.rnrd-wrap input[type="email"]:focus,
+.rnrd-wrap input[type="url"]:focus,
+.rnrd-wrap input[type="password"]:focus,
+.rnrd-wrap input[type="search"]:focus,
+.rnrd-wrap input[type="number"]:focus,
+.rnrd-wrap select:focus,
+.rnrd-wrap textarea:focus {
 	border-color: var(--rnrd-mint-500);
 	box-shadow: var(--rnrd-shadow-mint-glow);
 	outline: none;
 }
 
-/* ── 5. Settings table (.form-table) ─────────────────────────────────────── */
-.form-table th {
+/* ── 5. Settings table (.form-table) ─────────────────────────────────────
+ * v1.1.26 — Scoped under .rnrd-wrap. WP-core's form-table is used by
+ * every settings screen (profile.php Account Management, post-edit Yoast
+ * meta box, Discussion settings, etc.) so an un-scoped rule recoloured
+ * all of them. */
+.rnrd-wrap .form-table th {
 	padding: 14px 20px 14px 0;
 	font-weight: 500;
 	color: var(--rnrd-text-primary);
@@ -1448,14 +1487,14 @@ textarea:focus {
 	line-height: 1.5;
 }
 
-.form-table td {
+.rnrd-wrap .form-table td {
 	padding: 12px 0 14px;
 	color: var(--rnrd-text-secondary);
 	font-size: 14px;
 	line-height: 1.5;
 }
 
-.form-table .description {
+.rnrd-wrap .form-table .description {
 	color: var(--rnrd-text-tertiary);
 	font-size: 12px;
 	margin-top: 6px;
@@ -1463,16 +1502,19 @@ textarea:focus {
 	font-style: normal;
 }
 
-/* ── 6. Checkbox + radio label spacing ──────────────────────────────────── */
-input[type="checkbox"],
-input[type="radio"] {
+/* ── 6. Checkbox + radio label spacing ──────────────────────────────────
+ * v1.1.26 — Scoped under .rnrd-wrap. */
+.rnrd-wrap input[type="checkbox"],
+.rnrd-wrap input[type="radio"] {
 	margin: 0 8px 0 0;
 	vertical-align: middle;
 }
 
-.form-table label {
+.rnrd-wrap .form-table label:not(.rnrd-radio-list__item) {
 	display: inline-flex;
-	align-items: center;
+	/* Top-align so a checkbox sits on the first line of a multi-line label,
+	   not centered against the whole block. */
+	align-items: flex-start;
 	gap: 0;
 	line-height: 1.5;
 	padding: 4px 0;
@@ -1760,8 +1802,11 @@ input[type="radio"] {
 	background: var(--rnrd-bg-surface-2);
 }
 
-/* ── 13. Standard WP table inside RankReady ─────────────────────────────── */
-.wp-list-table.widefat {
+/* ── 13. Standard WP table inside RankReady ───────────────────────────────
+ * v1.1.26 — Scoped under .rnrd-wrap. WP-core lists (All Users, Posts,
+ * Comments) use .wp-list-table.widefat too; without the scope our card
+ * styling repainted those screens. */
+.rnrd-wrap .wp-list-table.widefat {
 	border: 1px solid var(--rnrd-border-subtle);
 	border-radius: var(--rnrd-radius-md);
 	overflow: hidden;
@@ -1769,7 +1814,7 @@ input[type="radio"] {
 	box-shadow: var(--rnrd-shadow-xs);
 }
 
-.wp-list-table.widefat thead th {
+.rnrd-wrap .wp-list-table.widefat thead th {
 	background: var(--rnrd-bg-surface-2);
 	color: var(--rnrd-text-primary);
 	font-weight: 600;
@@ -1778,23 +1823,24 @@ input[type="radio"] {
 	padding: 10px 14px;
 }
 
-.wp-list-table.widefat tbody td {
+.rnrd-wrap .wp-list-table.widefat tbody td {
 	padding: 12px 14px;
 	font-size: 13px;
 	color: var(--rnrd-text-secondary);
 	border-top: 1px solid var(--rnrd-border-subtle);
 }
 
-.wp-list-table.widefat.striped tbody tr:nth-child(odd) td {
+.rnrd-wrap .wp-list-table.widefat.striped tbody tr:nth-child(odd) td {
 	background: transparent;
 }
 
-.wp-list-table.widefat tbody tr:hover td {
+.rnrd-wrap .wp-list-table.widefat tbody tr:hover td {
 	background: var(--rnrd-bg-surface-2);
 }
 
-/* ── 14. WP submit_button() padding rhythm — legacy, overridden by Section 35 ─ */
-.submit {
+/* ── 14. WP submit_button() padding rhythm — legacy, overridden by Section 35 ─
+ * v1.1.26 — Scoped under .rnrd-wrap. */
+.rnrd-wrap .submit {
 	padding: 0;
 	margin: 16px 0 0;
 }
@@ -2011,9 +2057,16 @@ button.rnrd-kpi.rnrd-fw-tab:hover {
 	background:   var(--rnrd-mint-50,  #ecfdf5);
 }
 
-button.rnrd-kpi.rnrd-fw-tab.is-active {
+button.rnrd-kpi.rnrd-fw-tab.is-active,
+button.rnrd-kpi.rnrd-fw-tab.is-active:focus,
+button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
+	/* v1.1.5 — Hard-kill every glow source: inset shadow, browser focus ring,
+	   WP-core button focus shadow. Active tile reads as "selected" through
+	   the mint border + soft mint fill alone. No halo. */
 	border-color: var(--rnrd-mint-500, #10b981);
-	box-shadow:   0 0 0 1px var(--rnrd-mint-500, #10b981) inset;
+	background:   var(--rnrd-mint-50,  #ECFDF6);
+	box-shadow:   none !important;
+	outline:      none !important;
 }
 
 .rnrd-fw-toolbar {
@@ -2254,6 +2307,24 @@ button.rnrd-kpi.rnrd-fw-tab.is-active {
 .rnrd-tab-intro .rnrd-card-desc {
 	font-size: 13px;
 	color: var(--rnrd-text-secondary);
+}
+
+/* Inline model-migration notice — rendered inside the Settings tab body
+ * instead of via admin_notices. Resets WP-core .notice's negative margins
+ * (which assume placement at the very top of <div class="wrap">). */
+.rnrd-wrap .rnrd-inline-notice {
+	margin: 16px 0 20px;
+	padding: 12px 16px;
+	background: var(--rnrd-bg-surface);
+	border-radius: var(--rnrd-radius-md);
+}
+
+.rnrd-wrap .rnrd-inline-notice p {
+	margin: 0 0 6px;
+}
+
+.rnrd-wrap .rnrd-inline-notice ul {
+	margin: 6px 0 6px 18px;
 }
 
 /* ── 24. Reduce motion ──────────────────────────────────────────────────── */
@@ -2520,13 +2591,16 @@ button.rnrd-kpi.rnrd-fw-tab.is-active {
     grid-template-columns: 180px 1fr;
     gap: 16px;
     align-items: start;
-    padding: 14px 0;
-    border-top: 1px solid var(--rnrd-border-subtle);
+    padding: 12px 0;
+    /* No per-row dividers (they read as "a line after every option"). Only the
+       first row carries the single hairline that separates the card title +
+       description from the option rows. */
+    border-top: 0;
 }
 
 .rnrd-card .rnrd-form-table tr:first-child {
-    padding-top: 0;
-    border-top: 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--rnrd-border-subtle);
 }
 
 .rnrd-card .rnrd-form-table tr:last-child {
@@ -2570,10 +2644,11 @@ button.rnrd-kpi.rnrd-fw-tab.is-active {
 .rnrd-card .rnrd-radio-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin: 0;
+    gap: 10px;
+    margin: 4px 0 0;
     padding: 0;
     border: 0;
+    max-width: 640px;
 }
 
 @media (max-width: 900px) {
@@ -2792,7 +2867,9 @@ button.rnrd-kpi.rnrd-fw-tab.is-active {
     background: var(--rnrd-bg-canvas);
     border: 1px solid var(--rnrd-border-subtle);
     border-radius: 10px;
-    border-bottom: 1px solid var(--rnrd-border-subtle);
+    /* v1.0.3 — removed redundant `border-bottom` (the `border` shorthand
+       above already sets all 4 sides; the explicit override re-painted
+       a second hairline at the same pixel on retina and read as "doubled"). */
 }
 
 .rnrd-insights-subnav a {
@@ -2945,14 +3022,22 @@ button.rnrd-kpi.rnrd-fw-tab.is-active {
 /* ── 28b. Tab intro — minimal text guide (NOT a card, no box) ───────────
    User direction rc.16: tab intros are reading material, not a UI element.
    Removed: card chrome, border, background, left accent, shadow.
-   Kept: typographic hierarchy only. */
+   Kept: typographic hierarchy only.
+
+   v1.1.24 — Margin bottom trimmed from 20px to 10px. The first card below
+   carries its own top spacing (cards default to margin 0; the Dashboard
+   tutorial card has inline margin-bottom only). At 20px+inline the gap
+   read closer to 60px because the intro paragraphs had line-height
+   carryover plus the card's internal 18-24px padding gave the impression
+   of additional breathing room. Tightening here lets the card sit right
+   under the desc line. */
 .rnrd-tab-intro {
     background: transparent;
     border: 0;
     border-radius: 0;
     box-shadow: none;
     padding: 0;
-    margin: 0 0 20px;
+    margin: 0 0 10px;
 }
 
 .rnrd-tab-intro__title,
@@ -3172,8 +3257,18 @@ button.rnrd-kpi.rnrd-fw-tab.is-active {
 
 /* ── 29c. Save Settings button — anchor inside form, not floating ──────── */
 .rnrd-wrap p.submit {
-    margin: 20px 0 0;
+    /* v1.1.16 — tightened. WordPress core's `.submit` paragraph ships with
+     * `margin: 32px 0` and that pushed every Save button far below the last
+     * form row + left a big gap between the card and the next card below. */
+    margin: 12px 0 0;
     padding: 0;
+}
+/* Inside a card the Save button needs even less top breathing — the card
+ * itself already provides bottom padding. */
+.rnrd-card p.submit,
+.rnrd-card .submit {
+    margin: 8px 0 0 !important;
+    padding: 0 !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -3696,7 +3791,7 @@ button.rnrd-kpi.rnrd-fw-tab.is-active {
 /* ── 38b. Tab nav — generous gap, pills stretch evenly across full tray ── */
 .rnrd-wrap .nav-tab-wrapper {
     display: flex;
-    margin: 16px 0 28px;       /* clear separation from page header */
+    margin: 16px 0 20px;       /* 20px = same as the intro's bottom gap (symmetry) */
     padding: 5px;
     gap: 3px;
     width: 100%;               /* tray fills container width */
@@ -3993,15 +4088,17 @@ button.rnrd-kpi.rnrd-fw-tab.is-active {
 
 .rnrd-insights-toolbar {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-    /* FREE-103 — generous bottom margin so the toolbar never crowds the
-     * first card. Underline border kept for visual separation. */
+    /* FREE-103 — generous bottom margin so the toolbar never crowds the first
+     * card. The full-width baseline lives here; children are bottom-aligned and
+     * padding-bottom is 0 so the active tab's underline sits exactly ON this
+     * baseline instead of floating 4px above it (which read as a double line). */
     margin: 0 0 32px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #E5E7E0;
+    padding-bottom: 0;
+    border-bottom: 1px solid var(--rnrd-border-subtle);
 }
 
 .rnrd-insights-toolbar .rnrd-insights-subnav {
@@ -4393,4 +4490,778 @@ button.rnrd-kpi.rnrd-fw-tab.is-active {
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+/* ══ Double-border fix ══════════════════════════════════════════════════════════
+ * Section 26b puts border-top on the tr itself (grid row boundary).
+ * The legacy rule at line 230 ALSO puts border-top on tr+tr th/td.
+ * Both fire together inside .rnrd-card → visible double line.
+ * The tr-level border is canonical; suppress the per-cell rule in card context.
+ * Also covers .rnrd-conditional-fields sections which manage their own top gap.
+ */
+.rnrd-card .rnrd-form-table tr + tr th,
+.rnrd-card .rnrd-form-table tr + tr td {
+    border-top: none;
+}
+
+/* .rnrd-conditional-fields sits under its own border-top separator — the first
+ * tr inside has border-top:0 from Section 26b already. Additional per-cell
+ * borders inside conditional blocks are redundant and cause double lines
+ * when the section wrapper itself draws the visual boundary. */
+.rnrd-conditional-fields .rnrd-form-table tr + tr th,
+.rnrd-conditional-fields .rnrd-form-table tr + tr td {
+    border-top: none;
+}
+
+/* The card form-table draws a single divider on tr:first-child (Section 26b). But
+ * inside a conditional block, the .rnrd-conditional-fields wrapper already draws
+ * its own separator above — so the inner first-row divider would stack into a
+ * DOUBLE LINE. Suppress the inner one; the wrapper border is the section divider. */
+.rnrd-conditional-fields .rnrd-form-table tr:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+/* ── v1.1.0 — Flat [COMING SOON] tag (replaces the old bordered badge UI)
+ * Plain bracketed text in muted ink. No border, no background, no lock icon.
+ * The pre-1.1.0 .rnrd-soon-badge / .rnrd-pro-gate__checkbox / .rnrd-pro-gate
+ * styles still exist below this section for any third-party theme that
+ * targeted them — they no longer render in plugin output. */
+.rnrd-soon-tag {
+	display: inline-flex;
+	align-items: center;
+	height: 18px;
+	padding: 0 8px;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--rnrd-mint-800, #064E3B);
+	background: var(--rnrd-mint-50, #ECFDF6);
+	border: 1px solid var(--rnrd-mint-200, #B8F2DC);
+	border-radius: 99px;
+	white-space: nowrap;
+	margin-left: 6px;
+	vertical-align: middle;
+	line-height: 1;
+}
+
+.rnrd-soon-row {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: 0 8px;
+	padding: 10px 0;
+}
+
+.rnrd-soon-row__label {
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--rnrd-text-secondary, #3D423F);
+}
+
+.rnrd-soon-row__desc {
+	flex-basis: 100%;
+	font-size: 12px;
+	color: var(--rnrd-text-tertiary, #6B716D);
+	line-height: 1.55;
+	margin: 4px 0 0;
+}
+
+/* Visually neutralise the legacy gate UI in case any plugin code still
+   emits it accidentally — flatten to the new tag look on render. */
+.rnrd-pro-gate {
+	display: flex;
+	align-items: baseline;
+	gap: 0 8px;
+	padding: 10px 0;
+	background: transparent;
+	border: 0;
+	border-left: 0;
+	border-radius: 0;
+	box-shadow: none;
+	animation: none;
+	opacity: 1;
+}
+.rnrd-pro-gate__checkbox,
+.rnrd-pro-gate__icon { display: none; }
+.rnrd-pro-gate__text strong { font-weight: 500; font-size: 13px; }
+.rnrd-pro-gate__text p { font-size: 12px; color: var(--rnrd-text-tertiary, #6B716D); }
+.rnrd-pro-gate__soon { display: none; }
+
+/* ── v1.1.0 — Author Profile card (was scattered on user-edit screen)
+ * Wraps the author box section in a clean card with proper section spacing.
+ * The form-table inside keeps WordPress-native styling, but section headers
+ * (h3 inside a th[colspan="2"]) get visual breathing room + a hairline divider.
+ *
+ * v1.1.22 — Folded the previous body-class-scoped !important overrides into
+ * the base rule. The .rnrd-author-card class only ever renders inside
+ * RNRD_Author_Box::render_profile_fields(), so body-class scoping never
+ * gained anything except fragility against cache plugins / admin themes
+ * that strip body classes. The mint accent bar via ::before and the WP-core
+ * form-table resets that used to live in the body-scoped block now apply
+ * unconditionally to every .rnrd-author-card render. */
+.rnrd-author-card {
+	background: #ffffff !important;
+	border: 1px solid var(--rnrd-border-subtle, #ECEDE7) !important;
+	border-radius: 12px !important;
+	padding: 28px 32px 24px !important;
+	/* v1.1.27 — Margin horizontal forced to 0 + negative right margin so the
+	 * card escapes any inner-column constraints the WP form-table parent
+	 * applies. The form on profile.php has no explicit max-width, but
+	 * historical wp-admin chrome puts a ~20px right padding via .wrap that
+	 * leaves a grey gutter. Stretching the card with a small negative
+	 * margin lets the white surface touch the right edge of the form. */
+	margin: 24px 0 28px 0 !important;
+	width: auto !important;
+	max-width: none !important;
+	min-width: 0 !important;
+	box-sizing: border-box !important;
+	box-shadow: 0 1px 3px rgba(15, 20, 17, 0.06), 0 6px 24px rgba(15, 20, 17, 0.04) !important;
+	position: relative;
+	overflow: hidden;
+}
+
+/* v1.1.27 — Force the form-table inside the card to fill 100% so the
+ * card walls extend cleanly. WP-core's form-table is `width: 100%` by
+ * default but some admin themes shrink it; explicit override keeps the
+ * card visually balanced. */
+.rnrd-author-card .rnrd-author-card__table {
+	width: 100% !important;
+}
+
+/* Mint accent bar at the top of the card — instantly distinguishes the
+ * RankReady section from every other plugin's user-profile block. */
+.rnrd-author-card::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 3px;
+	background: linear-gradient(90deg, var(--rnrd-mint-500, #59F7C2), var(--rnrd-mint-300, #A7FBD9));
+}
+
+.rnrd-author-card__head {
+	margin: 0 0 8px;
+	padding-bottom: 18px;
+	border-bottom: 1px solid var(--rnrd-border-subtle, #ECEDE7);
+}
+
+.rnrd-author-card__title {
+	font-size: 18px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--rnrd-text-primary, #0F1411);
+	margin: 0 0 6px;
+}
+
+.rnrd-author-card__desc {
+	font-size: 13px;
+	color: var(--rnrd-text-tertiary, #6B716D);
+	line-height: 1.55;
+	margin: 0;
+	max-width: 720px;
+}
+
+/* v1.1.28 — Inline CTA below the description, linking to RankReady's
+ * E-E-A-T tab. Mint pill chip that matches the brand chip's visual weight
+ * without competing with the title. Strictly scoped to the card head. */
+.rnrd-author-card__head-cta {
+	margin: 12px 0 0 !important;
+}
+.rnrd-author-card__head-link {
+	display: inline-flex !important;
+	align-items: center !important;
+	gap: 6px !important;
+	padding: 6px 12px !important;
+	background: var(--rnrd-mint-50, #ECFDF6) !important;
+	color: var(--rnrd-mint-900, #053427) !important;
+	border: 1px solid var(--rnrd-mint-200, #B8F2DC) !important;
+	border-radius: 999px !important;
+	font-size: 12px !important;
+	font-weight: 600 !important;
+	line-height: 1.2 !important;
+	letter-spacing: 0 !important;
+	text-decoration: none !important;
+	box-shadow: none !important;
+	transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.rnrd-author-card__head-link:hover,
+.rnrd-author-card__head-link:focus {
+	background: var(--rnrd-mint-100, #D1FAE5) !important;
+	border-color: var(--rnrd-mint-500, #59F7C2) !important;
+	color: var(--rnrd-mint-900, #053427) !important;
+	outline: none !important;
+	box-shadow: 0 0 0 3px rgba(89, 247, 194, 0.22) !important;
+}
+.rnrd-author-card__head-link-arrow {
+	font-size: 13px !important;
+	line-height: 1 !important;
+	transition: transform 0.15s ease;
+}
+.rnrd-author-card__head-link:hover .rnrd-author-card__head-link-arrow {
+	transform: translateX(2px);
+}
+
+.rnrd-author-card__table {
+	margin-top: 8px;
+}
+
+/* Section heading rows inside the table — h3 inside th[colspan="2"] */
+.rnrd-author-card__table th[colspan="2"] h3 {
+	font-size: 14px;
+	font-weight: 600;
+	letter-spacing: -0.005em;
+	color: var(--rnrd-text-primary, #0F1411);
+	margin: 28px 0 6px !important;
+	padding: 0 0 8px;
+	border-bottom: 1px solid var(--rnrd-border-subtle, #ECEDE7);
+	text-transform: uppercase;
+	font-size: 11px;
+	letter-spacing: 0.08em;
+}
+
+/* The first section header has less top margin so it doesn't double-up
+   the divider already drawn by the card head. */
+.rnrd-author-card__table tr:first-child th[colspan="2"] h3 {
+	margin-top: 4px !important;
+}
+
+/* Field rows inside the table — give consistent left-column width */
+.rnrd-author-card__table th {
+	width: 220px;
+	padding: 14px 20px 14px 0;
+	font-weight: 500;
+	color: var(--rnrd-text-primary, #0F1411);
+	font-size: 13px;
+}
+
+.rnrd-author-card__table td {
+	padding: 12px 0 14px;
+}
+
+/* v1.1.26 — Self-contained input chrome for the Author Profile card.
+ * Previously these inputs inherited the global `input[type="text"]` rule
+ * higher up in this file. That rule is now scoped to .rnrd-wrap (so it
+ * never repaints WP-core inputs on profile.php outside our card). The
+ * card lives on profile.php which has no .rnrd-wrap parent, so the
+ * inputs need their own rules to keep the mint look — strictly scoped
+ * to `.rnrd-author-card *` so nothing else on the page is touched. */
+.rnrd-author-card__table input[type="text"],
+.rnrd-author-card__table input[type="url"],
+.rnrd-author-card__table input[type="email"],
+.rnrd-author-card__table input[type="number"],
+.rnrd-author-card__table textarea {
+	max-width: 520px;
+	background: #ffffff !important;
+	border: 1px solid var(--rnrd-border-default, #D9DAD5) !important;
+	border-radius: 8px !important;
+	padding: 8px 12px !important;
+	font-size: 14px !important;
+	line-height: 1.5 !important;
+	color: var(--rnrd-text-primary, #0F1411) !important;
+	box-shadow: none !important;
+	min-height: 36px !important;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.rnrd-author-card__table textarea {
+	min-height: 72px !important;
+	padding: 10px 12px !important;
+}
+
+.rnrd-author-card__table input[type="text"]:focus,
+.rnrd-author-card__table input[type="url"]:focus,
+.rnrd-author-card__table input[type="email"]:focus,
+.rnrd-author-card__table input[type="number"]:focus,
+.rnrd-author-card__table textarea:focus {
+	border-color: var(--rnrd-mint-500, #59F7C2) !important;
+	box-shadow: 0 0 0 3px rgba(89, 247, 194, 0.22) !important;
+	outline: none !important;
+}
+
+/* Select Image button inside the headshot row — also strictly card-scoped. */
+.rnrd-author-card__table .rnrd-media-picker {
+	background: var(--rnrd-bg-surface, #fff) !important;
+	border: 1px solid var(--rnrd-border-default, #D9DAD5) !important;
+	border-radius: 8px !important;
+	color: var(--rnrd-text-primary, #0F1411) !important;
+	box-shadow: none !important;
+	padding: 6px 12px !important;
+	min-height: 32px !important;
+	font-size: 12px !important;
+	margin-left: 8px !important;
+}
+.rnrd-author-card__table .rnrd-media-picker:hover {
+	background: var(--rnrd-mint-50, #ECFDF6) !important;
+	border-color: var(--rnrd-mint-500, #59F7C2) !important;
+}
+
+/* ── v1.1.1 — Author Profile "Coming Soon" footer (replaces the heavy Pro gate)
+ * Sits inside the card as the last row. Mint-tinted background to set it
+ * apart from the editable fields above, but no lock icon, no "PRO" wording,
+ * no bordered badge — just a quiet promise of what's next. */
+.rnrd-author-card__next {
+	padding: 24px 0 8px !important;
+}
+
+.rnrd-author-card__next > * {
+	padding-left: 0;
+}
+
+/* Inner container — single neutral panel, mint accent on the left */
+.rnrd-author-card__next-title,
+.rnrd-author-card__next-desc,
+.rnrd-author-card__next-list {
+	margin-left: 0;
+}
+
+.rnrd-author-card__next {
+	background: linear-gradient(0deg, var(--rnrd-mint-50, #ECFDF6), var(--rnrd-mint-50, #ECFDF6));
+	border-left: 3px solid var(--rnrd-mint-500, #59F7C2);
+	border-radius: 8px;
+	padding: 20px 24px !important;
+}
+
+.rnrd-author-card__next-title {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--rnrd-mint-800, #064E3B);
+	margin: 0 0 8px;
+}
+
+.rnrd-author-card__next-desc {
+	font-size: 13px;
+	color: var(--rnrd-text-secondary, #3D423F);
+	line-height: 1.55;
+	margin: 0 0 14px;
+	max-width: 720px;
+}
+
+.rnrd-author-card__next-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.rnrd-author-card__next-list li {
+	position: relative;
+	padding-left: 20px;
+	font-size: 13px;
+	color: var(--rnrd-text-secondary, #3D423F);
+	line-height: 1.5;
+}
+
+.rnrd-author-card__next-list li::before {
+	content: "";
+	position: absolute;
+	left: 4px;
+	top: 8px;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--rnrd-mint-500, #59F7C2);
+}
+
+/* Drop the section-divider border-bottom on the H3 since the card now has
+   visual breathing room from spacing alone. Uppercase eyebrow style still
+   carries the visual weight. */
+.rnrd-author-card__table th[colspan="2"] h3 {
+	border-bottom: 0 !important;
+	padding-bottom: 0 !important;
+	margin: 28px 0 4px !important;
+}
+.rnrd-author-card__table tr:first-child th[colspan="2"] h3 {
+	margin-top: 0 !important;
+}
+
+/* Brand chip — small mint dot + "RankReady" eyebrow above the title. */
+.rnrd-author-card__brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--rnrd-mint-800, #064E3B);
+	margin: 0 0 10px;
+}
+.rnrd-author-card__brand-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--rnrd-mint-500, #59F7C2);
+	box-shadow: 0 0 0 3px rgba(89, 247, 194, 0.18);
+}
+
+/* Section intro paragraphs explain how the fields below help. */
+.rnrd-author-card__section-intro {
+	font-size: 12px;
+	font-weight: 400;
+	color: var(--rnrd-text-tertiary, #6B716D);
+	line-height: 1.5;
+	margin: 4px 0 4px;
+	max-width: 720px;
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+/* Coming Soon block — head row with title + Extended schema pill. */
+.rnrd-author-card__next-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0 0 6px;
+}
+.rnrd-soon-tag--inverse {
+	background: var(--rnrd-mint-500, #59F7C2) !important;
+	color: var(--rnrd-mint-900, #053427) !important;
+	border-color: transparent !important;
+}
+
+/* Coming Soon grid — 4 groups laid out in a responsive 2-column grid. */
+.rnrd-author-card__next-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 16px 28px;
+	margin: 12px 0 0;
+}
+@media (max-width: 720px) {
+	.rnrd-author-card__next-grid {
+		grid-template-columns: 1fr;
+	}
+}
+.rnrd-author-card__next-grouptitle {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--rnrd-mint-900, #053427);
+	margin: 0 0 6px;
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+/* Override WordPress core form-table cells that leak through inside the
+ * card. The base form-table rule paints them with WP-admin chrome (grey
+ * top borders, background tint); the card chrome wants flat transparent
+ * cells so the white card surface shows through. v1.1.22 — dropped the
+ * body-class scoping; .rnrd-author-card__table only ever renders inside
+ * the card so the base selector is already specific enough. */
+.rnrd-author-card__table th,
+.rnrd-author-card__table td {
+	background: transparent !important;
+	border: 0 !important;
+	box-shadow: none !important;
+}
+
+/* WordPress core's `.form-table p.description` runs slightly cramped —
+ * give it the RankReady tone instead. */
+.rnrd-author-card .description {
+	font-size: 12px;
+	color: var(--rnrd-text-tertiary, #6B716D);
+	line-height: 1.5;
+	margin: 4px 0 0;
+}
+
+/* ── v1.1.0 — CPT picker Coming-Soon hint
+ * Small footnote-style label rendered below every Free CPT picker. The
+ * Pro plugin removes this via filter or by replacing the picker itself
+ * when full CPT support unlocks. */
+.rnrd-cpt-hint {
+	font-size: 12px;
+	color: var(--rnrd-text-tertiary, #6B716D);
+	margin: 8px 0 0;
+	line-height: 1.5;
+}
+.rnrd-cpt-hint .rnrd-soon-tag {
+	margin-left: 2px;
+}
+
+/* ── v1.1.0 — Cloudflare auto-fix card (Settings tab)
+ * Self-contained card, uses the existing .rnrd-card chrome plus a few
+ * status accents. No extra dependencies. */
+.rnrd-cf-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	margin: 12px 0 16px;
+	padding: 10px 14px;
+	border-radius: 8px;
+	line-height: 1.5;
+}
+.rnrd-cf-status--ok {
+	background: var(--rnrd-mint-50, #ECFDF6);
+	color: var(--rnrd-mint-800, #064E3B);
+	border: 1px solid var(--rnrd-mint-200, #B8F2DC);
+}
+.rnrd-cf-status--info {
+	background: var(--rnrd-bg-surface-2, #F4F5F0);
+	color: var(--rnrd-text-secondary, #3D423F);
+	border: 1px solid var(--rnrd-border-subtle, #ECEDE7);
+}
+.rnrd-cf-status--muted {
+	background: transparent;
+	color: var(--rnrd-text-tertiary, #6B716D);
+	padding: 0;
+	margin: 8px 0 16px;
+	font-size: 13px;
+}
+.rnrd-cf-tick {
+	flex-shrink: 0;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--rnrd-mint-500, #59F7C2);
+	color: var(--rnrd-mint-800, #064E3B);
+	font-size: 12px;
+	font-weight: 700;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+.rnrd-cf-form-details {
+	margin-top: 8px;
+	border-top: 1px solid var(--rnrd-border-subtle, #ECEDE7);
+	padding-top: 12px;
+}
+.rnrd-cf-form-details summary {
+	cursor: pointer;
+	font-weight: 500;
+	font-size: 13px;
+	padding: 4px 0;
+	color: var(--rnrd-text-primary, #0F1411);
+	user-select: none;
+}
+.rnrd-cf-msg {
+	margin-left: 12px;
+	font-size: 12px;
+}
+
+/* ── v1.1.2 — Status pills (replaces emoji ticks/crosses near Active AI Provider)
+ * Two variants: OK (mint) for "key configured" and warn (amber) for "no key".
+ * Used inline within copy paragraphs. No emoji, no dashicons. */
+.rnrd-status-pill {
+	display: inline-flex;
+	align-items: center;
+	height: 18px;
+	padding: 0 8px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	border-radius: 99px;
+	white-space: nowrap;
+	margin-left: 4px;
+	vertical-align: middle;
+	line-height: 1;
+}
+.rnrd-status-pill--ok {
+	color: var(--rnrd-mint-800, #064E3B);
+	background: var(--rnrd-mint-50, #ECFDF6);
+	border: 1px solid var(--rnrd-mint-200, #B8F2DC);
+}
+.rnrd-status-pill--warn {
+	color: var(--rnrd-color-warning-text, #92400E);
+	background: var(--rnrd-warning-bg, #FFFBEB);
+	border: 1px solid #F9D59F;
+}
+
+/* ── v1.1.5 — Content Freshness scan row layout
+ * Button on the left, status text right next to it (not floating in the
+ * middle of the card). Flex layout keeps them aligned on the same baseline. */
+.rnrd-fw-scanrow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+.rnrd-fw-status {
+	font-size: 13px;
+	color: var(--rnrd-text-secondary, #3D423F);
+	display: none;
+	line-height: 1.4;
+}
+.rnrd-fw-status.is-visible {
+	display: inline-flex;
+	align-items: center;
+}
+.rnrd-fw-status.is-ok {
+	color: var(--rnrd-mint-800, #064E3B);
+}
+.rnrd-fw-status.is-err {
+	color: var(--rnrd-color-warning-text, #92400E);
+}
+
+/* ── v1.1.6 — In-card "Coming Soon" block
+ * Soft separator + indent for Pro-gated entries that sit INSIDE a regular
+ * settings card (Schema Types, Author Box, etc.) rather than floating outside.
+ * Each .rnrd-soon-row inside renders as the flat pill+label pattern. */
+.rnrd-card__soon-block {
+	margin: 18px 0 4px;
+	padding: 16px 0 4px;
+	border-top: 1px solid var(--rnrd-border-subtle, #ECEDE7);
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+.rnrd-card__soon-block .rnrd-soon-row {
+	padding: 0;
+}
+.rnrd-card__soon-block .rnrd-soon-row__label {
+	font-weight: 600;
+	color: var(--rnrd-text-primary, #0F1411);
+	font-size: 14px;
+}
+.rnrd-card__soon-block .rnrd-soon-row__desc {
+	margin-top: 2px;
+	color: var(--rnrd-text-tertiary, #6B716D);
+	font-size: 12px;
+	line-height: 1.55;
+}
+
+/* ── v1.1.12 — Content Freshness control bar
+ * Threshold dropdown on the left, Scan button + status on the right.
+ * One row, no stacked form-table. */
+.rnrd-fw-controlbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	flex-wrap: wrap;
+	margin: 12px 0 18px;
+	padding: 12px 16px;
+	background: var(--rnrd-bg-surface-2, #F4F5F0);
+	border-radius: 10px;
+}
+.rnrd-fw-controlbar__left,
+.rnrd-fw-controlbar__right {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.rnrd-fw-controlbar__label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--rnrd-text-primary, #0F1411);
+}
+.rnrd-fw-controlbar select {
+	min-height: 32px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * v1.1.13 — make-interfaces-feel-better pass
+ *
+ * v1.1.15 — further dialled in from 1.1.14. User flagged still too much
+ * space. Going truly compact — matches WordPress core admin density and
+ * Yoast / Rank Math production chrome.
+ *
+ *   Card padding:        20px 22px  (was 24x28)
+ *   Inter-card margin:   14px       (was 20)
+ *   H3 top breathing:    16px       (was 20)
+ *   Form-table rows:     9px        (was 11)
+ *   Card-desc bottom:    10px       (was 14)
+ *   Card-goal bottom:    6px        (was 8)
+ *
+ * Strict 2px grid. Compact, never cramped.
+ * ═══════════════════════════════════════════════════════════════════════ */
+.rnrd-card,
+.rnrd-card--subtle {
+	padding: 20px 22px !important;
+	margin-bottom: 14px !important;
+}
+.rnrd-card .rnrd-card-title {
+	margin: 0 0 2px !important;
+}
+.rnrd-card .rnrd-card-goal {
+	margin: 0 0 6px !important;
+}
+.rnrd-card .rnrd-card-desc {
+	margin: 0 0 10px !important;
+}
+.rnrd-card h3 {
+	margin: 16px 0 6px !important;
+}
+.rnrd-card h3:first-child {
+	margin-top: 2px !important;
+}
+.rnrd-card .form-table {
+	margin-top: 2px;
+}
+.rnrd-card .form-table th,
+.rnrd-card .form-table td {
+	padding-top: 9px;
+	padding-bottom: 9px;
+}
+/* v1.1.15 — Tab intro block (h2 + lede + desc above first card) — tighter
+ * so the first real card is not pushed below the fold. */
+.rnrd-tab-intro {
+	/* 20px below = same as the 20px tab-nav gap above, so the intro sits with
+	   equal breathing room top and bottom. */
+	margin-bottom: 20px !important;
+}
+/* v1.0.12 — The intro is a TRANSPARENT block (no card chrome), but the generic
+ * `.rnrd-card { padding: 20px 22px !important }` rule still applied 20px of
+ * top+bottom padding to it — 40px of invisible dead space that pushed the
+ * first real card down. Compound selector (0,2,0) + !important beats the
+ * single-class `.rnrd-card` !important rule. Keep horizontal padding so the
+ * heading stays aligned with the cards below. */
+.rnrd-card.rnrd-tab-intro {
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+}
+.rnrd-tab-intro h2,
+.rnrd-tab-intro .rnrd-tab-intro__title {
+	margin: 0 0 2px !important;
+}
+.rnrd-tab-intro .rnrd-card-goal,
+.rnrd-tab-intro .rnrd-tab-intro__goal {
+	margin: 0 0 4px !important;
+}
+.rnrd-tab-intro .rnrd-card-desc,
+.rnrd-tab-intro .rnrd-tab-intro__desc {
+	margin: 0 !important;
+}
+
+/* ── v1.1.13 — Generic .rnrd-callout (replaces WP-core .notice blue/yellow)
+ * Used on SEO Plugin Compatibility "no plugin detected" panel and other
+ * informational strips inside cards. Mint accent left bar, soft surface fill. */
+.rnrd-callout {
+	background: var(--rnrd-bg-surface-2, #F4F5F0);
+	border-left: 3px solid var(--rnrd-border-default, #D9DAD5);
+	padding: 14px 18px;
+	margin: 0 0 16px;
+	border-radius: 8px;
+	font-size: 13px;
+	line-height: 1.55;
+	color: var(--rnrd-text-secondary, #3D423F);
+}
+.rnrd-callout--info {
+	background: var(--rnrd-mint-50, #ECFDF6);
+	border-left-color: var(--rnrd-mint-500, #59F7C2);
+}
+.rnrd-callout--info strong {
+	color: var(--rnrd-mint-800, #064E3B);
+}
+.rnrd-callout__list {
+	list-style: disc;
+	margin: 10px 0 0 22px;
+	padding: 0;
+	color: var(--rnrd-text-secondary, #3D423F);
+	font-size: 13px;
+	line-height: 1.55;
+}
+.rnrd-callout__list li + li {
+	margin-top: 4px;
+}
+
+/* ── v1.1.13 — needs-attention card highlight (Active AI Provider when no key) */
+.rnrd-card--needs-attention {
+	border-left: 3px solid var(--rnrd-warning, #F59E0B);
 }

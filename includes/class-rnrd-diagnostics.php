@@ -165,12 +165,14 @@ class RNRD_Diagnostics {
 		$checks[] = self::probe_php_version();
 		$checks[] = self::probe_wp_version();
 
-		// Group 5 — LLM provider reachability (opt-in, costs API calls)
+		// Group 5 — LLM provider reachability (opt-in, costs API calls).
+		// Only probe the ACTIVE provider — probing all four flagged a "no key"
+		// failure for providers the user isn't using (e.g. a Gemini user was
+		// shown an OpenAI "API key not set" issue). The active provider is the
+		// only one that matters for Summary/FAQ generation.
 		if ( $include_api ) {
-			$checks[] = self::probe_provider( 'openai' );
-			$checks[] = self::probe_provider( 'anthropic' );
-			$checks[] = self::probe_provider( 'gemini' );
-			$checks[] = self::probe_provider( 'deepseek' );
+			$active_provider = class_exists( 'RNRD_LLM' ) ? RNRD_LLM::get_active_provider() : 'openai';
+			$checks[] = self::probe_provider( $active_provider );
 			$checks[] = self::probe_dataforseo();
 		} else {
 			$checks[] = self::placeholder_provider();
@@ -806,8 +808,10 @@ class RNRD_Diagnostics {
 			);
 		}
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$row_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+		// $table = $wpdb->prefix . 'rnrd_crawler_log' (defined above).
+		// No user input flows in — hardcoded suffix on the WP-owned prefix.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,PluginCheck.Security.DirectDB.UnescapedDBParameter
+		$row_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `" . esc_sql( $table ) . "`" );
 
 		return self::result( 'db_tables', 'Crawler log DB table', 'pass',
 			sprintf( 'Table exists, %s rows logged.', number_format( $row_count ) ),
@@ -897,6 +901,48 @@ class RNRD_Diagnostics {
 		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			return self::result( 'md_negotiation', 'Accept: text/markdown end-to-end', 'info',
 				'Markdown endpoints disabled; skipped.', null );
+		}
+
+		// v1.1.2 — Default mode: same-URL Accept negotiation is OFF (it poisons
+		// caches that ignore Vary: Accept, e.g. Cloudflare APO). The canonical
+		// URL correctly returns HTML; markdown is served at the distinct `.md`
+		// URL, which is cache-safe. So when negotiation is off we probe `/index.md`
+		// (the real agent path) and pass when it returns text/markdown. We only
+		// probe the homepage Accept-header path when the user has opted in.
+		$negotiation_on = 'on' === get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' );
+
+		if ( ! $negotiation_on ) {
+			$md_url   = home_url( '/index.md' );
+			$response = wp_remote_get( $md_url, array(
+				'timeout'     => 5,
+				'redirection' => 2,
+				'headers'     => array( 'Accept' => 'text/markdown' ),
+				'user-agent'  => 'RankReady-Diagnostic/1.0',
+			) );
+			if ( is_wp_error( $response ) ) {
+				return self::result( 'md_negotiation', 'Markdown endpoint (/index.md)', 'info',
+					'External probe could not run (' . $response->get_error_message() . '). Common in Docker / local dev — not a real-site issue.',
+					null );
+			}
+			$status      = (int) wp_remote_retrieve_response_code( $response );
+			$ctype       = (string) wp_remote_retrieve_header( $response, 'content-type' );
+			$ctype_short = strtok( $ctype, ';' );
+			if ( $status >= 400 ) {
+				return self::result( 'md_negotiation', 'Markdown endpoint (/index.md)', 'fail',
+					'/index.md returned HTTP ' . $status . '.',
+					'Flush rewrite rules: Settings → Permalinks → Save. Then re-run.',
+					array( 'status' => $status, 'content-type' => $ctype ) );
+			}
+			if ( 'text/markdown' === $ctype_short ) {
+				return self::result( 'md_negotiation', 'Markdown endpoint (/index.md)', 'pass',
+					'Markdown is served at the distinct /index.md URL (cache-safe path). Same-URL Accept negotiation is off by default — the canonical homepage correctly returns HTML, so no cache can be poisoned. AI agents discover /index.md via the Link header and llms.txt.',
+					null,
+					array( 'content-type' => $ctype ) );
+			}
+			return self::result( 'md_negotiation', 'Markdown endpoint (/index.md)', 'warn',
+				'/index.md returned Content-Type: ' . $ctype . ' instead of text/markdown.',
+				'Flush rewrite rules (Settings → Permalinks → Save). If a page builder intercepts template_redirect before priority 1, ask it to lower its priority.',
+				array( 'content-type' => $ctype ) );
 		}
 
 		$home    = home_url( '/' );
@@ -1090,9 +1136,12 @@ class RNRD_Diagnostics {
 	// ═════════════════════════════════════════════════════════════════════════
 
 	private static function probe_brand_identity(): array {
-		$name    = trim( (string) get_option( 'rnrd_brand_name', '' ) );
-		$summary = trim( (string) get_option( 'rnrd_brand_summary', '' ) );
-		$about   = trim( (string) get_option( 'rnrd_brand_about', '' ) );
+		// Read the SAME option keys the Brand Identity card writes to
+		// (RNRD_OPT_LLMS_* ), not the legacy rnrd_brand_* keys — otherwise this
+		// probe reports "empty" even when the card is filled (false positive).
+		$name    = trim( (string) get_option( RNRD_OPT_LLMS_SITE_NAME, '' ) );
+		$summary = trim( (string) get_option( RNRD_OPT_LLMS_SUMMARY, '' ) );
+		$about   = trim( (string) get_option( RNRD_OPT_LLMS_ABOUT, '' ) );
 
 		$missing = array();
 		if ( '' === $name )    $missing[] = 'Site / brand name';

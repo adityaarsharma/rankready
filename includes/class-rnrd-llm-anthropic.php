@@ -52,7 +52,8 @@ class RNRD_LLM_Anthropic {
 				'anthropic-version' => self::VERSION,
 				'content-type'      => 'application/json',
 			),
-			'body' => wp_json_encode( $body ),
+			// Send non-Latin content as real UTF-8 bytes — see openai client.
+			'body' => wp_json_encode( $body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ),
 		) );
 
 		if ( is_wp_error( $response ) ) {

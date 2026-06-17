@@ -3,8 +3,8 @@
  * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
  * Plugin URI:        https://posimyth.com
  * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.0.1
- * Requires at least: 6.0
+ * Version:           1.1.2
+ * Requires at least: 6.9
  * Requires PHP:      7.4
  * Author:            POSIMYTH Inc. & Aditya Sharma
  * Author URI:        https://posimyth.com
@@ -51,7 +51,7 @@ if ( defined( 'RNRD_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RNRD_VERSION' ) ) {
-	define( 'RNRD_VERSION',  '1.0.1' );
+	define( 'RNRD_VERSION',  '1.1.2' );
 	define( 'RNRD_FILE',     __FILE__ );
 	define( 'RNRD_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RNRD_URL',      plugin_dir_url( __FILE__ ) );
@@ -128,6 +128,10 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_MD_ENABLE',         'rnrd_md_enable' );
 	define( 'RNRD_OPT_MD_POST_TYPES',     'rnrd_md_post_types' );
 	define( 'RNRD_OPT_MD_INCLUDE_META',   'rnrd_md_include_meta' );
+
+	// Option keys — Open Knowledge Format (OKF) bundle (v1.1.5).
+	define( 'RNRD_OPT_OKF_ENABLE',        'rnrd_okf_enable' );
+	define( 'RNRD_OPT_OKF_POST_TYPES',    'rnrd_okf_post_types' );
 
 	// Option keys — Schema Automation.
 	define( 'RNRD_OPT_SCHEMA_ARTICLE',    'rnrd_schema_article' );
@@ -243,6 +247,21 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	// Markdown layer sub-toggles (controlled inside the Markdown Endpoints card).
 	define( 'RNRD_OPT_MD_HINT_DIV',           'rnrd_md_hint_div' );         // 'on' | 'off' — hidden AI-hint div in body
 	define( 'RNRD_OPT_MD_BOT_AUTO_SERVE',     'rnrd_md_bot_auto_serve' );   // 'on' | 'off' — UA-based forced markdown for AI bots
+	// v1.1.2 — Same-URL Accept-header content negotiation. DEFAULT OFF.
+	// When ON, a request to the canonical URL (/, /post-slug/) sending
+	// `Accept: text/markdown` (or a known AI-bot UA) receives markdown INLINE on
+	// that URL. This is UNSAFE behind any cache that ignores `Vary: Accept` —
+	// Cloudflare APO, Varnish, Fastly default, and most shared-host page caches
+	// all do. They cache the markdown body under the canonical URL and then serve
+	// it to every subsequent browser, blanking the page (live bug, nexterwp.com,
+	// 2026-06-02). Cloudflare's own docs confirm both that it ignores Vary values
+	// and that APO ignores origin Cache-Control at the edge, so NO origin header
+	// can make this safe. Markdown is therefore served ONLY at distinct `.md`
+	// URLs by default (different cache key = impossible to poison), discovered via
+	// the `Link: rel="alternate"; type="text/markdown"` header + llms.txt. The
+	// llms.txt spec, Vercel, Mintlify and GitBook all use distinct `.md` URLs as
+	// the cache-safe layer. Only turn this on if you control your cache key.
+	define( 'RNRD_OPT_MD_ACCEPT_NEGOTIATION', 'rnrd_md_accept_negotiation' ); // 'on' | 'off' — same-URL Accept negotiation (default off)
 
 	// Meta keys.
 	define( 'RNRD_META_SUMMARY',   '_rnrd_summary' );
@@ -455,17 +474,123 @@ add_action( 'plugins_loaded', function (): void {
 		// missing AND the previous version is v1.1.x or earlier.
 		// (Audit beta.3 #7.)
 		if ( '' !== $stored_version && version_compare( $stored_version, '1.2.0-beta.1', '<' ) ) {
+			// v1.1.19 — Dropped 'rnrd_md_hint_div' and 'rnrd_md_bot_auto_serve'
+			// from the safe-off list. The hidden hint div is invisible to humans
+			// (clip-path + aria-hidden) and the UA auto-serve only fires for
+			// known AI bots — neither has any user-facing surface that
+			// justifies hiding them behind an opt-in. The old guard was
+			// capping the dashboard agent-signal scorecard at 8/10 on every
+			// fresh install where these two had never been written to the DB.
 			$upgrade_safe_off = array(
 				'rnrd_max_snippet_default',  // emits <meta robots> sitewide
 				'rnrd_ai_referral_enable',   // tracks Referer on every pageview (privacy)
 				'rnrd_mcp_enable',           // publishes /.well-known/mcp.json
-				'rnrd_md_hint_div',          // injects hidden div on every post
-				'rnrd_md_bot_auto_serve',    // UA-based markdown switching
 			);
 			foreach ( $upgrade_safe_off as $opt ) {
 				if ( false === get_option( $opt, false ) ) {
 					update_option( $opt, 'off', false );
 				}
+			}
+		}
+
+		// v1.1.19 — One-time corrective for installs that got the 'off' marker
+		// written by the over-aggressive pre-1.1.19 migration. If markdown is
+		// already enabled, the hint div and bot auto-serve should be on too —
+		// they're the two halves of "AI agents can find your markdown copy."
+		// Guarded by a fixed migration key so it only runs once per site.
+		if ( ! get_option( 'rnrd_md_signals_corrected_v1119' ) ) {
+			if ( 'on' === get_option( 'rnrd_md_enable', 'off' ) ) {
+				if ( 'on' !== get_option( 'rnrd_md_hint_div', 'on' ) ) {
+					update_option( 'rnrd_md_hint_div', 'on', false );
+				}
+				if ( 'on' !== get_option( 'rnrd_md_bot_auto_serve', 'on' ) ) {
+					update_option( 'rnrd_md_bot_auto_serve', 'on', false );
+				}
+			}
+			update_option( 'rnrd_md_signals_corrected_v1119', 1, false );
+		}
+
+		// v1.1.21 — Same one-shot pattern for the last two scorecard signals
+		// that were unreachable from the onboarding wizard prior to v1.1.21
+		// (rnrd_llms_full_enable + rnrd_ai_referral_enable). Only seeded
+		// 'on' when the site is already invested in the corresponding
+		// feature — llms-full follows llms_enable, referral tracking follows
+		// llms_enable as a proxy for "this user wants AI visibility data".
+		if ( ! get_option( 'rnrd_scorecard_corrected_v1121' ) ) {
+			if ( 'on' === get_option( 'rnrd_llms_enable', 'off' ) ) {
+				if ( 'on' !== get_option( 'rnrd_llms_full_enable', 'off' ) ) {
+					update_option( 'rnrd_llms_full_enable', 'on', false );
+				}
+				if ( 'on' !== get_option( 'rnrd_ai_referral_enable', 'on' ) ) {
+					update_option( 'rnrd_ai_referral_enable', 'on', false );
+				}
+			}
+			update_option( 'rnrd_scorecard_corrected_v1121', 1, false );
+		}
+
+		// v1.1.1 — One-shot UTF-8 rewrite of existing summary + FAQ post meta.
+		// Sites with non-Latin content (Turkish, CJK, Arabic, Hindi, Cyrillic,
+		// etc.) generated before 1.1.1 stored values as JSON with \uXXXX escapes
+		// because wp_json_encode defaults to escaping non-ASCII. That's valid
+		// JSON, but fragile across WP's slash-handling layers — a single
+		// dropped backslash turns "Yatırım" into visible "Yu0131lu0131".
+		//
+		// 1.1.1 stores everything as real UTF-8. This migration decodes any
+		// remaining \u-escaped rows and re-encodes them with the new flags.
+		// Safe and backward-compatible: the old decode path (json_decode)
+		// handles both shapes identically, so rolling back to 1.1.0 still
+		// reads these rows correctly. Capped at 2000 rows per request to
+		// avoid timing out on huge sites; subsequent page loads finish the
+		// rest because the migration flag is only set after a full sweep.
+		if ( ! get_option( 'rnrd_unicode_meta_migrated_v111' ) ) {
+			global $wpdb;
+			// Match all rnrd-owned summary + FAQ meta rows. No SQL-level
+			// content filter — escaping a literal "\u" across PHP/JSON/MySQL
+			// is brittle (each layer interprets backslash differently) and a
+			// failed filter silently degrades to "match everything" or
+			// "match nothing" with no error surface. The per-row
+			// `$reencoded === $stored` check is the actual filter: rows that
+			// already store pure UTF-8 (or pure ASCII) round-trip to the same
+			// bytes and get skipped without a DB write. Process up to 5000
+			// rows per page load — json_decode + encode runs ~100 µs per row,
+			// so the whole loop is < 1 s on any realistic host.
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- meta_key list is hardcoded literals
+			$rows = $wpdb->get_results(
+				"SELECT meta_id, meta_key, meta_value
+				 FROM {$wpdb->postmeta}
+				 WHERE meta_key IN ('_rnrd_summary', '_rnrd_faq')
+				 LIMIT 5000",
+				ARRAY_A
+			);
+			$migrated = 0;
+			foreach ( (array) $rows as $row ) {
+				$decoded = json_decode( $row['meta_value'], true );
+				if ( ! is_array( $decoded ) ) {
+					continue; // Skip values that aren't valid JSON arrays.
+				}
+				$reencoded = wp_json_encode( $decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+				if ( false === $reencoded || $reencoded === $row['meta_value'] ) {
+					continue; // Already clean or encoder failed.
+				}
+				$wpdb->update(
+					$wpdb->postmeta,
+					array( 'meta_value' => $reencoded ),
+					array( 'meta_id'    => (int) $row['meta_id'] )
+				);
+				$migrated++;
+			}
+			// Only set the done-flag if we processed fewer than the per-batch
+			// cap — on huge sites the migration finishes silently across page
+			// loads. The flag must be truthy to be considered "done"; if the
+			// first sweep found 0 \u-escaped rows the flag value is 0 (falsy)
+			// so the migration would re-run forever. Use '0_completed' string
+			// so any future change can still detect "ran once".
+			if ( count( (array) $rows ) < 5000 ) {
+				update_option(
+					'rnrd_unicode_meta_migrated_v111',
+					$migrated > 0 ? (string) $migrated : '0_completed',
+					false
+				);
 			}
 		}
 
@@ -476,7 +601,8 @@ add_action( 'plugins_loaded', function (): void {
 		add_action( 'init', function () {
 			RNRD_Llms_Txt::add_rewrite_rules();
 			RNRD_Markdown::add_rewrite_rules();
-			RNRD_MCP::add_manifest_rewrite(); // v1.2.0 — /.well-known/mcp.json
+			RNRD_OKF::add_rewrite_rules();
+			RNRD_MCP::add_rewrite_rules();
 			flush_rewrite_rules( false );
 		}, 99 );
 		RNRD_Llms_Txt::sync_physical_robots_txt();
@@ -535,6 +661,7 @@ add_action( 'plugins_loaded', function (): void {
 	add_filter( 'pre_update_option_' . RNRD_OPT_LLMS_ENABLE,      function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
 	add_filter( 'pre_update_option_' . RNRD_OPT_LLMS_FULL_ENABLE, function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
 	add_filter( 'pre_update_option_' . RNRD_OPT_MD_ENABLE,        function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
+	add_filter( 'pre_update_option_' . RNRD_OPT_OKF_ENABLE,       function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
 
 	// Fix part 2: on admin page loads, detect missing rules and auto-flush.
 	// Transient throttles this to at most once per hour.
@@ -548,11 +675,13 @@ add_action( 'plugins_loaded', function (): void {
 
 		// Check llms.txt — skip if another plugin is known to handle it.
 		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) && ! isset( $rules['^llms\.txt$'] ) ) {
-			$rm_handles    = defined( 'RANK_MATH_VERSION' )
-			                 && in_array( 'llms-txt', (array) get_option( 'rank_math_modules', array() ), true );
-			$yoast_handles = defined( 'WPSEO_VERSION' )
-			                 && ! empty( get_option( 'wpseo', array() )['enable_llms_txt'] );
-			if ( ! $rm_handles && ! $yoast_handles ) {
+			// v1.1.5 (#10) — defer to the canonical detector instead of an inline
+			// Rank Math/Yoast-only check. It also recognises AIOSEO, SEOPress and the
+			// rankready_force_llms_txt filter, so on those-as-llms-provider sites the
+			// missing ^llms\.txt$ rule is EXPECTED and we no longer trigger a needless
+			// flush_rewrite_rules() on every admin load (the throttle masked it hourly).
+			// One source of truth — see RNRD_Llms_Txt::another_plugin_handles_llms_txt().
+			if ( class_exists( 'RNRD_Llms_Txt' ) && ! RNRD_Llms_Txt::another_plugin_handles_llms_txt() ) {
 				$needs = true;
 			}
 		}
@@ -576,10 +705,21 @@ add_action( 'plugins_loaded', function (): void {
 			}
 		}
 
+		// Check OKF bundle rewrite rule (v1.1.5).
+		if ( ! $needs && 'on' === get_option( RNRD_OPT_OKF_ENABLE, 'off' ) && ! isset( $rules['^okf/?$'] ) ) {
+			$needs = true;
+		}
+
+		// Check WebMCP manifest rewrite rule (v1.2.0 — restored serving endpoint).
+		if ( ! $needs && 'on' === get_option( 'rnrd_mcp_enable', 'on' ) && ! isset( $rules['^\.well-known/mcp\.json$'] ) ) {
+			$needs = true;
+		}
+
 		if ( $needs ) {
 			RNRD_Llms_Txt::add_rewrite_rules();
 			RNRD_Markdown::add_rewrite_rules();
-			RNRD_MCP::add_manifest_rewrite(); // v1.2.0 — /.well-known/mcp.json
+			RNRD_OKF::add_rewrite_rules();
+			RNRD_MCP::add_rewrite_rules();
 			flush_rewrite_rules( false );
 		}
 
@@ -603,25 +743,47 @@ add_action( 'plugins_loaded', function (): void {
 		return $schedules;
 	} );
 
-	RNRD_Admin::init();
+	// v1.1.0 — Encrypts API secrets at rest. Must run BEFORE any class that
+	// reads RNRD_OPT_KEY / DataForSEO password, so the decryption filter is
+	// registered when the read happens.
+	RNRD_Crypto::init();
+
+	// v1.1.0 — Cloudflare auto-fix card (Settings tab) + REST endpoints for
+	// connect / disconnect. Lives outside RNRD_Admin so the REST routes
+	// register on every admin AND front-end request.
+	RNRD_Cloudflare::init();
+
+	// Performance: admin-only modules register nothing the front end uses
+	// (admin_menu, admin_init, admin_notices, meta boxes, list columns). Only
+	// boot them in the admin so their large classes are never autoloaded /
+	// parsed on a public page load — that overhead was hurting front-end TTFB.
+	// is_admin() is true for wp-admin, admin-ajax, and the block-editor
+	// meta-box save POST, so the settings UI + meta box keep working.
+	if ( is_admin() ) {
+		RNRD_Admin::init();
+		RNRD_Welcome::init();          // 1-question onboarding flow on first activation.
+		RNRD_Agent_Dashboard::init();  // Unified dashboard widget (admin only).
+	}
+
 	RNRD_Generator::init();
 	RNRD_Block::init();
 	RNRD_Rest::init();
 	RNRD_Llms_Txt::init();
 	RNRD_Markdown::init();
+	RNRD_OKF::init();              // Open Knowledge Format (OKF) bundle at /okf/.
 	RNRD_Faq::init();
-	RNRD_Headless::init();
 	RNRD_Author_Box::init();
 	RNRD_Crawler_Log::init();
 
 	// v1.2.0 — Agent Ready feature modules.
-	RNRD_Welcome::init();          // 1-question onboarding flow on first activation.
 	RNRD_Snippet::init();          // <meta robots max-snippet:-1> per-post + sitewide.
 	RNRD_AI_Referral::init();      // Track AI-referrer visits (ChatGPT/Perplexity/etc).
 	RNRD_Freshness::init();        // REST + bulk dateModified refresh.
-	RNRD_Agent_Dashboard::init();  // Unified dashboard widget (consolidates AI Referral + Freshness).
 	RNRD_MCP::init();              // WebMCP — WordPress Abilities API + /.well-known/mcp.json.
-	RNRD_Diagnostics::init();      // v1.2.0-rc.5 — Live endpoint probes + conflict detection.
+	// v1.2.0-rc.5 — Live endpoint probes + conflict detection. Register the REST
+	// hook by class-name string so the 82KB diagnostics class only autoloads when
+	// rest_api_init actually fires (REST requests) — never on a public page load.
+	add_action( 'rest_api_init', array( 'RNRD_Diagnostics', 'register_routes' ) );
 	RNRD_Cache::init();            // FREE-99 — cache compat init (Autoptimize asset excludes, etc).
 
 	/**
@@ -639,6 +801,15 @@ add_action( 'plugins_loaded', function (): void {
 	add_action( 'rest_api_init', array( 'RNRD_Limits', 'register_rest' ) );
 
 	if ( did_action( 'elementor/loaded' ) ) {
+		// Dedicated "RankReady" panel category so all three widgets group
+		// together (mirrors the Gutenberg block category — keep both in sync).
+		add_action( 'elementor/elements/categories_registered', function ( $elements_manager ): void {
+			$elements_manager->add_category( 'rankready', array(
+				'title' => esc_html__( 'RankReady', 'rankready-ai-llm-seo' ),
+				'icon'  => 'eicon-bullet-list',
+			) );
+		} );
+
 		add_action( 'elementor/widgets/register', function ( $widgets_manager ): void {
 			require_once RNRD_DIR . 'includes/class-rnrd-elementor.php';
 			$widgets_manager->register( new RNRD_Elementor_Widget() );
@@ -650,9 +821,10 @@ add_action( 'plugins_loaded', function (): void {
 			$widgets_manager->register( new RNRD_Elementor_Author_Box_Widget() );
 		} );
 
-		add_action( 'elementor/frontend/after_enqueue_styles', function (): void {
-			wp_enqueue_style( 'rankready-style', RNRD_URL . 'assets/style.css', array(), RNRD_VERSION );
-		} );
+		// NOTE: the front-end stylesheet is NOT enqueued globally here. Each
+		// widget declares get_style_depends() => ['rankready-style'], so Elementor
+		// loads the (registered) CSS only on pages that actually render a
+		// RankReady widget. Keeps every other Elementor page byte-for-byte clean.
 	}
 } );
 
@@ -691,7 +863,7 @@ register_activation_hook( RNRD_FILE, function (): void {
 		update_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
 	}
 	if ( false === get_option( RNRD_OPT_ROBOTS_CRAWLERS ) ) {
-		update_option( RNRD_OPT_ROBOTS_CRAWLERS, array_keys( RNRD_Admin::get_llm_crawlers() ) );
+		update_option( RNRD_OPT_ROBOTS_CRAWLERS, array_keys( RNRD_Llms_Txt::get_llm_crawlers() ) );
 	}
 	if ( false === get_option( RNRD_OPT_FAQ_COUNT ) ) {
 		update_option( RNRD_OPT_FAQ_COUNT, 5 );
@@ -734,7 +906,8 @@ register_activation_hook( RNRD_FILE, function (): void {
 	// Register rewrite rules before flushing so they get written.
 	RNRD_Llms_Txt::add_rewrite_rules();
 	RNRD_Markdown::add_rewrite_rules();
-	RNRD_MCP::add_manifest_rewrite(); // v1.2.0 — /.well-known/mcp.json
+	RNRD_OKF::add_rewrite_rules();
+	RNRD_MCP::add_rewrite_rules();
 	flush_rewrite_rules();
 
 	// Sync to physical robots.txt if one exists.
@@ -759,10 +932,10 @@ register_activation_hook( RNRD_FILE, function (): void {
 		RNRD_Cache::purge_url( home_url( '/.well-known/mcp.json' ) );
 	}
 
-	// Schedule schema scanner cron if not already scheduled.
-	if ( ! wp_next_scheduled( RNRD_SCHEMA_CRON_HOOK ) ) {
-		wp_schedule_event( time(), 'rnrd_five_minutes', RNRD_SCHEMA_CRON_HOOK );
-	}
+	// NOTE: the HowTo/ItemList schema scanner cron (RNRD_SCHEMA_CRON_HOOK) is a
+	// PRO engine. The Pro add-on (RNRD_Pro_Schema) schedules it on its own init.
+	// The Free build no longer schedules it — the constant stays defined so the
+	// deactivation cleanup below can still clear any leftover event.
 } );
 
 // Re-sync robots.txt and rewrite rules when the plugin is updated (activation hook
@@ -779,6 +952,14 @@ add_action( 'admin_init', function (): void {
 			RNRD_Cache::persist_exclusions( array(
 				'/llms.txt', '/llms-full.txt', '/.well-known/mcp.json', '.md',
 			) );
+		}
+
+		// v1.1.2 — One-shot FAQ Count repair. Pre-1.1.0 Settings API cross-nulling
+		// stored 0 on some installs when adjacent options saved. Repair stored 0
+		// (or any out-of-range value) to the documented default of 5.
+		$faq_count = (int) get_option( RNRD_OPT_FAQ_COUNT, 5 );
+		if ( $faq_count < 3 || $faq_count > 10 ) {
+			update_option( RNRD_OPT_FAQ_COUNT, 5 );
 		}
 	}
 } );

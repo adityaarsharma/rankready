@@ -53,7 +53,8 @@ class RNRD_LLM_Gemini {
 			'timeout'    => (int) $opts['timeout'],
 			'user-agent' => 'RankReady/' . RNRD_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
 			'headers'    => array( 'Content-Type' => 'application/json' ),
-			'body'       => wp_json_encode( $body ),
+			// Send non-Latin content as real UTF-8 bytes — see openai client.
+			'body'       => wp_json_encode( $body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ),
 		) );
 
 		if ( is_wp_error( $response ) ) {

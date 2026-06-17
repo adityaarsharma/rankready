@@ -10,10 +10,113 @@ defined( 'ABSPATH' ) || exit;
 class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 
 	public function get_name(): string        { return 'rnrd_ai_summary'; }
-	public function get_title(): string       { return esc_html__( 'AI Summary', 'rankready-ai-llm-seo' ); }
+	public function get_title(): string       { return esc_html__( 'AI Summary — RankReady', 'rankready-ai-llm-seo' ); }
 	public function get_icon(): string        { return 'eicon-bullet-list'; }
-	public function get_categories(): array   { return array( 'general' ); }
-	public function get_keywords(): array     { return array( 'summary', 'ai', 'rankready-ai-llm-seo', 'takeaways', 'seo' ); }
+	public function get_categories(): array   { return array( 'rankready' ); }
+	public function get_keywords(): array     { return array( 'summary', 'takeaways', 'key points', 'ai', 'ai seo', 'llm', 'geo', 'answer engine', 'seo', 'rankready' ); }
+	// Elementor enqueues the scoped CSS only when this widget is on the page.
+	public function get_style_depends(): array { return array( 'rankready-style' ); }
+
+	/**
+	 * Editor-only assets. The Generate/Regenerate button now lives in the
+	 * Elementor CONTROL PANEL (not painted into the canvas), so the handler +
+	 * styles load in the EDITOR frame (parent window) rather than the preview
+	 * iframe. Hooked once (Elementor calls register() per widget, so the static
+	 * guard keeps the enqueue hook from registering 3x for our 3 widgets).
+	 *
+	 * @since 1.0.30 — moved from preview frame to editor panel.
+	 */
+	public static function register_editor_assets(): void {
+		static $registered = false;
+		if ( $registered ) {
+			return;
+		}
+		$registered = true;
+
+		add_action( 'elementor/editor/after_enqueue_scripts', function (): void {
+			$ver = file_exists( RNRD_DIR . 'assets/elementor-editor.js' )
+				? RNRD_VERSION . '.' . filemtime( RNRD_DIR . 'assets/elementor-editor.js' )
+				: RNRD_VERSION;
+
+			wp_register_script( 'rnrd-elementor-editor', RNRD_URL . 'assets/elementor-editor.js', array(), $ver, true );
+			wp_localize_script( 'rnrd-elementor-editor', 'rnrdElEditor', array(
+				'restUrl' => esc_url_raw( rest_url( 'rankready/v1' ) ),
+				'nonce'   => wp_create_nonce( 'wp_rest' ),
+				'labels'  => array(
+					'generate'      => esc_html__( 'Generate Summary', 'rankready-ai-llm-seo' ),
+					'regenerate'    => esc_html__( 'Regenerate Summary', 'rankready-ai-llm-seo' ),
+					'generating'    => esc_html__( 'Generating…', 'rankready-ai-llm-seo' ),
+					'generateFaq'   => esc_html__( 'Generate FAQ', 'rankready-ai-llm-seo' ),
+					'regenerateFaq' => esc_html__( 'Regenerate FAQ', 'rankready-ai-llm-seo' ),
+					'generatingFaq' => esc_html__( 'Generating FAQ…', 'rankready-ai-llm-seo' ),
+				),
+			) );
+			wp_enqueue_script( 'rnrd-elementor-editor' );
+
+			// Panel CSS for the regen control. Scoped to .rnrd-el-regen so it
+			// can't leak onto the live frontend (this only loads in the editor).
+			// Native Elementor button look (uses the editor app's own button CSS
+			// vars with safe fallbacks) + forced full width.
+			$css = '.rnrd-el-regen{margin:0 0 4px}'
+				. '.rnrd-el-regen .rnrd-el-regen__btn.elementor-button{display:flex;width:100%;box-sizing:border-box;justify-content:center;align-items:center;text-align:center;padding:12px 16px;font-size:13px;font-weight:500;line-height:1.2;border:0;border-radius:3px;cursor:pointer;background:var(--e-a-btn-bg,#515962);color:var(--e-a-btn-color-invert,#fff)}'
+				. '.rnrd-el-regen .rnrd-el-regen__btn.elementor-button:hover{background:var(--e-a-btn-bg-hover,#0c0d0e)}'
+				. '.rnrd-el-regen__btn[disabled]{opacity:.6;cursor:wait}'
+				. '.rnrd-el-regen__hint{font-size:11px;color:#69727D;margin:8px 0 0;line-height:1.5}'
+				. '.rnrd-el-regen__status{font-size:12px;margin:8px 0 0;line-height:1.5;font-weight:600}'
+				. '.rnrd-el-regen__status[data-kind="success"]{color:#0F9C70}'
+				. '.rnrd-el-regen__status[data-kind="error"]{color:#B91C1C}';
+			// Print on our OWN registered handle (src=false) so the CSS reliably
+			// loads in the editor panel regardless of Elementor's style handles.
+			wp_register_style( 'rnrd-elementor-editor', false, array(), $ver );
+			wp_enqueue_style( 'rnrd-elementor-editor' );
+			wp_add_inline_style( 'rnrd-elementor-editor', $css );
+		} );
+	}
+
+	/**
+	 * Build the panel regen control HTML (button + hint + status).
+	 *
+	 * NOTE: Elementor caches a RAW_HTML control's `raw` at the widget-TYPE level
+	 * (shared across posts/instances), so the label can NOT be resolved per-post
+	 * here — it would freeze to whatever post was current at first build. The
+	 * default is "Generate Summary"; the editor JS fetches the actual per-post
+	 * summary state at runtime and flips it to "Regenerate" when one exists
+	 * (mirrors how the Gutenberg block decides its label).
+	 *
+	 * @since 1.0.30
+	 */
+	private static function regen_panel_html(): string {
+		return self::regen_control_html(
+			'summary',
+			esc_html__( 'Generate Summary', 'rankready-ai-llm-seo' ),
+			esc_html__( 'Summaries auto-generate on publish. Use this to refresh manually after editing the post body.', 'rankready-ai-llm-seo' )
+		);
+	}
+
+	/**
+	 * Shared builder for the editor-panel "generate" control used by BOTH the
+	 * AI Summary and FAQ widgets — one markup, one JS handler, one CSS block, so
+	 * the two stay standardised. `$kind` ("summary"|"faq") tells the editor JS
+	 * which REST endpoints + labels to use; the label is resolved per-post at
+	 * runtime (Elementor caches RAW_HTML, so it can't be set per-post here).
+	 *
+	 * @since 1.0.30
+	 * @param string $kind          'summary' | 'faq'.
+	 * @param string $default_label Initial button text before JS resolves state.
+	 * @param string $hint          Small helper line under the button.
+	 */
+	public static function regen_control_html( string $kind, string $default_label, string $hint ): string {
+		return '<div class="rnrd-el-regen" data-rnrd-kind="' . esc_attr( $kind ) . '">'
+			. '<button type="button" class="elementor-button rnrd-el-regen__btn" data-idle-label="' . esc_attr( $default_label ) . '">' . esc_html( $default_label ) . '</button>'
+			. '<p class="rnrd-el-regen__status" data-kind=""></p>'
+			. '<p class="rnrd-el-regen__hint">' . esc_html( $hint ) . '</p>'
+			. '</div>';
+	}
+
+	public function __construct( $data = array(), $args = null ) {
+		parent::__construct( $data, $args );
+		self::register_editor_assets();
+	}
 
 	protected function register_controls(): void {
 
@@ -25,6 +128,30 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 		$this->start_controls_section( 'section_content', array(
 			'label' => esc_html__( 'Content', 'rankready-ai-llm-seo' ),
 			'tab'   => \Elementor\Controls_Manager::TAB_CONTENT,
+		) );
+
+		// 1.0.30 — Manual Generate/Regenerate lives HERE in the panel (not in
+		// the canvas). Context-aware label, inline status, errors shown below
+		// the button — never painted into the preview.
+		$this->add_control( 'rnrd_regen', array(
+			'type'            => \Elementor\Controls_Manager::RAW_HTML,
+			'raw'             => self::regen_panel_html(),
+			'content_classes' => 'rnrd-el-regen-control',
+		) );
+
+		// Editor-only explainer. Makes the widget behaviour obvious:
+		//   • Single post / page  → renders that post's auto-generated summary
+		//   • Theme Builder archive loop → each post renders its own summary
+		$this->add_control( 'rnrd_usage_info', array(
+			'type' => \Elementor\Controls_Manager::RAW_HTML,
+			'raw'  =>
+				'<div style="background:#ECFDF6;border-left:3px solid #59F7C2;padding:10px 12px;border-radius:6px;font-size:11px;line-height:1.55;color:#053427;">'
+				. '<strong style="display:block;margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">' . esc_html__( 'How this widget works', 'rankready-ai-llm-seo' ) . '</strong>'
+				. esc_html__( 'On a single post or page, this widget shows that post\'s AI summary. On a Theme Builder Archive or Single template, every post in the loop renders its own summary — no separate archive-level summary is generated.', 'rankready-ai-llm-seo' )
+				. '<br><br>'
+				. esc_html__( 'Summaries auto-generate on publish. Use the button above to refresh one manually — you do not need it for the summary to appear.', 'rankready-ai-llm-seo' )
+				. '</div>',
+			'content_classes' => 'rnrd-el-info',
 		) );
 
 		$this->add_control( 'show_label', array(
@@ -159,26 +286,16 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 	protected function render(): void {
 		$settings = $this->get_settings_for_display();
 		$post_id  = get_the_ID();
+
+		// Canvas shows the SUMMARY ONLY. With no post bound (Theme Builder
+		// archive/loop) or no summary yet, render nothing — the manual
+		// Generate/Regenerate control lives in the panel, not the preview.
 		if ( ! $post_id ) {
 			return;
 		}
 
 		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
-
 		if ( empty( $raw ) ) {
-			if ( isset( \Elementor\Plugin::$instance->editor ) && \Elementor\Plugin::$instance->editor->is_edit_mode() ) {
-				$tag = RNRD_Block::validate_heading_tag( isset( $settings['heading_tag'] ) ? $settings['heading_tag'] : get_option( RNRD_OPT_HEADING_TAG, 'h4' ) );
-				echo '<div class="rnrd-summary">';
-				$show = isset( $settings['show_label'] ) ? $settings['show_label'] : ( get_option( RNRD_OPT_SHOW_LABEL, '1' ) ? 'yes' : '' );
-				if ( 'yes' === $show ) {
-					$label = isset( $settings['label_text'] ) && '' !== $settings['label_text'] ? $settings['label_text'] : get_option( RNRD_OPT_LABEL, 'Key Takeaways' );
-					echo '<' . esc_attr( $tag ) . ' class="rnrd-label">' . esc_html( $label ) . '</' . esc_attr( $tag ) . '>';
-				}
-				echo '<ul class="rnrd-bullets">'
-					. '<li class="rnrd-bullet" style="opacity:0.4;">'
-					. esc_html__( 'Summary will appear here after publishing.', 'rankready-ai-llm-seo' )
-					. '</li></ul></div>';
-			}
 			return;
 		}
 

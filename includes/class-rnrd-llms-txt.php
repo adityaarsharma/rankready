@@ -24,6 +24,62 @@ defined( 'ABSPATH' ) || exit;
 
 class RNRD_Llms_Txt {
 
+	/**
+	 * Canonical list of AI/LLM crawler user-agents — single source of truth used
+	 * by both the robots.txt block (public frontend) and the AI Crawlers admin UI.
+	 * It lives in this frontend-loaded class so the public robots.txt / llms.txt
+	 * fallback never has to autoload the 288KB RNRD_Admin class. RNRD_Admin's
+	 * get_llm_crawlers() delegates here for backward compatibility.
+	 *
+	 * @return array<string,array{0:string,1:string}> user-agent => [vendor, purpose]
+	 */
+	public static function get_llm_crawlers(): array {
+		return array(
+			// ── OpenAI ────────────────────────────────────────────────────────
+			'GPTBot'              => array( 'OpenAI', 'GPT model training data' ),
+			'ChatGPT-User'        => array( 'OpenAI', 'ChatGPT browse mode (user-initiated)' ),
+			'OAI-SearchBot'       => array( 'OpenAI', 'ChatGPT search results' ),
+			// ── Anthropic ─────────────────────────────────────────────────────
+			'ClaudeBot'           => array( 'Anthropic', 'Claude AI retrieval + training' ),
+			'anthropic-ai'        => array( 'Anthropic', 'Anthropic training data collection' ),
+			'Claude-Web'          => array( 'Anthropic', 'Claude AI (legacy identifier)' ),
+			// ── Google ────────────────────────────────────────────────────────
+			'Google-Extended'     => array( 'Google', 'Gemini AI training (does NOT affect search ranking)' ),
+			'GoogleOther'         => array( 'Google', 'Google R&D crawling (non-search)' ),
+			// ── Apple ─────────────────────────────────────────────────────────
+			'Applebot-Extended'   => array( 'Apple', 'Apple Intelligence / Siri AI features' ),
+			// ── Microsoft ─────────────────────────────────────────────────────
+			'Bingbot'             => array( 'Microsoft', 'Bing Search + Copilot (shared UA)' ),
+			// ── Perplexity ────────────────────────────────────────────────────
+			'PerplexityBot'       => array( 'Perplexity', 'Perplexity AI answer engine' ),
+			// ── Meta ──────────────────────────────────────────────────────────
+			'Meta-ExternalAgent'  => array( 'Meta', 'Meta AI / Llama training' ),
+			'Meta-ExternalFetcher' => array( 'Meta', 'Meta AI real-time retrieval' ),
+			'FacebookBot'         => array( 'Meta', 'Facebook/Meta content crawling' ),
+			// ── Mistral ───────────────────────────────────────────────────────
+			'MistralAI-User'      => array( 'Mistral', 'Le Chat real-time browsing' ),
+			// ── ByteDance ─────────────────────────────────────────────────────
+			'Bytespider'          => array( 'ByteDance', 'TikTok / ByteDance AI' ),
+			// ── Amazon ────────────────────────────────────────────────────────
+			'Amazonbot'           => array( 'Amazon', 'Alexa AI / Amazon' ),
+			// ── Cohere ────────────────────────────────────────────────────────
+			'cohere-ai'           => array( 'Cohere', 'Cohere AI RAG & enterprise' ),
+			// ── AI Search Engines ─────────────────────────────────────────────
+			'DuckAssistBot'       => array( 'DuckDuckGo', 'DuckDuckGo AI Assist' ),
+			'YouBot'              => array( 'You.com', 'You.com AI search' ),
+			'PhindBot'            => array( 'Phind', 'Phind AI search for developers' ),
+			// ── Training / Dataset Crawlers ────────────────────────────────────
+			'CCBot'               => array( 'Common Crawl', 'Open dataset used by many LLMs' ),
+			'AI2Bot'              => array( 'Allen Institute', 'AI2 research crawler' ),
+			'Diffbot'             => array( 'Diffbot', 'Diffbot AI extraction' ),
+			'Omgilibot'           => array( 'Webz.io', 'AI content aggregation' ),
+			'PetalBot'            => array( 'Huawei', 'Huawei search & AI data' ),
+			'Brightbot'           => array( 'BrightEdge', 'AI SEO data crawling' ),
+			'magpie-crawler'      => array( 'Magpie', 'AI data collection' ),
+			'DataForSeoBot'       => array( 'DataForSEO', 'SEO data with AI uses' ),
+		);
+	}
+
 	public static function init(): void {
 		add_action( 'init',             array( self::class, 'add_rewrite_rules' ) );
 		// v1.2.0-rc.2 — priority 1 so page builders (Bricks, Elementor Pro
@@ -85,6 +141,21 @@ class RNRD_Llms_Txt {
 		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN, array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_SEARCH,   array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_INPUT, array( self::class, 'sync_physical_robots_txt' ) );
+
+		// v1.0.1 — robots.txt + mcp.json + .md endpoints also flush every cache
+		// layer on the option changes that affect them. Without this, CDNs serve
+		// stale robots.txt / mcp.json for hours after the user changes settings.
+		// Previously only /llms.txt + /llms-full.txt were CDN-purged; we now
+		// purge the full set whenever ANY agent-affecting option changes.
+		$cdn_purge_triggers = array(
+			RNRD_OPT_ROBOTS_ENABLE,           RNRD_OPT_ROBOTS_CRAWLERS,
+			RNRD_OPT_MD_ENABLE,
+			RNRD_OPT_CONTENT_SIGNALS_ENABLE,  RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN,
+			RNRD_OPT_CONTENT_SIGNALS_SEARCH,  RNRD_OPT_CONTENT_SIGNALS_AI_INPUT,
+		);
+		foreach ( $cdn_purge_triggers as $opt ) {
+			add_action( 'update_option_' . $opt, array( self::class, 'bust_cache_and_purge_cdn' ) );
+		}
 	}
 
 	/**
@@ -152,7 +223,12 @@ class RNRD_Llms_Txt {
 		}
 
 		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
-			header( 'Link: <' . esc_url( home_url( '/' ) ) . '>; rel="alternate"; type="text/markdown"', false );
+			// v1.1.2 — Advertise the distinct, cache-safe homepage markdown URL
+			// (/index.md), NOT the canonical `/`. Same-URL Accept negotiation is
+			// off by default, so `/` returns HTML; pointing agents there would
+			// hand them HTML when they asked for markdown. The /index.md endpoint
+			// always returns markdown and cannot poison the page cache.
+			header( 'Link: <' . esc_url( home_url( '/index.md' ) ) . '>; rel="alternate"; type="text/markdown"', false );
 		}
 
 		// rc.16 audit — sitemap Link header removed. Sitemap discovery belongs
@@ -240,10 +316,16 @@ class RNRD_Llms_Txt {
 		// Stack all User-agent lines in one block — per robots.txt spec,
 		// grouped User-agent lines share the same Allow/Disallow rules.
 		if ( $robots_on ) {
-			$enabled_crawlers = (array) get_option(
-				RNRD_OPT_ROBOTS_CRAWLERS,
-				array_keys( RNRD_Admin::get_llm_crawlers() )
-			);
+			// Read the stored crawler list WITHOUT eagerly evaluating the default —
+			// PHP evaluates default args eagerly, so referencing RNRD_Admin here
+			// would autoload the 288KB admin class on every public robots.txt /
+			// llms.txt request (the AI-crawler-heavy URLs). The option is seeded on
+			// activation, so the RNRD_Admin fallback effectively never runs here.
+			$enabled_crawlers = get_option( RNRD_OPT_ROBOTS_CRAWLERS, null );
+			if ( null === $enabled_crawlers ) {
+				$enabled_crawlers = array_keys( self::get_llm_crawlers() );
+			}
+			$enabled_crawlers = (array) $enabled_crawlers;
 
 			if ( ! empty( $enabled_crawlers ) ) {
 				foreach ( $enabled_crawlers as $crawler ) {
@@ -285,7 +367,8 @@ class RNRD_Llms_Txt {
 	 * @since 1.2.0-rc.11
 	 */
 	public static function should_hide_branding(): bool {
-		return false;
+		return ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() )
+			&& 'on' === get_option( RNRD_OPT_HIDE_BRANDING, 'off' );
 	}
 
 	/**
@@ -460,7 +543,10 @@ class RNRD_Llms_Txt {
 	 * Detects Rank Math, Yoast, AIOSEO, SEOPress, and standalone llms.txt plugins.
 	 * Returns true if RankReady should NOT register its own llms.txt route.
 	 */
-	private static function another_plugin_handles_llms_txt(): bool {
+	// v1.1.5 (#10) — made public so the rewrite self-heal in rankready.php reuses this
+	// single source of truth (RM + Yoast + AIOSEO + SEOPress + force filter) instead of
+	// its own RM/Yoast-only inline check.
+	public static function another_plugin_handles_llms_txt(): bool {
 		// Allow users to force RankReady's llms.txt via filter.
 		if ( apply_filters( 'rankready_force_llms_txt', false ) ) {
 			return false;
@@ -595,26 +681,49 @@ class RNRD_Llms_Txt {
 		if ( class_exists( 'RNRD_Cache' ) ) {
 			RNRD_Cache::bypass_page_cache_plugins_only();
 		}
+
+		// v1.0.1 — ETag-based revalidation. The strong ETag is the SHA-1 of
+		// the response body. If the client sends If-None-Match matching this,
+		// reply 304 Not Modified with no body — 60–90% bandwidth savings on
+		// re-fetches, no origin work to regenerate content. Standard enterprise
+		// pattern used by Cloudflare docs, Stripe docs, Vercel docs.
+		$etag          = '"' . sha1( $content ) . '"';
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- If-None-Match header used for ETag string comparison; wp_unslash applied, no echo/store.
+		$client_etag   = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? trim( (string) wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) : '';
+		if ( '' !== $client_etag && $client_etag === $etag ) {
+			status_header( 304 );
+			header( 'ETag: ' . $etag );
+			header( 'Cache-Control: public, max-age=60, s-maxage=600, stale-while-revalidate=3600' );
+			exit;
+		}
+
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/plain; charset=utf-8' );
 
-		// FREE-101 — explicit edge cache policy. WP Rocket + Cloudflare user
-		// (clickwhale.pro) reported /llms.txt served stale for 30 days because
-		// plain `Cache-Control: public, max-age=3600` leaves Cloudflare free
-		// to use its own Edge Cache TTL (default 2 hours for .txt, up to a
-		// month with "Cache Everything" Page Rules). We now declare:
-		//   - max-age=600                — browsers refresh every 10 min
-		//   - s-maxage=600               — shared proxies (CDN, Varnish) honour
-		//                                  the same 10-min TTL
-		//   - stale-while-revalidate=3600 — edge serves stale up to 1 hour
-		//                                  while revalidating in background
-		//   - CDN-Cache-Control          — BunnyCDN / generic CDN respect this
-		//   - Cloudflare-CDN-Cache-Control — Cloudflare-specific, beats APO
-		// Combined with the existing purge_url() on post publish/update, AI
-		// crawlers never see content more than 10 minutes out of date.
-		header( 'Cache-Control: public, max-age=600, s-maxage=600, stale-while-revalidate=3600' );
+		// Browser-vs-edge TTL split (Mark Nottingham's caching tutorial §6.2).
+		// max-age=60 keeps end-user browsers re-checking every minute (cheap
+		// with ETag → 304). s-maxage=600 lets shared CDN edges cache 10x longer
+		// so origin sees ~one request per 10 minutes per edge POP regardless
+		// of how many readers hit each edge. stale-while-revalidate=3600 lets
+		// edges serve a slightly-stale response for up to an hour while
+		// fetching a fresh one in the background — zero user-facing latency
+		// for the refresh.
+		header( 'Cache-Control: public, max-age=60, s-maxage=600, stale-while-revalidate=3600' );
 		header( 'CDN-Cache-Control: public, max-age=600, stale-while-revalidate=3600' );
 		header( 'Cloudflare-CDN-Cache-Control: public, max-age=600' );
+		header( 'Surrogate-Control: max-age=600' );
+		header( 'ETag: ' . $etag );
+
+		// Vary on Accept-Encoding so a gzip-compressed body is never served to
+		// a non-gzip client. The plain-text endpoint doesn't content-negotiate
+		// on Accept, so that's not in the Vary list.
+		header( 'Vary: Accept-Encoding' );
+
+		// CORS — AI agents fetch llms.txt cross-origin from their runtime.
+		header( 'Access-Control-Allow-Origin: *' );
+		header( 'Access-Control-Allow-Methods: GET, HEAD, OPTIONS' );
+		header( 'Access-Control-Expose-Headers: Content-Type, ETag, Last-Modified' );
+
 		header( 'X-RankReady-Source: llms-txt' );
 
 		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -771,6 +880,7 @@ class RNRD_Llms_Txt {
 
 			// Respect excluded categories.
 			if ( ! empty( $exclude_cats ) ) {
+				// phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.PostNotIn_exclude -- Exclude list is the user-curated category exclusion; bounded, intentional.
 				$cat_args['exclude'] = $exclude_cats;
 			}
 
@@ -921,9 +1031,36 @@ class RNRD_Llms_Txt {
 	 */
 	public static function bust_cache_and_purge_cdn(): void {
 		self::bust_cache();
-		if ( class_exists( 'RNRD_Cache' ) ) {
-			RNRD_Cache::purge_url( home_url( '/llms.txt' ) );
-			RNRD_Cache::purge_url( home_url( '/llms-full.txt' ) );
+		if ( ! class_exists( 'RNRD_Cache' ) ) {
+			return;
+		}
+
+		// v1.0.1 — Purge every RankReady-managed endpoint, not just llms.txt,
+		// so any setting change that affects AI discovery / agent readiness
+		// produces fresh responses for crawlers across every cache layer.
+		//
+		// Each call fires the full purge chain inside RNRD_Cache::purge_url():
+		//   - litespeed_purge_url        (LiteSpeed Cache plugin + LSWS)
+		//   - cloudflare_purge_by_url    (official Cloudflare WP plugin)
+		//   - rt_nginx_helper_purge_url  (Nginx Helper)
+		//   - wphb_clear_cache_url       (Hummingbird)
+		//   - nitropack_purge_individual_url (NitroPack)
+		//   - rocket_clean_files         (WP Rocket — registered via filter elsewhere)
+		// If the user has any of the major cache plugins active, the purge
+		// reaches the CDN. If they have none, the purge_url() call is a no-op.
+		$urls_to_purge = array(
+			home_url( '/llms.txt' ),
+			home_url( '/llms-full.txt' ),
+			home_url( '/robots.txt' ),
+			home_url( '/.well-known/mcp.json' ),
+			home_url( '/index.md' ),
+		);
+
+		// Allow third parties + the RankReady Pro addon to extend the purge list.
+		$urls_to_purge = (array) apply_filters( 'rankready_purge_urls', $urls_to_purge );
+
+		foreach ( $urls_to_purge as $url ) {
+			RNRD_Cache::purge_url( $url );
 		}
 	}
 
@@ -945,7 +1082,9 @@ class RNRD_Llms_Txt {
 
 		// WPML — most common, ships its own API.
 		if ( defined( 'ICL_SITEPRESS_VERSION' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML filter; must use its published name to integrate.
 			$langs   = (array) apply_filters( 'wpml_active_languages', null );
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML filter; must use its published name to integrate.
 			$default = (string) apply_filters( 'wpml_default_language', 'en' );
 			$found[] = array(
 				'plugin'  => 'WPML ' . ICL_SITEPRESS_VERSION,
@@ -1189,14 +1328,21 @@ class RNRD_Llms_Txt {
 		$args = array(
 			'post_type'      => $post_type,
 			'post_status'    => 'publish',
+			'has_password'   => false,
 			'posts_per_page' => $max_posts,
-			'orderby'        => 'date',
+			// Freshest content first: order by last-modified, not publish date.
+			// Each list line shows "(updated: <modified>)", so sorting by modified
+			// keeps the displayed freshness signal consistent with the ordering — a
+			// recently refreshed post surfaces at the top for AI crawlers, instead of
+			// being buried just because it was first published long ago.
+			'orderby'        => 'modified',
 			'order'          => 'DESC',
 			'no_found_rows'  => true,
 		);
 
 		// Exclude Rank Math noindex posts at query level.
 		if ( defined( 'RANK_MATH_VERSION' ) ) {
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Filtering by AI-readiness meta; intentional and bounded by post_type.
 			$args['meta_query'] = array(
 				'relation' => 'OR',
 				array(
@@ -1236,6 +1382,7 @@ class RNRD_Llms_Txt {
 			if ( count( $tax_query ) > 1 ) {
 				$tax_query['relation'] = 'AND';
 			}
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- Filtering by category exclusion; bounded by post_type + cached internally.
 			$args['tax_query'] = $tax_query;
 		}
 
@@ -1254,7 +1401,10 @@ class RNRD_Llms_Txt {
 	 * @param WP_Post $post The post to check.
 	 * @return bool True if the post should be excluded.
 	 */
-	private static function should_exclude_from_llms( WP_Post $post ): bool {
+	// v1.1.5 — made public so RNRD_OKF reuses the same exclusion rules (per-post
+	// "Exclude from llms.txt" toggle + Yoast/Rank Math/AIOSEO/SEOPress noindex) as the
+	// single source of truth for what belongs on an AI-readable surface.
+	public static function should_exclude_from_llms( WP_Post $post ): bool {
 		$post_id = $post->ID;
 
 		// ── Per-post RankReady opt-out (v1.2.0) ──────────────────────────
@@ -1273,8 +1423,21 @@ class RNRD_Llms_Txt {
 
 		// ── AIOSEO noindex ───────────────────────────────────────────────
 		if ( defined( 'AIOSEO_VERSION' ) ) {
-			$aioseo_noindex = get_post_meta( $post_id, '_aioseo_noindex', true );
-			if ( '1' === (string) $aioseo_noindex ) {
+			// v1.1.5 (#8) — AIOSEO v4 stores per-post robots in its own
+			// {prefix}_aioseo_posts table (robots_default + robots_noindex), NOT postmeta.
+			// The old _aioseo_noindex postmeta check never fired on v4, so AIOSEO-noindexed
+			// posts leaked into llms.txt / llms-full.txt. A post counts as noindex only when
+			// it overrides the global default (robots_default = 0) AND robots_noindex = 1.
+			// (Global-default noindex is intentionally not resolved here — that mirrors the
+			// SEO plugin's own per-post override semantics; the explicit toggle is what users set.)
+			global $wpdb;
+			$aioseo_robots = $wpdb->get_row( $wpdb->prepare( "SELECT robots_default, robots_noindex FROM {$wpdb->prefix}aioseo_posts WHERE post_id = %d", $post_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- AIOSEO keeps no postmeta mirror; called during the (transient-cached) llms.txt build
+			if ( $aioseo_robots && ! (int) $aioseo_robots->robots_default && (int) $aioseo_robots->robots_noindex ) {
+				return true;
+			}
+
+			// Back-compat: AIOSEO v3 (and pre-migration installs) used postmeta.
+			if ( '1' === (string) get_post_meta( $post_id, '_aioseo_noindex', true ) ) {
 				return true;
 			}
 		}

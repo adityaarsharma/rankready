@@ -41,42 +41,109 @@ class RNRD_MCP {
 	private const NS = 'rankready-ai-llm-seo';
 
 	public static function init(): void {
-		// Abilities API registers on its own init hook ('abilities_api_init')
-		// when the plugin is active. We hook there if the API is loaded; else
-		// no-op cleanly. The handler itself bails when the master toggle is off.
+		// RankReady registers its read-only abilities with the WordPress Abilities API
+		// (core in WP 7.0) so the official MCP Adapter can expose them over MCP.
 		add_action( 'abilities_api_init', array( self::class, 'register_abilities' ) );
 
-		// /.well-known/mcp.json manifest — works whether or not Abilities API
-		// is active, so agents can still discover the site even on older WP.
-		// The handler bails on 404 when the master toggle is off.
-		add_action( 'init',              array( self::class, 'add_manifest_rewrite' ) );
-		// v1.2.0-rc.2 — priority 1 beats page builders for /.well-known/mcp.json.
-		add_action( 'template_redirect', array( self::class, 'maybe_serve_manifest' ), 1 );
-		add_filter( 'query_vars',        array( self::class, 'register_query_vars' ) );
+		// It ALSO serves its own /.well-known/mcp.json manifest directly, so the endpoint
+		// works standalone (no MCP Adapter required) — this is what the readme advertises,
+		// Diagnostics probes, and onboarding lists. (Restored in v1.2.0: the manifest
+		// serving was dropped during the Abilities-API migration while everything that
+		// depends on it stayed.)
+		add_action( 'init', array( self::class, 'add_rewrite_rules' ), 9 );
+		add_filter( 'query_vars', array( self::class, 'register_query_vars' ) );
+		add_action( 'template_redirect', array( self::class, 'handle_request' ), 1 );
+	}
 
-		// Tell page-cache plugins to never cache the MCP manifest.
-		// 5-minute Cache-Control: public on the response handles CDN/browser
-		// layer; we just need the WP page-cache layer out of the way.
-		add_action( 'init', function () {
-			if ( class_exists( 'RNRD_Cache' ) ) {
-				RNRD_Cache::exclude_url_patterns( array( '/.well-known/mcp.json' ) );
-			}
-		}, 11 );
+	/** Rewrite for /.well-known/mcp.json (only when WebMCP is enabled). */
+	public static function add_rewrite_rules(): void {
+		if ( ! self::is_enabled() ) {
+			return;
+		}
+		add_rewrite_rule( '^\.well-known/mcp\.json$', 'index.php?rnrd_mcp=1', 'top' );
+	}
 
-		// v1.2.0-rc.1 — purge the manifest cache when the toggle flips so
-		// CDNs / browser caches don't serve a stale 200 after disable.
-		// (Audit beta.3 #13.)
-		add_action( 'update_option_' . RNRD_OPT_MCP_ENABLE, array( self::class, 'purge_manifest_cache' ), 10, 2 );
+	public static function register_query_vars( array $vars ): array {
+		$vars[] = 'rnrd_mcp';
+		return $vars;
+	}
+
+	/** Serve the manifest JSON at /.well-known/mcp.json. */
+	public static function handle_request(): void {
+		if ( '' === (string) get_query_var( 'rnrd_mcp', '' ) ) {
+			return;
+		}
+
+		nocache_headers();
+		header( 'Content-Type: application/json; charset=utf-8' );
+		header( 'X-Content-Type-Options: nosniff' );
+		header( 'X-Robots-Tag: noindex, follow' );
+		// AI agents (Claude Desktop, Cursor, VS Code, ChatGPT) fetch this cross-origin.
+		header( 'Access-Control-Allow-Origin: *' );
+		header( 'Access-Control-Allow-Methods: GET, HEAD, OPTIONS' );
+		header( 'Access-Control-Expose-Headers: Content-Type' );
+
+		if ( ! self::is_enabled() ) {
+			status_header( 503 );
+			echo wp_json_encode( array( 'error' => 'WebMCP is disabled' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			exit;
+		}
+
+		status_header( 200 );
+		echo wp_json_encode( self::build_manifest(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		exit;
 	}
 
 	/**
-	 * Hook fired on RNRD_OPT_MCP_ENABLE save. Purges any CDN / page-cache
-	 * layer that may be holding the previous manifest response.
+	 * Build the MCP-style manifest from the live ability gates + exposure state.
+	 * Only abilities whose required resources are all enabled are listed.
 	 */
-	public static function purge_manifest_cache(): void {
-		if ( class_exists( 'RNRD_Cache' ) ) {
-			RNRD_Cache::purge_url( home_url( '/.well-known/mcp.json' ) );
+	public static function build_manifest(): array {
+		$labels = array(
+			'get-site-info'      => 'Site name, description, URL and language.',
+			'list-content-types' => 'Public post types available on the site.',
+			'get-brand-terms'    => 'Canonical brand names and entities.',
+			'get-post-summary'   => 'AI summary for a post.',
+			'get-post-faq'       => 'FAQ (question/answer pairs) for a post.',
+			'search-posts'       => 'Search published posts by keyword.',
+			'list-recent-posts'  => 'Most recently published posts.',
+			'get-post'           => 'Full content of a post by ID.',
+			'get-post-by-url'    => 'Resolve a URL to its post content.',
+			'list-pages'         => 'Published pages.',
+			'list-categories'    => 'Categories.',
+			'list-tags'          => 'Tags.',
+			'get-author'         => 'Author E-E-A-T profile.',
+			'get-llms-txt'       => 'The site llms.txt index.',
+			'get-sitemap'        => 'The site sitemap entries.',
+			'get-fresh-content'  => 'Recently updated content.',
+		);
+
+		$abilities = array();
+		foreach ( self::ability_gates() as $name => $needed ) {
+			if ( ! self::is_ability_enabled( $name ) ) {
+				continue;
+			}
+			$abilities[] = array(
+				'name'        => 'rankready/' . $name,
+				'description' => isset( $labels[ $name ] ) ? $labels[ $name ] : $name,
+			);
 		}
+
+		$resources = array();
+		foreach ( self::exposure_state() as $key => $on ) {
+			if ( ( is_array( $on ) && ! empty( $on ) ) || ( ! is_array( $on ) && $on ) ) {
+				$resources[] = $key;
+			}
+		}
+
+		return array(
+			'name'        => get_bloginfo( 'name' ),
+			'description' => get_bloginfo( 'description' ),
+			'url'         => home_url( '/' ),
+			'generator'   => 'RankReady',
+			'abilities'   => $abilities,
+			'resources'   => $resources,
+		);
 	}
 
 	/**
@@ -85,214 +152,6 @@ class RNRD_MCP {
 	 */
 	public static function is_enabled(): bool {
 		return 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' );
-	}
-
-	// ── Manifest endpoint ─────────────────────────────────────────────────
-
-	public static function register_query_vars( array $vars ): array {
-		$vars[] = 'rnrd_mcp_manifest';
-		return $vars;
-	}
-
-	public static function add_manifest_rewrite(): void {
-		add_rewrite_rule( '^\.well-known/mcp\.json$', 'index.php?rnrd_mcp_manifest=1', 'top' );
-	}
-
-	public static function maybe_serve_manifest(): void {
-		if ( ! get_query_var( 'rnrd_mcp_manifest' ) ) {
-			return;
-		}
-		if ( ! self::is_enabled() ) {
-			// v1.2.0-rc.1 — no-store when disabled so flipping the toggle
-			// doesn't leave a stale 5-minute cached manifest at the edge.
-			// (Audit beta.3 #13.)
-			status_header( 404 );
-			header( 'Content-Type: text/plain; charset=utf-8' );
-			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
-			header( 'Pragma: no-cache' );
-			echo '404 Not Found';
-			exit;
-		}
-		self::serve_manifest();
-	}
-
-	private static function serve_manifest(): void {
-		$brand_terms = class_exists( 'RNRD_Llms_Txt' ) ? RNRD_Llms_Txt::get_brand_terms_list() : array();
-
-		// v1.2.0-rc.1 — discovery URLs only included when they actually
-		// resolve. Returning a 404'd URL in the manifest is worse than
-		// returning nothing — agents may downrank the source. (Audit #19.)
-		$discovery = array(
-			'public_rest_base' => rest_url( 'rankready/v1/public' ),
-		);
-		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
-			$discovery['llms_txt'] = home_url( '/llms.txt' );
-		}
-		if ( 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) ) {
-			$discovery['llms_full_txt'] = home_url( '/llms-full.txt' );
-		}
-		// Only advertise sitemap if a known SEO plugin emits one, or core
-		// /wp-sitemap.xml is enabled (it is by default in WP 5.5+).
-		$discovery['sitemap'] = home_url( '/wp-sitemap.xml' );
-		if ( function_exists( 'wp_register_ability' ) ) {
-			$discovery['abilities_api'] = rest_url( 'wp/v2/abilities' );
-		}
-
-		$manifest = array(
-			'mcpVersion'  => '2024-11-05',
-			'name'        => get_bloginfo( 'name' ),
-			'description' => get_bloginfo( 'description' ),
-			'website'     => home_url( '/' ),
-			'brand'       => $brand_terms,
-			'tools'       => self::tool_descriptors(),
-			'discovery'   => $discovery,
-			'generator'   => 'RankReady ' . RNRD_VERSION,
-		);
-
-		// Bypass WP page-cache plugins; keep our 5-minute browser/CDN cache header.
-		if ( class_exists( 'RNRD_Cache' ) ) {
-			RNRD_Cache::bypass_page_cache_plugins_only();
-		}
-		header( 'Content-Type: application/json; charset=utf-8' );
-		header( 'X-Content-Type-Options: nosniff' );
-		// FREE-101 — explicit edge cache policy mirroring llms.txt fix.
-		// 5-min browser + edge, 30-min stale-while-revalidate.
-		header( 'Cache-Control: public, max-age=300, s-maxage=300, stale-while-revalidate=1800' );
-		header( 'CDN-Cache-Control: public, max-age=300, stale-while-revalidate=1800' );
-		header( 'Cloudflare-CDN-Cache-Control: public, max-age=300' );
-		header( 'X-RankReady-Source: mcp-manifest' );
-		echo wp_json_encode( $manifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
-		exit;
-	}
-
-	private static function tool_descriptors(): array {
-		// v1.2.0-beta.6 — filter manifest to only include enabled abilities.
-		// Disabled abilities don't appear here, so Claude Desktop / Cursor
-		// don't show them as available tools at all.
-		$all = self::all_tool_descriptors();
-		$out = array();
-		foreach ( $all as $tool ) {
-			$bare = substr( $tool['name'], strlen( self::NS . '/' ) );
-			if ( self::is_ability_enabled( $bare ) ) {
-				$out[] = $tool;
-			}
-		}
-		return $out;
-	}
-
-	private static function all_tool_descriptors(): array {
-		return array(
-			array(
-				'name'        => 'rankready/get-site-info',
-				'description' => 'Returns site identity: name, description, URL, brand terms, language.',
-				'method'      => 'GET',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-site-info' ),
-			),
-			array(
-				'name'        => 'rankready/get-brand-terms',
-				'description' => 'Returns canonical brand names for entity consistency.',
-				'method'      => 'GET',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-brand-terms' ),
-			),
-			array(
-				'name'        => 'rankready/search-posts',
-				'description' => 'Keyword search across published posts. Returns title, URL, excerpt, modified date.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/search-posts' ),
-				'inputs'      => array( 'query' => 'string', 'limit' => 'integer (1-20)' ),
-			),
-			array(
-				'name'        => 'rankready/get-post-summary',
-				'description' => 'Returns RankReady-generated AI summary (key takeaways) for a post.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-post-summary' ),
-				'inputs'      => array( 'post_id' => 'integer' ),
-			),
-			array(
-				'name'        => 'rankready/get-post-faq',
-				'description' => 'Returns RankReady-generated FAQ question/answer pairs for a post.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-post-faq' ),
-				'inputs'      => array( 'post_id' => 'integer' ),
-			),
-			array(
-				'name'        => 'rankready/list-recent-posts',
-				'description' => 'Paginated list of recently modified posts.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/list-recent-posts' ),
-				'inputs'      => array( 'limit' => 'integer (1-50)', 'offset' => 'integer' ),
-			),
-			// v1.2.0-beta.5 — Expanded surface (10 new abilities).
-			array(
-				'name'        => 'rankready/get-post',
-				'description' => 'Full post content (markdown) + title + URL + author + summary + FAQ + schema in one call.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-post' ),
-				'inputs'      => array( 'post_id' => 'integer' ),
-			),
-			array(
-				'name'        => 'rankready/get-post-by-url',
-				'description' => 'Resolve any URL (incl. .md, /category/x/, /tag/y/) to a post or term.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-post-by-url' ),
-				'inputs'      => array( 'url' => 'string (URL)' ),
-			),
-			array(
-				'name'        => 'rankready/list-pages',
-				'description' => 'Static pages (About / Pricing / Docs). Returns parent_id for hierarchy.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/list-pages' ),
-				'inputs'      => array( 'limit' => 'integer (1-100)', 'offset' => 'integer' ),
-			),
-			array(
-				'name'        => 'rankready/list-content-types',
-				'description' => 'Every public post type this site exposes + published count + archive URL.',
-				'method'      => 'GET',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/list-content-types' ),
-			),
-			array(
-				'name'        => 'rankready/list-categories',
-				'description' => 'Categories ordered by post count. Name, slug, parent, count, URL.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/list-categories' ),
-				'inputs'      => array( 'limit' => 'integer (1-200)' ),
-			),
-			array(
-				'name'        => 'rankready/list-tags',
-				'description' => 'Tags ordered by post count. Name, slug, count, URL.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/list-tags' ),
-				'inputs'      => array( 'limit' => 'integer (1-200)' ),
-			),
-			array(
-				'name'        => 'rankready/get-llms-txt',
-				'description' => 'Returns the rendered llms.txt (or llms-full.txt) content inline.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-llms-txt' ),
-				'inputs'      => array( 'full' => 'boolean' ),
-			),
-			array(
-				'name'        => 'rankready/get-author',
-				'description' => 'EEAT Person fields: bio, job title, credentials, education, awards, socials.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-author' ),
-				'inputs'      => array( 'author_id' => 'integer' ),
-			),
-			array(
-				'name'        => 'rankready/get-sitemap',
-				'description' => 'Parsed sitemap — URLs + lastmod for every published post + page.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-sitemap' ),
-				'inputs'      => array( 'limit' => 'integer (1-2000)' ),
-			),
-			array(
-				'name'        => 'rankready/get-fresh-content',
-				'description' => 'Posts/pages modified in last N days. AI engines prioritise fresh content.',
-				'method'      => 'POST',
-				'endpoint'    => rest_url( 'wp/v2/abilities/' . self::NS . '/get-fresh-content' ),
-				'inputs'      => array( 'days' => 'integer (1-365)', 'limit' => 'integer (1-100)' ),
-			),
-		);
 	}
 
 	// ── Abilities API registration ────────────────────────────────────────
@@ -348,7 +207,12 @@ class RNRD_MCP {
 			'llms_txt'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_LLMS_TXT, 'on' ),
 			'rnrd_ai'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_RR_AI, 'on' ),
 			'freshness'  => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_FRESHNESS, 'on' ),
-			'cpts'       => (array) get_option( RNRD_OPT_MCP_EXPOSE_CPTS, array() ),
+			// CPT exposure is a Pro feature — never expose custom post types on a
+			// Free install even if the option somehow holds slugs (matches the UI,
+			// where the per-CPT toggles only render when rnrd_is_pro() is true).
+			'cpts'       => ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() )
+				? (array) get_option( RNRD_OPT_MCP_EXPOSE_CPTS, array() )
+				: array(),
 			'comments'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_COMMENTS, 'off' ),
 			'media'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_MEDIA, 'off' ),
 			'users'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_USERS, 'off' ),
@@ -837,6 +701,7 @@ class RNRD_MCP {
 			's'              => $query,
 			'post_type'      => $post_types,
 			'post_status'    => 'publish',
+			'has_password'   => false,
 			'posts_per_page' => $limit,
 			'orderby'        => 'relevance',
 		) );
@@ -860,7 +725,7 @@ class RNRD_MCP {
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
 			return array( 'title' => '', 'url' => '', 'bullets' => array() );
 		}
 
@@ -885,7 +750,7 @@ class RNRD_MCP {
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
 			return array( 'title' => '', 'url' => '', 'faq' => array() );
 		}
 
@@ -913,6 +778,7 @@ class RNRD_MCP {
 		$posts = get_posts( array(
 			'post_type'      => $post_types,
 			'post_status'    => 'publish',
+			'has_password'   => false,
 			'posts_per_page' => $limit,
 			'offset'         => $offset,
 			'orderby'        => 'modified',
@@ -983,7 +849,7 @@ class RNRD_MCP {
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
 			return array( 'id' => 0, 'title' => '', 'markdown' => '' );
 		}
 		return self::post_payload( $post );
@@ -1028,7 +894,7 @@ class RNRD_MCP {
 		}
 
 		$post = get_post( $post_id );
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
 			return array( 'id' => 0 );
 		}
 		return self::post_payload( $post );
@@ -1044,6 +910,7 @@ class RNRD_MCP {
 		$pages = get_posts( array(
 			'post_type'      => 'page',
 			'post_status'    => 'publish',
+			'has_password'   => false,
 			'posts_per_page' => $limit,
 			'offset'         => $offset,
 			'orderby'        => 'menu_order title',
@@ -1203,6 +1070,7 @@ class RNRD_MCP {
 		$entries = get_posts( array(
 			'post_type'              => array( 'post', 'page' ),
 			'post_status'            => 'publish',
+			'has_password'           => false,
 			'posts_per_page'         => $limit,
 			'orderby'                => 'modified',
 			'order'                  => 'DESC',
@@ -1240,6 +1108,7 @@ class RNRD_MCP {
 		$posts = get_posts( array(
 			'post_type'              => array( 'post', 'page' ),
 			'post_status'            => 'publish',
+			'has_password'           => false,
 			'posts_per_page'         => $limit,
 			'orderby'                => 'modified',
 			'order'                  => 'DESC',

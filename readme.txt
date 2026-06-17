@@ -1,111 +1,98 @@
-=== RankReady – llms.txt, .md & AI SEO for ChatGPT, Perplexity, Claude, Google ===
-Contributors: posimyththemes, adityaarsharma
-Tags: seo, schema, chatgpt, ai-seo, llms.txt
-Requires at least: 6.0
+=== RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI ===
+Contributors: adityaarsharma, sandip111, posimyththemes, sagarpatel124
+Tags: ai seo, answer engine optimization, llms-txt, open knowledge format, chatgpt citations
+Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.1.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Get cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, WebMCP, crawler controls.
+Get cited by ChatGPT, Perplexity, Claude & Google AI. Google Open Knowledge Format (OKF), llms.txt, AI summaries, FAQ schema & AI crawler control.
 
 == Description ==
 
-RankReady is the first WordPress plugin built end-to-end for the AI search layer. Drop it in alongside your existing SEO plugin (Rank Math, Yoast, AIOSEO — any of them) and start showing up in AI answers, citations, and Overviews. **No conflicts. No replacement. Zero frontend bloat.**
+RankReady is a WordPress plugin built for the AI search layer — the answers ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews show before anyone reaches a blue link. Drop it in alongside your existing SEO plugin (Rank Math, Yoast, AIOSEO — any of them) and start showing up in AI answers and citations. **No conflicts. No replacement. Zero frontend bloat.**
 
 [Visit the official RankReady page →](https://store.posimyth.com/plugins/rankready/?ref=rankreadyreadme)
 
-**40-55% of AI citations go to fewer than 1,000 domains.** If your site isn't on that list, ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews are answering your buyers' questions with someone else's content — and you'll never see the click.
+Traditional SEO plugins optimize for Google's classic results. RankReady adds the layer above them: the AI SEO signals — Google's Open Knowledge Format (OKF), llms.txt, FAQ schema, Markdown endpoints, AI crawler controls — that decide whether AI engines read and cite your content. This is generative engine optimization (GEO) and answer engine optimization (AEO) for WordPress, built to work with the SEO plugin you already use.
 
 ## A quick walkthrough of the whole plugin.
 
 https://www.youtube.com/watch?v=JA-rEwMbqNo
 
-Built by [POSIMYTH Inc.](https://posimyth.com/?ref=rankreadyreadme) — the team behind The Plus Addons for Elementor, NexterWP, and UiChemy. RankReady ships every feature you need to be discovered, read, and cited by AI search engines.
+Built by [POSIMYTH Inc.](https://posimyth.com/?ref=rankreadyreadme) — the team behind The Plus Addons for Elementor, NexterWP, and UiChemy.
 
+## Coexists with your SEO plugin — zero frontend impact
 
-## The Problem: AI Search Is Eating SEO Traffic
+Install RankReady, optionally pick an LLM provider (OpenAI, Anthropic, Gemini, or DeepSeek) for the AI Summary and FAQ generators, and you're set. It auto-detects your active SEO plugin and **never emits duplicate schema** — your existing Yoast or Rank Math setup keeps working exactly as before. All AI generation runs in the WordPress admin, so there are no API calls on page load, no third-party scripts, and no extra requests for your visitors. Core Web Vitals are unaffected.
 
-Traditional SEO plugins (Rank Math, Yoast SEO, All in One SEO) optimize for Google's blue-link results. They were built for a web where users clicked through to your site. That web is shrinking.
+## llms.txt — the AI-native sitemap
 
-In 2026, AI Overviews, ChatGPT answers, Perplexity citations, and Claude summaries intercept buyer questions **before** Google's classic results ever load. They cite a handful of sources, link to a few, and synthesize the rest — meaning your traffic vanishes into someone else's footnote.
+RankReady serves the [llmstxt.org](https://llmstxt.org) standard at `/llms.txt` (a curated index of your best content) and `/llms-full.txt` (the full content concatenated as Markdown). AI crawlers read these files first to understand your site. Configurable post types, max post count, category and tag exclusions, and a per-domain brand identity (site name, summary, about section) you control from the **AI Crawlers** tab. Multilingual sites get hreflang Link headers when WPML, Polylang, TranslatePress, Weglot, or GTranslate is detected.
 
-RankReady is the layer above your SEO plugin. It handles the AI-specific signals — llms.txt, FAQPage schema, Markdown endpoints, E-E-A-T, Speakable, WebMCP, AI crawler controls — that decide whether you're the source AI quotes, or the site it never read.
+## AI Summary generator with Speakable schema
 
-## How It Works: Add Once, Coexists Forever
+Generate "Key Takeaways" for any post or page via your chosen LLM (OpenAI, Anthropic Claude, Google Gemini, or DeepSeek). The summary injects above your content as a styled block with **Speakable schema** — the JSON-LD that voice assistants read aloud. Use the Regenerate button in the post editor, the Gutenberg block, or the Elementor widget. **Unlimited manual generations.**
 
-Install RankReady, pick your LLM provider (OpenAI, Anthropic, Gemini, or DeepSeek), and the plugin handles the rest. It auto-detects your active SEO plugin and **never emits duplicate schema**. Your existing Yoast or Rank Math setup keeps working exactly as before. RankReady just adds the AI-layer features none of them cover.
+## FAQ schema generator with DataForSEO
 
-Frontend impact: zero. All AI generation runs in the WordPress admin — no API calls on page load, no third-party scripts, no extra HTTP requests for your visitors.
+A strong signal for AI Overviews. RankReady can query DataForSEO for the real "People Also Ask" questions ranking for your post's focus keyword, then has your chosen LLM write the answers. Output is FAQPage JSON-LD — the structured data Google AI Overviews and Perplexity frequently cite over plain article text. Don't use DataForSEO? Type your own questions and let the LLM answer them. **Unlimited manual generations.** Setup guide in the FAQ section below.
 
-## Get Cited by ChatGPT, Perplexity, Claude & Gemini with llms.txt
+## Author Box with basic E-E-A-T schema
 
-RankReady serves the [llmstxt.org](https://llmstxt.org) standard at `/llms.txt` (a curated index of your best content) and `/llms-full.txt` (the full content concatenated as Markdown). AI crawlers read these files first to understand your site — think of it as an AI-native sitemap. Configurable post types, max post count, category and tag exclusions, and a per-domain brand identity (site name, summary, about section) you control from the **AI Crawlers** tab.
+E-E-A-T (Experience, Expertise, Authoritativeness, Trustworthiness) is what AI models use to decide which sources to trust. RankReady ships a basic Author Box — name, job title, employer, bio, headshot, and basic sameAs links — with Article, Speakable, and FAQPage schema. It auto-detects Rank Math, Yoast, and AIOSEO and skips duplicate output. Display it anywhere via the Gutenberg block or the Elementor widget.
 
-## AI Summary Generator with Speakable Schema
+## Markdown endpoints for AI agents
 
-Generate "Key Takeaways" for any post via your chosen LLM (OpenAI, Anthropic Claude, Google Gemini, or DeepSeek). The summary auto-injects above your content as a styled block with **Speakable schema** — the JSON-LD that Google Assistant, Alexa, and AI voice assistants read aloud. Unlimited manual generations. Set auto-generate-on-publish to cover new posts automatically. Bulk-regenerate across your entire library from the **Content AI** tab.
+Every published post and page is served as clean Markdown at `/post-slug.md` with YAML frontmatter (title, author, dates). AI agents — Claude Desktop, Cursor, ChatGPT, custom clients — read Markdown faster than HTML. Content negotiation via `Accept: text/markdown` lets crawlers fetch the format they prefer with no URL changes.
 
-## FAQ Schema Generator with DataForSEO
+## Open Knowledge Format (OKF) — Google's standard for AI agents
 
-The killer feature for AI Overviews. RankReady queries DataForSEO for the real "People Also Ask" questions ranking for your post's focus keyword, then has your chosen LLM write the answers. Output is FAQPage JSON-LD — the schema Google AI Overviews and Perplexity **preferentially cite over plain article text**. Pages with FAQPage schema are 3.2× more likely to appear in AI Overviews. Unlimited manual generations. Setup guide in the FAQ section below.
+[Google's Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog) (OKF v0.1) is a vendor-neutral way to hand your whole site to AI agents as a clean, linked bundle of Markdown — instead of making them scrape your HTML. Turn it on from the AI Crawlers tab and RankReady serves a complete OKF bundle at `/okf/`:
 
-## E-E-A-T Schema and Author Box for AI Trust Signals
+* `/okf/index.md` — a manifest of every page, grouped by type, each linked to its concept file
+* `/okf/{slug}.md` — one Markdown concept per post, tagged with type, description, canonical URL and tags
+* `/okf/log.md` — a dated change history
+* One-click `.zip` export for upload to Google Cloud Knowledge Catalog or a Git repository
 
-E-E-A-T (Experience, Expertise, Authoritativeness, Trustworthiness) is what AI models use to decide which sources to cite. RankReady ships a full Author Box (photo, bio, headline, topics, credentials, year-started) plus Article, Speakable, FAQPage, HowTo, and ItemList JSON-LD. Auto-detects Rank Math, Yoast, AIOSEO — skips duplicate output, or merges into their schema graph via filters. Display the Author Box anywhere via Gutenberg block or Elementor widget. Configure from the **E-E-A-T** tab.
+The bundle is generated entirely on your own server (nothing is sent to Google or anyone else), refreshes automatically whenever you publish or edit, and respects your noindex and per-post exclusion settings — noindexed content never enters the bundle.
 
-## Markdown Endpoints and WebMCP Manifest for AI Agents
+## MCP via the WordPress Abilities API
 
-Every published post is served as clean Markdown at `/post-slug.md` with YAML frontmatter (title, author, dates, schema). AI agents — Claude Desktop, Cursor, ChatGPT plugins, custom MCP clients — read Markdown 10× faster than HTML. Content negotiation via `Accept: text/markdown` lets crawlers fetch the format they prefer with no URL changes.
+RankReady registers read-only abilities with the [Model Context Protocol](https://modelcontextprotocol.io/) through the WordPress Abilities API (`wp_register_ability()`). On WordPress 7.0 these are surfaced by the official MCP Adapter — no bundled MCP server, no extra service to run.
 
-On top of that, RankReady publishes a [Model Context Protocol](https://modelcontextprotocol.io/) manifest at `/.well-known/mcp.json` listing what an AI agent can do on your site — read posts, list authors, fetch FAQs, query categories. When a Claude Desktop or Cursor user adds your site as an MCP server, this is the file they discover.
+## Insights — AI referrals, bot activity, freshness
 
-## AI Citation Tracking and Bot Activity Analytics
+The **Insights** tab gives you real, server-side analytics with no third-party scripts:
 
-The **Insights** tab gives you four real-time views:
+* **Training & Citation Bots** — Which AI crawlers fetched which pages (GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot, Google-Extended, and more). Each citation-bot hit is a live AI answer that retrieved your page.
+* **Real AI Referrals** — Humans clicking through from chatgpt.com, perplexity.ai, claude.ai, gemini.google.com, and copilot.microsoft.com, tracked via the HTTP Referer header.
+* **Content Freshness scanner** — Buckets posts into Stale, Going stale, and Fresh, with one-click `dateModified` refresh to signal recency to AI crawlers.
 
-* **Training Bots** — Which AI crawlers indexed which pages (GPTBot, ClaudeBot, Google-Extended, Bytespider, CCBot, and 8 more training-intent bots).
-* **Citation Bots** — Which pages were fetched mid-answer (ChatGPT-User, OAI-SearchBot, PerplexityBot, Claude-Web, DuckAssistBot). Each hit is a live AI answer that retrieved your page as a source.
-* **Real AI Referrals** — Humans clicking through from chatgpt.com, perplexity.ai, claude.ai, gemini.google.com, copilot.microsoft.com. 100% server-side via the HTTP Referer header. No third-party scripts. No UTM tagging.
-* **Content Fresh** — Freshness scanner with bulk one-click `dateModified` refresh.
+All counts are stored locally in your own tables — never sent to POSIMYTH.
 
-All counts are stored locally in your `wp_options` and a custom log table — never sent to POSIMYTH.
+## 31 AI crawler controls + auto robots.txt
 
-## Content Freshness Scanner — 28% More AI Citations
+Granular allow/block toggles for **31 AI bots**: GPTBot, ChatGPT-User, OAI-SearchBot, ClaudeBot, Claude-Web, anthropic-ai, PerplexityBot, Perplexity-User, Google-Extended, Bytespider, CCBot, FacebookBot, Meta-ExternalAgent, Applebot-Extended, DuckAssistBot, YouBot, AI2Bot, Diffbot, Cohere-ai, Kagibot, and more. Auto-syncs your choices to `robots.txt` — both the WordPress virtual `robots.txt` and a physical `ABSPATH/robots.txt` if another plugin intercepts the URL. Plus Content Signals (`ai-train`, `search`, `ai-input` directives per [contentsignals.org](https://contentsignals.org)).
 
-Multiple 2026 studies show fresh content earns ~28% more AI citations, and 65% of all AI citations target content updated within the past year. The Content Freshness Scanner buckets every post into **Stale** (60+ days), **Going stale** (30-59 days), and **Fresh** (under 30 days). Select stale posts and click **Refresh dateModified** to bump the modified timestamp without touching content — a clean signal to AI crawlers on their next visit.
+## Cache compatibility + Diagnostics
 
-## 31 AI Crawler Controls + Auto robots.txt
+RankReady persists cache-bypass entries to each cache plugin's stored configuration so server-level caches honour the bypass before PHP runs — tested with WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache, WP Fastest Cache, Breeze, SG Optimizer, Hummingbird, Cache Enabler, Comet Cache, Swift Performance, NitroPack, Perfmatters, Cloudflare APO, Pantheon, Kinsta, and WP Engine. The **Diagnostics** card runs live endpoint probes, detects active SEO plugins, checks rewrite rules and REST routes, scans for cache conflicts, and gives you a one-click plain-text report for support — every failure ships with a one-line fix.
 
-Granular allow/block toggles for **31 AI bots**: GPTBot, ChatGPT-User, OAI-SearchBot, ClaudeBot, Claude-Web, anthropic-ai, PerplexityBot, Perplexity-User, Google-Extended, Bytespider, CCBot, FacebookBot, Meta-ExternalAgent, Applebot-Extended, Bingbot AI, DuckAssistBot, YouBot, omgilibot, omgili, AI2Bot, ImagesiftBot, Diffbot, ChatGPT-User, Cohere-ai, FriendlyCrawler, Kagibot, Magpie-Crawler, Scrapy, Webzio-Extended, and 2 more. Auto-syncs your choices to `robots.txt` — both the WordPress virtual `robots.txt` filter AND a physical `ABSPATH/robots.txt` if another plugin is intercepting the URL. Plus Content Signals (`ai-train`, `search`, `ai-input` directives per [contentsignals.org](https://contentsignals.org)).
+## Coming soon
 
-## Compatible with 17 Cache Plugins (LiteSpeed, WP Rocket, Cloudflare APO)
+A companion add-on (in development) will layer advanced AI SEO automation on top of the free build:
 
-RankReady persists cache-bypass entries to each cache plugin's stored configuration — so server-level caches (LiteSpeed Web Server, FastCGI cache, WP Super Cache mod_rewrite mode) honour the bypass **before PHP runs**. Tested with WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache, WP Fastest Cache, Breeze, SG Optimizer, Hummingbird, Cache Enabler, Comet Cache, Swift Performance, NitroPack, Perfmatters, Cloudflare APO, Pantheon Edge, Kinsta Edge, and WP Engine. Copy-ready `.htaccess` and `nginx` snippets for advanced bypass live in **Settings → Diagnostics**.
+* Auto-generate AI Summaries and FAQs on publish
+* Bulk-generate summaries and FAQs across your whole library
+* HowTo and ItemList JSON-LD
+* Advanced Person / E-E-A-T schema (credentials, education, certifications, memberships, awards, Wikidata / ORCID / Scholar / LinkedIn, editorial & fact-check policies, Author Trust Panel)
+* Custom post type support beyond posts and pages
+* Headless / WPGraphQL API for decoupled front ends
 
-## Multilingual llms.txt for WPML, Polylang, TranslatePress, Weglot
-
-Auto-detects WPML, Polylang, TranslatePress, Weglot, and GTranslate. Emits `hreflang` Link HTTP headers for each detected language variant so AI crawlers discover the translated copies of your content alongside the canonical English version.
-
-## Diagnostics: 26 Live Endpoint Probes
-
-The **Diagnostics** card in Settings runs 26 live probes — fetches `/llms.txt`, `/llms-full.txt`, `/.well-known/mcp.json`, every Markdown route, detects active SEO plugins, checks rewrite rules, tests REST routes, scans for cache-plugin conflicts, inspects edge cache HIT/MISS headers, and lists any `template_redirect` callbacks at priority < 5 that might race RankReady's handlers (Bricks Builder, Oxygen, Cwicly). Every failure ships with a one-line fix. One-click copy of a plaintext diagnostic report for support tickets.
-
-## Works Alongside Your Existing SEO Plugin
-
-RankReady is **designed to coexist** with the SEO plugin you already use. It detects active SEO plugins and either skips its own output (when there'd be a duplicate) or merges its data into theirs:
-
-* **Rank Math** — Person and Article schema fields merge into Rank Math's existing JSON-LD graph via filters.
-* **Yoast SEO** — Same merge pattern. RankReady never emits duplicate Person nodes when Yoast is active.
-* **All in One SEO (AIOSEO)** — Same merge pattern.
-* **SEOPress, SEO Framework, Slim SEO** — Coexists; RankReady supplies AI-specific fields none of them cover.
-
-You don't replace your SEO plugin. You add RankReady on top.
-
-## Lightweight: Zero Frontend Impact
-
-All AI generation happens in the WordPress admin — never on page load. Schema and discovery headers add a few hundred bytes. The llms.txt and robots.txt files are cached via a 10-minute transient with `stale-while-revalidate`. Frontend impact: zero. Page Speed Insights and Core Web Vitals are unaffected.
+These appear as "Coming soon" placeholders in the plugin and ship no code in the free build. Everything listed above the "Coming soon" heading is fully free, with no caps on manual generation.
 
 == More Plugins from POSIMYTH ==
 
@@ -162,7 +149,7 @@ No. RankReady is designed to work **alongside** Rank Math, Yoast, All in One SEO
 
 = How does RankReady actually work? =
 
-Three layers: (1) it serves **discovery files** (`/llms.txt`, `/llms-full.txt`, `/.well-known/mcp.json`, `/post-slug.md`) that AI crawlers read to find your content faster; (2) it adds **AI-specific schema** (FAQPage, Speakable, Article, HowTo, ItemList JSON-LD) that AI Overviews preferentially cite; (3) it gives you **controls** over which AI bots see your content, plus analytics on which ones already do. All three layers add up to roughly a 28-3× increase in AI citation rates per multiple 2026 studies.
+Three layers: (1) it serves **discovery files** (`/llms.txt`, `/llms-full.txt`, `/post-slug.md`) that AI crawlers read to find your content faster; (2) it adds **AI-specific schema** (FAQPage, Speakable, Article JSON-LD) that AI engines cite; (3) it gives you **controls** over which AI bots see your content, plus Insights analytics on which ones already do. It also registers read-only MCP abilities through the WordPress Abilities API so AI agents can discover your content.
 
 = Will this slow down my site? =
 
@@ -170,11 +157,11 @@ No. All AI generation happens in the WordPress admin (not on page load). Schema 
 
 = Do I need an AI provider API key? =
 
-Only if you want to use the **AI Summary** or **FAQ Generator** features. The llms.txt generator, Markdown endpoints, AI crawler controls, Article schema, Author Box, AI referral tracking, content freshness scanner, and WebMCP manifest all work without any API key.
+Only if you want to use the **AI Summary** or **FAQ** generators. The llms.txt generator, Markdown endpoints, AI crawler controls, Article schema, Author Box, AI referral tracking, content freshness scanner, and MCP abilities all work without any API key.
 
 = Are there usage limits or monthly caps? =
 
-**No caps.** Manual AI Summary generation and FAQ generation are unlimited in v1.0.0. You pay only your own LLM API usage (typically $0.001 to $0.01 per generation). All other features are completely free with no limits.
+**No caps.** Manual AI Summary generation and FAQ generation are unlimited. You pay only your own LLM API usage (typically $0.001 to $0.01 per generation). All features in the free build work with no limits.
 
 = Which AI provider should I pick? =
 
@@ -207,9 +194,9 @@ The FAQ Generator uses DataForSEO to discover real "People Also Ask" questions f
 
 `llms.txt` is an emerging standard ([llmstxt.org](https://llmstxt.org)) that lets AI models like ChatGPT, Perplexity, and Claude understand your site's structure faster. Think of it as an "AI sitemap" — a curated index of your most important content optimized for LLM consumption. RankReady generates both `/llms.txt` (index) and `/llms-full.txt` (full content) automatically.
 
-= What is WebMCP and the `.well-known/mcp.json` manifest? =
+= What is MCP and how does RankReady use it? =
 
-[Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is Anthropic's open standard for letting AI agents discover and call your site's structured content. RankReady publishes a manifest at `/.well-known/mcp.json` listing what an AI agent can do — read posts, list authors, fetch FAQs, query categories. Claude Desktop and Cursor users add your site as an MCP server by pointing at this file. Toggle individual abilities in **AI Crawlers → WebMCP**.
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard for letting AI agents discover and read your site's structured content. RankReady registers read-only abilities (read posts, list authors, fetch FAQs, query categories) through the WordPress Abilities API. On WordPress 7.0 these are surfaced by the official MCP Adapter — there is no bundled MCP server to run.
 
 = How does the freshness scanner work? =
 
@@ -242,52 +229,53 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 == Screenshots ==
 
 1. **AI SEO Dashboard for WordPress** — AI Readiness score at a glance, quick-navigation tiles, persistent right sidebar with What's New, community links, and a 5-star rating widget.
-2. **AI Summary & FAQ Schema Generator** — Pick your LLM provider, set auto-generate-on-publish rules, and bulk-regenerate across your library.
-3. **E-E-A-T Schema & Author Box** — Author Box configuration plus Article, Speakable, FAQPage, HowTo, ItemList JSON-LD toggles that coexist with Rank Math, Yoast, and AIOSEO.
-4. **AI Crawler Controls + llms.txt Generator** — 31-bot allow/block matrix with Markdown endpoints, WebMCP manifest, and Content Signals directives auto-synced to robots.txt.
+2. **AI Summary & FAQ Generator** — Pick your LLM provider and generate Key Takeaways summaries and FAQPage schema for any post or page, with unlimited manual generation.
+3. **Author Box & Schema** — Basic Author Box (name, job title, employer, bio, headshot) plus Article, Speakable, and FAQPage JSON-LD that coexist with Rank Math, Yoast, and AIOSEO.
+4. **AI Crawler Controls + llms.txt Generator** — 31-bot allow/block matrix with Markdown endpoints and Content Signals directives auto-synced to robots.txt.
 5. **AI Citation Tracking & Bot Insights** — Bot Activity, AI Citation Candidates, Real AI Referrals, and Content Freshness scanner.
-6. **Connect OpenAI, Claude, Gemini & DataForSEO** — Single-screen config for all four LLM providers plus DataForSEO credentials and Diagnostics with 26 live endpoint probes.
+6. **Connect OpenAI, Claude, Gemini & DataForSEO** — Single-screen config for all four LLM providers plus DataForSEO credentials and live Diagnostics endpoint probes.
 
 
 
 == Changelog ==
 
+= 1.1.2 — 2026-06-17 =
+
+* Google Open Knowledge Format — serve an AI-readable OKF bundle of your content at /okf/. One click, auto-synced on publish.
+* Several bug fixes and improvements for a better experience.
+
+= 1.1.1 — 2026-06-02 =
+
+* Fixed: API keys (OpenAI, Claude, Gemini, DeepSeek, DataForSEO) would not save on first entry — the key verified but saved blank. The first save now stores it correctly.
+* Fixed: pages could show raw Markdown to visitors behind Cloudflare APO or other caches that ignore Vary: Accept. Markdown is now served only at the distinct .md URLs (e.g. /post-slug.md, /index.md), which are cache-safe; same-URL negotiation is an opt-in toggle.
+* Fixed: updating the plugin no longer resets your AI Summary post-type / CPT selection back to the default — the onboarding step only seeds defaults for settings that were never saved.
+* Added: full multilingual support — Turkish, CJK, Arabic, Hindi, Cyrillic and other non-Latin scripts render correctly in Summaries, FAQs, and Author profiles (stored as real UTF-8). One-time silent migration of existing content.
+* Added: Squirrly SEO compatibility — AI schema merges into Squirrly's JSON-LD graph instead of emitting a duplicate block.
+* Added: SWIS Performance compatibility — shows the exact wp-config exclusion snippet so AI endpoints (llms.txt, .md, mcp.json) stay fresh.
+* Added: EWWW Image Optimizer detected (images only — no conflict with RankReady's text endpoints).
+
+= 1.1.0 — 2026-06-01 =
+
+* Consistent block/widget names and a dedicated "RankReady" group in Gutenberg and Elementor; smart Generate/Regenerate button on any post type.
+* All four AI providers (OpenAI, Claude, Gemini, DeepSeek) detected everywhere, with automatic migration of retired model IDs.
+* Lighter front end — assets load only on pages using a RankReady block or widget; no front-end JavaScript. No data loss on update.
+
 = 1.0.1 — 2026-05-27 =
 
-**Complex-cache content-negotiation fix.**
-
-The fix for sites running behind Cloudflare, Varnish, Fastly, or any CDN that doesn't vary cache key by Accept header. Previously, once the CDN cached an HTML response, subsequent `Accept: text/markdown` requests got the cached HTML back even though the origin was correctly negotiating.
-
-* **Cloudflare-CDN-Cache-Control: no-store** auto-emitted on every markdown-eligible page request that specifies `Accept: text/markdown`. Cloudflare APO + standard cache both respect this directive — markdown requests bypass cache, reach origin, return correct content-type.
-* **Cloudflare Cache Rule snippet** added to Settings → Diagnostics → Server/CDN bypass snippets. Copy-paste into Cloudflare dashboard → 2-minute fix for any site running CF.
-* **New diagnostic probe** — "Accept: text/markdown end-to-end" — hits your live homepage with markdown Accept header and reports if any cache layer is overriding the content type. Surfaces the specific Cloudflare Cache Rule fix when detected.
-* **End-to-end testing** — RankReady now passes both acceptmarkdown.com and isitagentready.com on properly configured cache stacks. RFC 9110 §12 q-value parsing verified, 99.5% byte reduction on typical posts.
+* Fixed homepage Markdown URL on static-front-page sites (was emitting example.com.md; now /index.md).
+* Fixed AI Summary settings not saving (settings-group mismatch).
+* WP-Cron diagnostic now accepts external system cron (no false warnings on managed hosts).
+* Cache headers audited to RFC 9110/9111 with CDN content-negotiation fixes and a Cloudflare APO auto-detect notice.
+* Removed the extra "Enable" step on togglable cards — tick the toggle and Save.
 
 = 1.0.0 — 2026-05-26 =
 
-**First public release — RankReady is live on WordPress.org.**
-
-Welcome! RankReady is the first WordPress plugin built end-to-end for the AI search layer — ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. Everything in this release is yours, free, with no caps on the core generators.
-
-* **Unlimited AI Summaries** — generate "Key Takeaways" for every post via OpenAI, Anthropic, Gemini, or DeepSeek with zero per-month limit on manual generation.
-* **FAQ schema generator** — discover real user questions via DataForSEO, answer via your chosen LLM, output FAQPage JSON-LD that AI Overviews preferentially cite.
-* **llms.txt + Markdown endpoints** — serve the llmstxt.org standard at `/llms.txt`, `/llms-full.txt`, and every post as Markdown at `/post-slug.md` for AI agents.
-* **31+ AI crawler controls** — granular allow/block for GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot-Extended, and 26 more, auto-synced to `robots.txt`.
-* **E-E-A-T schema + Author Box** — Article, Speakable, and Author JSON-LD signals out of the box, designed to coexist with Rank Math, Yoast, AIOSEO without duplicate output.
-* **Content Freshness scanner** — bucket posts into Stale / Going Stale / Fresh, bulk-refresh `dateModified` to signal recency to AI crawlers.
-* **Insights dashboard** — Training Bots, Citation Bots, Real AI Referrals, and Content Fresh analytics with demo-data preview.
-* **Cache compatibility** — first-class support for WP Rocket, LiteSpeed, W3TC, WP Super Cache, WP Fastest Cache, Breeze, SG Optimizer, Hummingbird, Cache Enabler, Comet Cache, Swift Performance, NitroPack, Perfmatters, Cloudflare APO, Pantheon, Kinsta, WP Engine.
-* **Multilingual llms.txt** — auto-detects WPML, Polylang, TranslatePress, Weglot, GTranslate; emits hreflang Link headers.
-* **Diagnostics suite** — 26 live endpoint probes, plugin-conflict detection, and copy-ready Apache/Nginx server-bypass snippets.
-
-Welcome to RankReady! Feedback or questions? Visit [store.posimyth.com/plugins/rankready](https://store.posimyth.com/plugins/rankready/?ref=rankreadyreadme).
-
-For the full pre-1.0.0 development history, see CHANGELOG.md bundled with the plugin.
+First public release. The AI-search layer for WordPress: unlimited manual AI Summaries and FAQ schema, llms.txt + llms-full.txt, Markdown endpoints, 31+ AI-crawler controls with robots.txt sync, E-E-A-T + Article/Speakable schema (coexists with Rank Math / Yoast / AIOSEO without duplicate output), content freshness, Insights, broad cache-plugin compatibility, multilingual llms.txt, and a Diagnostics suite.
 
 == Upgrade Notice ==
 
-= 1.0.1 =
-Fixes Accept: text/markdown content-negotiation on sites behind Cloudflare and other CDNs that don't vary cache key by Accept header. Cloudflare Cache Rule snippet now ships in Diagnostics. New end-to-end markdown negotiation probe.
+= 1.2.0 =
+Adds Google's Open Knowledge Format (OKF) bundle at /okf/. Fixes several data-preservation issues on the E-E-A-T and AI Summary tabs, markdown cache freshness, AIOSEO noindex handling, and cron-safe FAQ generation. No data loss; safe to update.
 
-= 1.0.0 =
-First public release on WordPress.org. Unlimited AI Summaries + FAQ generation, llms.txt + Markdown endpoints, 31+ AI crawler controls, E-E-A-T schema, Insights analytics, content freshness scanner, 17 cache layer integrations.
+= 1.1.1 =
+Fixes API keys not saving on first entry, and pages showing raw Markdown behind Cloudflare APO and similar caches. Adds multilingual support plus Squirrly SEO and SWIS Performance compatibility. No data loss. If you saved a key on an earlier version, re-enter it once after updating.

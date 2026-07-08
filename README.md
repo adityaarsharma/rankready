@@ -4,8 +4,8 @@
 
 ### Get cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews — without conflicting with your existing SEO plugin.
 
-[![Version](https://img.shields.io/badge/Version-1.0.0-10b981?style=for-the-badge)](https://github.com/adityaarsharma/rankready/releases/tag/v1.0.0)
-[![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-10b981?style=for-the-badge)](https://wordpress.org/)
+[![Version](https://img.shields.io/badge/Version-1.1.2-10b981?style=for-the-badge)](https://github.com/adityaarsharma/rankready/releases/tag/v1.1.2)
+[![WordPress](https://img.shields.io/badge/WordPress-6.9%2B-10b981?style=for-the-badge)](https://wordpress.org/)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-10b981?style=for-the-badge)](https://www.php.net/)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2+-blue?style=for-the-badge)](https://www.gnu.org/licenses/gpl-2.0)
 
@@ -144,6 +144,24 @@ Built and maintained by **[Aditya Sharma](https://adityaarsharma.com)** — Mark
 - Website — [adityaarsharma.com](https://adityaarsharma.com)
 - GitHub — [github.com/adityaarsharma](https://github.com/adityaarsharma)
 - Company — [posimyth.com](https://posimyth.com/?ref=rankreadygithub)
+
+---
+
+## Releases & Maintenance
+
+**RankReady is actively maintained on WordPress.org** — that is its canonical home. Install and auto-update from there. This GitHub repository is the public **source mirror** for code review, issues, and community contributions; tagged releases here always match the version approved on WordPress.org, never ahead of it.
+
+| Version | Highlights | Links |
+|---|---|---|
+| **1.1.2** *(current)* | Google Open Knowledge Format (OKF) bundle at `/okf/` — one click, auto-synced on publish; stability fixes | [WordPress.org](https://wordpress.org/plugins/rankready-ai-llm-seo/) · [Release notes](https://github.com/adityaarsharma/rankready/releases/tag/v1.1.2) |
+| 1.0.1 | Cache content-negotiation fix, homepage Markdown URL fix, full cache-header audit | [Release notes](https://github.com/adityaarsharma/rankready/releases/tag/v1.0.1) |
+| 1.0.0 | First public release on WordPress.org | [Release notes](https://github.com/adityaarsharma/rankready/releases/tag/v1.0.0) |
+
+- **Install / update:** [WordPress.org → rankready-ai-llm-seo](https://wordpress.org/plugins/rankready-ai-llm-seo/)
+- **Full changelog:** [WordPress.org Changelog tab](https://wordpress.org/plugins/rankready-ai-llm-seo/#developers)
+- **Report a bug / request a feature:** [WordPress.org support forum](https://wordpress.org/support/plugin/rankready-ai-llm-seo/) or [GitHub Issues](https://github.com/adityaarsharma/rankready/issues)
+
+> Requires WordPress **6.9+** and PHP **7.4+**. Tested up to WordPress 7.0.
 
 ---
 

@@ -147,15 +147,17 @@ body[class*="rankready_page_"] {
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Body + typography scoping — applies only on RankReady admin pages.
- * Inter is enqueued from Google Fonts via wp_enqueue_style on the
- * RankReady screens (see RNRD_Admin::enqueue_admin_assets). If the font
- * fails to load (offline), the WordPress admin's San Francisco / Segoe UI
- * stack takes over — no broken layout.
+ * v1.2.1 — the Google Fonts request for Inter was removed (WP.org bans
+ * hotlinked third-party assets, and it leaked the admin's IP to Google
+ * without consent). We now use the platform UI stack, which is what the
+ * WordPress admin itself uses, so the UI is visually consistent with core
+ * and costs zero network requests. If a site happens to have Inter
+ * installed locally it is still preferred. Do NOT re-add a remote font.
  * ───────────────────────────────────────────────────────────────────────── */
 body.toplevel_page_rankready,
 body[class*="rankready_page_"] {
 	background: var(--rnrd-bg-canvas);
-	font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
 	font-feature-settings: 'cv11', 'ss01', 'ss03';
 	color: var(--rnrd-text-secondary);
 	-webkit-font-smoothing: antialiased;

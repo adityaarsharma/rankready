@@ -120,7 +120,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 
 	protected function register_controls(): void {
 
-		$global_label = (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' );
+		$global_label = (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
 		$global_show  = (bool) get_option( RNRD_OPT_SHOW_LABEL, '1' );
 		$global_tag   = (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' );
 
@@ -304,7 +304,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 		$label_text = sanitize_text_field(
 			! empty( $settings['label_text'] )
 				? $settings['label_text']
-				: (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' )
+				: (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) )
 		);
 		$tag = RNRD_Block::validate_heading_tag(
 			! empty( $settings['heading_tag'] )

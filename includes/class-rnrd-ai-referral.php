@@ -66,7 +66,7 @@ class RNRD_AI_Referral {
 					<?php esc_html_e( 'Tracking is live. Counters fill in as ChatGPT, Perplexity, Gemini, Claude, or Copilot send their first visitor.', 'rankready-ai-llm-seo' ); ?>
 				</p>
 				<p style="margin:0 0 0;font-size:var(--rnrd-text-sm,12px);color:var(--rnrd-color-text-muted,#646970);">
-					<?php esc_html_e( 'Typical first citation: 2–6 weeks after enabling. Add FAQs to your top posts to speed this up.', 'rankready-ai-llm-seo' ); ?>
+					<?php esc_html_e( 'Referrals appear here only once someone clicks through from an AI engine, so this stays empty until that happens. How long that takes depends on your content and how often engines recrawl it.', 'rankready-ai-llm-seo' ); ?>
 				</p>
 			</div>
 			<?php
@@ -98,7 +98,7 @@ class RNRD_AI_Referral {
 		echo '</ul>';
 
 		echo '<p style="margin-top:10px;font-size:11px;color:#646970;">';
-		esc_html_e( 'Cited brands earn 23× higher conversion rates than non-cited competitors. Each visit here is a person clicking from an AI engine to your site.', 'rankready-ai-llm-seo' );
+		esc_html_e( 'Each visit here is a real person who clicked through from an AI engine to your site, identified by the HTTP referer. These are counted locally and never sent anywhere.', 'rankready-ai-llm-seo' );
 		echo '</p>';
 	}
 

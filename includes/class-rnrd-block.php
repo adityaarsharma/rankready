@@ -45,7 +45,7 @@ class RNRD_Block {
 		add_filter( 'seopress_pro_get_json_data_article',       array( self::class, 'merge_seopress_schema' ), 99 );
 		add_filter( 'the_seo_framework_schema_graph_data',      array( self::class, 'merge_tsf_schema' ), 99 );
 		add_filter( 'slim_seo_schema_graph',                    array( self::class, 'merge_slim_seo_schema' ), 99 );
-		// v1.1.3 — Squirrly SEO. `sq_json_ld_data` filters the array of schema
+		// v1.2.0 — Squirrly SEO. `sq_json_ld_data` filters the array of schema
 		// nodes before Squirrly wraps them in @graph — the same shape Yoast's
 		// `wpseo_schema_graph` uses. Verified in Squirrly source
 		// models/services/JsonLD.php:126.
@@ -318,7 +318,7 @@ class RNRD_Block {
 		$show_label  = isset( $attrs['showLabel'] ) ? (bool) $attrs['showLabel'] : (bool) get_option( RNRD_OPT_SHOW_LABEL, '1' );
 		$label_text  = ! empty( $attrs['label'] )
 			? sanitize_text_field( $attrs['label'] )
-			: (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' );
+			: (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
 		$heading_tag = self::validate_heading_tag(
 			! empty( $attrs['headingTag'] )
 				? $attrs['headingTag']
@@ -552,7 +552,7 @@ class RNRD_Block {
 
 		wp_localize_script( 'rnrd-block-editor', 'rnrdBlockData', array(
 			'defaults' => array(
-				'label'         => (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' ),
+				'label'         => (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) ),
 				'showLabel'     => (bool) get_option( RNRD_OPT_SHOW_LABEL, '1' ),
 				'headingTag'    => (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' ),
 				'authorHeading' => (string) get_option( RNRD_OPT_AUTHOR_HEADING, 'About the Author' ),
@@ -675,6 +675,7 @@ class RNRD_Block {
 			'description'   => $description,
 			'url'           => get_permalink( $post_id ),
 			'datePublished' => get_post_time( 'c', true, $post ),
+			'inLanguage'    => RNRD_LLM::detect_content_language( (int) $post_id )['code'],
 			'dateModified'  => get_post_modified_time( 'c', true, $post ),
 			'author'        => array(
 				'@type' => 'Person',
@@ -720,7 +721,7 @@ class RNRD_Block {
 
 		printf(
 			'<script type="application/ld+json">%s</script>' . "\n",
-			wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE )
+			wp_json_encode( $schema, JSON_UNESCAPED_UNICODE )
 		);
 	}
 
@@ -894,7 +895,7 @@ class RNRD_Block {
 		// Omitting the property defaults to "freely accessible" per schema.org,
 		// which is exactly what we want.
 		if ( 'bullets' === $summary['type'] && is_array( $summary['data'] ) && ! empty( $summary['data'] ) ) {
-			$label = (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' );
+			$label = (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
 			$props['hasPart'] = array(
 				array(
 					'@type'       => 'WebPageElement',
@@ -919,7 +920,7 @@ class RNRD_Block {
 						$props['hasPart'][] = array(
 							'@type'       => 'WebPageElement',
 							'cssSelector' => '.rnrd-faq-wrapper',
-							'name'        => 'Frequently Asked Questions',
+							'name'        => __( 'Frequently Asked Questions', 'rankready-ai-llm-seo' ),
 							'text'        => implode( ' ', $faq_text ),
 						);
 					}

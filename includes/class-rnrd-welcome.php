@@ -21,6 +21,16 @@ class RNRD_Welcome {
 	private const FLAG_OPTION  = 'rnrd_welcome_completed';
 	private const REDIRECT_KEY = 'rnrd_welcome_redirect';
 
+	/**
+	 * HostMyBlog CRM incoming-webhook for the RankReady tips list. Contacted ONLY
+	 * when the user ticks the opt-in box — see subscribe_email(). Empty by default:
+	 * wire the HostMyBlog CRM endpoint here (or via the `rnrd_tips_webhook_url`
+	 * filter). While empty, the opt-in is inert and NOTHING is sent anywhere, which
+	 * keeps the readme disclosure accurate. Disclosed in readme.txt "External services".
+	 */
+	private const TIPS_WEBHOOK_URL  = '';
+	private const TIPS_FLAG_OPTION  = 'rnrd_tips_optin_sent';
+
 	// ── Lifecycle ─────────────────────────────────────────────────────────────
 
 	public static function init(): void {
@@ -213,6 +223,20 @@ class RNRD_Welcome {
 			'rnrd_robots_enable',
 			'rnrd_content_signals_enable',
 			'rnrd_mcp_enable',
+			// v1.2.0 — the 9 SAFE WebMCP resources default ON in the manifest but were never
+			// seeded, so they showed OFF in the settings UI and the first WebMCP-tab save
+			// silently disabled them (same null-on-save trap as the md_* options above). Seed
+			// them so a fresh install exposes public content and it survives the first save.
+			// Sensitive resources (users/comments/media/plugins/themes/settings) stay OFF.
+			'rnrd_mcp_expose_posts',
+			'rnrd_mcp_expose_pages',
+			'rnrd_mcp_expose_authors',
+			'rnrd_mcp_expose_taxonomies',
+			'rnrd_mcp_expose_sitemap',
+			'rnrd_mcp_expose_menus',
+			'rnrd_mcp_expose_llms_txt',
+			'rnrd_mcp_expose_rr_ai',
+			'rnrd_mcp_expose_freshness',
 			'rnrd_ai_referral_enable',
 			// v1.2.0 — Open Knowledge Format bundle on by default for new installs (same
 			// consent moment as the other AI-readability endpoints). The '__rnrd_unset__'
@@ -262,11 +286,101 @@ class RNRD_Welcome {
 		}
 		flush_rewrite_rules( false );
 
+		// Tips opt-in — only fires when the user ticked the box. Explicit consent only.
+		self::maybe_subscribe_tips();
+
 		// Mark wizard completed so re-activation never relaunches it.
 		update_option( self::FLAG_OPTION, time() );
 
 		wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&step=2' ) );
 		exit;
+	}
+
+	/**
+	 * Subscribe the user to the RankReady AI-SEO-tips list — ONLY when they ticked
+	 * the onboarding opt-in box and supplied a valid email. Non-blocking so it never
+	 * delays the redirect; guarded by a flag so re-running the wizard never
+	 * re-subscribes. This is the single point where the plugin transmits data to an
+	 * external service, and only on explicit opt-in. See readme.txt "External services".
+	 */
+	private static function maybe_subscribe_tips(): void {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in maybe_handle_submit() before dispatch.
+		if ( empty( $_POST['rnrd_onboard_tips_optin'] ) ) {
+			return;
+		}
+		$email = sanitize_email( wp_unslash( $_POST['rnrd_onboard_email'] ?? '' ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+		self::subscribe_email( $email, 'RankReady Plugin Onboarding' );
+	}
+
+	/**
+	 * Has the site already subscribed to the tips list? Once true, EVERY opt-in
+	 * surface (onboarding + dashboard) hides itself — the user is never asked again.
+	 * Single source of truth for the "never ask twice" rule.
+	 */
+	public static function tips_optin_done(): bool {
+		return (bool) get_option( self::TIPS_FLAG_OPTION, false );
+	}
+
+	/**
+	 * Subscribe one email to the RankReady tips list via the HostMyBlog FluentCRM
+	 * incoming webhook. The single place the plugin transmits data to an external
+	 * service. Non-blocking (never delays the page); one-shot (sets a flag so the
+	 * opt-in box disappears everywhere and no email is ever re-POSTed). Returns
+	 * false on an invalid email or when already subscribed.
+	 *
+	 * @param string $email  The address to subscribe (sanitised here).
+	 * @param string $source Attribution stored on the FluentCRM contact.
+	 */
+	public static function subscribe_email( string $email, string $source = 'RankReady' ): bool {
+		$email = sanitize_email( $email );
+		if ( ! is_email( $email ) || self::tips_optin_done() ) {
+			return false;
+		}
+
+		// No CRM endpoint wired → feature is inert; send nothing, claim nothing.
+		$webhook = (string) apply_filters( 'rnrd_tips_webhook_url', self::TIPS_WEBHOOK_URL );
+		if ( '' === $webhook ) {
+			return false;
+		}
+
+		$user  = wp_get_current_user();
+		$fname = ( $user && ! empty( $user->first_name ) ) ? $user->first_name : '';
+
+		// Blocking, so we can tell whether the subscription actually happened.
+		// This previously ran with 'blocking' => false and then set the permanent
+		// one-shot flag regardless — a down webhook, DNS failure or firewalled
+		// egress meant the user was told they were subscribed, nothing was sent,
+		// and the flag guaranteed it was never retried. 5s on a deliberate opt-in
+		// click is an acceptable trade for not silently losing the signup.
+		$response = wp_remote_post(
+			$webhook,
+			array(
+				'timeout'     => 5,
+				'blocking'    => true,
+				'redirection' => 0,
+				'body'        => array(
+					'email'      => $email,
+					'first_name' => $fname,
+					'source'     => $source,
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			RNRD_Generator::log_error( 'TipsOptIn', 'Subscription request failed: ' . $response->get_error_message() );
+			return false;
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( $code < 200 || $code >= 300 ) {
+			RNRD_Generator::log_error( 'TipsOptIn', 'Subscription endpoint returned HTTP ' . $code . '.' );
+			return false;
+		}
+
+		// One-shot flag — set only on a CONFIRMED send, so a failure can be retried.
+		update_option( self::TIPS_FLAG_OPTION, time() );
+		return true;
 	}
 
 	// ── Render ─────────────────────────────────────────────────────────────────
@@ -351,7 +465,7 @@ class RNRD_Welcome {
 			<?php esc_html_e( 'Welcome to RankReady', 'rankready-ai-llm-seo' ); ?>
 		</h1>
 		<p class="rnrd-onboard__lede">
-			<?php esc_html_e( 'Get cited by ChatGPT, Claude, Perplexity, and Google AI in about 2 minutes. Start with brand identity — these four fields feed every AI surface RankReady controls. The panel on the right shows exactly where each one is used.', 'rankready-ai-llm-seo' ); ?>
+			<?php esc_html_e( 'Make your site readable by ChatGPT, Claude, Perplexity, and Google AI in about 2 minutes. Start with brand identity — these four fields feed every AI surface RankReady controls. The panel on the right shows exactly where each one is used.', 'rankready-ai-llm-seo' ); ?>
 		</p>
 
 		<div class="rnrd-onboard__split">
@@ -427,6 +541,37 @@ class RNRD_Welcome {
 						placeholder="<?php esc_attr_e( "Acme Studio\nAcme\nAcmeStudio (one word)", 'rankready-ai-llm-seo' ); ?>"
 					><?php echo esc_textarea( $cur_terms ); ?></textarea>
 				</div>
+
+				<?php
+				$rnrd_user       = wp_get_current_user();
+				$rnrd_prefill_em = ( $rnrd_user && ! empty( $rnrd_user->user_email ) )
+					? $rnrd_user->user_email
+					: get_bloginfo( 'admin_email' );
+				$rnrd_tips_done  = (bool) get_option( self::TIPS_FLAG_OPTION, false );
+				?>
+				<?php if ( ! $rnrd_tips_done ) : ?>
+				<div class="rnrd-onboard__field rnrd-onboard__optin-field">
+					<label class="rnrd-onboard__optin">
+						<input type="checkbox" name="rnrd_onboard_tips_optin" value="1" class="rnrd-onboard__optin-check" />
+						<span class="rnrd-onboard__optin-copy">
+							<?php esc_html_e( 'Email me free AI SEO tips and RankReady updates', 'rankready-ai-llm-seo' ); ?>
+						</span>
+					</label>
+					<input
+						type="email"
+						name="rnrd_onboard_email"
+						value="<?php echo esc_attr( $rnrd_prefill_em ); ?>"
+						class="rnrd-onboard__input rnrd-onboard__optin-email"
+						placeholder="<?php esc_attr_e( 'you@example.com', 'rankready-ai-llm-seo' ); ?>"
+						autocomplete="off"
+						data-1p-ignore="true"
+						data-lpignore="true"
+					/>
+					<p class="rnrd-onboard__hint rnrd-onboard__optin-hint">
+						<?php esc_html_e( 'Practical AI SEO tips and tricks, plus RankReady product updates — straight to your inbox. No spam, unsubscribe anytime.', 'rankready-ai-llm-seo' ); ?>
+					</p>
+				</div>
+				<?php endif; ?>
 
 				<div class="rnrd-onboard__actions">
 					<button type="submit" class="rnrd-onboard__btn rnrd-onboard__btn--primary">
@@ -1136,6 +1281,87 @@ class RNRD_Welcome {
 			align-items: center;
 			justify-content: center;
 			margin: 0 0 24px;
+		}
+
+		/* ── Tips opt-in — mint-tinted, on-brand friendly card ─────────── */
+		.rnrd-onboard__optin-field {
+			margin-top: 4px;
+			padding: 18px 20px;
+			border: 1px solid var(--rnrd-mint-200, #B8F2DC);
+			border-radius: 12px;
+			background: var(--rnrd-mint-50, #ECFDF6);
+		}
+		.rnrd-onboard__optin {
+			display: flex;
+			align-items: flex-start;   /* top-align so multi-line labels don't float the box */
+			gap: 12px;
+			cursor: pointer;
+			font-weight: 600;
+			font-size: 14px;
+			line-height: 1.45;
+			color: var(--rnrd-text-primary, #0F1411);
+			-webkit-user-select: none;
+			        user-select: none;
+		}
+		/* Custom mint checkbox — hard-set every property WP admin's checkbox
+		 * stylesheet could leak into (appearance, border, background-image,
+		 * box-shadow, size), same defence as the step-2 tick. */
+		.rnrd-onboard__optin-check {
+			-webkit-appearance: none !important;
+			        appearance: none !important;
+			width: 20px !important;
+			height: 20px !important;
+			min-width: 20px;
+			max-width: 20px;
+			flex-shrink: 0;
+			margin: 1px 0 0 !important;   /* optical-center against the first label line */
+			padding: 0 !important;
+			border: 1.5px solid var(--rnrd-border-strong, #B0B3AB) !important;
+			border-radius: 6px !important;
+			background: var(--rnrd-bg-surface, #fff) !important;
+			background-image: none !important;
+			box-shadow: none !important;
+			cursor: pointer;
+			position: relative;
+			transition: border-color 0.15s ease, background 0.15s ease;
+		}
+		.rnrd-onboard__optin-check:hover {
+			border-color: var(--rnrd-mint-500, #59F7C2) !important;
+		}
+		.rnrd-onboard__optin-check:checked {
+			background: var(--rnrd-mint-500, #59F7C2) !important;
+			border-color: var(--rnrd-mint-500, #59F7C2) !important;
+		}
+		.rnrd-onboard__optin-check:checked::after {
+			content: "";
+			position: absolute;
+			left: 6px;
+			top: 2px;
+			width: 5px;
+			height: 10px;
+			border: solid var(--rnrd-text-on-mint, #0A3D2B);
+			border-width: 0 2px 2px 0;
+			transform: rotate(45deg);
+		}
+		/* Kill WP admin's native blue dashicon check (forms.css :checked::before)
+		 * so ONLY our custom ::after check renders — prevents the "double checkbox". */
+		.rnrd-onboard__optin-check::before {
+			content: none !important;
+			display: none !important;
+			background: none !important;
+		}
+		.rnrd-onboard__optin-check:focus,
+		.rnrd-onboard__optin-check:focus-visible {
+			outline: none !important;
+			box-shadow: 0 0 0 3px rgba(89, 247, 194, 0.30) !important;
+		}
+		.rnrd-onboard__optin-email {
+			margin-top: 14px;
+			background: var(--rnrd-bg-surface, #fff);
+		}
+		.rnrd-onboard__optin-hint {
+			margin-top: 10px !important;
+			margin-bottom: 0 !important;
 		}
 		</style>
 		<?php

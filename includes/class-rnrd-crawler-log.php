@@ -197,7 +197,26 @@ class RNRD_Crawler_Log {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
-		update_option( self::DB_VERSION_KEY, self::DB_VERSION );
+
+		// Only record the schema version if the table actually exists. Bumping it
+		// unconditionally meant a failed CREATE (no CREATE privilege on locked-down
+		// managed MySQL, disk full, quota) was permanent: init() only calls this
+		// when stored < DB_VERSION, so it never retried, every insert silently
+		// errored, and AI Crawler Insights showed "0 visits" forever — which reads
+		// as "no bots have visited yet" rather than "logging is broken".
+		$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table; // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $exists ) {
+			update_option( self::DB_VERSION_KEY, self::DB_VERSION );
+			return;
+		}
+
+		if ( class_exists( 'RNRD_Generator' ) ) {
+			RNRD_Generator::log_error(
+				'CrawlerLog',
+				'Could not create the crawler-log table (' . $table . '). AI crawler visits are not being recorded. '
+					. ( $wpdb->last_error ? 'MySQL: ' . $wpdb->last_error : 'No MySQL error reported — check DB user CREATE privilege and disk space.' )
+			);
+		}
 	}
 
 	/**
@@ -249,6 +268,12 @@ class RNRD_Crawler_Log {
 	 * @param string        $endpoint  'llms_txt' | 'llms_full' | 'markdown' | 'home_md'
 	 * @param WP_Post|null  $post      Resolved post object (null for llms.txt / homepage).
 	 */
+	// Bot logging fires on template_redirect when RankReady serves one of its AI
+	// endpoints (llms.txt / *.md / mcp.json). Those endpoints are excluded from every
+	// supported page cache (WP Rocket / W3TC / WP Super Cache / LiteSpeed reject-URI +
+	// DONOTCACHEPAGE), so they always reach PHP and ARE logged even when a full-page
+	// cache is active — verified against WP Super Cache. Regular (cached) pages are not
+	// logged by design; only the always-uncached AI endpoints are the bot-visit signal.
 	public static function log( string $endpoint, ?WP_Post $post = null ): void {
 		$bot = self::detect_bot();
 		if ( '' === $bot ) {
@@ -265,7 +290,8 @@ class RNRD_Crawler_Log {
 		// identical hits (same IP + bot + path) to one row per 5 minutes — this kills the
 		// flood vector while still logging genuine crawls of distinct pages.
 		$rnrd_cl_ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-		$rnrd_cl_key = 'rnrd_cl_' . md5( $rnrd_cl_ip . '|' . $bot . '|' . $uri );
+		$rnrd_cl_path = explode( '?', $uri, 2 )[0]; // TC-SEC-03: throttle on PATH only — a spoofed bot cannot bypass the 5-min collapse by varying the query string.
+		$rnrd_cl_key  = 'rnrd_cl_' . md5( $rnrd_cl_ip . '|' . $bot . '|' . $rnrd_cl_path );
 		if ( get_transient( $rnrd_cl_key ) ) {
 			return;
 		}

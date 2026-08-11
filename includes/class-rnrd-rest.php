@@ -577,28 +577,11 @@ class RNRD_Rest {
 		// Process 1 post at a time (both summary + FAQ are heavy).
 		$post_id = (int) array_shift( $queue );
 		$log     = array();
-		$has_dfs = ! empty( get_option( RNRD_OPT_DFS_LOGIN ) ) && ! empty( get_option( RNRD_OPT_DFS_PASSWORD ) );
 
 		if ( $post_id > 0 ) {
-			// Clear all existing data.
-			delete_post_meta( $post_id, RNRD_META_SUMMARY );
-			delete_post_meta( $post_id, RNRD_META_HASH );
-			delete_post_meta( $post_id, RNRD_META_GENERATED );
-			delete_post_meta( $post_id, RNRD_META_FAQ );
-			delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
-			delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
-			delete_post_meta( $post_id, RNRD_META_FAQ_KEYWORD );
-
-			// Regenerate summary.
-			$summary_result = RNRD_Generator::force_generate( $post_id );
-			$summary_status = ( false !== $summary_result ) ? 'generated' : 'failed';
-
-			// Regenerate FAQ.
-			$faq_status = 'skipped';
-			if ( $has_dfs ) {
-				$faq = RNRD_Faq::generate_faq( $post_id );
-				$faq_status = ( is_array( $faq ) && ! is_wp_error( $faq ) ) ? 'generated' : 'failed';
-			}
+			$status         = self::regenerate_with_rollback( $post_id );
+			$summary_status = $status['summary'];
+			$faq_status     = $status['faq'];
 
 			$done++;
 
@@ -627,6 +610,93 @@ class RNRD_Rest {
 			'running' => ! empty( $queue ),
 			'log'     => $log,
 		), 200 );
+	}
+
+	/**
+	 * Regenerate one post's summary + FAQ, rolling back on failure.
+	 *
+	 * Start Over used to delete all seven `_rnrd_*` meta keys and then call the
+	 * generators without inspecting either return value. A provider outage,
+	 * exhausted quota or rate-limit mid-run therefore destroyed the user's
+	 * existing summary and FAQ permanently while the UI still reported success.
+	 * We now snapshot before deleting and restore whatever failed to regenerate,
+	 * so a failed run is a no-op for that post rather than data loss.
+	 *
+	 * FAQ generation is NOT gated on DataForSEO credentials. DataForSEO only
+	 * supplies optional keyword hints for the prompt (see RNRD_Faq::generate_faq,
+	 * which gates that fetch on a non-empty keyword); the generator runs fine
+	 * without it, so gating the whole feature withheld a working free feature
+	 * from every user without a paid DataForSEO account.
+	 *
+	 * @param int $post_id Post to regenerate.
+	 * @return array{summary:string,faq:string} Per-item status: generated|failed|restored.
+	 */
+	private static function regenerate_with_rollback( int $post_id ): array {
+		$meta_keys = array(
+			RNRD_META_SUMMARY,
+			RNRD_META_HASH,
+			RNRD_META_GENERATED,
+			RNRD_META_FAQ,
+			RNRD_META_FAQ_HASH,
+			RNRD_META_FAQ_GENERATED,
+			RNRD_META_FAQ_KEYWORD,
+		);
+
+		// Snapshot before destroying anything.
+		$snapshot = array();
+		foreach ( $meta_keys as $key ) {
+			$snapshot[ $key ] = get_post_meta( $post_id, $key, true );
+		}
+
+		foreach ( $meta_keys as $key ) {
+			delete_post_meta( $post_id, $key );
+		}
+
+		$restore = function ( array $keys ) use ( $post_id, $snapshot ) {
+			foreach ( $keys as $key ) {
+				if ( '' !== $snapshot[ $key ] && null !== $snapshot[ $key ] ) {
+					update_post_meta( $post_id, $key, $snapshot[ $key ] );
+				}
+			}
+		};
+
+		// ── Summary ───────────────────────────────────────────────────────────
+		$summary_result = RNRD_Generator::force_generate( $post_id );
+		$summary_ok     = ( false !== $summary_result && ! is_wp_error( $summary_result ) );
+
+		if ( ! $summary_ok ) {
+			$had_summary = ( '' !== $snapshot[ RNRD_META_SUMMARY ] );
+			$restore( array( RNRD_META_SUMMARY, RNRD_META_HASH, RNRD_META_GENERATED ) );
+			RNRD_Generator::log_error(
+				'StartOver',
+				'Summary regeneration failed' . ( $had_summary ? ' — previous summary restored.' : '.' )
+					. ( is_wp_error( $summary_result ) ? ' ' . $summary_result->get_error_message() : '' ),
+				$post_id
+			);
+			$summary_status = $had_summary ? 'restored' : 'failed';
+		} else {
+			$summary_status = 'generated';
+		}
+
+		// ── FAQ ───────────────────────────────────────────────────────────────
+		$faq    = RNRD_Faq::generate_faq( $post_id );
+		$faq_ok = ( is_array( $faq ) && ! is_wp_error( $faq ) );
+
+		if ( ! $faq_ok ) {
+			$had_faq = ( '' !== $snapshot[ RNRD_META_FAQ ] );
+			$restore( array( RNRD_META_FAQ, RNRD_META_FAQ_HASH, RNRD_META_FAQ_GENERATED, RNRD_META_FAQ_KEYWORD ) );
+			RNRD_Generator::log_error(
+				'StartOver',
+				'FAQ regeneration failed' . ( $had_faq ? ' — previous FAQ restored.' : '.' )
+					. ( is_wp_error( $faq ) ? ' ' . $faq->get_error_message() : '' ),
+				$post_id
+			);
+			$faq_status = $had_faq ? 'restored' : 'failed';
+		} else {
+			$faq_status = 'generated';
+		}
+
+		return array( 'summary' => $summary_status, 'faq' => $faq_status );
 	}
 
 	public static function startover_bulk_stop() {
@@ -883,9 +953,23 @@ class RNRD_Rest {
 			'openai'    => array(
 				'option'  => RNRD_OPT_KEY,
 				'verify'  => function ( $key ) {
-					return wp_remote_get( 'https://api.openai.com/v1/models', array(
-						'headers' => array( 'Authorization' => 'Bearer ' . $key ),
+					// TC-KEY-04: probe the REAL generation path (chat/completions with the same
+					// 'max_completion_tokens' parameter generation uses) so Verify fails loudly when
+					// generation would fail. A /v1/models auth ping passes even when the model
+					// rejects the request body — that was the false positive QA caught.
+					$model = ( class_exists( 'RNRD_LLM' ) && method_exists( 'RNRD_LLM', 'get_model' ) )
+						? RNRD_LLM::get_model( 'openai' ) : 'gpt-5.4-mini';
+					return wp_remote_post( 'https://api.openai.com/v1/chat/completions', array(
 						'timeout' => 15,
+						'headers' => array(
+							'Authorization' => 'Bearer ' . $key,
+							'Content-Type'  => 'application/json',
+						),
+						'body' => wp_json_encode( array(
+							'model'                 => $model,
+							'max_completion_tokens' => 1,
+							'messages'              => array( array( 'role' => 'user', 'content' => 'hi' ) ),
+						) ),
 					) );
 				},
 			),
@@ -1027,7 +1111,10 @@ class RNRD_Rest {
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
 
-		if ( 200 === $code && isset( $body['tasks'][0]['result'][0]['money'] ) ) {
+		// Guard the leaf key, not just `money` — a shape change would otherwise warn
+		// (or throw on a string offset) inside the REST callback, on the same branch
+		// that persists the credentials.
+		if ( 200 === $code && isset( $body['tasks'][0]['result'][0]['money']['balance'] ) ) {
 			$balance = $body['tasks'][0]['result'][0]['money']['balance'];
 
 			// Auto-save verified credentials to DB.
@@ -1130,6 +1217,21 @@ class RNRD_Rest {
 					'answer'   => wp_kses_post( $item['answer'] ),
 				);
 			}
+		}
+
+		if ( empty( $clean ) ) {
+			// Clearing every row must REMOVE the meta, not store "[]".
+			// wp_json_encode( array() ) is the two-character string "[]", which is
+			// not empty() — so every presence check (posts-list column, meta-box
+			// banner, block enqueue, Insights) would keep reporting "FAQ exists"
+			// for a post with no FAQ. Worse, RNRD_Faq::generate_faq() short-circuits
+			// on `hash matches && ! empty( meta )`, so leaving "[]" plus a stale hash
+			// made "Generate FAQ" silently return nothing until the content changed.
+			delete_post_meta( $post_id, RNRD_META_FAQ );
+			delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
+			delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
+
+			return new WP_REST_Response( array( 'success' => true, 'count' => 0 ), 200 );
 		}
 
 		// JSON_UNESCAPED_UNICODE preserves non-Latin characters as UTF-8 in
@@ -1416,30 +1518,16 @@ class RNRD_Rest {
 			return;
 		}
 
-		$done    = (int) get_option( RNRD_SO_DONE, 0 );
-		$has_dfs = ! empty( get_option( RNRD_OPT_DFS_LOGIN ) ) && ! empty( get_option( RNRD_OPT_DFS_PASSWORD ) );
+		$done = (int) get_option( RNRD_SO_DONE, 0 );
 
 		// Process 1 post per cron tick (summary + FAQ are heavy API calls).
 		$post_id = (int) array_shift( $queue );
 
 		if ( $post_id > 0 ) {
-			// Clear existing data.
-			delete_post_meta( $post_id, RNRD_META_SUMMARY );
-			delete_post_meta( $post_id, RNRD_META_HASH );
-			delete_post_meta( $post_id, RNRD_META_GENERATED );
-			delete_post_meta( $post_id, RNRD_META_FAQ );
-			delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
-			delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
-			delete_post_meta( $post_id, RNRD_META_FAQ_KEYWORD );
-
-			// Regenerate summary.
-			RNRD_Generator::force_generate( $post_id );
-
-			// Regenerate FAQ.
-			if ( $has_dfs ) {
-				RNRD_Faq::generate_faq( $post_id );
-			}
-
+			// Same rollback-protected path the REST tick uses. This runs after the
+			// user has closed the browser, so a silent failure here is the worst
+			// case: nobody is watching. Failures are logged and data is restored.
+			self::regenerate_with_rollback( $post_id );
 			$done++;
 		}
 

@@ -203,7 +203,8 @@ class RNRD_Generator {
 
 		$content = mb_substr( $content, 0, 12000 );
 
-		$system_prompt  = "You extract key takeaways from blog posts. You produce factual, entity-rich bullet points.\n\n";
+		$system_prompt  = RNRD_LLM::language_directive( is_object( $post ) ? $post->ID : (int) $post );
+		$system_prompt .= "You extract key takeaways from blog posts. You produce factual, entity-rich bullet points.\n\n";
 		$system_prompt .= "ABSOLUTE RULES:\n";
 		$system_prompt .= "- You may ONLY state facts that appear word-for-word or are directly implied by the blog post text below.\n";
 		$system_prompt .= "- NEVER add features, tools, integrations, platforms, pricing, or claims the post does not mention.\n";

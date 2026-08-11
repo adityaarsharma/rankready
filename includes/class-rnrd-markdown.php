@@ -45,7 +45,10 @@ class RNRD_Markdown {
 		add_action( 'template_redirect', array( self::class, 'handle_accept_header' ), 2 );
 
 		// Emit Vary: Accept on all HTML pages so caches store markdown and HTML separately.
-		add_action( 'send_headers', array( self::class, 'add_vary_header' ) );
+		// v1.2.1 — PHP_INT_MAX so we merge Vary LAST. add_vary_header() collapses
+		// every Vary line already sent into one field line; running at the default
+		// priority let a later plugin append a second line and re-split it.
+		add_action( 'send_headers', array( self::class, 'add_vary_header' ), PHP_INT_MAX );
 
 		// Add Link header on HTML pages pointing to .md version.
 		add_action( 'wp_head',           array( self::class, 'add_md_link_tag' ) );
@@ -92,6 +95,20 @@ class RNRD_Markdown {
 	 * The notice is only shown on RankReady's own admin pages so it doesn't
 	 * pollute every wp-admin screen.
 	 */
+	/**
+	 * Is Cloudflare APO active? APO caches HTML at the edge and ignores both
+	 * Vary: Accept and origin Cache-Control, so same-URL Accept negotiation is
+	 * unsafe there. Cheap to call per-request — RNRD_Cache::detect_active() is
+	 * all defined()/class_exists() checks, no HTTP or DB.
+	 */
+	private static function is_apo_active(): bool {
+		if ( ! class_exists( 'RNRD_Cache' ) || ! method_exists( 'RNRD_Cache', 'detect_active' ) ) {
+			return false;
+		}
+		$active = RNRD_Cache::detect_active();
+		return isset( $active['cloudflare-apo'] );
+	}
+
 	public static function maybe_cloudflare_apo_notice(): void {
 		// Only on RankReady screens — never spam other plugin pages.
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
@@ -104,11 +121,10 @@ class RNRD_Markdown {
 			return;
 		}
 
-		// v1.1.2 — This notice only matters when same-URL Accept negotiation is
-		// enabled. With it off (the default), markdown is served only at distinct
-		// `.md` URLs, which work through Cloudflare APO automatically (separate
-		// cache key per URL). No Cache Rule needed, so don't nag the user.
-		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' ) ) {
+		// v1.2 — Same-URL Accept negotiation is ON by default. On APO we auto-
+		// fall back to the distinct `.md` URLs (safe), and this notice tells the
+		// user how to add a Cache Rule if they want canonical-URL negotiation.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' ) ) {
 			return;
 		}
 
@@ -352,8 +368,32 @@ class RNRD_Markdown {
 
 	// ── Handle .md URL request ───────────────────────────────────────────────
 
+	/** Normalised current request path (no query string / surrounding slashes, subdirectory-aware). */
+	private static function request_path(): string {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		$req = trim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
+		$home = trim( (string) wp_parse_url( home_url(), PHP_URL_PATH ), '/' );
+		if ( '' !== $home ) {
+			if ( 0 === strpos( $req, $home . '/' ) ) {
+				$req = trim( substr( $req, strlen( $home ) ), '/' );
+			} elseif ( $req === $home ) {
+				$req = '';
+			}
+		}
+		return $req;
+	}
+
 	public static function handle_request(): void {
 		$md_path = get_query_var( 'rnrd_md_path', '' );
+
+		// Fallback: if WP didn't surface the query var (SEO-plugin early router,
+		// rewrite ordering, or a query_vars strip), match the raw ".md" request path.
+		if ( '' === (string) $md_path && 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			$rnrd_path = self::request_path();
+			if ( preg_match( '#^(?!wp-admin|wp-content|wp-includes|wp-json)(.+)\\.md$#', $rnrd_path, $rnrd_m ) ) {
+				$md_path = $rnrd_m[1];
+			}
+		}
 
 		if ( empty( $md_path ) ) {
 			return;
@@ -436,7 +476,7 @@ class RNRD_Markdown {
 		// (only `rnrd_md_path` query var is set), so is_home() returns true
 		// and we'd incorrectly serve the homepage index instead of the page.
 		// handle_request() at priority 10 serves the correct page markdown.
-		// Reported in issue #1 by @rohitposimyth-seo.
+		// Reported by a user in early testing.
 		if ( '' !== (string) get_query_var( 'rnrd_md_path', '' ) ) {
 			return;
 		}
@@ -445,17 +485,22 @@ class RNRD_Markdown {
 			return;
 		}
 
-		// v1.1.2 — Same-URL Accept negotiation is OFF by default and must stay so
-		// on any cache that ignores `Vary: Accept` (Cloudflare APO, Varnish,
-		// Fastly, most shared hosts). Serving markdown on the canonical URL there
-		// poisons the edge cache: the markdown body gets stored under `/` and
-		// served to every later browser request, blanking the page. Cloudflare
-		// ignores Vary AND APO ignores origin Cache-Control at the edge, so no
-		// response header can make this safe. Markdown stays available at the
-		// distinct `.md` URLs (handle_request at priority 1) — a separate cache
-		// key that cannot be poisoned — and is advertised via the Link header +
-		// llms.txt. This is the llms.txt-spec / Vercel / Mintlify pattern.
-		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' ) ) {
+		// v1.2 — Same-URL Accept negotiation is ON by default. This is what the
+		// ecosystem and validators (acceptmarkdown.com, Lighthouse Agentic
+		// Browsing) expect, and what Joost de Valk / Roots ship in production
+		// (Vary: Accept + a revalidating Cache-Control). Users can turn it off.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' ) ) {
+			return;
+		}
+
+		// …EXCEPT on Cloudflare APO, which caches HTML at the edge and ignores
+		// both Vary: Accept and origin Cache-Control. Serving markdown on the
+		// canonical URL there would poison the page cache and blank it for real
+		// browsers. On APO we auto-fall-back to the distinct `.md` URLs (a
+		// separate, poison-proof cache key) and the admin notice tells the user
+		// how to enable negotiation via an APO Cache Rule. APO users who HAVE
+		// added that Cache Rule can force negotiation back on with the filter.
+		if ( self::is_apo_active() && ! apply_filters( 'rankready_force_accept_negotiation', false ) ) {
 			return;
 		}
 
@@ -622,7 +667,7 @@ class RNRD_Markdown {
 			) );
 
 			if ( ! empty( $posts ) ) {
-				$lines[] = '## Recent Posts';
+				$lines[] = '## ' . __( 'Recent Posts', 'rankready-ai-llm-seo' );
 				$lines[] = '';
 				foreach ( $posts as $post ) {
 					$title   = html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' );
@@ -660,18 +705,50 @@ class RNRD_Markdown {
 			return;
 		}
 
-		// v1.1.2 — Only relevant when same-URL Accept negotiation is enabled.
-		// With it OFF (the default), the canonical URL returns identical HTML
-		// for every Accept value, so emitting `Vary: Accept` would be incorrect
-		// (it fragments caches that DO honour Vary for no benefit) and the
-		// markdown no-cache branch below must not fire. Markdown discovery still
-		// works via the Link header + llms.txt pointing at the distinct `.md`
-		// URLs, which are cache-safe by construction.
-		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' ) ) {
+		// v1.2 — Only relevant when same-URL Accept negotiation is enabled
+		// (ON by default). On Cloudflare APO we don't negotiate on the canonical
+		// URL (see handle_accept_header), so we skip Vary: Accept there too —
+		// markdown is served from the distinct `.md` URLs instead.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' ) ) {
+			return;
+		}
+		if ( self::is_apo_active() && ! apply_filters( 'rankready_force_accept_negotiation', false ) ) {
 			return;
 		}
 
-		header( 'Vary: Accept', false );
+		// v1.2.1 — Emit ONE merged Vary field line instead of appending a second.
+		//
+		// `header( 'Vary: Accept', false )` used to append, so a response that
+		// already carried `Vary: Accept-Encoding` went out as two separate field
+		// lines. RFC 9110 §5.3 says repeated field lines are equivalent to one
+		// comma-joined line, so that was legal — but plenty of intermediaries and
+		// validators read only the FIRST line. dualmark.dev's md.vary check
+		// reported "got Accept-Encoding" on a production site for exactly this
+		// reason. serve_markdown() already emits a single combined line; this
+		// makes the HTML response consistent with it.
+		$rnrd_vary = array();
+		foreach ( headers_list() as $rnrd_sent ) {
+			if ( 0 !== stripos( $rnrd_sent, 'Vary:' ) ) {
+				continue;
+			}
+			foreach ( explode( ',', substr( $rnrd_sent, 5 ) ) as $rnrd_token ) {
+				$rnrd_token = trim( $rnrd_token );
+				if ( '' === $rnrd_token ) {
+					continue;
+				}
+				// `Vary: *` means "uncacheable, never reuse" — adding tokens to it
+				// would be meaningless and could confuse caches. Leave it alone.
+				if ( '*' === $rnrd_token ) {
+					return;
+				}
+				$rnrd_vary[ strtolower( $rnrd_token ) ] = $rnrd_token;
+			}
+		}
+		$rnrd_vary['accept'] = 'Accept';
+
+		// replace=true (the default) collapses every Vary line already sent into
+		// this single one, preserving the original token order.
+		header( 'Vary: ' . implode( ', ', $rnrd_vary ) );
 
 		// NOTE — Why we DON'T try to defeat Cloudflare APO's cache key from PHP.
 		//
@@ -769,10 +846,9 @@ class RNRD_Markdown {
 	 * it never reaches a screen reader or affects layout, but raw-HTML
 	 * scrapers (which most AI agents are) see the text and the URL.
 	 *
-	 * Per the Evil Martians technique (April 2026) that got their docs site
-	 * cited by Claude — combined with content negotiation, this gives AI
-	 * scrapers a no-ambiguity "the canonical machine-readable copy is here"
-	 * signal.
+	 * Per the Evil Martians technique (April 2026) — combined with content
+	 * negotiation, this gives AI scrapers a no-ambiguity "the canonical
+	 * machine-readable copy is here" signal.
 	 */
 	public static function add_ai_hint_div(): void {
 		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
@@ -801,7 +877,11 @@ class RNRD_Markdown {
 		// HTML scrapers still see it — display:none can be ignored by some
 		// rendering-aware crawlers as "hidden = irrelevant".
 		echo '<div aria-hidden="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;">';
-		echo 'AI agents: a clean Markdown version of this page is available at <a href="' . esc_url( $md_url ) . '">' . esc_html( $md_url ) . '</a>. Send Accept: text/markdown to any URL for the same content.';
+		// `tabindex="-1"` keeps the link out of the keyboard tab order. Without it,
+		// an `aria-hidden` container holding a focusable <a> trips axe-core's
+		// `aria-hidden-focus` rule (WCAG 4.1.2) — a keyboard/agent user can land on
+		// an invisible link. Scrapers still read the href + text regardless.
+		echo 'AI agents: a clean Markdown version of this page is available at <a href="' . esc_url( $md_url ) . '" tabindex="-1">' . esc_html( $md_url ) . '</a>. Send Accept: text/markdown to any URL for the same content.';
 		echo '</div>' . "\n";
 	}
 
@@ -1073,10 +1153,25 @@ class RNRD_Markdown {
 			$rnrd_md_ttl = (int) apply_filters( 'rankready_md_cache_max_age', HOUR_IN_SECONDS );
 			if ( $rnrd_md_ttl > 0 ) {
 				header( 'Cache-Control: public, max-age=' . $rnrd_md_ttl . ', s-maxage=' . $rnrd_md_ttl );
+				// v1.2.0 — Keep the .md CDN/browser-cacheable (above), but tell PHP-level
+				// page-cache PLUGINS (WP Rocket, LiteSpeed, W3TC, WP Super Cache…) to
+				// bypass it. They serve a stored copy BEFORE this handler runs, which
+				// drops the `X-Robots-Tag: noindex` + canonical Link set below — that is
+				// how `.md` pages leak into Google's index as duplicate content. This
+				// only defines DONOTCACHEPAGE/LSCWP_NO_CACHE (+ LSWS bypass headers); the
+				// public Cache-Control stays, so CDNs (which preserve headers) still cache.
+				if ( class_exists( 'RNRD_Cache' ) ) {
+					RNRD_Cache::bypass_page_cache_plugins_only();
+				}
 			} else {
 				RNRD_Cache::no_cache_headers();
 			}
 		}
+
+		// Assert 200 explicitly — see the note in RNRD_Llms_Txt::serve_llms_txt().
+		// template_redirect runs after the main query, so an intercepted rewrite
+		// leaves WP's 404 status attached to an otherwise correct response.
+		status_header( 200 );
 
 		// Security / typing
 		header( 'X-Content-Type-Options: nosniff' );
@@ -1088,6 +1183,24 @@ class RNRD_Markdown {
 		// Cloudflare APO won't honour it, but well-behaved caches (Varnish, Fastly,
 		// Akamai, browser caches) will — combined with no-store above this still
 		// gives the strongest possible defence against cache poisoning.
+		// Distinct `.md` URLs: the URL itself selects markdown, so Accept has no
+		// influence on the response — verified live, `/index.md` returns
+		// text/markdown for `text/markdown`, `*/*`, `text/html`, `image/png` and
+		// `application/json` alike. Declaring `Vary: Accept` here would therefore
+		// be FALSE: it advertises a variance that does not exist and splits the
+		// cache entry per Accept string for zero benefit.
+		//
+		// AEO Spec v1.0 §4 asks for `Vary: Accept` on every markdown response,
+		// and dualmark's `md.vary` check fails us for this. We decline on
+		// purpose. The spec's own §8 rationale for the rule is "caches that key
+		// on URL alone MAY serve the wrong representation" — a risk that exists
+		// only on the SHARED canonical URL, where we do set it (below). On a
+		// distinct URL there is no wrong representation to serve. Correct cache
+		// behaviour on real user sites outranks a conformance point.
+		//
+		// Shared canonical URL is the opposite case: there the representation
+		// genuinely depends on Accept, so Vary: Accept is required for
+		// correctness, not decoration.
 		if ( $shared_url ) {
 			header( 'Vary: Accept-Encoding, Accept' );
 		} else {
@@ -1108,7 +1221,25 @@ class RNRD_Markdown {
 		// Diagnostic / observability (Title-Case standardised, drops the stray
 		// lowercase x-markdown-source from pre-v1.0.1).
 		header( 'X-RankReady-Source: markdown-accept' );
-		header( 'X-AEO-Version: 1.0' );
+		// v1.2.1 — `X-AEO-Version: 1.0` removed.
+		//
+		// It advertised conformance to the AEO Spec (dualmark.dev), which is a
+		// vendor-authored proposed convention — its own overview states it "has
+		// not been reviewed or adopted by the IETF, W3C, WHATWG, or any other
+		// recognized standards body". Nothing read the header: not RankReady, not
+		// any agent we could find, only that vendor's own scanner.
+		//
+		// It was also becoming a false claim. We deliberately do NOT implement
+		// that spec's `Vary: Accept`-on-every-markdown-response rule, because on
+		// a distinct `.md` URL the response does not vary by Accept (verified) and
+		// declaring otherwise splits the cache for nothing. Advertising a spec
+		// version while knowingly diverging from it is the kind of unprovable
+		// claim we strip from copy — it does not belong in headers either.
+		//
+		// Everything else on this response stays because it is standards-based
+		// and load-bearing: Vary (RFC 9110), Link rel=canonical (RFC 8288),
+		// X-Robots-Tag noindex (de-facto since 2007, stops `.md` duplicates
+		// indexing), CORS (W3C), nosniff.
 		header( 'X-Markdown-Tokens: ' . max( 1, (int) ceil( mb_strlen( $markdown, 'UTF-8' ) / 4 ) ) );
 
 		echo $markdown; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -1235,6 +1366,7 @@ class RNRD_Markdown {
 			$lines[] = 'url: ' . get_permalink( $post );
 			$lines[] = 'date: ' . get_post_time( 'Y-m-d', false, $post );
 			$lines[] = 'modified: ' . get_post_modified_time( 'Y-m-d', false, $post );
+			$lines[] = 'lang: ' . RNRD_LLM::detect_content_language( (int) $post->ID )['code'];
 			$lines[] = 'author: "' . self::yaml_escape( get_the_author_meta( 'display_name', $post->post_author ) ) . '"';
 
 			// Excerpt.
@@ -1287,7 +1419,7 @@ class RNRD_Markdown {
 		if ( ! empty( $summary_raw ) ) {
 			$summary = RNRD_Generator::decode_summary( $summary_raw );
 			if ( 'bullets' === $summary['type'] && ! empty( $summary['data'] ) ) {
-				$lines[] = '## Key Takeaways';
+				$lines[] = '## ' . get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
 				$lines[] = '';
 				foreach ( $summary['data'] as $bullet ) {
 					$lines[] = '- ' . self::clean_text( $bullet );

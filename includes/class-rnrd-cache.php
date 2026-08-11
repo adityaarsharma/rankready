@@ -69,7 +69,7 @@ class RNRD_Cache {
 	 * @since 1.2.1 (FREE-99)
 	 */
 	public static function init(): void {
-		// v1.1.3 — SWIS Performance exclusion notice. SWIS's static-file page
+		// v1.2.0 — SWIS Performance exclusion notice. SWIS's static-file page
 		// cache has no programmatic bypass — the only fix is the
 		// SWIS_CACHE_EXCLUSIONS wp-config constant, which a plugin cannot set.
 		// Surface a dismissible admin notice with the exact define() snippet,
@@ -667,7 +667,7 @@ class RNRD_Cache {
 		if ( defined( 'CLOUDFLARE_APO' ) || apply_filters( 'rankready_cloudflare_apo_active', false ) ) $active['cloudflare-apo'] = 'Cloudflare APO';
 		if ( class_exists( '\\Kinsta\\Cache' ) )                                           $active['kinsta']         = 'Kinsta Edge';
 		if ( class_exists( '\\WpeCommon' ) )                                               $active['wp-engine']      = 'WP Engine Edge';
-		// v1.1.3 — SWIS Performance (Exactly WWW). Premium, closed-source; the
+		// v1.2.0 — SWIS Performance (Exactly WWW). Premium, closed-source; the
 		// `swis()` global + `\SWIS\Cache` class are the canonical detection used
 		// by its sibling plugin EWWW (ewww-image-optimizer/common.php:441). SWIS's
 		// page cache is a server-level static-file cache with NO per-request
@@ -679,7 +679,7 @@ class RNRD_Cache {
 	}
 
 	/**
-	 * v1.1.3 — Dismissible admin notice for SWIS Performance.
+	 * v1.2.0 — Dismissible admin notice for SWIS Performance.
 	 *
 	 * SWIS caches finished HTML to disk at the server layer; a PHP-set
 	 * DONOTCACHEPAGE cannot reliably stop a static-file cache HIT, and SWIS
@@ -707,7 +707,9 @@ class RNRD_Cache {
 		// At least one dynamic endpoint enabled (otherwise nothing to exclude).
 		$llms = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
 		$md   = 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
-		$mcp  = 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'off' );
+		// Default must match RNRD_MCP::is_enabled() ('on'). Reading 'off' here made the
+		// cache-exclusion advice skip a manifest that was actually being served.
+		$mcp  = 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' );
 		if ( ! $llms && ! $md && ! $mcp ) {
 			return;
 		}
@@ -901,6 +903,31 @@ class RNRD_Cache {
 			'    fastcgi_cache_bypass 1;',
 			'    fastcgi_no_cache     1;',
 			'    add_header X-RR-Bypass "1" always;',
+			'    try_files $uri $uri/ /index.php?$args;',
+			'}',
+		);
+		return implode( "\n", $lines );
+	}
+
+	/**
+	 * Nginx ACCESS snippet — allow /.well-known/ to reach WordPress.
+	 *
+	 * Distinct from nginx_snippet() (which is a cache bypass). Some nginx stacks
+	 * (RunCloud defaults, hardened configs) deny every dot-path, returning 403
+	 * for /.well-known/mcp.json even though WordPress would serve it. A `^~`
+	 * prefix location outranks the dotfile-deny regex, so /.well-known/ is
+	 * allowed and routed to WordPress. Add once, then reload nginx. No plugin
+	 * can apply this automatically: nginx ignores .htaccess and its config needs
+	 * a service reload outside WordPress. Verified against an nginx dotfile-deny.
+	 *
+	 * @since 1.2.1
+	 */
+	public static function nginx_well_known_snippet(): string {
+		$lines = array(
+			'# RankReady — allow /.well-known/ (fixes 403 on /.well-known/mcp.json)',
+			'# Add to your nginx server { } block, then reload nginx.',
+			'location ^~ /.well-known/ {',
+			'    allow all;',
 			'    try_files $uri $uri/ /index.php?$args;',
 			'}',
 		);

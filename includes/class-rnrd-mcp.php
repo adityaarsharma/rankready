@@ -69,8 +69,24 @@ class RNRD_MCP {
 	}
 
 	/** Serve the manifest JSON at /.well-known/mcp.json. */
+	/** Normalised current request path (no query string / surrounding slashes, subdirectory-aware). */
+	private static function request_path(): string {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		$req = trim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
+		$home = trim( (string) wp_parse_url( home_url(), PHP_URL_PATH ), '/' );
+		if ( '' !== $home ) {
+			if ( 0 === strpos( $req, $home . '/' ) ) {
+				$req = trim( substr( $req, strlen( $home ) ), '/' );
+			} elseif ( $req === $home ) {
+				$req = '';
+			}
+		}
+		return $req;
+	}
+
 	public static function handle_request(): void {
-		if ( '' === (string) get_query_var( 'rnrd_mcp', '' ) ) {
+		if ( '' === (string) get_query_var( 'rnrd_mcp', '' )
+			&& '.well-known/mcp.json' !== self::request_path() ) {
 			return;
 		}
 
@@ -203,7 +219,10 @@ class RNRD_MCP {
 			'authors'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_AUTHORS, 'on' ),
 			'taxonomies' => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_TAXONOMIES, 'on' ),
 			'sitemap'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_SITEMAP, 'on' ),
-			'menus'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_MENUS, 'on' ),
+			// TC-MCP-07: only resources with a wired, gated ability (see ability_gates())
+			// are advertised. 'menus' + comments/media/users/plugins/themes/settings had no
+			// ability, so advertising them was misleading and a latent footgun. Re-add each
+			// here only when a real gated ability ships for it.
 			'llms_txt'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_LLMS_TXT, 'on' ),
 			'rnrd_ai'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_RR_AI, 'on' ),
 			'freshness'  => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_FRESHNESS, 'on' ),
@@ -213,12 +232,6 @@ class RNRD_MCP {
 			'cpts'       => ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() )
 				? (array) get_option( RNRD_OPT_MCP_EXPOSE_CPTS, array() )
 				: array(),
-			'comments'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_COMMENTS, 'off' ),
-			'media'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_MEDIA, 'off' ),
-			'users'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_USERS, 'off' ),
-			'plugins'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_PLUGINS, 'off' ),
-			'themes'     => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_THEMES, 'off' ),
-			'settings'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_SETTINGS, 'off' ),
 		);
 	}
 
@@ -1034,6 +1047,14 @@ class RNRD_MCP {
 		$author_id = isset( $input['author_id'] ) ? (int) $input['author_id'] : 0;
 		$user      = $author_id ? get_userdata( $author_id ) : null;
 		if ( ! $user ) {
+			return array( 'id' => 0 );
+		}
+
+		// TC-SEC-02: only expose authors who have PUBLISHED public content — mirrors WP
+		// core /wp/v2/users (which hides no-post users) and blocks anonymous user
+		// enumeration (subscribers, 0-post admins, etc.). Their byline/EEAT is public anyway.
+		$rnrd_public_types = array_values( get_post_types( array( 'public' => true ) ) );
+		if ( (int) count_user_posts( $user->ID, $rnrd_public_types, true ) < 1 ) {
 			return array( 'id' => 0 );
 		}
 

@@ -103,8 +103,39 @@ class RNRD_OKF {
 		add_rewrite_rule( '^okf/([^/]+)\.md$', 'index.php?rnrd_okf=concept&rnrd_okf_slug=$matches[1]', 'top' );
 	}
 
+	/** Normalised current request path (no query string / surrounding slashes, subdirectory-aware). */
+	private static function request_path(): string {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		$req = trim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
+		$home = trim( (string) wp_parse_url( home_url(), PHP_URL_PATH ), '/' );
+		if ( '' !== $home ) {
+			if ( 0 === strpos( $req, $home . '/' ) ) {
+				$req = trim( substr( $req, strlen( $home ) ), '/' );
+			} elseif ( $req === $home ) {
+				$req = '';
+			}
+		}
+		return $req;
+	}
+
 	public static function handle_request(): void {
 		$what = (string) get_query_var( 'rnrd_okf', '' );
+		$slug = sanitize_title( (string) get_query_var( 'rnrd_okf_slug', '' ) );
+
+		// Fallback: match the raw /okf/ request path if WP didn't surface our query
+		// var (SEO-plugin early router, rewrite ordering, or a query_vars strip).
+		if ( '' === $what && self::enabled() ) {
+			$rnrd_path = self::request_path();
+			if ( 'okf' === $rnrd_path || 'okf/index.md' === $rnrd_path ) {
+				$what = 'index';
+			} elseif ( 'okf/log.md' === $rnrd_path ) {
+				$what = 'log';
+			} elseif ( preg_match( '#^okf/([^/]+)\\.md$#', $rnrd_path, $rnrd_m ) ) {
+				$what = 'concept';
+				$slug = sanitize_title( $rnrd_m[1] );
+			}
+		}
+
 		if ( '' === $what ) {
 			return;
 		}
@@ -120,7 +151,6 @@ class RNRD_OKF {
 				self::serve( self::build_log_markdown(), false );
 				break;
 			case 'concept':
-				$slug = sanitize_title( (string) get_query_var( 'rnrd_okf_slug', '' ) );
 				$post = self::resolve_slug( $slug );
 				// 404 for missing OR excluded posts (noindex / per-post opt-out) so a
 				// hidden post can't be reached via its direct /okf/<slug>.md URL either.
@@ -311,6 +341,7 @@ class RNRD_OKF {
 		$posts = get_posts( array(
 			'post_type'        => $types,
 			'post_status'      => 'publish',
+			'has_password'     => false, // TC-SEC-01: exclude password-protected posts.
 			'numberposts'      => $limit,
 			'orderby'          => 'modified' === $orderby ? 'modified' : 'date',
 			'order'            => 'DESC',
@@ -336,6 +367,9 @@ class RNRD_OKF {
 		if ( 'publish' !== $post->post_status ) {
 			return false;
 		}
+		if ( ! empty( $post->post_password ) ) { // TC-SEC-01: never expose password-protected content in the OKF bundle.
+			return false;
+		}
 		if ( ! in_array( $post->post_type, self::post_types(), true ) ) {
 			return false;
 		}
@@ -359,6 +393,7 @@ class RNRD_OKF {
 			'name'             => $slug,
 			'post_type'        => self::post_types(),
 			'post_status'      => 'publish',
+			'has_password'     => false, // TC-SEC-01: exclude password-protected posts.
 			'numberposts'      => 1,
 			'suppress_filters' => false,
 			'no_found_rows'    => true,
@@ -394,6 +429,10 @@ class RNRD_OKF {
 		} elseif ( class_exists( 'RNRD_Cache' ) ) {
 			RNRD_Cache::no_cache_headers();
 		}
+
+		// Assert 200 explicitly — see the note in RNRD_Llms_Txt::serve_llms_txt().
+		// OKF hooks template_redirect at priority 0, still after the main query.
+		status_header( 200 );
 
 		header( 'Content-Type: text/markdown; charset=utf-8' );
 		header( 'X-Content-Type-Options: nosniff' );

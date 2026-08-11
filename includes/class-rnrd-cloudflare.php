@@ -30,6 +30,8 @@ class RNRD_Cloudflare {
 	private const OPT_EMAIL   = 'rnrd_cf_email';
 	private const OPT_ZONE    = 'rnrd_cf_zone_id';
 	private const OPT_RULE_ID = 'rnrd_cf_rule_id';
+	private const OPT_GLOBAL_KEY = 'rnrd_cf_global_key';
+	private const OPT_AUTH_MODE  = 'rnrd_cf_auth_mode';
 
 	private const RULE_DESCRIPTION = 'RankReady — bypass cache for AI markdown requests';
 
@@ -49,8 +51,10 @@ class RNRD_Cloudflare {
 				'methods'             => 'POST',
 				'permission_callback' => array( self::class, 'permission_check' ),
 				'args'                => array(
-					'token' => array( 'type' => 'string', 'required' => true ),
-					'email' => array( 'type' => 'string', 'required' => true ),
+					'mode'  => array( 'type' => 'string' ),
+					'token' => array( 'type' => 'string' ),
+					'email' => array( 'type' => 'string' ),
+					'key'   => array( 'type' => 'string' ),
 				),
 				'callback' => array( self::class, 'rest_connect' ),
 			)
@@ -84,7 +88,7 @@ class RNRD_Cloudflare {
 	 * @return array{detected:bool, ray:?string, connected:bool}
 	 */
 	public static function detect(): array {
-		$connected = '' !== (string) get_option( self::OPT_TOKEN, '' )
+		$connected = self::has_stored_creds()
 			&& '' !== (string) get_option( self::OPT_ZONE, '' );
 
 		$cache_key = 'rnrd_cf_detect_v1';
@@ -99,7 +103,7 @@ class RNRD_Cloudflare {
 			array(
 				'timeout'     => 4,
 				'redirection' => 0,
-				'sslverify'   => false,
+				'sslverify'   => (bool) apply_filters( 'rnrd_sslverify', true ),
 			)
 		);
 
@@ -140,15 +144,21 @@ class RNRD_Cloudflare {
 	// ── REST endpoints ─────────────────────────────────────────────────────
 
 	public static function rest_connect( WP_REST_Request $request ): WP_REST_Response {
+		// v1.2.1 — scoped API tokens only. The Global API Key grants account-wide
+		// access, so it is no longer offered for NEW connections. Installs that
+		// already connected that way keep working (see stored_creds/auth_headers,
+		// which still read the legacy global-key options).
 		$token = trim( (string) $request->get_param( 'token' ) );
-		$email = trim( (string) $request->get_param( 'email' ) );
 
-		if ( '' === $token || '' === $email ) {
+		if ( '' === $token ) {
 			return new WP_REST_Response(
-				array( 'success' => false, 'error' => __( 'Cloudflare email and API token are required.', 'rankready-ai-llm-seo' ) ),
+				array( 'success' => false, 'error' => __( 'A Cloudflare API token is required.', 'rankready-ai-llm-seo' ) ),
 				400
 			);
 		}
+
+		$mode  = 'token';
+		$creds = array( 'mode' => 'token', 'token' => $token, 'email' => '', 'key' => '' );
 
 		// v1.1.10 — Auto-detect zone ID from the site host. User no longer
 		// pastes the zone ID manually. We query GET /zones?name={host} with
@@ -166,13 +176,13 @@ class RNRD_Cloudflare {
 		// also covers subdomain hosts whose Cloudflare zone is the root domain,
 		// and lets us return a precise error instead of a generic "no zone".
 		$zone_id = '';
-		$lookup  = self::api_request( $token, 'GET', '/zones?name=' . rawurlencode( $host ) );
+		$lookup  = self::api_request( $creds, 'GET', '/zones?name=' . rawurlencode( $host ) );
 		if ( ! is_wp_error( $lookup ) && ! empty( $lookup['result'][0]['id'] ) ) {
 			$zone_id = (string) $lookup['result'][0]['id'];
 		}
 
 		if ( '' === $zone_id ) {
-			$all = self::api_request( $token, 'GET', '/zones?per_page=50' );
+			$all = self::api_request( $creds, 'GET', '/zones?per_page=50' );
 			if ( is_wp_error( $all ) ) {
 				return new WP_REST_Response(
 					array(
@@ -214,10 +224,10 @@ class RNRD_Cloudflare {
 		// If we already had a stored rule_id, delete it first (re-connect path).
 		$existing_rule_id = (string) get_option( self::OPT_RULE_ID, '' );
 		if ( '' !== $existing_rule_id ) {
-			self::delete_rule( $token, $zone_id, $existing_rule_id );
+			self::delete_rule( $creds, $zone_id, $existing_rule_id );
 		}
 
-		$rule_id = self::create_rule( $token, $zone_id );
+		$rule_id = self::create_rule( $creds, $zone_id );
 		if ( is_wp_error( $rule_id ) ) {
 			return new WP_REST_Response(
 				array(
@@ -232,8 +242,13 @@ class RNRD_Cloudflare {
 			);
 		}
 
-		update_option( self::OPT_TOKEN,   $token );
-		update_option( self::OPT_EMAIL,   $email );
+		// v1.2.1 — token-only. Connecting also clears any legacy Global API Key
+		// credentials left over from an earlier connection on this site.
+		update_option( self::OPT_AUTH_MODE, $mode );
+		update_option( self::OPT_TOKEN, $token );
+		delete_option( self::OPT_EMAIL );
+		delete_option( self::OPT_GLOBAL_KEY );
+
 		update_option( self::OPT_ZONE,    $zone_id );
 		update_option( self::OPT_RULE_ID, $rule_id );
 		delete_transient( 'rnrd_cf_detect_v1' );
@@ -262,16 +277,18 @@ class RNRD_Cloudflare {
 	}
 
 	public static function rest_disconnect( WP_REST_Request $request ): WP_REST_Response {
-		$token   = (string) get_option( self::OPT_TOKEN, '' );
+		$creds   = self::stored_creds();
 		$zone_id = (string) get_option( self::OPT_ZONE, '' );
 		$rule_id = (string) get_option( self::OPT_RULE_ID, '' );
 
-		if ( '' !== $token && '' !== $zone_id && '' !== $rule_id ) {
-			self::delete_rule( $token, $zone_id, $rule_id );
+		if ( self::has_stored_creds() && '' !== $zone_id && '' !== $rule_id ) {
+			self::delete_rule( $creds, $zone_id, $rule_id );
 		}
 
 		delete_option( self::OPT_TOKEN );
 		delete_option( self::OPT_EMAIL );
+		delete_option( self::OPT_GLOBAL_KEY );
+		delete_option( self::OPT_AUTH_MODE );
 		delete_option( self::OPT_ZONE );
 		delete_option( self::OPT_RULE_ID );
 		delete_transient( 'rnrd_cf_detect_v1' );
@@ -281,15 +298,61 @@ class RNRD_Cloudflare {
 
 	// ── Cloudflare API ─────────────────────────────────────────────────────
 
-	private static function api_request( string $token, string $method, string $path, array $body = array() ) {
+	/**
+	 * Assemble stored Cloudflare credentials. Global key can also come from a
+	 * RNRD_CF_GLOBAL_KEY wp-config constant so it never has to live in the DB.
+	 *
+	 * @return array{mode:string,token:string,email:string,key:string}
+	 */
+	private static function stored_creds(): array {
+		$mode = 'global' === get_option( self::OPT_AUTH_MODE, 'token' ) ? 'global' : 'token';
+		$key  = ( defined( 'RNRD_CF_GLOBAL_KEY' ) && RNRD_CF_GLOBAL_KEY )
+			? (string) RNRD_CF_GLOBAL_KEY
+			: (string) get_option( self::OPT_GLOBAL_KEY, '' );
+		return array(
+			'mode'  => $mode,
+			'token' => (string) get_option( self::OPT_TOKEN, '' ),
+			'email' => (string) get_option( self::OPT_EMAIL, '' ),
+			'key'   => $key,
+		);
+	}
+
+	private static function has_stored_creds(): bool {
+		$c = self::stored_creds();
+		return 'global' === $c['mode']
+			? ( '' !== $c['email'] && '' !== $c['key'] )
+			: ( '' !== $c['token'] );
+	}
+
+	/**
+	 * HTTP auth headers for a Cloudflare request. Scoped token -> Bearer;
+	 * Global API Key -> X-Auth-Email + X-Auth-Key (the WP Rocket / official
+	 * Cloudflare-plugin method). Accepts a creds array or a bare token string.
+	 *
+	 * @param array|string $creds Credentials.
+	 * @return array HTTP headers.
+	 */
+	private static function auth_headers( $creds ): array {
+		if ( is_array( $creds ) && 'global' === ( $creds['mode'] ?? '' ) ) {
+			return array(
+				'X-Auth-Email' => (string) ( $creds['email'] ?? '' ),
+				'X-Auth-Key'   => (string) ( $creds['key'] ?? '' ),
+				'Content-Type' => 'application/json',
+			);
+		}
+		$token = is_array( $creds ) ? (string) ( $creds['token'] ?? '' ) : (string) $creds;
+		return array(
+			'Authorization' => 'Bearer ' . $token,
+			'Content-Type'  => 'application/json',
+		);
+	}
+
+	private static function api_request( $creds, string $method, string $path, array $body = array() ) {
 		$url  = 'https://api.cloudflare.com/client/v4' . $path;
 		$args = array(
 			'method'  => $method,
 			'timeout' => 15,
-			'headers' => array(
-				'Authorization' => 'Bearer ' . $token,
-				'Content-Type'  => 'application/json',
-			),
+			'headers' => self::auth_headers( $creds ),
 		);
 
 		if ( ! empty( $body ) && in_array( $method, array( 'POST', 'PUT', 'PATCH' ), true ) ) {
@@ -333,7 +396,7 @@ class RNRD_Cloudflare {
 	 *
 	 * @return string|WP_Error Rule ID on success.
 	 */
-	private static function create_rule( string $token, string $zone_id ) {
+	private static function create_rule( $token, string $zone_id ) {
 		$rule = array(
 			'expression'        => '(http.request.headers["accept"][0] contains "text/markdown")',
 			'action'            => 'set_cache_settings',
@@ -427,7 +490,7 @@ class RNRD_Cloudflare {
 		return new WP_Error( 'rnrd_cf_no_rule', __( 'Could not locate the RankReady rule in Cloudflare response.', 'rankready-ai-llm-seo' ) );
 	}
 
-	private static function delete_rule( string $token, string $zone_id, string $rule_id ): void {
+	private static function delete_rule( $token, string $zone_id, string $rule_id ): void {
 		// Single-rule deletion must use the RULESET-ID path. The phase-entrypoint
 		// path only supports GET/PUT, so a DELETE there silently no-ops (leaving a
 		// stale rule behind on disconnect). Resolve the cache-phase ruleset ID
@@ -498,39 +561,46 @@ class RNRD_Cloudflare {
 		?>
 		<div class="rnrd-cf-form">
 			<p class="rnrd-card-desc">
-				<?php
-				printf(
-					/* translators: %s: link to Cloudflare token creation page */
-					esc_html__( 'Create a Custom Token at %s with two permission rows — Zone : Zone : Read and Zone : Cache Rules : Edit — scoped to this site\'s zone (or all zones). RankReady finds the zone automatically from the site host.', 'rankready-ai-llm-seo' ),
-					'<a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer">dash.cloudflare.com/profile/api-tokens</a>'
-				);
-				?>
+				<?php esc_html_e( 'Connect Cloudflare so RankReady creates the Markdown cache-bypass rule for you.', 'rankready-ai-llm-seo' ); ?>
 			</p>
-			<table class="form-table rnrd-form-table">
-				<tr>
-					<th scope="row"><label for="rnrd-cf-email"><?php esc_html_e( 'Cloudflare email', 'rankready-ai-llm-seo' ); ?></label></th>
-					<td>
-						<input type="email" id="rnrd-cf-email" class="regular-text" autocomplete="off" />
-						<p class="description"><?php esc_html_e( 'The email address on the Cloudflare account.', 'rankready-ai-llm-seo' ); ?></p>
-					</td>
-				</tr>
+
+			<table class="form-table rnrd-form-table" id="rnrd-cf-token-fields">
 				<tr>
 					<th scope="row"><label for="rnrd-cf-token"><?php esc_html_e( 'API token', 'rankready-ai-llm-seo' ); ?></label></th>
 					<td>
 						<input type="password" id="rnrd-cf-token" class="regular-text" autocomplete="off" />
-						<p class="description"><?php esc_html_e( 'Scoped API token. Stored encrypted at rest.', 'rankready-ai-llm-seo' ); ?></p>
-					</td>
-				</tr>
-				<tr>
-					<th></th>
-					<td>
-						<button type="button" class="button button-primary" id="rnrd-cf-connect">
-							<?php esc_html_e( 'Connect and create rule', 'rankready-ai-llm-seo' ); ?>
-						</button>
-						<span id="rnrd-cf-msg" class="rnrd-cf-msg"></span>
+
+						<p class="description" style="margin-top:8px;">
+							<?php
+							printf(
+								/* translators: %s: link to the Cloudflare API token creation page */
+								esc_html__( 'Create a Custom Token at %s', 'rankready-ai-llm-seo' ),
+								'<a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer">dash.cloudflare.com/profile/api-tokens</a>'
+							);
+							?>
+						</p>
+
+						<p class="description" style="margin:10px 0 4px;">
+							<strong><?php esc_html_e( 'Give it these two permission rows:', 'rankready-ai-llm-seo' ); ?></strong>
+						</p>
+						<ul class="description" style="margin:0 0 0 2px;padding:0;list-style:none;">
+							<li style="margin:0 0 3px;"><code>Zone</code> &rarr; <code>Zone</code> &rarr; <code>Read</code></li>
+							<li style="margin:0;"><code>Zone</code> &rarr; <code>Cache Rules</code> &rarr; <code>Edit</code></li>
+						</ul>
+
+						<p class="description" style="margin-top:10px;">
+							<?php esc_html_e( 'RankReady finds the zone automatically — you do not need the zone ID.', 'rankready-ai-llm-seo' ); ?>
+						</p>
 					</td>
 				</tr>
 			</table>
+
+			<p>
+				<button type="button" class="button button-primary" id="rnrd-cf-connect">
+					<?php esc_html_e( 'Connect and create rule', 'rankready-ai-llm-seo' ); ?>
+				</button>
+				<span id="rnrd-cf-msg" class="rnrd-cf-msg"></span>
+			</p>
 		</div>
 		<?php
 	}

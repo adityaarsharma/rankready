@@ -44,7 +44,8 @@ class RNRD_Crypto {
 		'rnrd_gemini_api_key',
 		'rnrd_deepseek_api_key',
 		'rnrd_dfs_password',
-		'rnrd_cf_api_token', // v1.1.0 — Cloudflare auto-fix API token
+		'rnrd_cf_api_token',   // v1.1.0 — Cloudflare auto-fix API token
+		'rnrd_cf_global_key',  // v1.2.1 — Cloudflare Global API Key (account-wide; MUST be encrypted at rest)
 	);
 
 	// ── Lifecycle ──────────────────────────────────────────────────────────

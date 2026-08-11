@@ -11,6 +11,7 @@ node_modules/
 
 # Internal docs — local-only, never push to GitHub
 CLAUDE.md
+BUG-PATTERNS.md
 CHANGELOG.md
 AI-Standards-Whitepaper.md
 ORBIT-PRE-RELEASE.md

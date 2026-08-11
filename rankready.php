@@ -1,13 +1,13 @@
 <?php
 /**
- * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
- * Plugin URI:        https://posimyth.com
- * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.1.2
+ * Plugin Name:       RankReady – AI SEO, llms.txt & Markdown for ChatGPT, Gemini & Claude
+ * Plugin URI:        https://hostmy.blog
+ * Description:       Make your WordPress content readable by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, Markdown endpoints, agent discovery headers, WebMCP, and crawler controls — in one plugin.
+ * Version:           1.2.1
  * Requires at least: 6.9
  * Requires PHP:      7.4
- * Author:            POSIMYTH Inc. & Aditya Sharma
- * Author URI:        https://posimyth.com
+ * Author:            HostMyBlog
+ * Author URI:        https://hostmy.blog
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       rankready-ai-llm-seo
@@ -51,7 +51,7 @@ if ( defined( 'RNRD_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RNRD_VERSION' ) ) {
-	define( 'RNRD_VERSION',  '1.1.2' );
+	define( 'RNRD_VERSION',  '1.2.1' );
 	define( 'RNRD_FILE',     __FILE__ );
 	define( 'RNRD_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RNRD_URL',      plugin_dir_url( __FILE__ ) );
@@ -117,6 +117,12 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	// Option keys — LLM Crawler robots.txt controls.
 	define( 'RNRD_OPT_ROBOTS_ENABLE',   'rnrd_robots_enable' );
 	define( 'RNRD_OPT_ROBOTS_CRAWLERS', 'rnrd_robots_crawlers' );
+	define( 'RNRD_OPT_ROBOTS_BLOCKED',  'rnrd_robots_blocked' );  // AI crawlers to hard-block (Disallow: /). Default empty = back-compat.
+	// v1.2.1 — UI transport for the per-crawler Allow/Default/Block radio. Map of
+	// user-agent => 'allow'|'block'|'default'. The two arrays above stay the
+	// source of truth for robots.txt output and are DERIVED from this on save,
+	// so every existing reader keeps working unchanged.
+	define( 'RNRD_OPT_ROBOTS_MODE',     'rnrd_robots_mode' );
 
 	// Option keys — Content Signals (contentsignals.org).
 	define( 'RNRD_OPT_CONTENT_SIGNALS_ENABLE',   'rnrd_content_signals_enable' );
@@ -261,7 +267,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	// the `Link: rel="alternate"; type="text/markdown"` header + llms.txt. The
 	// llms.txt spec, Vercel, Mintlify and GitBook all use distinct `.md` URLs as
 	// the cache-safe layer. Only turn this on if you control your cache key.
-	define( 'RNRD_OPT_MD_ACCEPT_NEGOTIATION', 'rnrd_md_accept_negotiation' ); // 'on' | 'off' — same-URL Accept negotiation (default off)
+	define( 'RNRD_OPT_MD_ACCEPT_NEGOTIATION', 'rnrd_md_accept_negotiation' ); // 'on' | 'off' — same-URL Accept negotiation (v1.2: default on; auto-guarded off on Cloudflare APO)
 
 	// Meta keys.
 	define( 'RNRD_META_SUMMARY',   '_rnrd_summary' );
@@ -275,7 +281,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_META_FAQ_GENERATED',    '_rnrd_faq_generated' );
 	define( 'RNRD_META_FAQ_DISABLE',      '_rnrd_faq_disable' );
 	define( 'RNRD_META_FAQ_KEYWORD',      '_rnrd_faq_keyword' );
-	define( 'RNRD_META_FAQ_LAST_FAILURE', '_rnrd_faq_last_failure' ); // v1.1.3 — circuit-breaker timestamp.
+	define( 'RNRD_META_FAQ_LAST_FAILURE', '_rnrd_faq_last_failure' ); // v1.2.0 — circuit-breaker timestamp.
 
 	// Cron.
 	define( 'RNRD_CRON_HOOK', 'rnrd_async_generate' );
@@ -455,10 +461,10 @@ add_action( 'plugins_loaded', function (): void {
 	// auto-loads translations for plugins hosted on WordPress.org. Calling it
 	// manually triggers a PCP warning and is no longer needed for the .org build.
 
-	if ( version_compare( get_bloginfo( 'version' ), '6.2', '<' ) ) {
+	if ( version_compare( get_bloginfo( 'version' ), '6.9', '<' ) ) {
 		add_action( 'admin_notices', function (): void {
 			echo '<div class="notice notice-error"><p>'
-				. esc_html__( 'RankReady requires WordPress 6.2 or higher.', 'rankready-ai-llm-seo' )
+				. esc_html__( 'RankReady requires WordPress 6.9 or higher.', 'rankready-ai-llm-seo' )
 				. '</p></div>';
 		} );
 		return;
@@ -841,9 +847,12 @@ register_activation_hook( RNRD_FILE, function (): void {
 	if ( false === get_option( RNRD_OPT_POST_TYPES ) ) {
 		update_option( RNRD_OPT_POST_TYPES, array( 'post' ) );
 	}
-	if ( false === get_option( RNRD_OPT_LABEL ) ) {
-		update_option( RNRD_OPT_LABEL, 'Key Takeaways' );
-	}
+	// v1.2.1 — deliberately NOT seeded here. Activation runs before the text
+	// domain is reliably loaded, so writing a default would bake the English
+	// string into the DB and a German site would render German bullets under an
+	// English "Key Takeaways" heading. Leaving the option unset lets every read
+	// site fall back to __( 'Key Takeaways' ), which resolves in the site's
+	// language. Existing installs already hold a value and are untouched.
 	if ( false === get_option( RNRD_OPT_SHOW_LABEL ) ) {
 		update_option( RNRD_OPT_SHOW_LABEL, true );
 	}

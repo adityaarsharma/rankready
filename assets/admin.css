@@ -126,36 +126,6 @@
 	text-wrap: pretty;
 }
 
-/* Locked-preview body — replaces the settings controls when the card's
-   master toggle is OFF. Bullet list of what the user gets + Enable button. */
-.rnrd-card-locked {
-	padding: 16px 20px;
-	background: #fbfbfc;
-	border: 1px dashed #c3c4c7;
-	border-radius: 6px;
-}
-.rnrd-card-locked__heading {
-	margin: 0 0 8px;
-	font-size: 13px;
-	color: #1d2327;
-}
-.rnrd-card-locked__bullets {
-	margin: 0 0 14px 18px;
-	padding: 0;
-	color: #50575e;
-	font-size: 13px;
-	list-style: disc;
-}
-.rnrd-card-locked__bullets li {
-	margin: 4px 0;
-}
-.rnrd-card-locked__form {
-	margin: 0;
-}
-.rnrd-card-locked__btn {
-	min-width: 140px;
-}
-
 /* Inline info callout used by the SEO Plugin Compatibility 1-liner. */
 .rnrd-info-callout {
 	/* v1.1.13 — RankReady mint palette, not WP-core blue. */
@@ -604,106 +574,6 @@
 	}
 }
 
-/* ── Free Tier Usage Banner ────────────────────────────────────────────────── */
-
-.rnrd-usage-banner {
-	background: #fff;
-	/* shadows over borders — adapts to any background */
-	box-shadow:
-		0 0 0 1px rgba(0,0,0,.07),
-		inset 4px 0 0 #2271b1;
-	border-radius: 8px; /* matches .rnrd-card for visual consistency */
-	margin: 0 0 20px;
-	padding: 14px 18px;
-}
-
-.rnrd-usage-banner--warn {
-	box-shadow:
-		0 0 0 1px rgba(0,0,0,.07),
-		inset 4px 0 0 #d63638;
-	background: #fff8f8;
-}
-
-.rnrd-usage-banner__inner {
-	display: flex;
-	align-items: center;
-	gap: 20px;
-	flex-wrap: wrap;
-}
-
-.rnrd-usage-item {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	min-width: 200px;
-}
-
-.rnrd-usage-label {
-	font-size: 12px;
-	font-weight: 600;
-	color: #50575e;
-	white-space: nowrap;
-}
-
-.rnrd-usage-bar-wrap {
-	flex: 1;
-	min-width: 80px;
-	max-width: 120px;
-	height: 6px;
-	background: #e0e0e0;
-	border-radius: 3px;
-	overflow: hidden;
-}
-
-.rnrd-usage-bar {
-	height: 100%;
-	background: #2271b1;
-	border-radius: 3px;
-	transition: width .3s ease;
-	/* removed: width is not GPU-compositable per make-interfaces-feel-better rule 15 */
-}
-
-.rnrd-usage-banner--warn .rnrd-usage-bar {
-	background: #d63638;
-}
-
-.rnrd-usage-count {
-	font-size: 12px;
-	color: #50575e;
-	white-space: nowrap;
-	font-variant-numeric: tabular-nums; /* prevents layout shift on number change */
-}
-
-.rnrd-usage-reset {
-	font-size: 11px;
-	color: #8c8f94;
-	white-space: nowrap;
-}
-
-/* 40×40px minimum hit area + scale on press */
-.rnrd-usage-upgrade {
-	margin-left: auto;
-	font-size: 12px;
-	font-weight: 600;
-	color: #2271b1;
-	text-decoration: none;
-	white-space: nowrap;
-	padding: 10px 14px; /* min 40px tall at 13px font */
-	border: 1px solid #2271b1;
-	border-radius: 4px; /* concentric: 8px outer − 14px padding ≈ keep ≥3px */
-	transition: background .15s ease, color .15s ease, transform .1s ease;
-	display: inline-block;
-}
-
-.rnrd-usage-upgrade:hover {
-	background: #2271b1;
-	color: #fff;
-}
-
-.rnrd-usage-upgrade:active {
-	transform: scale(0.96); /* scale on press — never below 0.95 */
-}
-
 /* ── Scale on press — all interactive buttons ──────────────────────────────── */
 
 .rnrd-wrap .button:active,
@@ -713,151 +583,9 @@
 	transition: transform .1s ease;
 }
 
-/* ── Upsell inline notice (post-win + limit hit) ───────────────────────────── */
-
-.rnrd-notice--upsell {
-	background: #f0f6fc;
-	border-left-color: #2271b1;
-	padding: 10px 14px;
-	font-size: 13px;
-}
-
-.rnrd-notice--upsell a {
-	font-weight: 600;
-	color: #2271b1;
-}
-
 .rnrd-notice--dismissible {
 	position: relative;
 	padding-right: 36px;
-}
-
-/* ── Plan status banner (Dashboard top) ────────────────────────────────────── */
-
-.rnrd-plan-banner {
-	display: flex;
-	align-items: center;
-	gap: 20px;
-	flex-wrap: wrap;
-	border-radius: 8px;
-	padding: 18px 22px;
-	margin-bottom: 24px;
-	box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
-}
-
-.rnrd-plan-banner--free {
-	background: #fff;
-	box-shadow: 0 0 0 1px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.06);
-}
-
-.rnrd-plan-banner--pro {
-	background: linear-gradient(135deg, #1d2327 0%, #2c3338 100%);
-}
-
-.rnrd-plan-banner__left {
-	flex: 1;
-	min-width: 220px;
-}
-
-.rnrd-plan-banner__badge {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 11px;
-	font-weight: 700;
-	letter-spacing: .06em;
-	text-transform: uppercase;
-	padding: 3px 10px;
-	border-radius: 20px;
-	margin-bottom: 8px;
-}
-
-.rnrd-plan-banner--free .rnrd-plan-banner__badge {
-	background: #f0f0f1;
-	color: #50575e;
-}
-
-.rnrd-plan-banner--pro .rnrd-plan-banner__badge {
-	background: rgba(255,255,255,.15);
-	color: #fff;
-}
-
-.rnrd-plan-banner__title {
-	font-size: 15px;
-	font-weight: 600;
-	margin: 0 0 4px;
-	color: #1d2327;
-}
-
-.rnrd-plan-banner--pro .rnrd-plan-banner__title {
-	color: #fff;
-}
-
-.rnrd-plan-banner__desc {
-	font-size: 12px;
-	color: #646970;
-	margin: 0;
-	text-wrap: pretty;
-}
-
-.rnrd-plan-banner--pro .rnrd-plan-banner__desc {
-	color: rgba(255,255,255,.7);
-}
-
-.rnrd-plan-banner__meters {
-	display: flex;
-	gap: 20px;
-	margin-top: 10px;
-	flex-wrap: wrap;
-}
-
-.rnrd-plan-meter {
-	min-width: 140px;
-}
-
-.rnrd-plan-meter__label {
-	font-size: 11px;
-	font-weight: 600;
-	color: #646970;
-	margin-bottom: 4px;
-	display: flex;
-	justify-content: space-between;
-}
-
-.rnrd-plan-meter__track {
-	height: 5px;
-	background: #e0e0e0;
-	border-radius: 3px;
-	overflow: hidden;
-}
-
-.rnrd-plan-meter__fill {
-	height: 100%;
-	border-radius: 3px;
-	background: #2271b1;
-	transition: width .4s ease;
-	/* removed: width is not GPU-compositable per make-interfaces-feel-better rule 15 */
-}
-
-.rnrd-plan-meter__fill--warn {
-	background: #d63638;
-}
-
-.rnrd-plan-banner__cta {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	align-items: flex-end;
-	flex-shrink: 0;
-}
-
-/* Upgrade button CSS removed in v1.0.0 — Pro CTAs replaced with non-interactive
-   "Coming Soon" pill until license system lands in v1.2. */
-
-.rnrd-plan-banner__cta-hint {
-	font-size: 11px;
-	color: #8c8f94;
-	text-align: right;
 }
 
 /* ── Coming Soon pill (used wherever Pro CTAs would appear) ──────────────── */
@@ -877,23 +605,6 @@
 	text-transform: uppercase;
 	white-space: nowrap;
 	line-height: 1;
-}
-
-/* ── PRO badge (inline pill) ───────────────────────────────────────────────── */
-
-.rnrd-pro-badge {
-	display: inline-block;
-	font-size: 9px;
-	font-weight: 700;
-	letter-spacing: .06em;
-	text-transform: uppercase;
-	color: #fff;
-	background: #1d2327;
-	padding: 2px 6px;
-	border-radius: 3px;
-	vertical-align: middle;
-	margin-left: 4px;
-	line-height: 1.4;
 }
 
 .rnrd-free-badge {
@@ -1075,108 +786,6 @@
 	flex-wrap: wrap;
 }
 
-/* ── Pro gate — uniform grid layout, no wrapping issues ──────────────────── */
-
-.rnrd-pro-gate {
-	display: grid;
-	grid-template-columns: 22px 1fr;
-	column-gap: 14px;
-	align-items: start;
-	padding: 16px 20px;
-	background: #fff;
-	border: 1px solid #e5e5e5;
-	border-left: 3px solid #1d2327;
-	border-radius: 4px;
-	margin: 0 0 12px;
-	min-height: 72px;
-	box-sizing: border-box;
-	transition: border-color .15s ease, box-shadow .15s ease;
-}
-
-.rnrd-pro-gate:hover {
-	border-color: #d0d0d0;
-	box-shadow: 0 1px 2px rgba(0,0,0,.04);
-}
-
-/* ── Lock-as-checkbox indicator (used in cards + inline form rows) ────────
- * Replaces the disabled-checkbox visual for Coming Soon settings.
- * 18×18 square (matching WP admin checkbox dimensions) with a centered
- * lock dashicon — visually communicates "this would be a toggle, but it's
- * locked" without needing a real disabled <input>.
- */
-.rnrd-pro-gate__checkbox {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 18px;
-	height: 18px;
-	border: 1px solid #8c8f94;
-	border-radius: 3px;
-	background: #f6f7f7;
-	margin-top: 1px;
-	flex: 0 0 auto;
-	vertical-align: middle;
-}
-
-.rnrd-pro-gate__checkbox .dashicons {
-	font-size: 12px;
-	width: 12px;
-	height: 12px;
-	line-height: 12px;
-	color: #646970;
-}
-
-/* Stagger entrance per rule 5 — split + stagger enter animations */
-.rnrd-pro-gate {
-	opacity: 0;
-	transform: translateY(6px);
-	animation: rnrd-pro-gate-in .35s cubic-bezier(0.2, 0, 0, 1) forwards;
-}
-.rnrd-pro-gate:nth-of-type(1) { animation-delay: 40ms; }
-.rnrd-pro-gate:nth-of-type(2) { animation-delay: 100ms; }
-.rnrd-pro-gate:nth-of-type(3) { animation-delay: 160ms; }
-.rnrd-pro-gate:nth-of-type(4) { animation-delay: 220ms; }
-.rnrd-pro-gate:nth-of-type(n+5) { animation-delay: 280ms; }
-
-@keyframes rnrd-pro-gate-in {
-	to { opacity: 1; transform: translateY(0); }
-}
-
-/* .rnrd-pro-gate__icon retained for back-compat (no longer rendered;
- * replaced by .rnrd-pro-gate__checkbox above). */
-.rnrd-pro-gate__icon { display: none; }
-
-.rnrd-pro-gate__text {
-	min-width: 0;
-}
-
-.rnrd-pro-gate__text strong {
-	font-size: 13px;
-	font-weight: 600;
-	color: #1d2327;
-	display: inline-flex;
-	align-items: center;
-	gap: 8px;
-	line-height: 1.4;
-}
-
-.rnrd-pro-gate__text p {
-	font-size: 12px;
-	color: #646970;
-	margin: 6px 0 0;
-	text-wrap: pretty;
-	line-height: 1.55;
-}
-
-.rnrd-pro-gate__soon {
-	display: inline-block;
-	margin-top: 8px;
-	font-size: 11px;
-	color: #9a6700;
-	font-style: italic;
-	letter-spacing: .01em;
-}
-
 /* ── Feature list (dashboard free/pro columns) ─────────────────────────────── */
 
 .rnrd-feature-split {
@@ -1201,11 +810,6 @@
 	margin: 0 0 12px;
 	padding-bottom: 8px;
 	border-bottom: 2px solid #f0f0f1;
-}
-
-.rnrd-feature-col__title--pro {
-	color: #2271b1;
-	border-bottom-color: #2271b1;
 }
 
 .rnrd-feature-list {
@@ -1239,21 +843,11 @@
 	color: #00a32a;
 }
 
-.rnrd-feature-list li .rnrd-feature-icon--lock {
-	color: #8c8f94;
-}
-
 .rnrd-feature-list li small {
 	display: block;
 	font-size: 11px;
 	color: #8c8f94;
 	margin-top: 1px;
-}
-
-.rnrd-feature-col__upgrade {
-	margin-top: 16px;
-	padding-top: 14px;
-	border-top: 1px solid #f0f0f1;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1687,22 +1281,6 @@
 	text-decoration: underline;
 }
 
-/* ── 9. COMING SOON pill badge ──────────────────────────────────────────── */
-.rnrd-soon-badge {
-	display: inline-flex;
-	align-items: center;
-	padding: 3px 9px;
-	font-size: 10px;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	color: var(--rnrd-warning);
-	background: var(--rnrd-warning-bg);
-	border: 1px solid #f9d59f;
-	border-radius: var(--rnrd-radius-pill);
-	text-transform: uppercase;
-	vertical-align: middle;
-}
-
 /* "ACTIVE" / "Complete" / "SINGLE SOURCE OF TRUTH" badge variants */
 .rnrd-free-badge {
 	display: inline-flex;
@@ -1717,38 +1295,6 @@
 	border-radius: var(--rnrd-radius-pill);
 	text-transform: uppercase;
 	vertical-align: middle;
-}
-
-/* ── 10. Pro-gate / locked-feature card ─────────────────────────────────── */
-.rnrd-pro-gate {
-	background: var(--rnrd-bg-surface) !important;
-	border: 1px solid var(--rnrd-border-subtle);
-	border-left: 3px solid var(--rnrd-border-default);
-	border-radius: var(--rnrd-radius-lg);
-	padding: 18px 22px;
-	box-shadow: none;
-}
-
-.rnrd-pro-gate__checkbox {
-	border-color: var(--rnrd-border-strong);
-	background: var(--rnrd-bg-surface-2);
-}
-
-.rnrd-pro-gate__text strong {
-	font-size: 14px;
-	color: var(--rnrd-text-primary);
-}
-
-.rnrd-pro-gate__text p {
-	color: var(--rnrd-text-secondary);
-	font-size: 13px;
-	line-height: 1.55;
-}
-
-.rnrd-pro-gate__soon {
-	color: var(--rnrd-warning);
-	font-size: 11px;
-	font-style: italic;
 }
 
 /* ── 11. KPI tiles (Bot Activity panel) — pulled into design system ───── */
@@ -3558,8 +3104,8 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 /* ═══════════════════════════════════════════════════════════════════════════
  * Section 34 — Card title flex layout (lock icon + COMING SOON pill align)
  *
- * When card title contains inline indicators (.rnrd-pro-gate__checkbox lock,
- * .rnrd-soon-badge "COMING SOON" pill) they previously rendered as inline
+ * When a card title contains an inline indicator (the .rnrd-soon-badge
+ * "COMING SOON" pill) it previously rendered as inline
  * elements with vertical-align quirks. Flex container fixes the alignment.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -3568,36 +3114,6 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-}
-
-/* Lock indicator inside title — explicit inline-flex centering. The
-   dashicon font has intrinsic top-padding that pushed the glyph off-centre
-   when sized via fixed line-height. Using line-height:1 + width/height:auto
-   + flex centering snaps the icon to the box's true centre. */
-.rnrd-card-title .rnrd-pro-gate__checkbox {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-    width: 20px;
-    height: 20px;
-    border: 1px solid #C9CAC1;
-    border-radius: 4px;
-    background: #fff;
-    flex-shrink: 0;
-    padding: 0;
-}
-
-.rnrd-card-title .rnrd-pro-gate__checkbox .dashicons {
-    font-size: 14px;
-    width: auto;
-    height: auto;
-    line-height: 1;
-    color: #6B716D;
-    display: inline-block;
-    margin: 0;
-    padding: 0;
-    vertical-align: middle;
 }
 
 /* COMING SOON pill inside title */
@@ -4261,6 +3777,53 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
     color: var(--rnrd-text-secondary, #3D423F);
 }
 
+/* Dashboard "Free AI SEO tips by email" opt-in form */
+.rnrd-tips-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.rnrd-tips-form__email {
+    width: 100%;
+    height: 38px;
+    padding: 8px 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--rnrd-text-primary, #0F1411);
+    background: var(--rnrd-bg-surface, #fff);
+    border: 1px solid var(--rnrd-border-default, #D9DAD5);
+    border-radius: 8px;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+            appearance: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.rnrd-tips-form__email:focus,
+.rnrd-tips-form__email:focus-visible {
+    border-color: var(--rnrd-mint-500, #59F7C2) !important;
+    box-shadow: 0 0 0 3px rgba(89, 247, 194, 0.22) !important;
+    outline: none !important;
+}
+.rnrd-tips-form__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--rnrd-text-on-mint, #0A3D2B);
+    background: var(--rnrd-mint-500, #59F7C2);
+    border: 1px solid var(--rnrd-mint-500, #59F7C2);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+.rnrd-tips-form__btn:hover {
+    filter: brightness(0.96);
+}
+
 .rnrd-aside-changes {
     list-style: none;
     margin: 0 0 14px;
@@ -4524,7 +4087,7 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 
 /* ── v1.1.0 — Flat [COMING SOON] tag (replaces the old bordered badge UI)
  * Plain bracketed text in muted ink. No border, no background, no lock icon.
- * The pre-1.1.0 .rnrd-soon-badge / .rnrd-pro-gate__checkbox / .rnrd-pro-gate
+ * The pre-1.1.0 .rnrd-soon-badge
  * styles still exist below this section for any third-party theme that
  * targeted them — they no longer render in plugin output. */
 .rnrd-soon-tag {
@@ -4567,27 +4130,6 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 	line-height: 1.55;
 	margin: 4px 0 0;
 }
-
-/* Visually neutralise the legacy gate UI in case any plugin code still
-   emits it accidentally — flatten to the new tag look on render. */
-.rnrd-pro-gate {
-	display: flex;
-	align-items: baseline;
-	gap: 0 8px;
-	padding: 10px 0;
-	background: transparent;
-	border: 0;
-	border-left: 0;
-	border-radius: 0;
-	box-shadow: none;
-	animation: none;
-	opacity: 1;
-}
-.rnrd-pro-gate__checkbox,
-.rnrd-pro-gate__icon { display: none; }
-.rnrd-pro-gate__text strong { font-weight: 500; font-size: 13px; }
-.rnrd-pro-gate__text p { font-size: 12px; color: var(--rnrd-text-tertiary, #6B716D); }
-.rnrd-pro-gate__soon { display: none; }
 
 /* ── v1.1.0 — Author Profile card (was scattered on user-edit screen)
  * Wraps the author box section in a clean card with proper section spacing.

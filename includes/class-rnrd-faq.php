@@ -127,7 +127,10 @@ class RNRD_Faq {
 
 		// Optional "Last reviewed" text — uses post modified date so it reflects
 		// when the content was actually updated, not when the FAQ was generated.
-		if ( 'on' === get_option( RNRD_OPT_FAQ_SHOW_REVIEWED, 'off' ) && $post_id > 0 ) {
+		// Default must match the settings screen ('on'). Divergence was masked only
+		// by an activation-time seed — if that seed is ever dropped the frontend
+		// silently stops rendering a line the checkbox says is enabled.
+		if ( 'on' === get_option( RNRD_OPT_FAQ_SHOW_REVIEWED, 'on' ) && $post_id > 0 ) {
 			$modified_ts = get_the_modified_time( 'U', $post_id );
 			if ( ! empty( $modified_ts ) ) {
 				$date = wp_date( get_option( 'date_format' ), (int) $modified_ts );
@@ -223,7 +226,7 @@ class RNRD_Faq {
 		);
 
 		echo '<script type="application/ld+json">'
-			. wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT )
+			. wp_json_encode( $schema, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT )
 			. '</script>' . "\n";
 	}
 
@@ -273,7 +276,7 @@ class RNRD_Faq {
 	 * @param string $page_type Page type context ('post', 'page', 'docs', 'landing').
 	 * @return array Array of question strings with source metadata.
 	 */
-	public static function fetch_dataforseo_questions( string $keyword, string $page_type = 'post' ): array {
+	public static function fetch_dataforseo_questions( string $keyword, string $page_type = 'post', string $language_code = 'en', int $location_code = 2840 ): array {
 		$login    = get_option( RNRD_OPT_DFS_LOGIN, '' );
 		$password = get_option( RNRD_OPT_DFS_PASSWORD, '' );
 
@@ -301,8 +304,8 @@ class RNRD_Faq {
 			array(
 				array(
 					'keyword'              => $keyword,
-					'language_code'        => 'en',
-					'location_code'        => 2840,
+					'language_code'        => $language_code,
+					'location_code'        => $location_code,
 					'include_seed_keyword' => true,
 					'limit'                => 40,
 					'filters'              => array(
@@ -345,8 +348,8 @@ class RNRD_Faq {
 			array(
 				array(
 					'keyword'       => $keyword,
-					'language_code' => 'en',
-					'location_code' => 2840,
+					'language_code' => $language_code,
+					'location_code' => $location_code,
 					'limit'         => 30,
 				),
 			),
@@ -454,11 +457,29 @@ class RNRD_Faq {
 		}
 		self::track_dfs_usage( $dfs_cost );
 
+		// DataForSEO reports billing and parameter failures at the TASK level while
+		// still returning HTTP 200 — 20000 is "Ok", 40200 is "Payment Required",
+		// 40210 is "Insufficient Funds". Checking only the HTTP code makes an empty
+		// balance look like "no questions found": keyword research silently degrades
+		// and nothing reaches the error log, so the user has no way to diagnose it.
+		$task        = isset( $body['tasks'][0] ) && is_array( $body['tasks'][0] ) ? $body['tasks'][0] : array();
+		$task_status = isset( $task['status_code'] ) ? (int) $task['status_code'] : 0;
+		if ( $task_status && 20000 !== $task_status ) {
+			RNRD_Generator::log_error(
+				'DataForSEO',
+				'Task error ' . $task_status . ': ' . ( isset( $task['status_message'] ) ? (string) $task['status_message'] : 'unknown' )
+			);
+			return array();
+		}
+
 		if ( empty( $body['tasks'][0]['result'][0]['items'] ) ) {
 			return array();
 		}
 
-		return $body['tasks'][0]['result'][0]['items'];
+		// Declared `: array` — never hand back a non-array the API happened to send.
+		$items = $body['tasks'][0]['result'][0]['items'];
+
+		return is_array( $items ) ? $items : array();
 	}
 
 	/**
@@ -542,7 +563,8 @@ class RNRD_Faq {
 		// Fetch questions from DataForSEO (if credentials available).
 		$dfs_questions = array();
 		if ( ! empty( $keyword ) ) {
-			$dfs_questions = self::fetch_dataforseo_questions( $keyword, $page_type );
+			$dfs_lang      = RNRD_LLM::detect_content_language( $post->ID )['code'];
+			$dfs_questions = self::fetch_dataforseo_questions( $keyword, $page_type, $dfs_lang, RNRD_LLM::dfs_location_code( $post->ID ) );
 		}
 
 		// Get internal links from post content for doc references.
@@ -564,7 +586,8 @@ class RNRD_Faq {
 		}
 
 		// Build system prompt with product context.
-		$faq_system  = "You write FAQ answers for web pages. You respond with valid JSON only.\n\n";
+		$faq_system  = RNRD_LLM::language_directive( $post->ID );
+		$faq_system .= "You write FAQ answers for web pages. You respond with valid JSON only.\n\n";
 		$faq_system .= "YOUR GOAL: Generate FAQ optimized for LLM citation (ChatGPT, Perplexity, Gemini, Claude) AND Google Featured Snippets. Each Q&A must match a REAL search intent — something a person would actually type into Google, Reddit, or an AI chatbot.\n\n";
 		$faq_system .= "SEARCH INTENT REQUIREMENT:\n";
 		$faq_system .= "- Every question MUST pass this test: 'Would someone actually type this into Google or ask ChatGPT?'\n";
@@ -634,7 +657,7 @@ class RNRD_Faq {
 			'timeout'     => 25,
 		) );
 
-		$source_label = 'FAQ/' . strtoupper( $result['provider'] );
+		$source_label = 'FAQ/' . strtoupper( (string) ( $result['provider'] ?? 'unknown' ) );
 
 		if ( empty( $result['ok'] ) ) {
 			RNRD_Generator::log_error( $source_label, (string) $result['error'], $post_id );
@@ -654,6 +677,15 @@ class RNRD_Faq {
 		$faq_data = json_decode( $raw, true );
 
 		if ( ! is_array( $faq_data ) ) {
+			// Log the raw body. Every neighbouring failure path logs; this one did
+			// not, so a recurring provider-shape problem left no trace on the
+			// Advanced tab — exactly the gap that made the json_object bug so
+			// expensive to find.
+			RNRD_Generator::log_error(
+				$source_label,
+				'Failed to parse FAQ response as JSON. Raw: ' . mb_substr( $raw, 0, 500 ),
+				$post_id
+			);
 			return new \WP_Error( 'parse_error', 'Failed to parse FAQ response.' );
 		}
 
@@ -666,6 +698,12 @@ class RNRD_Faq {
 			$faq_data = $faq_data['questions'];
 		} elseif ( isset( $faq_data['items'] ) && is_array( $faq_data['items'] ) ) {
 			$faq_data = $faq_data['items'];
+		} elseif ( isset( $faq_data['question'] ) && isset( $faq_data['answer'] ) ) {
+			// Salvage: model returned a single flat {question, answer} object rather
+			// than a list. This is also what a duplicate-key response collapses to
+			// after json_decode(), so treat it as a one-item list instead of
+			// discarding the whole generation.
+			$faq_data = array( $faq_data );
 		} elseif ( ! isset( $faq_data[0] ) ) {
 			// Unknown wrapper key — try the first array value.
 			$first = reset( $faq_data );
@@ -678,6 +716,11 @@ class RNRD_Faq {
 		$clean_faq = array();
 		foreach ( $faq_data as $item ) {
 			if ( isset( $item['question'] ) && isset( $item['answer'] ) ) {
+				// A model can hand back nested arrays/objects for either field.
+				// Skip those rather than feeding non-strings into the sanitizers.
+				if ( ! is_string( $item['question'] ) || ! is_string( $item['answer'] ) ) {
+					continue;
+				}
 				$q = sanitize_text_field( $item['question'] );
 				$a = wp_kses_post( $item['answer'] );
 				// Skip empty or too-short answers.
@@ -689,11 +732,25 @@ class RNRD_Faq {
 			}
 		}
 
+		$parsed_count = count( $clean_faq );
+
 		// Post-generation validation — reject items that violate banned patterns.
 		$clean_faq = self::validate_faq_items( $clean_faq );
 
 		if ( empty( $clean_faq ) ) {
-			return new \WP_Error( 'empty_faq', 'No valid FAQ items generated.' );
+			// Distinguish the two failure modes instead of always blaming thin
+			// content — the old single message sent users off editing long posts
+			// when the real cause was an unusable response shape.
+			if ( 0 === $parsed_count ) {
+				RNRD_Generator::log_error(
+					$source_label,
+					'FAQ response parsed but contained no question/answer pairs. Raw: ' . mb_substr( $raw, 0, 500 ),
+					$post_id
+				);
+				return new \WP_Error( 'empty_faq', __( 'The AI response could not be read as FAQ items. This is usually a temporary provider issue — try again, or switch AI provider in Settings. If it keeps happening, check the error log on the Advanced tab.', 'rankready-ai-llm-seo' ) );
+			}
+
+			return new \WP_Error( 'empty_faq', __( 'The AI returned FAQ items, but all of them were rejected as low quality (too vague, or just restating the page). Add more specific detail to the content, or set a focus keyword, and try again.', 'rankready-ai-llm-seo' ) );
 		}
 
 		// Save to post meta.
@@ -930,8 +987,15 @@ class RNRD_Faq {
 		$prompt .= "- Reference internal links as markdown links where relevant.\n";
 		$prompt .= "- Make each answer quotable: an AI chatbot should be able to cite this answer directly.\n\n";
 
-		$prompt .= "FORMAT: Return a JSON array of objects with 'question' and 'answer' keys.\n";
-		$prompt .= "Example: [{\"question\": \"How does...\", \"answer\": \"...\"}]\n";
+		// FORMAT: must be a top-level JSON OBJECT, never a bare array. OpenAI's and
+		// DeepSeek's `response_format: json_object` mode cannot return a top-level
+		// array — asking for one makes the model flatten the items into repeated
+		// "question"/"answer" keys on a single object, and json_decode() keeps only
+		// the last pair, so every item is dropped downstream. Mirrors the summary
+		// generator's `{"bullets":[...]}` contract, which is why that path works.
+		$prompt .= "FORMAT: Return a JSON object with a single key \"faqs\" whose value is an array of objects with 'question' and 'answer' keys.\n";
+		$prompt .= "Return ONLY valid JSON. Do NOT return a bare array at the top level.\n";
+		$prompt .= "Example: {\"faqs\": [{\"question\": \"How does...\", \"answer\": \"...\"}, {\"question\": \"Why is...\", \"answer\": \"...\"}]}\n";
 
 		return $prompt;
 	}
@@ -1203,7 +1267,7 @@ class RNRD_Faq {
 		}
 
 		$lines = array();
-		$lines[] = '## Frequently Asked Questions';
+		$lines[] = '## ' . __( 'Frequently Asked Questions', 'rankready-ai-llm-seo' );
 		$lines[] = '';
 
 		foreach ( $faq_data as $item ) {

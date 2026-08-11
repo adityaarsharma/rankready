@@ -497,4 +497,147 @@ class RNRD_LLM {
 			'error'        => '',
 		);
 	}
+	/**
+	 * Detect the human language of a post's content so generated Summaries/FAQs
+	 * are written in the SAME language as the page instead of defaulting to
+	 * English. Order: WPML per-post -> Polylang per-post -> site language
+	 * (Settings > General) -> current locale.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array e.g. array( 'code' => 'de', 'name' => 'German' ). 'name' may be ''.
+	 */
+	public static function detect_content_language( int $post_id ): array {
+		$locale = '';
+
+		// WPML per-post language.
+		if ( has_filter( 'wpml_post_language_details' ) ) {
+			$details = apply_filters( 'wpml_post_language_details', null, $post_id );
+			if ( is_array( $details ) && ! empty( $details['language_code'] ) ) {
+				$locale = (string) $details['language_code'];
+			}
+		}
+
+		// Polylang per-post language.
+		if ( '' === $locale && function_exists( 'pll_get_post_language' ) ) {
+			$pll = pll_get_post_language( $post_id, 'locale' );
+			if ( ! empty( $pll ) ) {
+				$locale = (string) $pll;
+			}
+		}
+
+		// Site language (Settings > General) — preferred over the current user's
+		// admin/REST locale, which can differ from the content language.
+		if ( '' === $locale ) {
+			if ( defined( 'WPLANG' ) && WPLANG ) {
+				$locale = (string) WPLANG;
+			} else {
+				$site   = get_option( 'WPLANG' );
+				$locale = ( is_string( $site ) && '' !== $site ) ? $site : get_locale();
+			}
+		}
+
+		$code = strtolower( substr( str_replace( '-', '_', $locale ), 0, 2 ) );
+
+		$names = array(
+			'en' => 'English',    'de' => 'German',     'es' => 'Spanish',    'fr' => 'French',
+			'it' => 'Italian',    'pt' => 'Portuguese', 'nl' => 'Dutch',      'pl' => 'Polish',
+			'ru' => 'Russian',    'ja' => 'Japanese',   'zh' => 'Chinese',    'ar' => 'Arabic',
+			'tr' => 'Turkish',    'sv' => 'Swedish',    'da' => 'Danish',     'nb' => 'Norwegian',
+			'nn' => 'Norwegian',  'fi' => 'Finnish',    'cs' => 'Czech',      'hu' => 'Hungarian',
+			'ro' => 'Romanian',   'el' => 'Greek',      'he' => 'Hebrew',     'ko' => 'Korean',
+			'id' => 'Indonesian', 'th' => 'Thai',       'vi' => 'Vietnamese', 'uk' => 'Ukrainian',
+			'hi' => 'Hindi',      'sk' => 'Slovak',     'bg' => 'Bulgarian',  'hr' => 'Croatian',
+			'sr' => 'Serbian',    'lt' => 'Lithuanian', 'lv' => 'Latvian',    'et' => 'Estonian',
+			'sl' => 'Slovenian',  'fa' => 'Persian',    'bn' => 'Bengali',    'ta' => 'Tamil',
+			'ms' => 'Malay',      'ca' => 'Catalan',    'eu' => 'Basque',     'gl' => 'Galician',
+		);
+
+		$name = isset( $names[ $code ] ) ? $names[ $code ] : '';
+		if ( '' === $name && function_exists( 'locale_get_display_language' ) ) {
+			$display = @locale_get_display_language( $code, 'en' );
+			if ( is_string( $display ) && '' !== $display && strtolower( $display ) !== $code ) {
+				$name = $display;
+			}
+		}
+
+		return array(
+			'code'   => '' !== $code ? $code : 'en',
+			'name'   => $name,
+			'locale' => $locale,
+		);
+	}
+
+	/**
+	 * DataForSEO search location for a post, so FAQ seed questions come from the
+	 * right country's search data (a German post gets German search volume, not
+	 * US). Google geo-target IDs = 2000 + ISO 3166-1 numeric (verified DE=2276).
+	 * Unknown locales fall back to the US (2840) — the historic default, so this
+	 * never regresses an English site.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return int DataForSEO location_code.
+	 */
+	public static function dfs_location_code( int $post_id ): int {
+		$lang    = self::detect_content_language( $post_id );
+		$locale  = isset( $lang['locale'] ) ? (string) $lang['locale'] : '';
+		$country = '';
+
+		$parts = preg_split( '/[_-]/', $locale );
+		if ( is_array( $parts ) && count( $parts ) >= 2 && 2 === strlen( $parts[1] ) ) {
+			$country = strtoupper( $parts[1] );
+		}
+		if ( '' === $country ) {
+			// Bare locales (e.g. "de") -> primary market for that language.
+			$lang_country = array(
+				'en' => 'US', 'de' => 'DE', 'fr' => 'FR', 'es' => 'ES', 'it' => 'IT',
+				'pt' => 'PT', 'nl' => 'NL', 'pl' => 'PL', 'sv' => 'SE', 'da' => 'DK',
+				'nb' => 'NO', 'nn' => 'NO', 'fi' => 'FI', 'ru' => 'RU', 'tr' => 'TR',
+				'ja' => 'JP', 'cs' => 'CZ', 'hu' => 'HU', 'ro' => 'RO', 'el' => 'GR',
+				'uk' => 'UA', 'id' => 'ID', 'vi' => 'VN', 'th' => 'TH', 'ko' => 'KR',
+				'hi' => 'IN', 'ar' => 'SA', 'zh' => 'TW', 'he' => 'IL', 'sk' => 'SK',
+				'bg' => 'BG', 'hr' => 'HR', 'sr' => 'RS', 'lt' => 'LT', 'lv' => 'LV',
+				'et' => 'EE', 'sl' => 'SI', 'fa' => 'IR', 'ms' => 'MY', 'ca' => 'ES',
+			);
+			$country = isset( $lang_country[ $lang['code'] ] ) ? $lang_country[ $lang['code'] ] : 'US';
+		}
+
+		// Google geo-target country IDs (2000 + ISO 3166-1 numeric).
+		$geo = array(
+			'US' => 2840, 'GB' => 2826, 'DE' => 2276, 'FR' => 2250, 'ES' => 2724,
+			'IT' => 2380, 'NL' => 2528, 'PT' => 2620, 'BR' => 2076, 'PL' => 2616,
+			'SE' => 2752, 'DK' => 2208, 'NO' => 2578, 'FI' => 2246, 'RU' => 2643,
+			'TR' => 2792, 'JP' => 2392, 'KR' => 2410, 'IN' => 2356, 'ID' => 2360,
+			'VN' => 2704, 'TH' => 2764, 'CZ' => 2203, 'HU' => 2348, 'RO' => 2642,
+			'GR' => 2300, 'UA' => 2804, 'MX' => 2484, 'AR' => 2032, 'CA' => 2124,
+			'AU' => 2036, 'AT' => 2040, 'CH' => 2756, 'BE' => 2056, 'IE' => 2372,
+			'SA' => 2682, 'AE' => 2784, 'IL' => 2376, 'ZA' => 2710, 'TW' => 2158,
+			'BG' => 2100, 'HR' => 2191, 'RS' => 2688, 'LT' => 2440, 'LV' => 2428,
+			'EE' => 2233, 'SI' => 2705, 'SK' => 2703, 'IR' => 2364, 'MY' => 2458, 'CN' => 2156,
+		);
+
+		return isset( $geo[ $country ] ) ? $geo[ $country ] : 2840;
+	}
+
+	/**
+	 * High-priority LANGUAGE instruction block for generation prompts, so the
+	 * model writes output in the post's language instead of English. Safe for
+	 * English sites (the "match the content language" rule yields English).
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string Prompt block ending with a blank line.
+	 */
+	public static function language_directive( int $post_id ): string {
+		$lang = self::detect_content_language( $post_id );
+
+		$out  = "LANGUAGE RULE (highest priority - overrides every formatting rule below):\n";
+		$out .= "- Detect the language of the page CONTENT provided below and write EVERY word of your output in that SAME language.\n";
+		if ( '' !== $lang['name'] && 'English' !== $lang['name'] ) {
+			$out .= "- This page is in {$lang['name']}. Write your entire response in {$lang['name']}.\n";
+		}
+		$out .= "- Never default to English. If the page is not in English, your output must not be in English.\n";
+		$out .= "- Only JSON keys (such as \"question\", \"answer\", \"bullets\") stay in English; every JSON VALUE must be in the page's language.\n";
+		$out .= "- Example search queries or keywords provided below may be in another language; translate and adapt them into the page's language.\n\n";
+
+		return $out;
+	}
 }

@@ -134,6 +134,7 @@ class RNRD_Llms_Txt {
 		// Sync to physical robots.txt when settings change.
 		add_action( 'update_option_' . RNRD_OPT_ROBOTS_ENABLE,             array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RNRD_OPT_ROBOTS_CRAWLERS,           array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'update_option_' . RNRD_OPT_ROBOTS_BLOCKED,            array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RNRD_OPT_LLMS_ENABLE,               array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RNRD_OPT_LLMS_FULL_ENABLE,          array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RNRD_OPT_MD_ENABLE,                 array( self::class, 'sync_physical_robots_txt' ) );
@@ -142,6 +143,55 @@ class RNRD_Llms_Txt {
 		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_SEARCH,   array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_INPUT, array( self::class, 'sync_physical_robots_txt' ) );
 
+		// v1.2.1 — Derive the two legacy crawler arrays whenever the Allow /
+		// Default / Block map changes. Registered here rather than in RNRD_Admin
+		// so it fires for ANY writer — admin form post, WP-CLI, REST — not only
+		// an admin request. Priority 5 so the arrays land before anything at the
+		// default priority reads them. Both hooks are required: the first save
+		// on an existing install ADDS the option, later saves UPDATE it, and the
+		// two fire with different argument signatures.
+		add_action(
+			'add_option_' . RNRD_OPT_ROBOTS_MODE,
+			static function ( $option, $value ): void {
+				self::apply_robots_mode( (array) $value );
+			},
+			5,
+			2
+		);
+		add_action(
+			'update_option_' . RNRD_OPT_ROBOTS_MODE,
+			static function ( $old_value, $value ): void {
+				self::apply_robots_mode( (array) $value );
+			},
+			5,
+			2
+		);
+
+		// v1.2.1 — Keep the mirrored search/social group fresh.
+		//
+		// That group restates the site's `User-agent: *` rules, so it goes STALE
+		// if those rules change outside RankReady — a Rank Math / Yoast robots
+		// editor save, or a hand-edited physical file. None of the update_option_
+		// hooks above fire for that, and the version-bump re-sync in rankready.php
+		// only runs on upgrade. A stale mirror means Googlebot would keep obeying
+		// the OLD rules, so a newly added Disallow would not reach it.
+		//
+		// Re-check hourly. sync_physical_robots_txt() diffs the rendered output
+		// before writing, so when nothing has changed this costs one file read and
+		// performs no write, no cache purge. admin_init is admin-only, so this
+		// never touches a frontend request.
+		add_action(
+			'admin_init',
+			static function (): void {
+				if ( false !== get_transient( 'rnrd_robots_mirror_check' ) ) {
+					return;
+				}
+				set_transient( 'rnrd_robots_mirror_check', 1, HOUR_IN_SECONDS );
+				self::sync_physical_robots_txt();
+			},
+			20
+		);
+
 		// v1.0.1 — robots.txt + mcp.json + .md endpoints also flush every cache
 		// layer on the option changes that affect them. Without this, CDNs serve
 		// stale robots.txt / mcp.json for hours after the user changes settings.
@@ -149,6 +199,7 @@ class RNRD_Llms_Txt {
 		// purge the full set whenever ANY agent-affecting option changes.
 		$cdn_purge_triggers = array(
 			RNRD_OPT_ROBOTS_ENABLE,           RNRD_OPT_ROBOTS_CRAWLERS,
+			RNRD_OPT_ROBOTS_BLOCKED,
 			RNRD_OPT_MD_ENABLE,
 			RNRD_OPT_CONTENT_SIGNALS_ENABLE,  RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN,
 			RNRD_OPT_CONTENT_SIGNALS_SEARCH,  RNRD_OPT_CONTENT_SIGNALS_AI_INPUT,
@@ -195,7 +246,10 @@ class RNRD_Llms_Txt {
 			return $output;
 		}
 
-		$block = self::generate_robots_block();
+		// $output is WP's generated robots.txt including other plugins' additions
+		// (we run at PHP_INT_MAX, so this is the final text) and does not yet
+		// contain our block — safe to mirror the `*` group from.
+		$block = self::generate_robots_block( $output );
 		if ( empty( trim( $block ) ) ) {
 			return $output;
 		}
@@ -222,12 +276,23 @@ class RNRD_Llms_Txt {
 			header( 'Link: <' . esc_url( home_url( '/llms-full.txt' ) ) . '>; rel="llms-full-txt"', false );
 		}
 
-		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) && ! is_singular() ) {
 			// v1.1.2 — Advertise the distinct, cache-safe homepage markdown URL
 			// (/index.md), NOT the canonical `/`. Same-URL Accept negotiation is
 			// off by default, so `/` returns HTML; pointing agents there would
 			// hand them HTML when they asked for markdown. The /index.md endpoint
 			// always returns markdown and cannot poison the page cache.
+			//
+			// v1.2.1 — `! is_singular()` guard. RNRD_Markdown::add_md_link_header()
+			// already emits the per-page alternate on every singular view, and on a
+			// STATIC front page get_md_url() also resolves to /index.md — so without
+			// this guard both handlers appended the identical header and the homepage
+			// advertised /index.md twice (seen live on a production site). Sites using
+			// a blog-index front page never hit it, which is why it stayed hidden.
+			// Splitting on is_singular() means exactly one handler emits: this one for
+			// non-singular views (blog-index home, archives), add_md_link_header() for
+			// singular ones — which also stops posts from claiming the homepage's
+			// markdown as their own rel="alternate".
 			header( 'Link: <' . esc_url( home_url( '/index.md' ) ) . '>; rel="alternate"; type="text/markdown"', false );
 		}
 
@@ -276,7 +341,149 @@ class RNRD_Llms_Txt {
 	 *
 	 * Used both by the `robots_txt` filter (virtual) and physical file sync.
 	 */
-	public static function generate_robots_block(): string {
+	/**
+	 * Current Allow / Default / Block state for every known crawler.
+	 *
+	 * Derived from the two legacy arrays, so installs that have never saved the
+	 * radio render correctly with no migration step and no DB write. Block wins
+	 * when a crawler somehow appears in both, matching the precedence
+	 * generate_robots_block() already applies.
+	 *
+	 * Lives here, not in RNRD_Admin, because the mapping is domain logic rather
+	 * than UI: this class is always loaded, so the derive hooks below fire for
+	 * WP-CLI and REST writes too, not only for an admin form post.
+	 *
+	 * @since 1.2.1
+	 * @return array<string,string> user-agent => 'allow'|'block'|'default'
+	 */
+	public static function get_robots_mode(): array {
+		$crawlers = array_keys( self::get_llm_crawlers() );
+		$allow    = (array) get_option( RNRD_OPT_ROBOTS_CRAWLERS, $crawlers );
+		$blocked  = (array) get_option( RNRD_OPT_ROBOTS_BLOCKED, array() );
+
+		$mode = array();
+		foreach ( $crawlers as $ua ) {
+			if ( in_array( $ua, $blocked, true ) ) {
+				$mode[ $ua ] = 'block';
+			} elseif ( in_array( $ua, $allow, true ) ) {
+				$mode[ $ua ] = 'allow';
+			} else {
+				$mode[ $ua ] = 'default';
+			}
+		}
+		return $mode;
+	}
+
+	/**
+	 * Write the two legacy arrays from a mode map.
+	 *
+	 * RNRD_OPT_ROBOTS_CRAWLERS and RNRD_OPT_ROBOTS_BLOCKED stay the source of
+	 * truth for robots.txt output, so nothing downstream changed. Writing them
+	 * here also fires their existing update_option_ hooks, which re-sync the
+	 * physical robots.txt exactly as before.
+	 *
+	 * @since 1.2.1
+	 * @param array $mode user-agent => 'allow'|'block'|'default'
+	 */
+	public static function apply_robots_mode( array $mode ): void {
+		$allow   = array();
+		$blocked = array();
+		foreach ( array_keys( self::get_llm_crawlers() ) as $ua ) {
+			$state = isset( $mode[ $ua ] ) ? (string) $mode[ $ua ] : 'default';
+			if ( 'allow' === $state ) {
+				$allow[] = $ua;
+			} elseif ( 'block' === $state ) {
+				$blocked[] = $ua;
+			}
+			// 'default' — in neither list, so RankReady writes nothing for it
+			// and the crawler follows the site's existing robots.txt rules.
+		}
+		update_option( RNRD_OPT_ROBOTS_CRAWLERS, $allow );
+		update_option( RNRD_OPT_ROBOTS_BLOCKED, $blocked );
+	}
+
+	/**
+	 * Search / social crawlers that are NOT AI crawlers.
+	 *
+	 * These deliberately live outside get_llm_crawlers(): they must never join
+	 * the permissive `Allow: /` group, because a crawler obeys only the most
+	 * specific matching group (RFC 9309 §2.2.1) — putting Googlebot there would
+	 * detach it from the site's own `User-agent: *` rules and let it crawl
+	 * /checkout/, /wp-admin/ and search pages.
+	 *
+	 * Instead they get their own group that MIRRORS the site's `*` rules, so
+	 * they are explicitly named (which readiness scanners look for) while their
+	 * effective permissions stay exactly what the site already granted them.
+	 *
+	 * @since 1.2.1
+	 */
+	public static function get_search_social_crawlers(): array {
+		return array(
+			'Googlebot'           => array( 'Google', 'Google Search + AI Overviews' ),
+			'FacebookExternalHit' => array( 'Meta', 'Facebook / WhatsApp link previews' ),
+		);
+	}
+
+	/**
+	 * Extract Allow/Disallow rules from every `User-agent: *` group in a robots.txt body.
+	 *
+	 * Used to mirror the site's own rules into the search/social group. Callers
+	 * MUST pass content with the RankReady block already stripped, otherwise the
+	 * mirrored rules would be re-ingested on every sync and compound.
+	 *
+	 * @since 1.2.1
+	 * @param string $robots Raw robots.txt body, RankReady block removed.
+	 * @return array{allow:string[],disallow:string[]}
+	 */
+	public static function parse_wildcard_group_rules( string $robots ): array {
+		$allow    = array();
+		$disallow = array();
+		$in_group = false;
+		$reading_ua = false;
+
+		foreach ( preg_split( '/\r\n|\r|\n/', $robots ) as $line ) {
+			$line = trim( preg_replace( '/#.*$/', '', $line ) );
+			if ( '' === $line || ! preg_match( '/^([A-Za-z-]+)\s*:\s*(.*)$/', $line, $m ) ) {
+				continue;
+			}
+			$field = strtolower( $m[1] );
+			$value = trim( $m[2] );
+
+			if ( 'user-agent' === $field ) {
+				// A User-agent line following rule lines opens a NEW group.
+				if ( ! $reading_ua ) {
+					$in_group = false;
+				}
+				$reading_ua = true;
+				if ( '*' === $value ) {
+					$in_group = true;
+				}
+				continue;
+			}
+			$reading_ua = false;
+			if ( ! $in_group || '' === $value ) {
+				continue;
+			}
+			if ( 'disallow' === $field ) {
+				// Never mirror a site-wide block. WordPress emits `Disallow: /`
+				// when "Discourage search engines" is on, and that is a
+				// search-indexing decision we must not silently widen.
+				if ( '/' === $value ) {
+					continue;
+				}
+				$disallow[ $value ] = true;
+			} elseif ( 'allow' === $field ) {
+				$allow[ $value ] = true;
+			}
+		}
+
+		return array(
+			'allow'    => array_keys( $allow ),
+			'disallow' => array_keys( $disallow ),
+		);
+	}
+
+	public static function generate_robots_block( ?string $surrounding_robots = null ): string {
 		$llms_on    = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
 		$full_on    = 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
 		$md_on      = 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
@@ -327,11 +534,81 @@ class RNRD_Llms_Txt {
 			}
 			$enabled_crawlers = (array) $enabled_crawlers;
 
+			// v1.2.1 - hard-block list (Disallow). Default empty so existing installs
+			// are byte-identical; a crawler in BOTH lists is blocked (block wins).
+			$blocked_crawlers = (array) get_option( RNRD_OPT_ROBOTS_BLOCKED, array() );
+			$enabled_crawlers = array_values( array_diff( $enabled_crawlers, $blocked_crawlers ) );
+
+			// Blocked group first - its own User-agent group with Disallow: /.
+			if ( ! empty( $blocked_crawlers ) ) {
+				foreach ( $blocked_crawlers as $crawler ) {
+					$block .= 'User-agent: ' . sanitize_text_field( $crawler ) . "\n";
+				}
+				$block .= "Disallow: /\n\n";
+			}
+
+			// Allowed group - Allow: / plus the RankReady endpoint paths.
 			if ( ! empty( $enabled_crawlers ) ) {
 				foreach ( $enabled_crawlers as $crawler ) {
 					$block .= 'User-agent: ' . sanitize_text_field( $crawler ) . "\n";
 				}
 				$block .= "Allow: /\n";
+				foreach ( $allow_paths as $path ) {
+					$block .= "Allow: {$path}\n";
+				}
+				$block .= "\n";
+			}
+
+			// v1.2.1 — Search / social crawlers, named explicitly but NOT widened.
+			//
+			// Googlebot and FacebookExternalHit are not AI crawlers, so they must
+			// never join the `Allow: /` group above — a crawler obeys only its
+			// most specific matching group, so that would detach them from the
+			// site's own `User-agent: *` rules and expose /checkout/, /wp-admin/
+			// and search pages. Instead we give them their own group that RESTATES
+			// the site's existing `*` rules verbatim. Net permissions: unchanged.
+			// What changes is that they are now explicitly named, which is what
+			// readiness scanners check for.
+			//
+			// $surrounding_robots must already have the RankReady block stripped
+			// (both callers do this) or we would re-ingest our own mirror.
+			if ( null !== $surrounding_robots && '' !== trim( $surrounding_robots ) ) {
+				$mirror = self::parse_wildcard_group_rules( $surrounding_robots );
+
+				$rules = array();
+				foreach ( $mirror['disallow'] as $path ) {
+					$rules[] = array( 'Disallow', $path );
+				}
+				foreach ( $mirror['allow'] as $path ) {
+					$rules[] = array( 'Allow', $path );
+				}
+
+				// Most-specific-first. RFC 9309 §2.2.2 mandates longest-match, but
+				// order-based parsers exist in the wild; sorting by descending path
+				// length (Allow winning ties) is correct under both.
+				usort(
+					$rules,
+					static function ( $a, $b ) {
+						$diff = strlen( $b[1] ) - strlen( $a[1] );
+						if ( 0 !== $diff ) {
+							return $diff;
+						}
+						return ( 'Allow' === $a[0] ? 0 : 1 ) - ( 'Allow' === $b[0] ? 0 : 1 );
+					}
+				);
+
+				foreach ( array_keys( self::get_search_social_crawlers() ) as $crawler ) {
+					$block .= 'User-agent: ' . sanitize_text_field( $crawler ) . "\n";
+				}
+				if ( empty( $rules ) ) {
+					// Site places no restrictions on `*` — say so explicitly rather
+					// than emitting a User-agent with no rules under it.
+					$block .= "Allow: /\n";
+				} else {
+					foreach ( $rules as $rule ) {
+						$block .= $rule[0] . ': ' . $rule[1] . "\n";
+					}
+				}
 				foreach ( $allow_paths as $path ) {
 					$block .= "Allow: {$path}\n";
 				}
@@ -380,6 +657,23 @@ class RNRD_Llms_Txt {
 	 *
 	 * Safe: only touches the RankReady-marked block, never modifies other rules.
 	 */
+	/**
+	 * Record a robots.txt sync failure.
+	 *
+	 * Every failure path in sync_physical_robots_txt() used to `return` silently,
+	 * so a user who blocked a crawler saw "Settings saved" while robots.txt was
+	 * never touched. The option persisted, the file did not — reported state and
+	 * real state diverged with nothing to diagnose it. Diagnostics already detects
+	 * the drift; this makes the save path itself speak up.
+	 *
+	 * @param string $message Human-readable cause.
+	 */
+	private static function log_robots_sync_failure( string $message ): void {
+		if ( class_exists( 'RNRD_Generator' ) ) {
+			RNRD_Generator::log_error( 'robots.txt', $message );
+		}
+	}
+
 	public static function sync_physical_robots_txt(): void {
 		// Skip physical robots.txt on multisite — subsites share ABSPATH.
 		if ( is_multisite() ) {
@@ -393,6 +687,11 @@ class RNRD_Llms_Txt {
 			require_once ABSPATH . 'wp-admin/includes/file.php';
 		}
 		if ( ! WP_Filesystem() ) {
+			// Returns false whenever FS_METHOD is not 'direct' (host wants FTP/SSH
+			// credentials). Previously silent: the user saw "Settings saved" while
+			// robots.txt kept the old rules and the crawler they just blocked kept
+			// crawling. Log it so Diagnostics and the error log can surface it.
+			self::log_robots_sync_failure( 'WordPress could not get filesystem access (FS_METHOD is not "direct"). robots.txt was not updated.' );
 			return;
 		}
 
@@ -407,7 +706,9 @@ class RNRD_Llms_Txt {
 		// non-empty block to write — otherwise we'd leave an empty file
 		// around that could surprise users.
 		if ( ! $wp_filesystem->exists( $file ) ) {
-			$robots_on = (bool) get_option( RNRD_OPT_ROBOTS_ENABLE, false );
+			// (bool) 'off' is true — this guard was inert, so a physical robots.txt
+			// could be written even with the toggle explicitly OFF.
+			$robots_on = 'on' === get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
 			$block     = self::generate_robots_block();
 			if ( ! $robots_on || empty( trim( $block ) ) ) {
 				// Filter handles it — no need for physical file.
@@ -421,12 +722,16 @@ class RNRD_Llms_Txt {
 			}
 			// Write a fresh physical robots.txt — block-only is fine; it
 			// reads as a normal robots.txt with comments + directives.
-			$wp_filesystem->put_contents( $file, ltrim( $block ) . "\n", FS_CHMOD_FILE );
+			if ( ! $wp_filesystem->put_contents( $file, ltrim( $block ) . "\n", FS_CHMOD_FILE ) ) {
+				self::log_robots_sync_failure( 'Could not create a physical robots.txt at ' . $file . '. Another plugin is intercepting /robots.txt, so the AI crawler rules are NOT live.' );
+				return;
+			}
 			self::purge_robots_cache();
 			return;
 		}
 
 		if ( ! $wp_filesystem->is_writable( $file ) ) {
+			self::log_robots_sync_failure( 'robots.txt exists at ' . $file . ' but is not writable, so the AI crawler rules were not applied. Fix the file permissions or edit it manually.' );
 			return;
 		}
 
@@ -443,11 +748,31 @@ class RNRD_Llms_Txt {
 		$new_contents = preg_replace( '/\n?# -+ LLM.*?\(RankReady\).*?\n.*?(?=\n#[^-]|\n?$)/s', '', $new_contents );
 		$new_contents = preg_replace( '/\n?#[^\n]*LLM[^\n]*RankReady[^\n]*\n.*?(?=\n#[^-]|\n?$)/s', '', $new_contents );
 
+		// v1.2.1 — Remove orphaned Content Signals blocks.
+		//
+		// Builds before this one closed `# END RankReady` *before* the Content
+		// Signals section, so the marker strip above removed the crawler rules
+		// but left the Content-Signal pair behind. Every subsequent sync then
+		// appended a fresh copy, accumulating one orphan per settings save
+		// (a production site had 14 stranded copies outside the markers).
+		//
+		// This runs *after* the marker strip, so the current managed block is
+		// already gone — anything still carrying our own comment signature is
+		// by definition an orphan. A Content-Signal line the user wrote by hand
+		// has no such comment above it and is left untouched.
+		$new_contents = preg_replace(
+			'/\n?# Content Signals \(contentsignals\.org\)\n(?:Content-Signal:[^\n]*\n)+/',
+			'',
+			$new_contents
+		);
+
 		// Trim trailing whitespace.
 		$new_contents = rtrim( $new_contents ) . "\n";
 
-		// Generate and append new block.
-		$block = self::generate_robots_block();
+		// Generate and append new block. $new_contents has our block already
+		// stripped above, so mirroring the `*` group from it cannot re-ingest
+		// our own mirrored rules.
+		$block = self::generate_robots_block( $new_contents );
 
 		if ( ! empty( trim( $block ) ) ) {
 			$new_contents .= $block;
@@ -461,7 +786,10 @@ class RNRD_Llms_Txt {
 			return;
 		}
 
-		$wp_filesystem->put_contents( $file, $new_contents, FS_CHMOD_FILE );
+		if ( ! $wp_filesystem->put_contents( $file, $new_contents, FS_CHMOD_FILE ) ) {
+			self::log_robots_sync_failure( 'Writing robots.txt at ' . $file . ' failed, so the AI crawler rules were not applied.' );
+			return;
+		}
 
 		// Purge robots.txt from all common page caches so changes are live immediately.
 		self::purge_robots_cache();
@@ -617,15 +945,39 @@ class RNRD_Llms_Txt {
 	// ── Request handler ───────────────────────────────────────────────────────
 
 	public static function handle_request(): void {
-		if ( get_query_var( 'rnrd_llms_txt' ) ) {
+		// Primary path: WordPress resolved our rewrite rule into a query var.
+		// Fallback path: match the raw request URI directly. On some stacks (e.g. an
+		// SEO plugin's early template_redirect router, aggressive rewrite ordering, or
+		// a query_vars strip) WP never surfaces our query var even though the rule
+		// matched — the raw-path check keeps the endpoint working. (Support: barisdayak.com.)
+		$path = self::request_path();
+
+		if ( get_query_var( 'rnrd_llms_txt' )
+			|| ( 'llms.txt' === $path && 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) && ! self::another_plugin_handles_llms_txt() ) ) {
 			RNRD_Crawler_Log::log( 'llms_txt' );
 			self::serve_llms_txt( false );
 		}
 
-		if ( get_query_var( 'rnrd_llms_full_txt' ) ) {
+		if ( get_query_var( 'rnrd_llms_full_txt' )
+			|| ( 'llms-full.txt' === $path && 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) ) ) {
 			RNRD_Crawler_Log::log( 'llms_full' );
 			self::serve_llms_txt( true );
 		}
+	}
+
+	/** Normalised current request path: no query string, no surrounding slashes, subdirectory-aware. */
+	private static function request_path(): string {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		$req = trim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
+		$home = trim( (string) wp_parse_url( home_url(), PHP_URL_PATH ), '/' );
+		if ( '' !== $home ) {
+			if ( 0 === strpos( $req, $home . '/' ) ) {
+				$req = trim( substr( $req, strlen( $home ) ), '/' );
+			} elseif ( $req === $home ) {
+				$req = '';
+			}
+		}
+		return $req;
 	}
 
 	// ── Serve ─────────────────────────────────────────────────────────────────
@@ -697,8 +1049,23 @@ class RNRD_Llms_Txt {
 			exit;
 		}
 
+		// Assert 200 explicitly. We run on template_redirect, which fires AFTER
+		// the main query — if another plugin intercepted the rewrite rule, WP has
+		// already resolved this request as a 404 and sent that status. Serving the
+		// correct body under a 404 makes agents and scanners discard it. Mirrors
+		// RNRD_MCP::handle_request(), which has always done this.
+		status_header( 200 );
+
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/plain; charset=utf-8' );
+
+		// v1.2.0 — Keep llms.txt / llms-full.txt CRAWLABLE (AI agents fetch it,
+		// and Google must be able to read this directive) but OUT of Google's
+		// search results. Google ignores llms.txt for ranking, and it's a
+		// machine-readable file, not a user-facing page — the recommended
+		// practice for such files is "allow crawling, then X-Robots-Tag: noindex".
+		// This response already bypasses page caches, so the header survives.
+		header( 'X-Robots-Tag: noindex, follow' );
 
 		// Browser-vs-edge TTL split (Mark Nottingham's caching tutorial §6.2).
 		// max-age=60 keeps end-user browsers re-checking every minute (cheap
@@ -1582,32 +1949,56 @@ class RNRD_Llms_Txt {
 		return trim( $text );
 	}
 
+	/**
+	 * Flatten a value that will be interpolated into a SINGLE Markdown list line.
+	 *
+	 * clean_text() deliberately preserves newlines (llms.txt has multi-line
+	 * sections), but a description is spliced into one `- [title](url): desc`
+	 * line. An Author-level user could put newlines in an excerpt or a Yoast /
+	 * Rank Math meta description and forge extra `## Section` headings and
+	 * `- [anything](https://attacker.example)` entries in the public file that
+	 * AI crawlers treat as the site's authoritative guidance.
+	 *
+	 * @param string $text Cleaned text that may contain newlines.
+	 * @return string Single-line, length-capped text.
+	 */
+	private static function flatten_for_list_line( string $text ): string {
+		$text = preg_replace( '/\s*\R\s*/u', ' ', $text );
+		$text = trim( preg_replace( '/\s{2,}/u', ' ', (string) $text ) );
+
+		if ( function_exists( 'mb_strlen' ) && mb_strlen( $text, 'UTF-8' ) > 300 ) {
+			$text = rtrim( mb_substr( $text, 0, 300, 'UTF-8' ) ) . '…';
+		}
+
+		return $text;
+	}
+
 	private static function get_post_description( $post ): string {
 		// Try Yoast.
 		$yoast = get_post_meta( $post->ID, '_yoast_wpseo_metadesc', true );
 		if ( ! empty( $yoast ) ) {
-			return self::clean_text( $yoast );
+			return self::flatten_for_list_line( self::clean_text( $yoast ) );
 		}
 
 		// Try Rank Math.
 		$rankmath = get_post_meta( $post->ID, 'rank_math_description', true );
 		if ( ! empty( $rankmath ) ) {
-			return self::clean_text( $rankmath );
+			return self::flatten_for_list_line( self::clean_text( $rankmath ) );
 		}
 
 		// Try AIOSEO.
 		$aioseo = get_post_meta( $post->ID, '_aioseo_description', true );
 		if ( ! empty( $aioseo ) ) {
-			return self::clean_text( $aioseo );
+			return self::flatten_for_list_line( self::clean_text( $aioseo ) );
 		}
 
 		// Excerpt.
 		if ( ! empty( $post->post_excerpt ) ) {
-			return self::clean_text( $post->post_excerpt );
+			return self::flatten_for_list_line( self::clean_text( $post->post_excerpt ) );
 		}
 
 		// Auto excerpt.
 		$content = wp_strip_all_tags( do_shortcode( $post->post_content ) );
-		return self::clean_text( wp_trim_words( $content, 30, '...' ) );
+		return self::flatten_for_list_line( self::clean_text( wp_trim_words( $content, 30, '...' ) ) );
 	}
 }

@@ -204,7 +204,7 @@ class RNRD_Diagnostics {
 	private static function probe_llms_txt(): array {
 		if ( 'on' !== get_option( 'rnrd_llms_enable', 'off' ) ) {
 			return self::result( 'llms_txt', '/llms.txt loads', 'info',
-				'Toggle is OFF in AI Crawlers → LLMs.txt.',
+				'Toggle is OFF in AI Visibility → LLMs.txt.',
 				'Enable LLMs.txt to expose your site index to AI engines.'
 			);
 		}
@@ -262,7 +262,7 @@ class RNRD_Diagnostics {
 		if ( false === strpos( substr( $body, 0, 200 ), '# ' ) ) {
 			return self::result( 'llms_txt', '/llms.txt loads', 'warn',
 				'HTTP 200 but missing H1 marker (# ). Format may be corrupted.',
-				'Toggle AI Crawlers → LLMs.txt OFF then ON to regenerate.',
+				'Toggle AI Visibility → LLMs.txt OFF then ON to regenerate.',
 				array( 'url' => $url )
 			);
 		}
@@ -278,7 +278,7 @@ class RNRD_Diagnostics {
 		if ( 'on' !== get_option( 'rnrd_llms_enable', 'off' ) ) {
 			return self::result( 'llms_full_txt', '/llms-full.txt loads', 'info',
 				'Requires LLMs.txt to be enabled (it\'s OFF).',
-				'Enable AI Crawlers → LLMs.txt first.'
+				'Enable AI Visibility → LLMs.txt first.'
 			);
 		}
 
@@ -330,7 +330,7 @@ class RNRD_Diagnostics {
 	private static function probe_homepage_md(): array {
 		if ( 'on' !== get_option( 'rnrd_md_enable', 'off' ) ) {
 			return self::result( 'homepage_md', 'Homepage .md route', 'info',
-				'Toggle is OFF in AI Crawlers → Markdown Endpoints.',
+				'Toggle is OFF in AI Visibility → Markdown Endpoints.',
 				'Enable Markdown Endpoints to serve .md versions of pages.'
 			);
 		}
@@ -384,7 +384,7 @@ class RNRD_Diagnostics {
 		if ( 'on' !== get_option( 'rnrd_md_enable', 'off' ) ) {
 			return self::result( 'post_md', 'Post .md route', 'info',
 				'Markdown Endpoints disabled.',
-				'Enable AI Crawlers → Markdown Endpoints.'
+				'Enable AI Visibility → Markdown Endpoints.'
 			);
 		}
 
@@ -479,7 +479,7 @@ class RNRD_Diagnostics {
 		if ( ! $robots_enabled ) {
 			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'info',
 				'AI Crawler robots.txt toggle is OFF.',
-				'Enable AI Crawlers → LLM Crawler Access to inject the bot block.'
+				'Enable AI Visibility → LLM Crawler Access to inject the bot block.'
 			);
 		}
 
@@ -496,16 +496,16 @@ class RNRD_Diagnostics {
 			$has_physical = file_exists( ABSPATH . 'robots.txt' );
 
 			$detail = 'RankReady block missing from /robots.txt response.';
-			$fix    = 'Re-save AI Crawlers → LLM Crawler Access to trigger a physical robots.txt write.';
+			$fix    = 'Re-save AI Visibility → LLM Crawler Access to trigger a physical robots.txt write.';
 
 			if ( $interceptor ) {
 				$detail = "RankReady block missing — {$interceptor} is intercepting /robots.txt via custom rewrite, so the robots_txt filter never fires.";
 				$fix    = $has_physical
 					? "Disable {$interceptor}'s robots.txt feature, OR delete the physical robots.txt at /robots.txt — RankReady's filter (priority PHP_INT_MAX) will then win."
-					: "Disable {$interceptor}'s robots.txt feature in its settings — RankReady will then take over via filter, OR re-save AI Crawlers → LLM Crawler Access to write a physical robots.txt that wins at the webserver level.";
+					: "Disable {$interceptor}'s robots.txt feature in its settings — RankReady will then take over via filter, OR re-save AI Visibility → LLM Crawler Access to write a physical robots.txt that wins at the webserver level.";
 			} elseif ( $has_physical ) {
 				$detail = 'RankReady block missing from physical robots.txt at ' . ABSPATH . 'robots.txt.';
-				$fix    = 'Re-save AI Crawlers → LLM Crawler Access — sync_physical_robots_txt() will rewrite the file with the RankReady block appended.';
+				$fix    = 'Re-save AI Visibility → LLM Crawler Access — sync_physical_robots_txt() will rewrite the file with the RankReady block appended.';
 			}
 
 			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'fail',
@@ -517,7 +517,7 @@ class RNRD_Diagnostics {
 		if ( ! $has_agent ) {
 			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'warn',
 				'RankReady block present but no User-agent directives.',
-				'Re-save AI Crawlers → LLM Crawler Access to regenerate.',
+				'Re-save AI Visibility → LLM Crawler Access to regenerate.',
 				array( 'url' => $url )
 			);
 		}
@@ -535,7 +535,7 @@ class RNRD_Diagnostics {
 		if ( 'on' !== get_option( 'rnrd_mcp_enable', 'on' ) ) {
 			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'info',
 				'WebMCP toggle is OFF.',
-				'Enable AI Crawlers → WebMCP Manifest to expose 16 abilities to Claude/Cursor/VS Code.'
+				'Enable AI Visibility → WebMCP Manifest to expose 16 abilities to Claude/Cursor/VS Code.'
 			);
 		}
 
@@ -554,7 +554,7 @@ class RNRD_Diagnostics {
 		if ( 503 === $code ) {
 			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'warn',
 				'HTTP 503 (Service Unavailable) — MCP toggle is OFF at request time.',
-				'Confirm AI Crawlers → WebMCP toggle is actually saved as ON.',
+				'Confirm AI Visibility → WebMCP toggle is actually saved as ON.',
 				array( 'url' => $url, 'http_code' => 503 )
 			);
 		}

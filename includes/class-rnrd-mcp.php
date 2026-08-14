@@ -324,7 +324,7 @@ class RNRD_MCP {
 		}
 		return array(
 			'error'   => 'resource_disabled',
-			'message' => 'This ability is not exposed on this site. Enable the matching resource in RankReady → AI Crawlers → WebMCP to use it.',
+			'message' => 'This ability is not exposed on this site. Enable the matching resource in RankReady → AI Visibility → WebMCP to use it.',
 		);
 	}
 

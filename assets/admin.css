@@ -639,8 +639,43 @@
 	margin: 16px 0 0;
 }
 
+/* Dashboard Insights summary — 4 equal peer tiles in one row */
+.rnrd-dash-summary .rnrd-kpi-row {
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.rnrd-dash-summary .rnrd-kpi {
+	padding-left: 14px;
+	padding-right: 10px;
+}
+
+.rnrd-dash-summary .rnrd-kpi__foot {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+@media (max-width: 900px) {
+	.rnrd-dash-summary .rnrd-kpi-row {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 520px) {
+	.rnrd-dash-summary .rnrd-kpi-row {
+		grid-template-columns: 1fr;
+	}
+}
+
 /* `.rnrd-kpi` chrome + data-intent variants consolidated into Section 29
  * (line ~3122) which is the single canonical rule. */
+
+.rnrd-kpi__title {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: 4px 6px;
+}
 
 .rnrd-kpi__label {
 	font-size: 11px;
@@ -1114,51 +1149,192 @@
 	padding: 4px 0;
 }
 
-/* ── 7. Agent Visibility (Dashboard + AI Crawlers tab) ──────────────────── */
-.rnrd-agent-status {
-	background: var(--rnrd-bg-surface);
-	border: 1px solid var(--rnrd-border-subtle);
+/* ── 7. AI Visibility feature list (Dashboard) ──────────────────────────── */
+.rnrd-feature-list {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0 28px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
-.rnrd-agent-status__head {
+@media (max-width: 782px) {
+	.rnrd-feature-list {
+		grid-template-columns: 1fr;
+	}
+}
+
+.rnrd-feature-list__item {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 6px;
+	padding: 12px 0;
+	border-bottom: 1px solid var(--rnrd-border-subtle, #EEF0F2);
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.rnrd-feature-list__hit {
 	display: flex;
 	align-items: flex-start;
-	justify-content: space-between;
-	gap: 24px;
-	flex-wrap: wrap;
-	margin-bottom: 20px;
-}
-
-.rnrd-agent-status__copy {
-	flex: 1 1 320px;
+	gap: 10px;
+	text-decoration: none;
+	color: inherit;
 	min-width: 0;
 }
 
-.rnrd-agent-status__pct {
-	text-align: right;
-	min-width: 120px;
+.rnrd-feature-list__hit:focus {
+	outline: none;
+}
+
+.rnrd-feature-list__hit:focus-visible .rnrd-feature-list__label {
+	color: var(--rnrd-mint-700, #0F9C70);
+}
+
+.rnrd-feature-list__mark {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 16px;
 	flex-shrink: 0;
+	margin-top: 2px;
 }
 
-.rnrd-agent-status__pct-value {
-	font-size: 40px;
+.rnrd-feature-list__item--on .rnrd-feature-list__mark {
+	color: var(--rnrd-mint-600, #0F9C70);
+}
+
+.rnrd-feature-list__item--off .rnrd-feature-list__mark {
+	color: var(--rnrd-text-muted, #9CA3AF);
+}
+
+.rnrd-feature-list__body {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.rnrd-feature-list__top {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	justify-content: flex-start;
+	gap: 6px 8px;
+}
+
+.rnrd-feature-list__label {
+	font-size: 13px;
 	font-weight: 600;
-	letter-spacing: -0.02em;
-	line-height: 1;
-	color: var(--rnrd-mint-600);
-	font-variant-numeric: tabular-nums;
+	color: var(--rnrd-text-primary, #1d2327);
 }
 
-.rnrd-agent-status__pct-label {
+.rnrd-feature-list__badge {
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1.2;
+	padding: 2px 8px;
+	border-radius: 9999px;
+	background: var(--rnrd-color-info-bg, #e5f1f9);
+	color: var(--rnrd-color-info-text, #135e96);
+	vertical-align: middle;
+	letter-spacing: 0.02em;
+}
+
+.rnrd-feature-list__item--off .rnrd-feature-list__label {
+	color: var(--rnrd-text-secondary, #50575e);
+}
+
+.rnrd-feature-list__hit:hover .rnrd-feature-list__label {
+	color: var(--rnrd-mint-700, #0F9C70);
+}
+
+/* Off / Incomplete — sits immediately after the title */
+.rnrd-feature-list__status {
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--rnrd-text-tertiary, #787c82);
+	flex: 0 0 auto;
+}
+
+/* Configure → after title/status; no layout shift when hidden */
+.rnrd-feature-list__go {
+	flex: 0 0 auto;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--rnrd-mint-700, #0F9C70);
+	white-space: nowrap;
+	opacity: 0;
+	max-width: 0;
+	overflow: hidden;
+	margin: 0;
+	transition: opacity 150ms ease, max-width 150ms ease;
+}
+
+.rnrd-feature-list__hit:hover .rnrd-feature-list__go,
+.rnrd-feature-list__hit:focus .rnrd-feature-list__go,
+.rnrd-feature-list__hit:focus-visible .rnrd-feature-list__go {
+	opacity: 1;
+	max-width: 9rem;
+}
+
+@media (hover: none) {
+	.rnrd-feature-list__go {
+		opacity: 1;
+		max-width: 9rem;
+	}
+}
+
+.rnrd-feature-list__meta {
+	font-size: 12px;
+	color: var(--rnrd-text-secondary, #646970);
+	line-height: 1.45;
+}
+
+.rnrd-feature-list__previews {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding-left: 26px;
+}
+
+.rnrd-feature-list__preview {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 2px 7px;
+	border-radius: 4px;
+	background: var(--rnrd-bg-surface-2, #F6F7F7);
+	border: 1px solid var(--rnrd-border-subtle, #E2E4E7);
+	text-decoration: none;
+	color: var(--rnrd-text-secondary, #50575e);
+	line-height: 1.3;
+	align-self: flex-start;
+}
+
+.rnrd-feature-list__preview code {
 	font-size: 11px;
-	font-weight: 600;
-	color: var(--rnrd-text-tertiary);
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	margin-top: 4px;
+	background: transparent;
+	padding: 0;
+	color: inherit;
 }
 
-/* Signal list — checked / unchecked rows */
+.rnrd-feature-list__preview .dashicons {
+	font-size: 12px;
+	width: 12px;
+	height: 12px;
+	line-height: 12px;
+}
+
+.rnrd-feature-list__preview:hover {
+	border-color: var(--rnrd-mint-500, #34D399);
+	color: var(--rnrd-mint-700, #0F9C70);
+}
+
+/* Legacy signal-list (kept for any residual markup) */
 .rnrd-signal-list {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -1847,12 +2023,7 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 
 .rnrd-tab-intro .rnrd-card-goal {
 	font-size: 13px;
-	margin-bottom: 8px;
-}
-
-.rnrd-tab-intro .rnrd-card-desc {
-	font-size: 13px;
-	color: var(--rnrd-text-secondary);
+	margin-bottom: 0;
 }
 
 /* Inline model-migration notice — rendered inside the Settings tab body
@@ -2058,6 +2229,86 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 .rnrd-quicknav__tile:hover .rnrd-quicknav__open,
 .rnrd-quicknav__tile:focus .rnrd-quicknav__open {
     color: var(--rnrd-mint-800, #047A5B);
+}
+
+/* Dashboard summary card headers + tutorial dismiss row */
+.rnrd-dash-summary__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.rnrd-dash-summary__head .rnrd-card-title {
+    margin-bottom: 2px;
+}
+
+.rnrd-dash-summary__head .rnrd-card-goal {
+    margin: 0;
+}
+
+.rnrd-dash-summary__open,
+.rnrd-dash-summary__cta a {
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--rnrd-mint-700, #0F9C70);
+    white-space: nowrap;
+}
+
+.rnrd-dash-summary__open:hover,
+.rnrd-dash-summary__cta a:hover {
+    color: var(--rnrd-mint-800, #047A5B);
+}
+
+.rnrd-dash-summary__cta {
+    margin: 10px 0 0;
+}
+
+.rnrd-dash-summary__foot {
+    margin: 14px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--rnrd-border, #E5E7EB);
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--rnrd-text-secondary, #6B7280);
+}
+
+.rnrd-dash-summary__foot a {
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--rnrd-mint-700, #0F9C70);
+}
+
+.rnrd-dash-summary__foot a:hover {
+    color: var(--rnrd-mint-800, #047A5B);
+}
+
+.rnrd-dash-summary__foot-sep {
+    margin: 0 0.35em;
+    color: var(--rnrd-text-muted, #9CA3AF);
+}
+
+.rnrd-dash-summary__foot--warn {
+    color: var(--rnrd-warn-text, #92400E);
+}
+
+.rnrd-dash-summary__foot--warn a {
+    color: var(--rnrd-warn-link, #B45309);
+}
+
+.rnrd-dash-summary__foot--warn a:hover {
+    color: var(--rnrd-warn-link-hover, #92400E);
+}
+
+.rnrd-tutorial-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2757,6 +3008,47 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 .rnrd-kpi:hover {
     border-color: #D6D8D1;
     box-shadow: 0 2px 6px rgba(15, 20, 17, 0.05);
+}
+
+/* Dashboard Insights tiles — whole KPI is a deep-link to its subtab */
+a.rnrd-kpi--link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+a.rnrd-kpi--link:hover,
+a.rnrd-kpi--link:focus {
+    border-color: var(--rnrd-mint-400, #7BE8C5);
+    box-shadow: 0 2px 8px rgba(15, 156, 112, 0.08);
+    outline: none;
+}
+
+a.rnrd-kpi--link .rnrd-kpi__go {
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    margin: 0;
+    color: var(--rnrd-mint-700, #0F9C70);
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: opacity 150ms ease, max-width 150ms ease;
+}
+
+a.rnrd-kpi--link:hover .rnrd-kpi__go,
+a.rnrd-kpi--link:focus .rnrd-kpi__go {
+    opacity: 1;
+    max-width: 1.25rem;
+}
+
+@media (hover: none) {
+    a.rnrd-kpi--link .rnrd-kpi__go {
+        opacity: 1;
+        max-width: 1.25rem;
+    }
 }
 
 /* Override the colored left-accent variants — every tile reads the same. */
@@ -3712,12 +4004,6 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
     padding: 18px 20px;
 }
 
-.rnrd-aside-card--whatsnew {
-    background: #ECFDF6;
-    border-color: #B8F2DC;
-    border-left: 4px solid var(--rnrd-mint-500, #2DE3A8);
-}
-
 .rnrd-aside-card__head {
     display: flex;
     align-items: center;
@@ -3800,8 +4086,8 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 }
 .rnrd-tips-form__email:focus,
 .rnrd-tips-form__email:focus-visible {
-    border-color: var(--rnrd-mint-500, #59F7C2) !important;
-    box-shadow: 0 0 0 3px rgba(89, 247, 194, 0.22) !important;
+    border-color: var(--rnrd-text-primary, #0F1411) !important;
+    box-shadow: 0 0 0 3px rgba(15, 20, 17, 0.12) !important;
     outline: none !important;
 }
 .rnrd-tips-form__btn {
@@ -3813,15 +4099,23 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
     font-size: 13px;
     font-weight: 600;
     font-family: inherit;
-    color: var(--rnrd-text-on-mint, #0A3D2B);
-    background: var(--rnrd-mint-500, #59F7C2);
-    border: 1px solid var(--rnrd-mint-500, #59F7C2);
+    /* Ink CTA — distinct from mint .button-primary Save in the main column. */
+    color: #fff;
+    background: var(--rnrd-text-primary, #0F1411);
+    border: 1px solid var(--rnrd-text-primary, #0F1411);
     border-radius: 8px;
     cursor: pointer;
-    transition: filter 0.15s ease;
+    transition: filter 0.15s ease, background-color 0.15s ease;
 }
 .rnrd-tips-form__btn:hover {
-    filter: brightness(0.96);
+    filter: none;
+    background: #1C2420;
+    border-color: #1C2420;
+}
+.rnrd-tips-form__btn:focus,
+.rnrd-tips-form__btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(15, 20, 17, 0.18);
 }
 
 .rnrd-aside-changes {
@@ -3847,7 +4141,7 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: var(--rnrd-mint-500, #2DE3A8);
+    background: var(--rnrd-text-tertiary, #6B716D);
 }
 
 .rnrd-aside-changes strong {
@@ -4803,7 +5097,33 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 	margin-top: 4px;
 }
 
-/* ── v1.1.13 — needs-attention card highlight (Active AI Provider when no key) */
-.rnrd-card--needs-attention {
+/* Compact status banners — Dashboard + AI Content provider notice */
+.rnrd-dash-alert {
+	margin-bottom: 16px;
+	padding: 12px 16px;
+}
+
+.rnrd-dash-alert--warn {
 	border-left: 3px solid var(--rnrd-warning, #F59E0B);
+}
+
+.rnrd-dash-alert--info {
+	border-left: 3px solid var(--rnrd-mint-500, #2DE3A8);
+}
+
+.rnrd-dash-alert__text {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--rnrd-text-secondary, #3D423F);
+}
+
+.rnrd-dash-alert__text a {
+	font-weight: 600;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.rnrd-dash-alert__text a:hover {
+	text-decoration: underline;
 }

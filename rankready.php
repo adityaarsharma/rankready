@@ -732,22 +732,25 @@ add_action( 'plugins_loaded', function (): void {
 		set_transient( 'rnrd_rewrite_ok', 1, HOUR_IN_SECONDS );
 	}, 20 );
 
-	// Register custom cron schedules.
-	add_filter( 'cron_schedules', function ( array $schedules ): array {
-		if ( ! isset( $schedules['rnrd_five_minutes'] ) ) {
-			$schedules['rnrd_five_minutes'] = array(
-				'interval' => 5 * MINUTE_IN_SECONDS,
-				'display'  => __( 'Every 5 Minutes (RankReady)', 'rankready-ai-llm-seo' ),
-			);
-		}
-		if ( ! isset( $schedules['rnrd_one_minute'] ) ) {
-			$schedules['rnrd_one_minute'] = array(
-				'interval' => MINUTE_IN_SECONDS,
-				'display'  => __( 'Every Minute (RankReady Bulk)', 'rankready-ai-llm-seo' ),
-			);
-		}
-		return $schedules;
-	} );
+	// Register custom cron schedules on init — __() in the display labels must not
+	// run during plugins_loaded (WP 6.7+ _load_textdomain_just_in_time notice).
+	add_action( 'init', function (): void {
+		add_filter( 'cron_schedules', function ( array $schedules ): array {
+			if ( ! isset( $schedules['rnrd_five_minutes'] ) ) {
+				$schedules['rnrd_five_minutes'] = array(
+					'interval' => 5 * MINUTE_IN_SECONDS,
+					'display'  => __( 'Every 5 Minutes (RankReady)', 'rankready-ai-llm-seo' ),
+				);
+			}
+			if ( ! isset( $schedules['rnrd_one_minute'] ) ) {
+				$schedules['rnrd_one_minute'] = array(
+					'interval' => MINUTE_IN_SECONDS,
+					'display'  => __( 'Every Minute (RankReady Bulk)', 'rankready-ai-llm-seo' ),
+				);
+			}
+			return $schedules;
+		} );
+	}, 1 );
 
 	// v1.1.0 — Encrypts API secrets at rest. Must run BEFORE any class that
 	// reads RNRD_OPT_KEY / DataForSEO password, so the decryption filter is
@@ -836,10 +839,8 @@ add_action( 'plugins_loaded', function (): void {
 
 // ── Activation / Deactivation ─────────────────────────────────────────────────
 register_activation_hook( RNRD_FILE, function (): void {
-	// v1.2.0 — flag the one-shot welcome redirect for first-time activations.
-	// RNRD_Welcome::flag_activation() is a no-op when the welcome has already
-	// been completed, so re-activating an existing install does NOT relaunch
-	// the onboarding flow.
+	// v1.2.0 — flag the one-shot post-activation redirect (onboarding for fresh
+	// installs, main settings page when the wizard was already completed).
 	if ( class_exists( 'RNRD_Welcome' ) ) {
 		RNRD_Welcome::flag_activation();
 	}

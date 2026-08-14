@@ -1,0 +1,137 @@
+/**
+ * RankReady WP dashboard widget — lean KPI styles matching Dashboard Insights.
+ * Loaded only on index.php when the RankReady widget is registered.
+ */
+
+.rnrd-agent-dashboard .rnrd-kpi-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+	margin: 0;
+}
+
+.rnrd-agent-dashboard .rnrd-kpi {
+	background: #fff;
+	border: 1px solid #E5E7E0;
+	border-radius: 10px;
+	padding: 14px 16px;
+	box-shadow: 0 1px 2px rgba(15, 20, 17, 0.03);
+	transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.rnrd-agent-dashboard a.rnrd-kpi--link {
+	display: block;
+	text-decoration: none;
+	color: inherit;
+	cursor: pointer;
+}
+
+.rnrd-agent-dashboard a.rnrd-kpi--link:hover,
+.rnrd-agent-dashboard a.rnrd-kpi--link:focus {
+	border-color: #7BE8C5;
+	box-shadow: 0 2px 8px rgba(15, 156, 112, 0.08);
+	outline: none;
+}
+
+.rnrd-agent-dashboard .rnrd-kpi__title {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: 4px 6px;
+}
+
+.rnrd-agent-dashboard .rnrd-kpi__label {
+	font-size: 11px;
+	font-weight: 600;
+	color: #1d2327;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	line-height: 1.2;
+}
+
+.rnrd-agent-dashboard .rnrd-kpi__go {
+	opacity: 0;
+	max-width: 0;
+	overflow: hidden;
+	margin: 0;
+	color: #0F9C70;
+	font-weight: 600;
+	font-size: 12px;
+	line-height: 1.2;
+	white-space: nowrap;
+	transition: opacity 150ms ease, max-width 150ms ease;
+}
+
+.rnrd-agent-dashboard a.rnrd-kpi--link:hover .rnrd-kpi__go,
+.rnrd-agent-dashboard a.rnrd-kpi--link:focus .rnrd-kpi__go {
+	opacity: 1;
+	max-width: 1.25rem;
+}
+
+@media (hover: none) {
+	.rnrd-agent-dashboard a.rnrd-kpi--link .rnrd-kpi__go {
+		opacity: 1;
+		max-width: 1.25rem;
+	}
+}
+
+.rnrd-agent-dashboard .rnrd-kpi__period {
+	font-size: 10px;
+	font-weight: 400;
+	color: #8c8f94;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-top: 2px;
+}
+
+.rnrd-agent-dashboard .rnrd-kpi__value {
+	font-size: 28px;
+	font-weight: 700;
+	color: #1d2327;
+	line-height: 1.1;
+	margin-top: 8px;
+	font-variant-numeric: tabular-nums;
+}
+
+.rnrd-agent-dashboard .rnrd-kpi__foot {
+	font-size: 11px;
+	color: #646970;
+	margin-top: 6px;
+	line-height: 1.35;
+}
+
+.rnrd-agent-dashboard__links {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 0;
+	margin: 12px 0 0;
+	padding: 0;
+	font-size: 12px;
+	line-height: 1.4;
+	color: #646970;
+}
+
+.rnrd-agent-dashboard__links a {
+	text-decoration: none;
+	color: #646970;
+}
+
+.rnrd-agent-dashboard__links a:hover {
+	color: #0F9C70;
+}
+
+.rnrd-agent-dashboard__links-primary {
+	font-size: 13px;
+	font-weight: 600;
+	color: #2271b1;
+}
+
+.rnrd-agent-dashboard__links-primary:hover {
+	color: #135e96;
+}
+
+.rnrd-agent-dashboard__links-sep {
+	margin: 0 0.45em;
+	color: #c3c4c7;
+}

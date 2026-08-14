@@ -253,15 +253,15 @@ class RNRD_Author_Box {
 					<?php endif; ?>
 				</p>
 				<?php
-				/* v1.1.28 — Deep link to the E-E-A-T tab in the RankReady
+				/* v1.1.28 — Deep link to Content → Author Box in the RankReady
 				 * settings screen. Lets users jump straight from this
 				 * profile page to the schema toggles + author box settings
 				 * that consume the fields below. */
-				$rnrd_eeat_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=authority' );
+				$rnrd_eeat_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=author' );
 				?>
 				<p class="rnrd-author-card__head-cta">
 					<a class="rnrd-author-card__head-link" href="<?php echo esc_url( $rnrd_eeat_url ); ?>">
-						<?php esc_html_e( 'Open RankReady E-E-A-T settings', 'rankready-ai-llm-seo' ); ?>
+						<?php esc_html_e( 'Open RankReady Author Box settings', 'rankready-ai-llm-seo' ); ?>
 						<span class="rnrd-author-card__head-link-arrow" aria-hidden="true">&rarr;</span>
 					</a>
 				</p>

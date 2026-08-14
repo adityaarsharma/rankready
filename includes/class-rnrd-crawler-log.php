@@ -164,10 +164,17 @@ class RNRD_Crawler_Log {
 			}
 		}
 
+		// Defer scheduling to init — wp_schedule_event() calls wp_get_schedules(),
+		// which must not trigger translated cron labels before init (WP 6.7+).
+		add_action( 'init', array( self::class, 'maybe_schedule_prune' ), 10 );
+		add_action( 'rnrd_crawler_log_prune', array( self::class, 'prune' ) );
+	}
+
+	/** Schedule the daily prune cron once, after init. */
+	public static function maybe_schedule_prune(): void {
 		if ( ! wp_next_scheduled( 'rnrd_crawler_log_prune' ) ) {
 			wp_schedule_event( time(), 'daily', 'rnrd_crawler_log_prune' );
 		}
-		add_action( 'rnrd_crawler_log_prune', array( self::class, 'prune' ) );
 	}
 
 	// ── Table management ───────────────────────────────────────────────────

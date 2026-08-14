@@ -318,7 +318,7 @@ class RNRD_Rest {
 			return new WP_Error(
 				'rnrd_type_disabled',
 				/* translators: %s: post type label, e.g. "Page". */
-				sprintf( __( 'AI Summary is not enabled for the “%s” type. Turn it on in Settings → Content AI → Post types.', 'rankready-ai-llm-seo' ), $pt_label ),
+				sprintf( __( 'AI Summary is not enabled for the “%s” type. Turn it on in AI Content → AI Summary → Post types.', 'rankready-ai-llm-seo' ), $pt_label ),
 				array( 'status' => 400 )
 			);
 		}

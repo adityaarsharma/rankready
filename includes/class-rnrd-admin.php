@@ -2,7 +2,10 @@
 /**
  * Admin settings page — tabbed UI using core WordPress styles.
  *
- * Tabs: Settings | LLM Optimization | Tools | Info
+ * Top tabs: Dashboard | AI Visibility | AI Content | Insights | Settings
+ * AI Visibility subtabs (slug crawlers): Brand | Robots | LLMs.txt | Markdown | WebMCP | OKF
+ * AI Content subtabs (slug content): AI Summary | AI FAQ Generator | Author Box | Schema
+ * Settings subtabs: API Keys | Advanced
  *
  * @package RankReady
  */
@@ -21,7 +24,7 @@ class RNRD_Admin {
 	// a small isolated form must not null out unrelated options when saved.
 	private const DATA_GROUP       = 'rnrd_data_group';      // Data Retention card on Advanced tab
 	private const AUTHORITY_GROUP  = 'rnrd_authority_group'; // Authority tab (author + schema)
-	private const LLMS_GROUP       = 'rnrd_llms_group';      // AI Crawlers tab
+	private const LLMS_GROUP       = 'rnrd_llms_group';      // AI Visibility tab (shared LLMS settings)
 	private const HEADLESS_GROUP   = 'rnrd_headless_group';  // Advanced tab
 	private const OKF_GROUP        = 'rnrd_okf_group';       // OKF bundle card (Advanced tab) — isolated, cross-null-safe
 	// Legacy aliases kept for any saved nonces in flight during upgrade.
@@ -504,7 +507,7 @@ class RNRD_Admin {
 		) );
 
 		// v1.0.1 — These 8 options were previously registered against
-		// SETTINGS_GROUP but the Content AI tab's <form> (render_tab_content_ai)
+		// SETTINGS_GROUP but the Content tab's Summary form (render_content_sub_summary)
 		// posts to CONTENT_GROUP. options.php silently dropped them on save.
 		// Repointed to CONTENT_GROUP to match the form they're actually in.
 		register_setting( self::CONTENT_GROUP, RNRD_OPT_POST_TYPES, array(
@@ -1373,18 +1376,31 @@ class RNRD_Admin {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only $_GET[tab] for display routing; no state change.
 		$active_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'dashboard';
 
+		// Former Advanced top-level tab (and its predecessors) → Settings → Advanced subtab.
+		$advanced_legacy = array( 'advanced', 'headless', 'tools', 'info' );
+		if ( in_array( $active_tab, $advanced_legacy, true ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=settings&sub=advanced' ) );
+			exit;
+		}
+
+		// Former Content AI / E-E-A-T top-level slugs → Content subtabs.
+		$content_legacy = array(
+			'authority' => 'author',
+			'author'    => 'author',
+			'schema'    => 'schema',
+			'summary'   => 'summary',
+			'faq'       => 'faq',
+		);
+		if ( isset( $content_legacy[ $active_tab ] ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=content&sub=' . $content_legacy[ $active_tab ] ) );
+			exit;
+		}
+
 		// Redirect old tab slugs to new merged tabs (backward compat for bookmarks / links).
 		$legacy_map = array(
 			'settings' => 'settings',
 			'api'      => 'settings',
-			'summary'  => 'content',
-			'faq'      => 'content',
-			'author'   => 'authority',
-			'schema'   => 'authority',
 			'llm'      => 'crawlers',
-			'headless' => 'advanced',
-			'tools'    => 'advanced',
-			'info'     => 'advanced',
 		);
 		if ( isset( $legacy_map[ $active_tab ] ) ) {
 			$active_tab = $legacy_map[ $active_tab ];
@@ -1392,12 +1408,10 @@ class RNRD_Admin {
 
 		$tabs = array(
 			'dashboard' => __( 'Dashboard', 'rankready-ai-llm-seo' ),
-			'content'   => __( 'Content AI', 'rankready-ai-llm-seo' ),
-			'authority' => __( 'E-E-A-T', 'rankready-ai-llm-seo' ),
-			'crawlers'  => __( 'AI Crawlers', 'rankready-ai-llm-seo' ),
+			'crawlers'  => __( 'AI Visibility', 'rankready-ai-llm-seo' ), // subtabs: Brand | Robots | LLMs.txt | Markdown | WebMCP | OKF
+			'content'   => __( 'AI Content', 'rankready-ai-llm-seo' ), // subtabs: AI Summary | AI FAQ Generator | Author Box | Schema
 			'insights'  => __( 'Insights', 'rankready-ai-llm-seo' ),  // v1.2.0-beta.7 — Bot Activity / Citation / Referral / Freshness
-			'settings'  => __( 'Settings', 'rankready-ai-llm-seo' ),
-			'advanced'  => __( 'Advanced', 'rankready-ai-llm-seo' ),
+			'settings'  => __( 'Settings', 'rankready-ai-llm-seo' ),  // subtabs: API Keys | Advanced
 		);
 
 		if ( ! array_key_exists( $active_tab, $tabs ) ) {
@@ -1450,10 +1464,7 @@ class RNRD_Admin {
 						self::render_tab_dashboard();
 						break;
 					case 'content':
-						self::render_tab_content_ai();
-						break;
-					case 'authority':
-						self::render_tab_authority();
+						self::render_tab_content();
 						break;
 					case 'crawlers':
 						self::render_tab_llm();
@@ -1462,10 +1473,7 @@ class RNRD_Admin {
 						self::render_tab_insights();
 						break;
 					case 'settings':
-						self::render_tab_api();
-						break;
-					case 'advanced':
-						self::render_tab_advanced();
+						self::render_tab_settings();
 						break;
 				}
 				?>
@@ -1479,9 +1487,9 @@ class RNRD_Admin {
 	/**
 	 * Shared right-rail sidebar — renders on every tab.
 	 *
-	 * Contains: What's New (changes list), Connect with us (Community +
-	 * Support), Star rating widget. Mobile (≤1100px) collapses to single
-	 * column via CSS Section 43.
+	 * Order: Tips opt-in (if pending) → What's New (if undismissed) → Connect
+	 * with us → Rate widget. Mobile (≤1100px) collapses to single column via
+	 * CSS Section 43.
 	 *
 	 * @since 1.2.0-rc.16
 	 */
@@ -1495,42 +1503,9 @@ class RNRD_Admin {
 		?>
 		<aside class="rnrd-dash-aside">
 
-			<?php if ( $show_whatsnew ) : ?>
-			<div class="rnrd-aside-card rnrd-aside-card--whatsnew">
-				<div class="rnrd-aside-card__head">
-					<h3 class="rnrd-aside-card__title">
-						<span class="rnrd-whatsnew__tag"><?php esc_html_e( 'NEW', 'rankready-ai-llm-seo' ); ?></span>
-						<?php esc_html_e( "What's new", 'rankready-ai-llm-seo' ); ?>
-					</h3>
-					<a href="<?php echo esc_url( $dismiss_url ); ?>" class="rnrd-aside-card__close" aria-label="<?php esc_attr_e( 'Dismiss', 'rankready-ai-llm-seo' ); ?>" title="<?php esc_attr_e( 'Dismiss', 'rankready-ai-llm-seo' ); ?>">
-						<span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
-					</a>
-				</div>
-				<p class="rnrd-aside-card__version">v<?php echo esc_html( RNRD_VERSION ); ?></p>
-				<ul class="rnrd-aside-changes">
-					<li><strong><?php esc_html_e( 'Free AI SEO tips by email.', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'Opt in from setup or the dashboard to get practical tips for making your content readable by ChatGPT, Claude and Google AI.', 'rankready-ai-llm-seo' ); ?></li>
-					<li><strong><?php esc_html_e( 'More reliable saves.', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'API keys always save, settings changes are verified, and Nginx sites get exact server-config guidance for the WebMCP endpoint.', 'rankready-ai-llm-seo' ); ?></li>
-				</ul>
-			</div>
-			<?php endif; ?>
-
-			<div class="rnrd-aside-card">
-				<h3 class="rnrd-aside-card__title"><?php esc_html_e( 'Connect with us', 'rankready-ai-llm-seo' ); ?></h3>
-				<a href="https://hostmy.blog/" target="_blank" rel="noopener" class="rnrd-aside-link">
-					<span class="dashicons dashicons-groups" aria-hidden="true"></span>
-					<span><?php esc_html_e( 'Join community', 'rankready-ai-llm-seo' ); ?></span>
-					<span class="rnrd-aside-link__arrow" aria-hidden="true">→</span>
-				</a>
-				<a href="https://wordpress.org/support/plugin/rankready-ai-llm-seo/" target="_blank" rel="noopener" class="rnrd-aside-link">
-					<span class="dashicons dashicons-sos" aria-hidden="true"></span>
-					<span><?php esc_html_e( 'Need help? Raise a ticket', 'rankready-ai-llm-seo' ); ?></span>
-					<span class="rnrd-aside-link__arrow" aria-hidden="true">→</span>
-				</a>
-			</div>
-
 			<?php
-			// Tips opt-in — shown ONLY until the site subscribes. Once opted in, the
-			// flag is set and this card (plus the onboarding box) never appears again.
+			// Tips opt-in first — primary growth CTA. Shown ONLY until the site
+			// subscribes; then this card (plus the onboarding box) never appears again.
 			if ( class_exists( 'RNRD_Welcome' ) && ! RNRD_Welcome::tips_optin_done() ) :
 				$rnrd_dash_user  = wp_get_current_user();
 				$rnrd_dash_email = ( $rnrd_dash_user && ! empty( $rnrd_dash_user->user_email ) )
@@ -1558,6 +1533,39 @@ class RNRD_Admin {
 				</form>
 			</div>
 			<?php endif; ?>
+
+			<?php if ( $show_whatsnew ) : ?>
+			<div class="rnrd-aside-card rnrd-aside-card--whatsnew">
+				<div class="rnrd-aside-card__head">
+					<h3 class="rnrd-aside-card__title">
+						<span class="rnrd-whatsnew__tag"><?php esc_html_e( 'NEW', 'rankready-ai-llm-seo' ); ?></span>
+						<?php esc_html_e( "What's new", 'rankready-ai-llm-seo' ); ?>
+					</h3>
+					<a href="<?php echo esc_url( $dismiss_url ); ?>" class="rnrd-aside-card__close" aria-label="<?php esc_attr_e( 'Dismiss', 'rankready-ai-llm-seo' ); ?>" title="<?php esc_attr_e( 'Dismiss', 'rankready-ai-llm-seo' ); ?>">
+						<span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
+					</a>
+				</div>
+				<p class="rnrd-aside-card__version">v<?php echo esc_html( RNRD_VERSION ); ?></p>
+				<ul class="rnrd-aside-changes">
+					<li><strong><?php esc_html_e( 'Clearer admin tabs.', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'AI Visibility, AI Content, and Settings now use focused subtabs so Brand Identity, API keys, and Advanced tools are easier to find.', 'rankready-ai-llm-seo' ); ?></li>
+					<li><strong><?php esc_html_e( 'More reliable saves.', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'API keys always save, settings changes are verified, and Nginx sites get exact server-config guidance for the WebMCP endpoint.', 'rankready-ai-llm-seo' ); ?></li>
+				</ul>
+			</div>
+			<?php endif; ?>
+
+			<div class="rnrd-aside-card">
+				<h3 class="rnrd-aside-card__title"><?php esc_html_e( 'Connect with us', 'rankready-ai-llm-seo' ); ?></h3>
+				<a href="https://hostmy.blog/" target="_blank" rel="noopener" class="rnrd-aside-link">
+					<span class="dashicons dashicons-groups" aria-hidden="true"></span>
+					<span><?php esc_html_e( 'Join community', 'rankready-ai-llm-seo' ); ?></span>
+					<span class="rnrd-aside-link__arrow" aria-hidden="true">→</span>
+				</a>
+				<a href="https://wordpress.org/support/plugin/rankready-ai-llm-seo/" target="_blank" rel="noopener" class="rnrd-aside-link">
+					<span class="dashicons dashicons-sos" aria-hidden="true"></span>
+					<span><?php esc_html_e( 'Need help? Raise a ticket', 'rankready-ai-llm-seo' ); ?></span>
+					<span class="rnrd-aside-link__arrow" aria-hidden="true">→</span>
+				</a>
+			</div>
 
 			<div class="rnrd-aside-card rnrd-aside-card--rate">
 				<h3 class="rnrd-aside-card__title"><?php esc_html_e( 'Loving RankReady so far?', 'rankready-ai-llm-seo' ); ?></h3>
@@ -1599,22 +1607,18 @@ class RNRD_Admin {
 	}
 
 	/**
-	 * Reusable "what is this tab?" intro card. Rendered as the very first
-	 * card on every top-level tab so users always know the purpose of the
-	 * surface they just clicked into. Same .rnrd-card chrome as every
-	 * other card in the plugin.
+	 * Reusable "what is this tab?" intro card. Title + one combined lede —
+	 * outcome and context in a single line, no separate goal/desc stack.
 	 *
 	 * @since 1.2.0-rc.16
 	 * @param string $title Tab name (also card title).
-	 * @param string $goal  Italic one-liner — what this tab is for.
-	 * @param string $desc  Plain paragraph — slightly longer explanation.
+	 * @param string $lede  One medium line — what this tab does and why.
 	 */
-	private static function render_tab_intro( string $title, string $goal, string $desc ): void {
+	private static function render_tab_intro( string $title, string $lede ): void {
 		?>
 		<div class="rnrd-card rnrd-tab-intro">
 			<h2 class="rnrd-card-title"><?php echo esc_html( $title ); ?></h2>
-			<p class="rnrd-card-goal"><?php echo esc_html( $goal ); ?></p>
-			<p class="rnrd-card-desc rnrd-mb-0"><?php echo esc_html( $desc ); ?></p>
+			<p class="rnrd-card-goal rnrd-mb-0"><?php echo esc_html( $lede ); ?></p>
 		</div>
 		<?php
 	}
@@ -1665,7 +1669,7 @@ class RNRD_Admin {
 			)
 		);
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Same as line 1311 for FAQ meta.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Same pattern for FAQ meta.
 		$faq_count = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
@@ -1673,55 +1677,250 @@ class RNRD_Admin {
 			)
 		);
 
-		$llms_on   = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
-		// 'off' is a non-empty STRING — (bool) 'off' is true. Compare, never cast.
-		$robots_on = 'on' === get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
-		$md_on     = 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
-		// Across all four providers — true if any has a key configured.
+		$author_on = 'on' === get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' );
 		$api_set   = RNRD_LLM::active_provider_ready();
 
-		// Tutorial video — dismissible per user.
+		// AI Content tile status (cheap option reads — no extra DB counts).
+		$summary_types = array_values( array_filter( (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ) ) );
+		$summary_auto  = 'on' === (string) get_option( RNRD_OPT_AUTO_DISPLAY, 'off' );
+		$summary_pos   = (string) get_option( RNRD_OPT_DISPLAY_POSITION, 'before' );
+		$summary_place = $summary_auto ? $summary_pos : 'off';
+
+		$faq_types = array_values( array_filter( (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ) ) );
+		$faq_auto  = 'on' === (string) get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' );
+		$faq_pos   = (string) get_option( RNRD_OPT_FAQ_POSITION, 'after' );
+		$faq_place = $faq_auto ? $faq_pos : 'off';
+
+		$author_types = array_values( array_filter( (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) ) ) );
+		$author_place = (string) get_option( RNRD_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
+
+		$schema_flags = array(
+			'Article'   => 'on' === (string) get_option( RNRD_OPT_SCHEMA_ARTICLE, 'on' ),
+			'Speakable' => 'on' === (string) get_option( RNRD_OPT_SCHEMA_SPEAKABLE, 'on' ),
+			'FAQ'       => 'on' === (string) get_option( RNRD_OPT_SCHEMA_FAQ, 'on' ),
+		);
+		if ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) {
+			$schema_flags['HowTo']    = 'on' === (string) get_option( RNRD_OPT_SCHEMA_HOWTO, 'on' );
+			$schema_flags['ItemList'] = 'on' === (string) get_option( RNRD_OPT_SCHEMA_ITEMLIST, 'on' );
+		}
+		$schema_on_labels = array();
+		foreach ( $schema_flags as $label => $is_on ) {
+			if ( $is_on ) {
+				$schema_on_labels[] = $label;
+			}
+		}
+		$schema_on_count  = count( $schema_on_labels );
+		$schema_total     = count( $schema_flags );
+		$schema_seo       = '';
+		if ( defined( 'RANK_MATH_VERSION' ) ) {
+			$schema_seo = 'Rank Math';
+		} elseif ( defined( 'WPSEO_VERSION' ) ) {
+			$schema_seo = 'Yoast SEO';
+		} elseif ( defined( 'AIOSEO_VERSION' ) ) {
+			$schema_seo = 'All in One SEO';
+		} elseif ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) ) {
+			$schema_seo = 'SEOPress';
+		} elseif ( defined( 'THE_SEO_FRAMEWORK_VERSION' ) ) {
+			$schema_seo = 'The SEO Framework';
+		}
+
+		$training_hits = class_exists( 'RNRD_Crawler_Log' ) ? (int) RNRD_Crawler_Log::get_training_hits_total( 30 ) : 0;
+		$citation_hits = class_exists( 'RNRD_Crawler_Log' ) ? (int) RNRD_Crawler_Log::get_citation_hits_total( 30 ) : 0;
+		$referral_hits = class_exists( 'RNRD_AI_Referral' ) ? (int) RNRD_AI_Referral::total_last_n_days( 30 ) : 0;
+		$stale_count   = 0;
+		if ( class_exists( 'RNRD_Freshness' ) && method_exists( 'RNRD_Freshness', 'bucket_counts' ) ) {
+			$buckets     = RNRD_Freshness::bucket_counts();
+			$stale_count = (int) ( $buckets['stale'] ?? 0 );
+		}
+
 		$user_id            = get_current_user_id();
 		$tutorial_dismissed = (bool) get_user_meta( $user_id, 'rnrd_tutorial_dismissed', true );
+		$tutorial_dismiss   = wp_nonce_url(
+			admin_url( 'admin.php?page=' . self::MENU_SLUG . '&rnrd_dismiss_tutorial=1' ),
+			'rnrd_dismiss_tutorial'
+		);
 
-		// "What's new" banner — show once per major version, dismissible per user.
-		$show_whatsnew = self::should_show_whatsnew( $user_id );
-
-		// Manual AI Summary + FAQ generation is unlimited in the Free build.
-		// Stats kept as 0 values for back-compat with any template that still
-		// references $s_used / $f_used — they render harmlessly as "0".
-		$s_used = 0;
-		$s_lim  = -1; // -1 = unlimited
-		$f_used = 0;
-		$f_lim  = -1;
-		$s_pct  = 0;
-		$f_pct  = 0;
+		$content_url         = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content' );
+		$content_summary_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=summary' );
+		$content_faq_url     = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=faq' );
+		$content_author_url  = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=author' );
+		$content_schema_url  = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=schema' );
+		$insights_url        = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=insights' );
+		$settings_url        = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=settings' );
+		$insights_training   = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=insights&sub=bot-activity' );
+		$insights_citation   = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=insights&sub=citation' );
+		$insights_referral   = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=insights&sub=referral' );
+		$insights_freshness  = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=insights&sub=freshness' );
 
 		?>
-		<?php self::render_tab_intro(
-			__( 'Dashboard', 'rankready-ai-llm-seo' ),
-			__( 'See what ChatGPT, Claude, Perplexity, and Gemini can read on your site.', 'rankready-ai-llm-seo' ),
-			__( 'Start here. Fill in Brand Identity once — every other tab reads from it. The coverage tile below shows which AI signals are live.', 'rankready-ai-llm-seo' )
-		); ?>
-
 		<?php
-		// rc.16 — Dashboard 2-column layout. Main content on the left,
-		// "What's New / Blog / Community / Rate / Support" sidebar on the
-		// right, mirroring the pattern Perfmatters/Yoast use.
-		$dismiss_url = $show_whatsnew ? wp_nonce_url(
-			admin_url( 'admin.php?page=' . self::MENU_SLUG . '&rnrd_dismiss_whatsnew=' . RNRD_VERSION ),
-			'rnrd_dismiss_whatsnew'
-		) : '';
+		self::render_tab_intro(
+			__( 'Dashboard', 'rankready-ai-llm-seo' ),
+			__( 'Your AI readiness at a glance — Visibility, Content, and Insights summaries to jump into.', 'rankready-ai-llm-seo' )
+		);
 		?>
 
-		<?php // rc.16 — layout wrapper moved to render_page() so sidebar is persistent. ?>
+		<?php if ( ! $api_set ) : ?>
+		<div class="rnrd-card rnrd-dash-alert rnrd-dash-alert--warn" role="status">
+			<p class="rnrd-dash-alert__text">
+				<strong><?php esc_html_e( 'AI setup needed.', 'rankready-ai-llm-seo' ); ?></strong>
+				<?php esc_html_e( 'Choose a provider and add an API key to generate Summaries and FAQs.', 'rankready-ai-llm-seo' ); ?>
+				<a href="<?php echo esc_url( $settings_url ); ?>"><?php esc_html_e( 'Open Settings →', 'rankready-ai-llm-seo' ); ?></a>
+			</p>
+		</div>
+		<?php endif; ?>
 
-				<?php if ( ! $tutorial_dismissed ) : ?>
-		<div class="rnrd-card rnrd-tutorial-card" style="margin-bottom:24px;">
-			<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-				<h2 class="rnrd-card-title" style="margin:0;"><?php esc_html_e( 'New to RankReady? Watch the video', 'rankready-ai-llm-seo' ); ?></h2>
+		<?php self::render_card_agent_visibility(); ?>
+
+		<div class="rnrd-card rnrd-dash-summary" style="margin-bottom:20px;">
+			<div class="rnrd-dash-summary__head">
+				<div>
+					<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Content', 'rankready-ai-llm-seo' ); ?></h2>
+					<p class="rnrd-card-goal"><?php esc_html_e( 'AI Summaries, FAQ, Author Box, and Schema.', 'rankready-ai-llm-seo' ); ?></p>
+				</div>
+				<a class="rnrd-dash-summary__open" href="<?php echo esc_url( $content_url ); ?>"><?php esc_html_e( 'View all →', 'rankready-ai-llm-seo' ); ?></a>
 			</div>
-			<p class="rnrd-card-desc" style="margin-top:0;"><?php esc_html_e( 'Aditya walks through every RankReady setting — AI Summary, FAQ Generator, Author Box, llms.txt, AI Crawler controls — so you can ship a 100/100 AI-ready site.', 'rankready-ai-llm-seo' ); ?></p>
+			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'Content summary', 'rankready-ai-llm-seo' ); ?>">
+				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_summary_url ); ?>" aria-label="<?php esc_attr_e( 'AI Summaries — open AI Content', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'AI Summaries', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<div class="rnrd-kpi__period"><?php echo esc_html( self::dash_post_types_meta( $summary_types ) ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $summary_count ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php echo esc_html( self::dash_auto_placement_label( $summary_place ) ); ?></div>
+				</a>
+				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_faq_url ); ?>" aria-label="<?php esc_attr_e( 'AI FAQ Generator — open AI Content', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'AI FAQ Generator', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<div class="rnrd-kpi__period"><?php echo esc_html( self::dash_post_types_meta( $faq_types ) ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $faq_count ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php echo esc_html( self::dash_auto_placement_label( $faq_place ) ); ?></div>
+				</a>
+				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_author_url ); ?>" aria-label="<?php esc_attr_e( 'Author Box (E-E-A-T) — open AI Content', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Author Box (E-E-A-T)', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<div class="rnrd-kpi__period"><?php echo $author_on ? esc_html( self::dash_post_types_meta( $author_types ) ) : esc_html__( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo $author_on ? esc_html__( 'On', 'rankready-ai-llm-seo' ) : esc_html__( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__foot"><?php echo esc_html( $author_on ? self::dash_auto_placement_label( $author_place ) : __( 'Feature disabled', 'rankready-ai-llm-seo' ) ); ?></div>
+				</a>
+				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_schema_url ); ?>" aria-label="<?php esc_attr_e( 'Schema — open AI Content', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Schema', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<div class="rnrd-kpi__period"><?php echo $schema_on_labels ? esc_html( implode( ' · ', $schema_on_labels ) ) : esc_html__( 'None enabled', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo esc_html( sprintf(
+						/* translators: 1: enabled schema types, 2: total schema types */
+						__( '%1$d of %2$d', 'rankready-ai-llm-seo' ),
+						(int) $schema_on_count,
+						(int) $schema_total
+					) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php
+						echo $schema_seo
+							? esc_html( sprintf(
+								/* translators: %s: SEO plugin name */
+								__( 'Merging with %s', 'rankready-ai-llm-seo' ),
+								$schema_seo
+							) )
+							: esc_html__( 'Standalone', 'rankready-ai-llm-seo' );
+					?></div>
+				</a>
+			</div>
+			<?php
+			$provider_foot_label = '';
+			$model_foot_label    = '';
+			if ( $api_set && class_exists( 'RNRD_LLM' ) ) {
+				$provider_foot       = RNRD_LLM::get_active_provider();
+				$provider_foot_label = RNRD_LLM::get_provider_label( $provider_foot );
+				$model_foot_id       = RNRD_LLM::get_model( $provider_foot );
+				$models_foot         = RNRD_LLM::get_models_for( $provider_foot );
+				$model_foot_label    = isset( $models_foot[ $model_foot_id ] )
+					? (string) $models_foot[ $model_foot_id ]
+					: (string) $model_foot_id;
+			}
+			?>
+			<p class="rnrd-dash-summary__foot<?php echo $api_set ? '' : ' rnrd-dash-summary__foot--warn'; ?>" role="status">
+				<?php if ( $api_set ) : ?>
+					<?php
+					echo esc_html( sprintf(
+						/* translators: 1: provider label, 2: model label */
+						__( 'Using %1$s · %2$s', 'rankready-ai-llm-seo' ),
+						$provider_foot_label,
+						$model_foot_label
+					) );
+					?>
+					<span class="rnrd-dash-summary__foot-sep" aria-hidden="true">·</span>
+					<a href="<?php echo esc_url( $settings_url ); ?>"><?php esc_html_e( 'Change in Settings →', 'rankready-ai-llm-seo' ); ?></a>
+				<?php else : ?>
+					<?php esc_html_e( 'AI setup needed for Summaries & FAQ', 'rankready-ai-llm-seo' ); ?>
+					<span class="rnrd-dash-summary__foot-sep" aria-hidden="true">·</span>
+					<a href="<?php echo esc_url( $settings_url ); ?>"><?php esc_html_e( 'Open Settings →', 'rankready-ai-llm-seo' ); ?></a>
+				<?php endif; ?>
+			</p>
+		</div>
+
+		<div class="rnrd-card rnrd-dash-summary" style="margin-bottom:20px;">
+			<div class="rnrd-dash-summary__head">
+				<div>
+					<h2 class="rnrd-card-title"><?php esc_html_e( 'Insights', 'rankready-ai-llm-seo' ); ?></h2>
+					<p class="rnrd-card-goal"><?php esc_html_e( 'Who reads your site, what they cite, what brings them back.', 'rankready-ai-llm-seo' ); ?></p>
+				</div>
+				<a class="rnrd-dash-summary__open" href="<?php echo esc_url( $insights_url ); ?>"><?php esc_html_e( 'View all →', 'rankready-ai-llm-seo' ); ?></a>
+			</div>
+			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'Insights summary', 'rankready-ai-llm-seo' ); ?>">
+				<a class="rnrd-kpi rnrd-kpi--link" data-intent="training" href="<?php echo esc_url( $insights_training ); ?>" aria-label="<?php esc_attr_e( 'Training Bots — open Insights', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Training Bots', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $training_hits ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php esc_html_e( 'AI crawler hits', 'rankready-ai-llm-seo' ); ?></div>
+				</a>
+				<a class="rnrd-kpi rnrd-kpi--link" data-intent="citation" href="<?php echo esc_url( $insights_citation ); ?>" aria-label="<?php esc_attr_e( 'Citation Bots — open Insights', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Citation Bots', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $citation_hits ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php esc_html_e( 'live answer bots', 'rankready-ai-llm-seo' ); ?></div>
+				</a>
+				<a class="rnrd-kpi rnrd-kpi--link" data-intent="referral" href="<?php echo esc_url( $insights_referral ); ?>" aria-label="<?php esc_attr_e( 'Real AI Referrals — open Insights', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Real AI Referrals', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $referral_hits ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php esc_html_e( 'visitors from AI apps', 'rankready-ai-llm-seo' ); ?></div>
+				</a>
+				<a class="rnrd-kpi rnrd-kpi--link" data-intent="freshness" href="<?php echo esc_url( $insights_freshness ); ?>" aria-label="<?php esc_attr_e( 'Content Fresh — open Insights', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Content Fresh', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<div class="rnrd-kpi__period"><?php esc_html_e( '60+ days old', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $stale_count ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php esc_html_e( 'posts going stale', 'rankready-ai-llm-seo' ); ?></div>
+				</a>
+			</div>
+		</div>
+
+		<?php if ( ! $tutorial_dismissed ) : ?>
+		<div class="rnrd-card rnrd-tutorial-card" style="margin-bottom:24px;">
+			<div class="rnrd-tutorial-card__head">
+				<h2 class="rnrd-card-title" style="margin:0;"><?php esc_html_e( 'New to RankReady? Watch the video', 'rankready-ai-llm-seo' ); ?></h2>
+				<a href="<?php echo esc_url( $tutorial_dismiss ); ?>" class="rnrd-aside-card__close" aria-label="<?php esc_attr_e( 'Dismiss tutorial', 'rankready-ai-llm-seo' ); ?>" title="<?php esc_attr_e( 'Dismiss', 'rankready-ai-llm-seo' ); ?>">
+					<span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
+				</a>
+			</div>
+			<p class="rnrd-card-desc" style="margin-top:0;"><?php esc_html_e( 'Aditya walks through every RankReady setting — AI Summary, FAQ Generator, Author Box, llms.txt, AI crawler controls — so you can ship a 100/100 AI-ready site.', 'rankready-ai-llm-seo' ); ?></p>
 			<div style="position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;background:#000;">
 				<iframe
 					style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"
@@ -1731,136 +1930,423 @@ class RNRD_Admin {
 					allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
 					allowfullscreen></iframe>
 			</div>
-			<!-- Quick-action button row removed in rc.16 — the 6-tile quick-nav
-			     grid below already covers Configure API key (Settings tile),
-			     Set up Author Box (Authority tile), Enable LLMs.txt (AI
-			     Crawlers tile), and Re-run setup wizard appears as a small
-			     standalone link when the tutorial is dismissed. -->
 		</div>
-		<?php endif; ?>
-
-		<?php if ( $tutorial_dismissed ) : // When the tutorial card is hidden, surface the wizard link as a tiny standalone row so it stays discoverable. ?>
+		<?php else : ?>
 			<p style="margin:0 0 14px;font-size:12px;color:var(--rnrd-color-text-muted,#646970);">
 				<?php esc_html_e( 'Need to start over?', 'rankready-ai-llm-seo' ); ?>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-welcome' ) ); ?>"><?php esc_html_e( 'Re-run the setup wizard →', 'rankready-ai-llm-seo' ); ?></a>
 			</p>
 		<?php endif; ?>
 
-		<!-- Provider-missing alert, 4 stat tiles, and big 22-signal scorecard
-		     removed in rc.16 — the smaller Agent Visibility card above already
-		     surfaces the same coverage data, and the Settings quick-access
-		     tile below preserves the red "AI provider key required" message
-		     for sites without a configured key. -->
-
-		<!-- ── Quick navigation — tiles mirror the tab order in the menu ── -->
-		<div class="rnrd-quicknav">
-			<a class="rnrd-quicknav__tile" href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content' ) ); ?>">
-				<span class="rnrd-quicknav__title"><?php esc_html_e( 'Content AI', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__desc"><?php esc_html_e( 'AI Summaries and FAQ schema for any post.', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__stat"><?php
-					/* translators: 1: summary count, 2: FAQ-set count */
-					echo esc_html( sprintf( __( '%1$d summaries · %2$d FAQ sets', 'rankready-ai-llm-seo' ), (int) $summary_count, (int) $faq_count ) );
-				?></span>
-				<span class="rnrd-quicknav__open"><?php esc_html_e( 'Open', 'rankready-ai-llm-seo' ); ?> <span aria-hidden="true">→</span></span>
-			</a>
-			<a class="rnrd-quicknav__tile" href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=authority' ) ); ?>">
-				<span class="rnrd-quicknav__title"><?php esc_html_e( 'E-E-A-T', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__desc"><?php esc_html_e( 'Author bio, EEAT schema, and Article JSON-LD.', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__stat"><?php esc_html_e( 'Trust signals for ChatGPT, Claude, Perplexity', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__open"><?php esc_html_e( 'Open', 'rankready-ai-llm-seo' ); ?> <span aria-hidden="true">→</span></span>
-			</a>
-			<a class="rnrd-quicknav__tile" href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers' ) ); ?>">
-				<span class="rnrd-quicknav__title"><?php esc_html_e( 'AI Crawlers', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__desc"><?php esc_html_e( 'Control how 29 named AI crawlers see your site.', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__stat"><?php
-					$parts = array();
-					if ( $llms_on )   $parts[] = esc_html__( 'LLMs.txt on', 'rankready-ai-llm-seo' );
-					if ( $md_on )     $parts[] = esc_html__( 'Markdown on', 'rankready-ai-llm-seo' );
-					if ( $robots_on ) $parts[] = esc_html__( 'Robots on', 'rankready-ai-llm-seo' );
-					echo $parts ? esc_html( implode( ' · ', $parts ) ) : esc_html__( 'LLMs.txt, Markdown, robots — all off', 'rankready-ai-llm-seo' );
-				?></span>
-				<span class="rnrd-quicknav__open"><?php esc_html_e( 'Open', 'rankready-ai-llm-seo' ); ?> <span aria-hidden="true">→</span></span>
-			</a>
-			<a class="rnrd-quicknav__tile" href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=insights' ) ); ?>">
-				<span class="rnrd-quicknav__title"><?php esc_html_e( 'Insights', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__desc"><?php esc_html_e( 'Who reads your site, what they cite, what brings them back.', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__stat"><?php esc_html_e( 'Training, Citation, Referrals, Freshness', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__open"><?php esc_html_e( 'Open', 'rankready-ai-llm-seo' ); ?> <span aria-hidden="true">→</span></span>
-			</a>
-			<a class="rnrd-quicknav__tile" href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=settings' ) ); ?>">
-				<span class="rnrd-quicknav__title"><?php esc_html_e( 'Settings', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__desc"><?php esc_html_e( 'API keys and provider configuration.', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__stat <?php echo $api_set ? '' : 'rnrd-quicknav__stat--alert'; ?>"><?php
-					if ( $api_set ) {
-						echo esc_html( sprintf(
-							/* translators: %s: provider label like "OpenAI" or "Claude (Anthropic)" */
-							__( '%s key configured', 'rankready-ai-llm-seo' ),
-							RNRD_LLM::get_provider_label( RNRD_LLM::get_active_provider() )
-						) );
-					} else {
-						esc_html_e( 'AI provider key required', 'rankready-ai-llm-seo' );
-					}
-				?></span>
-				<span class="rnrd-quicknav__open"><?php esc_html_e( 'Open', 'rankready-ai-llm-seo' ); ?> <span aria-hidden="true">→</span></span>
-			</a>
-			<a class="rnrd-quicknav__tile" href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=advanced' ) ); ?>">
-				<span class="rnrd-quicknav__title"><?php esc_html_e( 'Advanced', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__desc"><?php esc_html_e( 'Diagnostics, error log, API usage, data retention.', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__stat">v<?php echo esc_html( RNRD_VERSION ); ?> · <?php esc_html_e( 'by HostMyBlog', 'rankready-ai-llm-seo' ); ?></span>
-				<span class="rnrd-quicknav__open"><?php esc_html_e( 'Open', 'rankready-ai-llm-seo' ); ?> <span aria-hidden="true">→</span></span>
-			</a>
-		</div>
-
-		<?php // sidebar markup moved to render_page() so it appears on every tab. ?>
-
 		<?php
 	}
 
-	// ═══════════════════════════════════════════════════════════════════════════
-	// Dashboard: Agentic Ready Scorecard (rc.6)
-	// ═══════════════════════════════════════════════════════════════════════════
-	//
-	// 22 binary signals across 6 groups (Discovery, Content AI, Brand Authority,
-	// Provider, Engagement, Tracking). Each row deep-links to the tab that
-	// configures it. Progress bar shows % active. Purely read-only — no
-	// settings persisted here.
+	/**
+	 * Compact post-type list for Dashboard Content tiles (e.g. "Posts · Pages").
+	 *
+	 * @param array<int,string> $slugs Post type slugs.
+	 */
+	private static function dash_post_types_meta( array $slugs ): string {
+		$slugs = array_values( array_filter( array_map( 'strval', $slugs ) ) );
+		if ( empty( $slugs ) ) {
+			return __( 'No post types', 'rankready-ai-llm-seo' );
+		}
+		$labels = array();
+		foreach ( $slugs as $slug ) {
+			$obj = get_post_type_object( $slug );
+			$labels[] = ( $obj && ! empty( $obj->labels->name ) )
+				? (string) $obj->labels->name
+				: $slug;
+		}
+		return implode( ' · ', $labels );
+	}
 
 	/**
-	 * Build the list of scorecard signals.
+	 * "Available for: Posts, Pages" line for Visibility feature rows.
 	 *
-	 * Each row: ['group' => str, 'label' => str, 'active' => bool,
-	 *           'deeplink' => str (relative to admin.php?page=rankready-ai-llm-seo),
-	 *           'cta' => str (button label)]
-	 *
-	 * @return array<int,array<string,mixed>>
+	 * @param array<int,string> $slugs Post type slugs.
 	 */
-	/**
-	 * The 10 "Agent Visibility" signals — exactly what the Agent Visibility card
-	 * on the Dashboard tab measures (what's exposed to AI). Single source of
-	 * truth shared by that card AND the Agent Visibility dashboard widget, so the
-	 * two never disagree.
-	 *
-	 * @return array<int,array<string,mixed>> each: ['label'=>str,'on'=>bool,'url'?=>str]
-	 */
-	public static function agent_visibility_signals(): array {
-		return array(
-			array( 'label' => __( 'llms.txt', 'rankready-ai-llm-seo' ),          'on' => 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ),      'url' => home_url( '/llms.txt' ) ),
-			array( 'label' => __( 'llms-full.txt', 'rankready-ai-llm-seo' ),     'on' => 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ), 'url' => home_url( '/llms-full.txt' ) ),
-			array( 'label' => __( '.md routes', 'rankready-ai-llm-seo' ),        'on' => 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ),
-			array( 'label' => __( 'AI hint in body', 'rankready-ai-llm-seo' ),   'on' => 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) && 'on' === get_option( RNRD_OPT_MD_HINT_DIV, 'on' ) ),
-			array( 'label' => __( 'AI bot auto-serve', 'rankready-ai-llm-seo' ), 'on' => 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) && 'on' === get_option( RNRD_OPT_MD_BOT_AUTO_SERVE, 'on' ) ),
-			array( 'label' => __( 'robots.txt AI rules', 'rankready-ai-llm-seo' ), 'on' => 'on' === get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' ) ),
-			array( 'label' => __( 'Content Signals', 'rankready-ai-llm-seo' ),   'on' => 'on' === get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' ) ),
-			array( 'label' => __( 'AI Referral tracking', 'rankready-ai-llm-seo' ), 'on' => 'on' === get_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' ) ),
-			array( 'label' => __( 'WebMCP manifest', 'rankready-ai-llm-seo' ),   'on' => 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' ), 'url' => home_url( '/.well-known/mcp.json' ) ),
-			array( 'label' => __( 'Brand Terms set', 'rankready-ai-llm-seo' ),   'on' => '' !== trim( (string) get_option( RNRD_OPT_BRAND_TERMS, '' ) ) ),
+	private static function dash_available_for( array $slugs ): string {
+		$slugs = array_values( array_filter( array_map( 'strval', $slugs ) ) );
+		if ( empty( $slugs ) ) {
+			return __( 'Available for: no post types', 'rankready-ai-llm-seo' );
+		}
+		$labels = array();
+		foreach ( $slugs as $slug ) {
+			$obj = get_post_type_object( $slug );
+			$labels[] = ( $obj && ! empty( $obj->labels->name ) )
+				? (string) $obj->labels->name
+				: $slug;
+		}
+		return sprintf(
+			/* translators: %s: comma-separated post type labels */
+			__( 'Available for: %s', 'rankready-ai-llm-seo' ),
+			implode( ', ', $labels )
 		);
 	}
 
 	/**
-	 * Agent Visibility coverage — active/total/pct across the 10 signals above.
-	 * Used by the "RankReady — Agent Visibility" dashboard widget so its headline
-	 * score matches the Agent Visibility card exactly (never a hardcoded 100%).
+	 * Auto-placement foot label for Dashboard Content tiles.
+	 *
+	 * @param string $mode off|before|after|both
+	 */
+	private static function dash_auto_placement_label( string $mode ): string {
+		switch ( $mode ) {
+			case 'before':
+				return __( 'Before content · auto', 'rankready-ai-llm-seo' );
+			case 'after':
+				return __( 'After content · auto', 'rankready-ai-llm-seo' );
+			case 'both':
+				return __( 'Before & after content · auto', 'rankready-ai-llm-seo' );
+			case 'off':
+			default:
+				return __( 'Manual placement', 'rankready-ai-llm-seo' );
+		}
+	}
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// Dashboard: AI Visibility feature list (2-column, data-driven)
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * AI Visibility surfaces for the Dashboard card (and WP widget score).
+	 * Append new features here — the list layout scales without grid math.
+	 *
+	 * @return array<int,array{
+	 *   label:string,
+	 *   on:bool,
+	 *   status:string,
+	 *   meta_lines:array<int,string>,
+	 *   configure:string,
+	 *   previews:array<int,array{label:string,url:string}>
+	 * }>
+	 */
+	public static function get_visibility_features(): array {
+		$brand_url  = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers&sub=brand' );
+		$robots_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers&sub=robots' );
+		$llms_url   = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers&sub=llms' );
+		$md_url     = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers&sub=markdown' );
+		$webmcp_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers&sub=webmcp' );
+		$okf_url    = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers&sub=okf' );
+
+		$off_label = __( 'Off', 'rankready-ai-llm-seo' );
+
+		$brand_name_raw = trim( (string) get_option( RNRD_OPT_LLMS_SITE_NAME, '' ) );
+		$brand_summary  = trim( (string) get_option( RNRD_OPT_LLMS_SUMMARY, '' ) );
+		$brand_terms    = trim( (string) get_option( RNRD_OPT_BRAND_TERMS, '' ) );
+		$brand_ok       = ( '' !== $brand_name_raw || '' !== $brand_summary ) && '' !== $brand_terms;
+		$brand_display  = $brand_name_raw;
+		if ( '' === $brand_display ) {
+			if ( class_exists( 'RNRD_Llms_Txt' ) ) {
+				$identity      = RNRD_Llms_Txt::get_brand_identity();
+				$brand_display = isset( $identity['name'] ) ? trim( (string) $identity['name'] ) : '';
+			}
+			if ( '' === $brand_display ) {
+				$brand_display = trim( (string) get_bloginfo( 'name' ) );
+			}
+		}
+		$brand_meta_lines = array(
+			__( 'Tell ChatGPT, Claude, Perplexity, and Gemini who you are', 'rankready-ai-llm-seo' ),
+			sprintf(
+				/* translators: %s: site/brand name (custom or WordPress site title fallback) */
+				__( 'Site/Brand Name: %s', 'rankready-ai-llm-seo' ),
+				'' !== $brand_display ? $brand_display : __( '(not set)', 'rankready-ai-llm-seo' )
+			),
+		);
+
+		$robots_on    = 'on' === (string) get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
+		$all_bots     = class_exists( 'RNRD_Llms_Txt' ) ? RNRD_Llms_Txt::get_llm_crawlers() : array();
+		$bot_total    = count( $all_bots );
+		$allowed_opt  = get_option( RNRD_OPT_ROBOTS_CRAWLERS, null );
+		$bots_allowed = ( null === $allowed_opt )
+			? $bot_total
+			: count( array_filter( (array) $allowed_opt ) );
+		$robots_meta = $robots_on
+			? sprintf(
+				/* translators: 1: allowed bots, 2: total bots */
+				__( '%1$d of %2$d crawlers allowed', 'rankready-ai-llm-seo' ),
+				(int) $bots_allowed,
+				(int) $bot_total
+			)
+			: __( 'Allow or block named AI crawlers in robots.txt', 'rankready-ai-llm-seo' );
+
+		$robots_previews = array(
+			array(
+				'label' => 'robots.txt',
+				'url'   => home_url( '/robots.txt' ),
+			),
+		);
+
+		$signals_on  = 'on' === (string) get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' );
+		$signal_bits = array();
+		if ( $signals_on ) {
+			if ( 'allow' === (string) get_option( RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN, 'allow' ) ) {
+				$signal_bits[] = __( 'train', 'rankready-ai-llm-seo' );
+			}
+			if ( 'allow' === (string) get_option( RNRD_OPT_CONTENT_SIGNALS_SEARCH, 'allow' ) ) {
+				$signal_bits[] = __( 'search', 'rankready-ai-llm-seo' );
+			}
+			if ( 'allow' === (string) get_option( RNRD_OPT_CONTENT_SIGNALS_AI_INPUT, 'allow' ) ) {
+				$signal_bits[] = __( 'input', 'rankready-ai-llm-seo' );
+			}
+		}
+		if ( $signals_on && $signal_bits ) {
+			$signals_meta = sprintf(
+				/* translators: %s: comma-separated usage modes (train, search, input) */
+				__( 'AI engines can use your content for: %s', 'rankready-ai-llm-seo' ),
+				implode( ', ', $signal_bits )
+			);
+		} elseif ( $signals_on ) {
+			$signals_meta = __( 'Content Signals directives are in robots.txt', 'rankready-ai-llm-seo' );
+		} else {
+			$signals_meta = __( 'Tell AI engines how they may use your content for training, search, and input', 'rankready-ai-llm-seo' );
+		}
+		$signals_previews = $signals_on ? $robots_previews : array();
+
+		// llms-full is an extension of llms.txt — only preview when the base endpoint is on.
+		$llms_on       = 'on' === (string) get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$full_on       = 'on' === (string) get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
+		$llms_types    = array_values( array_filter( (array) get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) ) ) );
+		$llms_previews = array();
+		if ( $llms_on ) {
+			$llms_previews[] = array(
+				'label' => 'llms.txt',
+				'url'   => home_url( '/llms.txt' ),
+			);
+			if ( $full_on ) {
+				$llms_previews[] = array(
+					'label' => 'llms-full.txt',
+					'url'   => home_url( '/llms-full.txt' ),
+				);
+			}
+		}
+		$llms_meta_lines = $llms_on
+			? array( self::dash_available_for( $llms_types ) )
+			: array( __( 'Publish a site index AI engines can discover', 'rankready-ai-llm-seo' ) );
+
+		$md_on    = 'on' === (string) get_option( RNRD_OPT_MD_ENABLE, 'off' );
+		$md_types = array_values( array_filter( (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) ) ) );
+		$md_auto  = $md_on && 'on' === (string) get_option( RNRD_OPT_MD_BOT_AUTO_SERVE, 'on' );
+		$md_hint  = $md_on && 'on' === (string) get_option( RNRD_OPT_MD_HINT_DIV, 'on' );
+		if ( $md_on ) {
+			$md_opts = array();
+			if ( $md_hint ) {
+				$md_opts[] = __( 'AI hint in body', 'rankready-ai-llm-seo' );
+			}
+			if ( $md_auto ) {
+				$md_opts[] = __( 'Auto-serve to AI bots', 'rankready-ai-llm-seo' );
+			}
+			$md_meta_lines = array( self::dash_available_for( $md_types ) );
+			if ( $md_opts ) {
+				$md_meta_lines[] = implode( ' · ', $md_opts );
+			}
+		} else {
+			$md_meta_lines = array(
+				__( 'Serve clean Markdown versions of your pages to AI agents', 'rankready-ai-llm-seo' ),
+			);
+		}
+
+		$mcp_on = 'on' === (string) get_option( RNRD_OPT_MCP_ENABLE, 'on' );
+		$mcp_previews = $mcp_on
+			? array(
+				array(
+					'label' => 'mcp.json',
+					'url'   => home_url( '/.well-known/mcp.json' ),
+				),
+			)
+			: array();
+		$mcp_meta_lines = array(
+			$mcp_on
+				? __( 'Manifest for Claude, Cursor, and VS Code', 'rankready-ai-llm-seo' )
+				: __( 'Expose a WebMCP manifest agents can discover', 'rankready-ai-llm-seo' ),
+		);
+
+		$okf_on    = 'on' === (string) get_option( RNRD_OPT_OKF_ENABLE, 'off' );
+		$okf_types = array_values( array_filter( (array) get_option( RNRD_OPT_OKF_POST_TYPES, array( 'post', 'page' ) ) ) );
+		$okf_meta_lines = $okf_on
+			? array( self::dash_available_for( $okf_types ) )
+			: array( __( 'Bundle structured knowledge for AI engines', 'rankready-ai-llm-seo' ) );
+		$okf_previews = $okf_on
+			? array(
+				array(
+					'label' => 'okf',
+					'url'   => home_url( '/okf/' ),
+				),
+			)
+			: array();
+
+		return array(
+			array(
+				'label'      => __( 'Brand Identity', 'rankready-ai-llm-seo' ),
+				'on'         => $brand_ok,
+				'status'     => $brand_ok ? '' : __( 'Incomplete', 'rankready-ai-llm-seo' ),
+				'meta_lines' => $brand_meta_lines,
+				'configure'  => $brand_url,
+				'previews'   => array(),
+			),
+			array(
+				'label'      => __( 'LLM Crawler Access', 'rankready-ai-llm-seo' ),
+				'on'         => $robots_on,
+				'status'     => $robots_on ? '' : $off_label,
+				'meta_lines' => array( $robots_meta ),
+				'configure'  => $robots_url,
+				'previews'   => $robots_on ? $robots_previews : array(),
+			),
+			array(
+				'label'      => __( 'Content Signals', 'rankready-ai-llm-seo' ),
+				'on'         => $signals_on,
+				'status'     => $signals_on ? '' : $off_label,
+				'meta_lines' => array( $signals_meta ),
+				'configure'  => $robots_url,
+				'previews'   => $signals_previews,
+			),
+			array(
+				'label'      => __( 'LLMs.txt Generator', 'rankready-ai-llm-seo' ),
+				'on'         => $llms_on,
+				'status'     => $llms_on ? '' : $off_label,
+				'meta_lines' => $llms_meta_lines,
+				'configure'  => $llms_url,
+				'previews'   => $llms_previews,
+			),
+			array(
+				'label'      => __( 'Markdown Endpoint', 'rankready-ai-llm-seo' ),
+				'on'         => $md_on,
+				'status'     => $md_on ? '' : $off_label,
+				'meta_lines' => $md_meta_lines,
+				'configure'  => $md_url,
+				'previews'   => array(),
+			),
+			array(
+				'label'      => __( 'WebMCP', 'rankready-ai-llm-seo' ),
+				'on'         => $mcp_on,
+				'status'     => $mcp_on ? '' : $off_label,
+				'meta_lines' => $mcp_meta_lines,
+				'configure'  => $webmcp_url,
+				'previews'   => $mcp_previews,
+				'badge'      => __( 'NEW', 'rankready-ai-llm-seo' ),
+			),
+			array(
+				'label'      => __( 'Open Knowledge Format (OKF)', 'rankready-ai-llm-seo' ),
+				'on'         => $okf_on,
+				'status'     => $okf_on ? '' : $off_label,
+				'meta_lines' => $okf_meta_lines,
+				'configure'  => $okf_url,
+				'previews'   => $okf_previews,
+			),
+		);
+	}
+
+	/**
+	 * AI Visibility feature list — configure on hover + live preview URLs.
+	 */
+	private static function render_card_agent_visibility(): void {
+		$visibility_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers' );
+		$features       = self::get_visibility_features();
+		?>
+		<div class="rnrd-card rnrd-dash-summary rnrd-visibility-summary" style="margin-bottom:20px;">
+			<div class="rnrd-dash-summary__head">
+				<div>
+					<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Visibility', 'rankready-ai-llm-seo' ); ?></h2>
+					<p class="rnrd-card-goal"><?php esc_html_e( 'Surfaces AI engines can read and use.', 'rankready-ai-llm-seo' ); ?></p>
+				</div>
+				<a class="rnrd-dash-summary__open" href="<?php echo esc_url( $visibility_url ); ?>"><?php esc_html_e( 'View all →', 'rankready-ai-llm-seo' ); ?></a>
+			</div>
+			<ul class="rnrd-feature-list" aria-label="<?php esc_attr_e( 'AI Visibility features', 'rankready-ai-llm-seo' ); ?>">
+				<?php foreach ( $features as $feat ) :
+					$active   = ! empty( $feat['on'] );
+					$previews = isset( $feat['previews'] ) && is_array( $feat['previews'] ) ? $feat['previews'] : array();
+					$config   = (string) $feat['configure'];
+					?>
+					<li class="rnrd-feature-list__item rnrd-feature-list__item--<?php echo $active ? 'on' : 'off'; ?>">
+						<a class="rnrd-feature-list__hit" href="<?php echo esc_url( $config ); ?>">
+							<span class="rnrd-feature-list__mark dashicons <?php echo $active ? 'dashicons-yes' : 'dashicons-marker'; ?>" aria-hidden="true"></span>
+							<span class="rnrd-feature-list__body">
+								<span class="rnrd-feature-list__top">
+									<span class="rnrd-feature-list__label"><?php echo esc_html( (string) $feat['label'] ); ?></span>
+									<?php if ( ! empty( $feat['badge'] ) ) : ?>
+										<span class="rnrd-feature-list__badge"><?php echo esc_html( (string) $feat['badge'] ); ?></span>
+									<?php endif; ?>
+									<?php if ( '' !== trim( (string) $feat['status'] ) ) : ?>
+										<span class="rnrd-feature-list__status"><?php echo esc_html( (string) $feat['status'] ); ?></span>
+									<?php endif; ?>
+									<span class="rnrd-feature-list__go" aria-hidden="true"><?php esc_html_e( 'Configure →', 'rankready-ai-llm-seo' ); ?></span>
+								</span>
+								<span class="rnrd-feature-list__meta">
+									<?php
+									$meta_lines = array();
+									if ( ! empty( $feat['meta_lines'] ) && is_array( $feat['meta_lines'] ) ) {
+										$meta_lines = $feat['meta_lines'];
+									} elseif ( isset( $feat['meta'] ) ) {
+										$meta_lines = array( (string) $feat['meta'] );
+									}
+									foreach ( $meta_lines as $i => $line ) :
+										$line = trim( (string) $line );
+										if ( '' === $line ) {
+											continue;
+										}
+										if ( $i > 0 ) {
+											echo '<br />';
+										}
+										echo esc_html( $line );
+									endforeach;
+									?>
+								</span>
+							</span>
+						</a>
+						<?php if ( $previews ) : ?>
+							<span class="rnrd-feature-list__previews">
+								<?php foreach ( $previews as $preview ) :
+									$p_label = isset( $preview['label'] ) ? (string) $preview['label'] : '';
+									$p_url   = isset( $preview['url'] ) ? (string) $preview['url'] : '';
+									if ( '' === $p_label || '' === $p_url ) {
+										continue;
+									}
+									?>
+									<a class="rnrd-feature-list__preview" href="<?php echo esc_url( $p_url ); ?>" target="_blank" rel="noopener noreferrer">
+										<code><?php echo esc_html( $p_label ); ?></code>
+										<span class="dashicons dashicons-external" aria-hidden="true"></span>
+										<span class="screen-reader-text"><?php
+											echo esc_html( sprintf(
+												/* translators: %s: preview path label */
+												__( 'Open %s (opens in a new tab)', 'rankready-ai-llm-seo' ),
+												$p_label
+											) );
+										?></span>
+									</a>
+								<?php endforeach; ?>
+							</span>
+						<?php endif; ?>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Compact on/off list for the WP dashboard widget — same features as the
+	 * Dashboard AI Visibility card (no AI Referral; that lives under Insights).
+	 *
+	 * @return array<int,array<string,mixed>> each: ['label'=>str,'on'=>bool,'url'?=>str]
+	 */
+	public static function agent_visibility_signals(): array {
+		$out = array();
+		foreach ( self::get_visibility_features() as $feat ) {
+			$row = array(
+				'label' => (string) $feat['label'],
+				'on'    => ! empty( $feat['on'] ),
+			);
+			if ( ! empty( $feat['previews'][0]['url'] ) ) {
+				$row['url'] = (string) $feat['previews'][0]['url'];
+			}
+			$out[] = $row;
+		}
+		return $out;
+	}
+
+	/**
+	 * AI Visibility feature count — active/total/pct across the surfaces above.
+	 * Used by the WP dashboard widget so it stays in sync with the Dashboard card.
 	 *
 	 * @return array{active:int,total:int,pct:int}
 	 */
@@ -1916,9 +2402,16 @@ class RNRD_Admin {
 		$freshness_scanned = (bool) get_option( 'rnrd_freshness_last_run', 0 );
 
 		// Tab deep-links.
-		$tab_crawlers = '?page=rankready-ai-llm-seo&tab=crawlers';
-		$tab_content  = '?page=rankready-ai-llm-seo&tab=content';
-		$tab_authority = '?page=rankready-ai-llm-seo&tab=authority';
+		$tab_crawlers       = '?page=rankready-ai-llm-seo&tab=crawlers';
+		$tab_crawlers_brand  = '?page=rankready-ai-llm-seo&tab=crawlers&sub=brand';
+		$tab_crawlers_robots = '?page=rankready-ai-llm-seo&tab=crawlers&sub=robots';
+		$tab_crawlers_llms   = '?page=rankready-ai-llm-seo&tab=crawlers&sub=llms';
+		$tab_crawlers_md     = '?page=rankready-ai-llm-seo&tab=crawlers&sub=markdown';
+		$tab_crawlers_webmcp = '?page=rankready-ai-llm-seo&tab=crawlers&sub=webmcp';
+		$tab_summary  = '?page=rankready-ai-llm-seo&tab=content&sub=summary';
+		$tab_faq      = '?page=rankready-ai-llm-seo&tab=content&sub=faq';
+		$tab_author   = '?page=rankready-ai-llm-seo&tab=content&sub=author';
+		$tab_schema   = '?page=rankready-ai-llm-seo&tab=content&sub=schema';
 		$tab_settings  = '?page=rankready-ai-llm-seo&tab=settings';
 		$tab_insights_freshness = '?page=rankready-ai-llm-seo&tab=insights&sub=freshness';
 		$tab_insights_bot       = '?page=rankready-ai-llm-seo&tab=insights&sub=bot-activity';
@@ -1931,31 +2424,31 @@ class RNRD_Admin {
 				'group'    => __( 'Discovery', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'llms.txt', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_llms,
 			),
 			array(
 				'group'    => __( 'Discovery', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'llms-full.txt', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_llms,
 			),
 			array(
 				'group'    => __( 'Discovery', 'rankready-ai-llm-seo' ),
 				'label'    => __( '.md routes', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_md,
 			),
 			array(
 				'group'    => __( 'Discovery', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'robots.txt rules', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_robots,
 			),
 			array(
 				'group'    => __( 'Discovery', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'WebMCP manifest', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_webmcp,
 			),
 
 			// ── Content AI (4) ───────────────────────────────────────────────
@@ -1963,19 +2456,19 @@ class RNRD_Admin {
 				'group'    => __( 'Content AI', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'AI Summary', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_AUTO_GENERATE, 'off' ) || $has_any_summary,
-				'deeplink' => $tab_content,
+				'deeplink' => $tab_summary,
 			),
 			array(
 				'group'    => __( 'Content AI', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'FAQ Generation', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_FAQ_AUTO_GENERATE, 'off' ) || $has_any_faq,
-				'deeplink' => $tab_content,
+				'deeplink' => $tab_faq,
 			),
 			array(
 				'group'    => __( 'Content AI', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'Content Signals', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_robots,
 			),
 			array(
 				'group'    => __( 'Content AI', 'rankready-ai-llm-seo' ),
@@ -1989,25 +2482,25 @@ class RNRD_Admin {
 				'group'    => __( 'Brand Authority', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'Site name set', 'rankready-ai-llm-seo' ),
 				'active'   => '' !== trim( (string) get_option( RNRD_OPT_LLMS_SITE_NAME, '' ) ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_brand,
 			),
 			array(
 				'group'    => __( 'Brand Authority', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'Summary set', 'rankready-ai-llm-seo' ),
 				'active'   => '' !== trim( (string) get_option( RNRD_OPT_LLMS_SUMMARY, '' ) ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_brand,
 			),
 			array(
 				'group'    => __( 'Brand Authority', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'About set', 'rankready-ai-llm-seo' ),
 				'active'   => '' !== trim( (string) get_option( RNRD_OPT_LLMS_ABOUT, '' ) ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_brand,
 			),
 			array(
 				'group'    => __( 'Brand Authority', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'Brand terms set', 'rankready-ai-llm-seo' ),
 				'active'   => '' !== trim( (string) get_option( RNRD_OPT_BRAND_TERMS, '' ) ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_brand,
 			),
 
 			// ── Provider (2) ─────────────────────────────────────────────────
@@ -2038,13 +2531,13 @@ class RNRD_Admin {
 				'group'    => __( 'Engagement', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'Author Box', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' ),
-				'deeplink' => $tab_authority,
+				'deeplink' => $tab_author,
 			),
 			array(
 				'group'    => __( 'Engagement', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'Article schema', 'rankready-ai-llm-seo' ),
 				'active'   => 'on' === get_option( RNRD_OPT_SCHEMA_ARTICLE, 'on' ),
-				'deeplink' => $tab_authority,
+				'deeplink' => $tab_schema,
 			),
 
 			// ── Tracking (4) ─────────────────────────────────────────────────
@@ -2101,10 +2594,7 @@ class RNRD_Admin {
 		?>
 		<div class="rnrd-card rnrd-scorecard" style="margin-bottom:24px;">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'Agentic Ready Scorecard', 'rankready-ai-llm-seo' ); ?></h2>
-			<p class="rnrd-card-goal"><?php esc_html_e( '22 signals across 6 groups — your site\'s AI-readiness at a glance.', 'rankready-ai-llm-seo' ); ?></p>
-			<p class="rnrd-card-desc">
-				<?php esc_html_e( 'Every signal RankReady ships, at a glance. Tick = active. Click any row to jump straight to the setting.', 'rankready-ai-llm-seo' ); ?>
-			</p>
+			<p class="rnrd-card-goal"><?php esc_html_e( '22 signals across 6 groups — tick = active; click any row to jump to the setting.', 'rankready-ai-llm-seo' ); ?></p>
 
 			<div class="rnrd-scorecard-progress" style="position:relative;height:10px;background:#e5e5e7;border-radius:6px;overflow:hidden;margin:10px 0 6px;">
 				<div class="rnrd-scorecard-bar" style="height:100%;width:<?php echo (int) $pct; ?>%;background:linear-gradient(90deg,#2DE3A8 0%,#0F9C70 100%);transition:width 0.4s ease;"></div>
@@ -2159,52 +2649,66 @@ class RNRD_Admin {
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
-	// TAB: Content AI — AI Summary + FAQ Generator merged
+	// TAB: AI Content — AI Summary | AI FAQ | Author Box | Schema
 	// ═══════════════════════════════════════════════════════════════════════════
 
-	private static function render_tab_content_ai(): void {
+	/**
+	 * AI Content tab — subtabs for Summary, FAQ, Author Box, and Schema.
+	 */
+	private static function render_tab_content(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only $_GET[sub] for sub-tab display routing.
+		$sub = isset( $_GET['sub'] ) ? sanitize_key( wp_unslash( $_GET['sub'] ) ) : 'summary';
+		$sub_tabs = array(
+			'summary' => __( 'AI Summary', 'rankready-ai-llm-seo' ),
+			'faq'     => __( 'AI FAQ Generator', 'rankready-ai-llm-seo' ),
+			'author'  => __( 'Author Box (E-E-A-T)', 'rankready-ai-llm-seo' ),
+			'schema'  => __( 'Schema', 'rankready-ai-llm-seo' ),
+		);
+		if ( ! isset( $sub_tabs[ $sub ] ) ) {
+			$sub = 'summary';
+		}
 		?>
 		<?php settings_errors(); ?>
 		<?php self::render_tab_intro(
-			__( 'Content AI', 'rankready-ai-llm-seo' ),
-			__( 'Write AI Summaries and FAQ schema for any post.', 'rankready-ai-llm-seo' ),
-			__( 'Choose how summaries and FAQs appear on the front end. Manual, auto-generate on publish, and bulk generation are all available.', 'rankready-ai-llm-seo' )
+			__( 'AI Content', 'rankready-ai-llm-seo' ),
+			__( 'Add summaries, FAQs, author trust, and schema so AI engines can quote your pages accurately.', 'rankready-ai-llm-seo' )
 		); ?>
 
-		<?php
-		// v1.1.13 — Active AI Provider summary card.
-		//
-		// When NO key is configured: render the card so the user can jump to
-		//   Settings and add one.
-		// When a key IS configured: hide the card entirely. No nagging. The
-		//   user already set things up and can switch providers from the
-		//   Settings tab whenever they want.
-		$key_set = class_exists( 'RNRD_LLM' ) && RNRD_LLM::active_provider_ready();
-		if ( ! $key_set ) :
-			$provider_label = RNRD_LLM::get_provider_label( RNRD_LLM::get_active_provider() );
-			$active_model   = RNRD_LLM::get_model( RNRD_LLM::get_active_provider() );
-			?>
-			<div class="rnrd-card rnrd-card--needs-attention">
-				<h2 class="rnrd-card-title"><?php esc_html_e( 'Active AI Provider', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'The LLM that powers Summary and FAQ generation.', 'rankready-ai-llm-seo' ); ?></p>
-				<p class="rnrd-card-desc">
-					<?php
-					echo esc_html( sprintf(
-						/* translators: 1: provider name, 2: model id */
-						__( '%1$s — %2$s', 'rankready-ai-llm-seo' ),
-						$provider_label,
-						$active_model
-					) );
-					echo ' <span class="rnrd-status-pill rnrd-status-pill--warn">' . esc_html__( 'No API key — Summary and FAQ will not run', 'rankready-ai-llm-seo' ) . '</span>';
-					?>
-				</p>
-				<p style="margin:0;">
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=settings' ) ); ?>" class="button button-secondary">
-						<?php esc_html_e( 'Add API key →', 'rankready-ai-llm-seo' ); ?>
+		<div class="rnrd-insights-toolbar">
+			<nav class="rnrd-insights-subnav" aria-label="<?php esc_attr_e( 'AI Content sections', 'rankready-ai-llm-seo' ); ?>">
+				<?php foreach ( $sub_tabs as $slug => $label ) : ?>
+					<a href="<?php echo esc_url( add_query_arg( array( 'page' => self::MENU_SLUG, 'tab' => 'content', 'sub' => $slug ), admin_url( 'admin.php' ) ) ); ?>"
+					   class="<?php echo $sub === $slug ? 'is-active' : ''; ?>">
+						<?php echo esc_html( $label ); ?>
 					</a>
-				</p>
-			</div>
-		<?php endif; ?>
+				<?php endforeach; ?>
+			</nav>
+		</div>
+
+		<?php
+		switch ( $sub ) {
+			case 'faq':
+				self::render_content_sub_faq();
+				break;
+			case 'author':
+				self::render_content_sub_author();
+				break;
+			case 'schema':
+				self::render_content_sub_schema();
+				break;
+			case 'summary':
+			default:
+				self::render_content_sub_summary();
+				break;
+		}
+	}
+
+	/**
+	 * Content → AI Summary subtab.
+	 */
+	private static function render_content_sub_summary(): void {
+		?>
+		<?php self::render_content_provider_notice(); ?>
 
 		<form method="post" action="options.php" novalidate="novalidate">
 			<?php settings_fields( self::CONTENT_GROUP ); ?>
@@ -2234,7 +2738,14 @@ class RNRD_Admin {
 				__( 'Run AI summaries across every published post in one resumable job. Manual single-post generation stays unlimited.', 'rankready-ai-llm-seo' )
 			);
 		}
+	}
+
+	/**
+	 * Content → AI FAQ subtab.
+	 */
+	private static function render_content_sub_faq(): void {
 		?>
+		<?php self::render_content_provider_notice(); ?>
 
 		<form method="post" action="options.php" novalidate="novalidate">
 			<?php settings_fields( self::FAQ_GROUP ) /* v1.0.3 — FAQ form posts to dedicated FAQ_GROUP to prevent cross-nulling Summary settings */; ?>
@@ -2253,73 +2764,172 @@ class RNRD_Admin {
 				__( 'Generate FAQ Q&A pairs for every published post in one resumable job. Manual single-post FAQ generation stays unlimited.', 'rankready-ai-llm-seo' )
 			);
 		}
-		?>
-		<?php
 	}
 
-	// ═══════════════════════════════════════════════════════════════════════════
-	// TAB: Authority — Author Box + Schema Automation merged
-	// ═══════════════════════════════════════════════════════════════════════════
-
-	private static function render_tab_authority(): void {
+	/**
+	 * Content → Author Box (E-E-A-T) subtab.
+	 */
+	private static function render_content_sub_author(): void {
 		?>
-		<?php settings_errors(); ?>
-		<?php self::render_tab_intro(
-			__( 'E-E-A-T', 'rankready-ai-llm-seo' ),
-			__( 'Prove who wrote it — so ChatGPT, Claude, and Perplexity trust the citation.', 'rankready-ai-llm-seo' ),
-			__( 'Author bio, EEAT schema, and Article JSON-LD. Works alongside Rank Math, Yoast, and AIOSEO — RankReady merges into their schema graph instead of duplicating it.', 'rankready-ai-llm-seo' )
-		); ?>
 		<form method="post" action="options.php" novalidate="novalidate">
 			<?php settings_fields( self::AUTHORITY_GROUP ); ?>
-
-			<?php
-			/*
-			 * v1.1.5 fix (#3) — value-preserving hidden inputs for AUTHORITY_GROUP options
-			 * that have NO rendered input in the Free build. Both "Save Author Box" and
-			 * "Save Schema" submit this single form; without these, options.php writes null
-			 * for every registered option absent from $_POST, so sanitize flips author schema
-			 * OFF and wipes the editorial/factcheck URLs + batch size on every save. This is
-			 * the rc.3 "settings group cross-contamination" pattern (DO-NOT-REINTRODUCE #1).
-			 * Each block is gated on the SAME condition as the Pro hook that renders its real
-			 * control, so when Pro is active its input renders later in the form and wins
-			 * (last occurrence in $_POST); in Free the preserved value persists. No duplicate,
-			 * no uncheck-defeat.
-			 */
-			$rnrd_pro_eeat_active = function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() && has_action( 'rnrd_pro_eeat_schema' );
-			$rnrd_pro_rows_active = function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() && has_action( 'rnrd_pro_schema_rows' );
-			if ( ! $rnrd_pro_eeat_active ) :
-				?>
-				<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_SCHEMA_ENABLE ); ?>" value="<?php echo esc_attr( (string) get_option( RNRD_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ); ?>" />
-				<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_EDITORIAL_URL ); ?>" value="<?php echo esc_attr( (string) get_option( RNRD_OPT_AUTHOR_EDITORIAL_URL, '' ) ); ?>" />
-				<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_FACTCHECK_URL ); ?>" value="<?php echo esc_attr( (string) get_option( RNRD_OPT_AUTHOR_FACTCHECK_URL, '' ) ); ?>" />
-				<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_TRUST_ENABLE ); ?>" value="<?php echo esc_attr( (string) get_option( RNRD_OPT_AUTHOR_TRUST_ENABLE, 'off' ) ); ?>" />
-				<?php
-			endif;
-			if ( ! $rnrd_pro_rows_active ) :
-				?>
-				<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_SCHEMA_HOWTO ); ?>" value="<?php echo esc_attr( (string) get_option( RNRD_OPT_SCHEMA_HOWTO, 'on' ) ); ?>" />
-				<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_SCHEMA_ITEMLIST ); ?>" value="<?php echo esc_attr( (string) get_option( RNRD_OPT_SCHEMA_ITEMLIST, 'on' ) ); ?>" />
-				<?php
-			endif;
-			/*
-			 * SCHEMA_BATCH_SIZE has NO input in Free OR Pro — rankready-pro's render_schema_rows()
-			 * signature is ($howto, $itemlist, $seo_plugin) and never emits batch size (verified
-			 * against rankready-pro 0.5.0). So preserve it UNCONDITIONALLY, or options.php resets
-			 * it to 0 (absint(null)) on every Authority/Schema save in BOTH Free and Pro.
-			 */
-			?>
-			<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_SCHEMA_BATCH_SIZE ); ?>" value="<?php echo esc_attr( (string) get_option( RNRD_OPT_SCHEMA_BATCH_SIZE, 10 ) ); ?>" />
-
+			<?php self::render_authority_preserve_hiddens( 'author' ); ?>
 			<?php self::render_tab_author(); ?>
-			<?php self::render_tab_schema(); ?>
 		</form>
 
 		<?php
 		// ── Bulk Author Changer (relocated from Advanced tab in rc.6) ──────
 		// AJAX-driven, no form wrapper needed. All field IDs preserved.
 		self::render_card_bulk_author();
+	}
+
+	/**
+	 * Content → Schema subtab.
+	 */
+	private static function render_content_sub_schema(): void {
 		?>
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::AUTHORITY_GROUP ); ?>
+			<?php self::render_authority_preserve_hiddens( 'schema' ); ?>
+			<?php self::render_tab_schema(); ?>
+		</form>
 		<?php
+	}
+
+	/**
+	 * Compact AI provider status for AI Content Summary / FAQ subtabs.
+	 * Warn banner when no key; info banner with active provider + model when configured.
+	 */
+	private static function render_content_provider_notice(): void {
+		$settings_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=settings' );
+
+		if ( ! class_exists( 'RNRD_LLM' ) || ! RNRD_LLM::active_provider_ready() ) {
+			?>
+			<div class="rnrd-card rnrd-dash-alert rnrd-dash-alert--warn" role="status">
+				<p class="rnrd-dash-alert__text">
+					<strong><?php esc_html_e( 'AI setup needed.', 'rankready-ai-llm-seo' ); ?></strong>
+					<?php esc_html_e( 'Choose a provider and add an API key to generate Summaries and FAQs.', 'rankready-ai-llm-seo' ); ?>
+					<a href="<?php echo esc_url( $settings_url ); ?>"><?php esc_html_e( 'Open Settings →', 'rankready-ai-llm-seo' ); ?></a>
+				</p>
+			</div>
+			<?php
+			return;
+		}
+
+		$provider       = RNRD_LLM::get_active_provider();
+		$provider_label = RNRD_LLM::get_provider_label( $provider );
+		$model_id       = RNRD_LLM::get_model( $provider );
+		$models         = RNRD_LLM::get_models_for( $provider );
+		$model_label    = isset( $models[ $model_id ] ) ? (string) $models[ $model_id ] : $model_id;
+		?>
+		<div class="rnrd-card rnrd-dash-alert rnrd-dash-alert--info" role="status">
+			<p class="rnrd-dash-alert__text">
+				<strong>
+					<?php
+					echo esc_html( sprintf(
+						/* translators: 1: provider label, 2: model label */
+						__( 'Using %1$s · %2$s', 'rankready-ai-llm-seo' ),
+						$provider_label,
+						$model_label
+					) );
+					?>
+				</strong>
+				<?php esc_html_e( 'for Summary and FAQ generation.', 'rankready-ai-llm-seo' ); ?>
+				<a href="<?php echo esc_url( $settings_url ); ?>"><?php esc_html_e( 'Change in Settings →', 'rankready-ai-llm-seo' ); ?></a>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Emit hidden inputs that preserve AUTHORITY_GROUP options not present in
+	 * the current form. Author and Schema share rnrd_authority_group — saving
+	 * one must not null the other (DO-NOT-REINTRODUCE #1).
+	 *
+	 * @param string $view 'author' or 'schema' — which form is rendering.
+	 */
+	private static function render_authority_preserve_hiddens( string $view ): void {
+		/*
+		 * v1.1.5 fix (#3) — value-preserving hidden inputs for AUTHORITY_GROUP
+		 * options that have NO rendered input in the current form. Without these,
+		 * options.php writes null for every registered option absent from $_POST.
+		 * Pro-gated fields are skipped when the matching Pro hook is active so the
+		 * real control wins (last occurrence in $_POST).
+		 */
+		$rnrd_pro_eeat_active = function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() && has_action( 'rnrd_pro_eeat_schema' );
+		$rnrd_pro_rows_active = function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() && has_action( 'rnrd_pro_schema_rows' );
+
+		if ( 'author' === $view ) {
+			// Preserve all Schema options (this form only edits Author fields).
+			$schema_opts = array(
+				RNRD_OPT_SCHEMA_ARTICLE   => 'on',
+				RNRD_OPT_SCHEMA_FAQ       => 'on',
+				RNRD_OPT_SCHEMA_SPEAKABLE => 'on',
+				RNRD_OPT_SCHEMA_HOWTO     => 'on',
+				RNRD_OPT_SCHEMA_ITEMLIST  => 'on',
+			);
+			foreach ( $schema_opts as $opt => $default ) {
+				printf(
+					'<input type="hidden" name="%1$s" value="%2$s" />' . "\n",
+					esc_attr( $opt ),
+					esc_attr( (string) get_option( $opt, $default ) )
+				);
+			}
+			/*
+			 * SCHEMA_BATCH_SIZE has NO input in Free OR Pro — preserve unconditionally
+			 * or options.php resets it to 0 (absint(null)) on every save.
+			 */
+			printf(
+				'<input type="hidden" name="%1$s" value="%2$s" />' . "\n",
+				esc_attr( RNRD_OPT_SCHEMA_BATCH_SIZE ),
+				esc_attr( (string) get_option( RNRD_OPT_SCHEMA_BATCH_SIZE, 10 ) )
+			);
+			// Pro EEAT fields: preserve when Pro is not rendering them on this form.
+			if ( ! $rnrd_pro_eeat_active ) {
+				printf( '<input type="hidden" name="%1$s" value="%2$s" />' . "\n", esc_attr( RNRD_OPT_AUTHOR_SCHEMA_ENABLE ), esc_attr( (string) get_option( RNRD_OPT_AUTHOR_SCHEMA_ENABLE, 'on' ) ) );
+				printf( '<input type="hidden" name="%1$s" value="%2$s" />' . "\n", esc_attr( RNRD_OPT_AUTHOR_EDITORIAL_URL ), esc_attr( (string) get_option( RNRD_OPT_AUTHOR_EDITORIAL_URL, '' ) ) );
+				printf( '<input type="hidden" name="%1$s" value="%2$s" />' . "\n", esc_attr( RNRD_OPT_AUTHOR_FACTCHECK_URL ), esc_attr( (string) get_option( RNRD_OPT_AUTHOR_FACTCHECK_URL, '' ) ) );
+				printf( '<input type="hidden" name="%1$s" value="%2$s" />' . "\n", esc_attr( RNRD_OPT_AUTHOR_TRUST_ENABLE ), esc_attr( (string) get_option( RNRD_OPT_AUTHOR_TRUST_ENABLE, 'off' ) ) );
+			}
+			return;
+		}
+
+		// Schema view — preserve all Author options.
+		$author_scalars = array(
+			RNRD_OPT_AUTHOR_ENABLE         => 'on',
+			RNRD_OPT_AUTHOR_AUTO_DISPLAY   => 'off',
+			RNRD_OPT_AUTHOR_LAYOUT         => 'card',
+			RNRD_OPT_AUTHOR_HEADING        => 'About the Author',
+			RNRD_OPT_AUTHOR_HEADING_TAG    => 'h3',
+			RNRD_OPT_AUTHOR_SCHEMA_ENABLE  => 'on',
+			RNRD_OPT_AUTHOR_EDITORIAL_URL  => '',
+			RNRD_OPT_AUTHOR_FACTCHECK_URL  => '',
+			RNRD_OPT_AUTHOR_TRUST_ENABLE   => 'off',
+		);
+		foreach ( $author_scalars as $opt => $default ) {
+			printf(
+				'<input type="hidden" name="%1$s" value="%2$s" />' . "\n",
+				esc_attr( $opt ),
+				esc_attr( (string) get_option( $opt, $default ) )
+			);
+		}
+		$author_types = (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
+		foreach ( $author_types as $pt ) {
+			printf(
+				'<input type="hidden" name="%1$s[]" value="%2$s" />' . "\n",
+				esc_attr( RNRD_OPT_AUTHOR_POST_TYPES ),
+				esc_attr( (string) $pt )
+			);
+		}
+		if ( ! $rnrd_pro_rows_active ) {
+			printf( '<input type="hidden" name="%1$s" value="%2$s" />' . "\n", esc_attr( RNRD_OPT_SCHEMA_HOWTO ), esc_attr( (string) get_option( RNRD_OPT_SCHEMA_HOWTO, 'on' ) ) );
+			printf( '<input type="hidden" name="%1$s" value="%2$s" />' . "\n", esc_attr( RNRD_OPT_SCHEMA_ITEMLIST ), esc_attr( (string) get_option( RNRD_OPT_SCHEMA_ITEMLIST, 'on' ) ) );
+		}
+		printf(
+			'<input type="hidden" name="%1$s" value="%2$s" />' . "\n",
+			esc_attr( RNRD_OPT_SCHEMA_BATCH_SIZE ),
+			esc_attr( (string) get_option( RNRD_OPT_SCHEMA_BATCH_SIZE, 10 ) )
+		);
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -2330,7 +2940,7 @@ class RNRD_Admin {
 	// TAB: Insights — Bot Activity / AI Citation / AI Referral / Freshness
 	// ══════════════════════════════════════════════════════════════════════════
 	// v1.2.0-beta.7 — Splits the three signals that were conflated on the
-	// AI Crawlers tab:
+	// AI Visibility tab (slug crawlers):
 	//   • Training-bot crawl  (inbound, slow — GPTBot/Google-Extended/ClaudeBot
 	//     indexing for future model training)
 	//   • Citation-bot crawl  (inbound, live — ChatGPT-User/OAI-SearchBot/
@@ -2355,8 +2965,7 @@ class RNRD_Admin {
 		<?php settings_errors(); ?>
 		<?php self::render_tab_intro(
 			__( 'Insights', 'rankready-ai-llm-seo' ),
-			__( 'Who reads your site, what they cite, and what brings users back.', 'rankready-ai-llm-seo' ),
-			__( 'Training bots (GPTBot, ClaudeBot, Google-Extended) index you for tomorrow. Citation bots (ChatGPT-User, PerplexityBot, OAI-SearchBot) read you live to answer questions right now. Real AI Referrals track users clicking through from chatgpt.com, perplexity.ai, and claude.ai. Counts start at zero on a fresh install.', 'rankready-ai-llm-seo' )
+			__( 'Who trains on you, what they cite, and who clicks back — counts start at zero on a fresh install.', 'rankready-ai-llm-seo' )
 		); ?>
 
 		<!-- Sub-tab navigation + Demo toggle button -->
@@ -2464,10 +3073,7 @@ class RNRD_Admin {
 			<?php /* v1.1.15 — Restored card title to match Citation Bots /
 			   Real AI Referrals / Content Freshness pattern. */ ?>
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Training Activity', 'rankready-ai-llm-seo' ); ?></h2>
-			<p class="rnrd-card-goal"><?php esc_html_e( 'Who reads your site — and what they do with it.', 'rankready-ai-llm-seo' ); ?></p>
-			<p class="rnrd-card-desc">
-				<?php esc_html_e( 'Training hits = an AI crawler ingested your content for future model training. Pages read = how much of your library training bots have seen. The per-bot breakdown below shows which bots are reading you and how often. (Citation bots and Real AI Referrals are on their own sub-tabs.)', 'rankready-ai-llm-seo' ); ?>
-			</p>
+			<p class="rnrd-card-goal"><?php esc_html_e( 'Training bots ingesting your content for future models — hits and pages read in the last 30 days.', 'rankready-ai-llm-seo' ); ?></p>
 
 			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'Training bot activity', 'rankready-ai-llm-seo' ); ?>">
 				<!-- KPI 1: Training hits — primary metric for this tab -->
@@ -2593,10 +3199,7 @@ class RNRD_Admin {
 		?>
 		<div class="rnrd-card">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Citation Candidates', 'rankready-ai-llm-seo' ); ?></h2>
-			<p class="rnrd-card-goal"><?php esc_html_e( 'Pages AI is already citing — the ones already winning.', 'rankready-ai-llm-seo' ); ?></p>
-			<p class="rnrd-card-desc">
-				<?php esc_html_e( 'Pages most fetched by citation-intent bots (ChatGPT-User, OAI-SearchBot, PerplexityBot, Claude-Web, DuckAssistBot) in the last 30 days. Each hit is a live AI answer that retrieved the page as a source. Refresh these first — they are already winning.', 'rankready-ai-llm-seo' ); ?>
-			</p>
+			<p class="rnrd-card-goal"><?php esc_html_e( 'Pages citation bots already fetch as live answer sources — refresh these first.', 'rankready-ai-llm-seo' ); ?></p>
 
 			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'Citation candidates summary', 'rankready-ai-llm-seo' ); ?>">
 				<div class="rnrd-kpi" data-intent="citation">
@@ -2721,10 +3324,7 @@ class RNRD_Admin {
 		?>
 		<div class="rnrd-card">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Referral Traffic', 'rankready-ai-llm-seo' ); ?></h2>
-			<p class="rnrd-card-goal"><?php esc_html_e( 'Real humans who clicked from an AI answer to your site.', 'rankready-ai-llm-seo' ); ?></p>
-			<p class="rnrd-card-desc">
-				<?php esc_html_e( 'Different from bot activity. This counts visits from chatgpt.com, perplexity.ai, claude.ai, gemini.google.com, and copilot.microsoft.com via the HTTP Referer header — 100% server-side, no third-party scripts, no UTM tagging required.', 'rankready-ai-llm-seo' ); ?>
-			</p>
+			<p class="rnrd-card-goal"><?php esc_html_e( 'Real humans who clicked through from ChatGPT, Perplexity, Claude, Gemini, or Copilot — tracked via HTTP Referer.', 'rankready-ai-llm-seo' ); ?></p>
 
 			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'AI referral summary', 'rankready-ai-llm-seo' ); ?>">
 				<div class="rnrd-kpi" data-intent="citation">
@@ -2813,6 +3413,49 @@ class RNRD_Admin {
 		self::render_card_freshness_alerts();
 	}
 
+	/**
+	 * Settings tab — API Keys + Advanced subtabs (mirrors Insights subnav pattern).
+	 */
+	private static function render_tab_settings(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only $_GET[sub] for sub-tab display routing.
+		$sub = isset( $_GET['sub'] ) ? sanitize_key( wp_unslash( $_GET['sub'] ) ) : 'api-keys';
+		$sub_tabs = array(
+			'api-keys' => __( 'API Keys', 'rankready-ai-llm-seo' ),
+			'advanced' => __( 'Advanced', 'rankready-ai-llm-seo' ),
+		);
+		if ( ! isset( $sub_tabs[ $sub ] ) ) {
+			$sub = 'api-keys';
+		}
+		?>
+		<?php settings_errors(); ?>
+		<?php self::render_tab_intro(
+			__( 'Settings', 'rankready-ai-llm-seo' ),
+			__( 'Connect your AI provider and run diagnostics, usage, and maintenance tools.', 'rankready-ai-llm-seo' )
+		); ?>
+
+		<div class="rnrd-insights-toolbar">
+			<nav class="rnrd-insights-subnav" aria-label="<?php esc_attr_e( 'Settings sections', 'rankready-ai-llm-seo' ); ?>">
+				<?php foreach ( $sub_tabs as $slug => $label ) : ?>
+					<a href="<?php echo esc_url( add_query_arg( array( 'page' => self::MENU_SLUG, 'tab' => 'settings', 'sub' => $slug ), admin_url( 'admin.php' ) ) ); ?>"
+					   class="<?php echo $sub === $slug ? 'is-active' : ''; ?>">
+						<?php echo esc_html( $label ); ?>
+					</a>
+				<?php endforeach; ?>
+			</nav>
+		</div>
+
+		<?php
+		switch ( $sub ) {
+			case 'advanced':
+				self::render_tab_advanced();
+				break;
+			case 'api-keys':
+			default:
+				self::render_tab_api();
+				break;
+		}
+	}
+
 	private static function render_tab_advanced(): void {
 		// v1.2.0-rc.5 — Advanced tab simplified.
 		// REMOVED: Headless / Public API section (Dashboard explains plugin scope).
@@ -2822,11 +3465,6 @@ class RNRD_Admin {
 		// Freshness Alerts — these will relocate to their proper tabs in rc.6
 		// alongside the card-merge refactor (preserving form field names + data).
 		?>
-		<?php self::render_tab_intro(
-			__( 'Advanced', 'rankready-ai-llm-seo' ),
-			__( 'Verify everything works — and see what it cost.', 'rankready-ai-llm-seo' ),
-			__( 'Live probes confirm llms.txt, robots.txt, .md routes, and the WebMCP manifest are reachable from the open web. Detects cache, page-builder, and SEO-plugin conflicts. Tracks token spend per provider.', 'rankready-ai-llm-seo' )
-		); ?>
 		<?php self::render_tab_tools(); ?>
 		<?php
 	}
@@ -2848,12 +3486,6 @@ class RNRD_Admin {
 		$gemini_disp    = $mask( get_option( RNRD_OPT_GEMINI_KEY, '' ) );
 		$deepseek_disp  = $mask( get_option( RNRD_OPT_DEEPSEEK_KEY, '' ) );
 		?>
-		<?php settings_errors(); ?>
-		<?php self::render_tab_intro(
-			__( 'Settings', 'rankready-ai-llm-seo' ),
-			__( 'Pick your AI provider and drop in the API key.', 'rankready-ai-llm-seo' ),
-			__( 'Choose ChatGPT, Claude, Gemini, or DeepSeek to power Summary and FAQ generation. Only the active provider needs a key. Add DataForSEO credentials too if you want the FAQ Generator to discover real user questions.', 'rankready-ai-llm-seo' )
-		); ?>
 		<?php self::model_migration_notice(); ?>
 
 		<form method="post" action="options.php" novalidate="novalidate">
@@ -3077,8 +3709,7 @@ class RNRD_Admin {
 			<!-- DataForSEO -->
 			<div class="rnrd-card">
 				<h2 class="rnrd-card-title"><?php esc_html_e( 'DataForSEO', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Question discovery for FAQ generation. Optional — only needed if FAQ is on.', 'rankready-ai-llm-seo' ); ?></p>
-				<p class="rnrd-card-desc"><?php esc_html_e( 'Powers FAQ question discovery via keyword suggestions and related keywords. Sign up at dataforseo.com.', 'rankready-ai-llm-seo' ); ?></p>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Optional question discovery for FAQ generation via DataForSEO keyword suggestions.', 'rankready-ai-llm-seo' ); ?></p>
 
 				<table class="form-table rnrd-form-table">
 					<tr>
@@ -3148,8 +3779,7 @@ class RNRD_Admin {
 			     (Generation + Display). All form-field names preserved verbatim. -->
 			<div class="rnrd-card">
 				<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Summary', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Auto-generate Key Takeaways for every post — the lines ChatGPT and Perplexity quote directly.', 'rankready-ai-llm-seo' ); ?></p>
-				<p class="rnrd-card-desc"><?php esc_html_e( 'Configure which posts get AI summaries, how they are generated, and how they appear on the frontend.', 'rankready-ai-llm-seo' ); ?></p>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Auto-generate Key Takeaways — the lines ChatGPT and Perplexity quote directly.', 'rankready-ai-llm-seo' ); ?></p>
 
 				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'Generation', 'rankready-ai-llm-seo' ); ?></h3>
 
@@ -3426,48 +4056,6 @@ class RNRD_Admin {
 		elseif ( $has_seopress ) $seo_plugin = 'SEOPress';
 		elseif ( $has_tsf )      $seo_plugin = 'The SEO Framework';
 		?>
-			<!-- SEO Plugin Detection -->
-			<div class="rnrd-card">
-				<h2 class="rnrd-card-title"><?php esc_html_e( 'SEO Plugin Compatibility', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'RankReady detects your active SEO plugin and merges schema — never duplicate tags.', 'rankready-ai-llm-seo' ); ?></p>
-
-				<?php
-				// v1.2.0-rc.7 — Inline 1-liner replacing the deleted "How Schema
-				// Works" card. Stays in DOM regardless of plugin presence so the
-				// user always sees what's happening.
-				if ( $seo_plugin ) {
-					printf(
-						'<p class="rnrd-info-callout"><span class="dashicons dashicons-info"></span> %s</p>',
-						esc_html( sprintf(
-							/* translators: %s: detected SEO plugin name */
-							__( '%s detected — RankReady merges schema into its graph. No duplicate tags.', 'rankready-ai-llm-seo' ),
-							$seo_plugin
-						) )
-					);
-				} else {
-					echo '<p class="rnrd-info-callout"><span class="dashicons dashicons-info"></span> '
-						. esc_html__( 'No SEO plugin detected — RankReady emits standalone Article + Speakable schema.', 'rankready-ai-llm-seo' )
-						. '</p>';
-				}
-				?>
-				<?php if ( ! empty( $seo_plugin ) ) : ?>
-					<div class="rnrd-callout rnrd-callout--info">
-						<strong><?php echo esc_html( $seo_plugin ); ?></strong> <?php esc_html_e( 'is active.', 'rankready-ai-llm-seo' ); ?>
-						<?php esc_html_e( 'RankReady automatically adjusts schema output to avoid duplicates:', 'rankready-ai-llm-seo' ); ?>
-						<ul class="rnrd-callout__list">
-							<li><?php esc_html_e( 'Article schema — Handled by', 'rankready-ai-llm-seo' ); ?> <?php echo esc_html( $seo_plugin ); ?>. <?php esc_html_e( 'RankReady skips it automatically.', 'rankready-ai-llm-seo' ); ?></li>
-							<li><?php esc_html_e( 'FAQPage schema — RankReady injects only when no', 'rankready-ai-llm-seo' ); ?> <?php echo esc_html( $seo_plugin ); ?> <?php esc_html_e( 'FAQ block exists in the post.', 'rankready-ai-llm-seo' ); ?></li>
-							<li><?php esc_html_e( 'HowTo schema — RankReady injects only when no', 'rankready-ai-llm-seo' ); ?> <?php echo esc_html( $seo_plugin ); ?> <?php esc_html_e( 'HowTo block exists in the post.', 'rankready-ai-llm-seo' ); ?></li>
-							<li><?php esc_html_e( 'ItemList schema — Always handled by RankReady (no SEO plugin does this).', 'rankready-ai-llm-seo' ); ?></li>
-						</ul>
-					</div>
-				<?php else : ?>
-					<div class="rnrd-callout">
-						<?php esc_html_e( 'No SEO plugin detected. RankReady handles all schema types (Article, FAQ, HowTo, ItemList).', 'rankready-ai-llm-seo' ); ?>
-					</div>
-				<?php endif; ?>
-			</div>
-
 			<!-- Schema Toggles -->
 			<?php
 			// v1.2.0-rc.7 — "All-off" master gate: if every schema toggle is OFF
@@ -3575,77 +4163,273 @@ class RNRD_Admin {
 				<?php submit_button( __( 'Save Schema Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_schema', false ); ?>
 			</div>
 
+			<!-- SEO Plugin Detection -->
+			<div class="rnrd-card">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'SEO Plugin Compatibility', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'RankReady detects your active SEO plugin and merges schema — never duplicate tags.', 'rankready-ai-llm-seo' ); ?></p>
+
+				<?php if ( ! empty( $seo_plugin ) ) : ?>
+					<div class="rnrd-callout rnrd-callout--info">
+						<strong><?php echo esc_html( $seo_plugin ); ?></strong> <?php esc_html_e( 'is active.', 'rankready-ai-llm-seo' ); ?>
+						<?php esc_html_e( 'RankReady automatically adjusts schema output to avoid duplicates:', 'rankready-ai-llm-seo' ); ?>
+						<ul class="rnrd-callout__list">
+							<li><?php esc_html_e( 'Article schema — Handled by', 'rankready-ai-llm-seo' ); ?> <?php echo esc_html( $seo_plugin ); ?>. <?php esc_html_e( 'RankReady skips it automatically.', 'rankready-ai-llm-seo' ); ?></li>
+							<li><?php esc_html_e( 'FAQPage schema — RankReady injects only when no', 'rankready-ai-llm-seo' ); ?> <?php echo esc_html( $seo_plugin ); ?> <?php esc_html_e( 'FAQ block exists in the post.', 'rankready-ai-llm-seo' ); ?></li>
+							<li><?php esc_html_e( 'HowTo schema — RankReady injects only when no', 'rankready-ai-llm-seo' ); ?> <?php echo esc_html( $seo_plugin ); ?> <?php esc_html_e( 'HowTo block exists in the post.', 'rankready-ai-llm-seo' ); ?></li>
+							<li><?php esc_html_e( 'ItemList schema — Always handled by RankReady (no SEO plugin does this).', 'rankready-ai-llm-seo' ); ?></li>
+						</ul>
+					</div>
+				<?php else : ?>
+					<p class="rnrd-info-callout"><span class="dashicons dashicons-info"></span>
+						<?php esc_html_e( 'No SEO plugin detected — RankReady emits Article, Speakable, FAQ, HowTo, and ItemList schema.', 'rankready-ai-llm-seo' ); ?>
+					</p>
+				<?php endif; ?>
+			</div>
+
 			<?php
-			// v1.2.0-rc.7 — "How Schema Detection Works" card removed; replaced
-			// by the inline 1-line conditional callout at the top of the SEO
-			// Plugin Compatibility card above.
+			// SEO Plugin Compatibility sits below Schema Types so toggles stay
+			// primary; compatibility is supporting context.
 			?>
 
 		<?php
 	}
 
-	// TAB: LLM Optimization
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// TAB: AI Visibility (slug crawlers) — Brand / Robots / LLMs / Markdown / WebMCP / OKF
 	// ═══════════════════════════════════════════════════════════════════════════
 
+	/**
+	 * AI Visibility tab router — subtabs for machine-readable AI surfaces.
+	 */
 	private static function render_tab_llm(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only $_GET[sub] for sub-tab display routing.
+		$sub = isset( $_GET['sub'] ) ? sanitize_key( wp_unslash( $_GET['sub'] ) ) : 'brand';
+		$sub_tabs = array(
+			'brand'    => __( 'Brand Identity', 'rankready-ai-llm-seo' ),
+			'robots'   => __( 'Robots.txt', 'rankready-ai-llm-seo' ),
+			'llms'     => __( 'LLMs.txt', 'rankready-ai-llm-seo' ),
+			'markdown' => __( 'Markdown', 'rankready-ai-llm-seo' ),
+			'webmcp'   => __( 'WebMCP', 'rankready-ai-llm-seo' ),
+			'okf'      => __( 'OKF', 'rankready-ai-llm-seo' ),
+		);
+		if ( ! isset( $sub_tabs[ $sub ] ) ) {
+			$sub = 'brand';
+		}
 		?>
 		<?php settings_errors(); ?>
 		<?php self::render_tab_intro(
-			__( 'AI Crawlers', 'rankready-ai-llm-seo' ),
-			__( 'Decide what 29 named AI crawlers can see — and what they cannot.', 'rankready-ai-llm-seo' ),
-			__( 'Brand Identity, llms.txt, llms-full.txt, Markdown endpoints, robots.txt AI rules, Content Signals, and the WebMCP manifest — every surface ChatGPT, Claude, Perplexity, and Gemini read. The card below shows which signals are live.', 'rankready-ai-llm-seo' )
+			__( 'AI Visibility', 'rankready-ai-llm-seo' ),
+			__( 'Make your site readable to ChatGPT, Claude, Perplexity, and Gemini via Brand, robots, llms.txt, Markdown, WebMCP, and OKF.', 'rankready-ai-llm-seo' )
 		); ?>
 
-		<!-- ── Agent Visibility Status (read-only summary, v1.2.0-beta.3) ───── -->
-		<?php
-		// Single source of truth — the exact same 10 signals the Agent Visibility
-		// dashboard widget scores against (RNRD_Admin::agent_visibility_signals()),
-		// so the card's coverage % and the widget's headline can never disagree.
-		$rnrd_status_signals = self::agent_visibility_signals();
-		$rnrd_status_on  = count( array_filter( $rnrd_status_signals, function( $s ) { return $s['on']; } ) );
-		$rnrd_status_all = count( $rnrd_status_signals );
-		$rnrd_status_pct = (int) round( ( $rnrd_status_on / max( 1, $rnrd_status_all ) ) * 100 );
-		?>
-		<div class="rnrd-card rnrd-agent-status">
-			<div class="rnrd-agent-status__head">
-				<div class="rnrd-agent-status__copy">
-					<h2 class="rnrd-card-title"><?php esc_html_e( 'Agent Visibility', 'rankready-ai-llm-seo' ); ?></h2>
-					<p class="rnrd-card-goal"><?php esc_html_e( 'What\'s exposed to AI — every signal ChatGPT, Claude, Perplexity, and Gemini can read.', 'rankready-ai-llm-seo' ); ?></p>
-					<p class="rnrd-card-desc">
-						<?php
-						printf(
-							/* translators: 1: signals on, 2: signals total */
-							esc_html__( '%1$d of %2$d agent signals active. The more enabled, the more visible your site is to ChatGPT, Perplexity, Claude, Gemini, and Google AI.', 'rankready-ai-llm-seo' ),
-							(int) $rnrd_status_on,
-							(int) $rnrd_status_all
-						);
-						?>
-					</p>
-				</div>
-				<div class="rnrd-agent-status__pct">
-					<div class="rnrd-agent-status__pct-value"><?php echo esc_html( $rnrd_status_pct ); ?>%</div>
-					<div class="rnrd-agent-status__pct-label"><?php esc_html_e( 'Coverage', 'rankready-ai-llm-seo' ); ?></div>
-				</div>
-			</div>
-
-			<ul class="rnrd-signal-list">
-				<?php foreach ( $rnrd_status_signals as $sig ) :
-					$on = ! empty( $sig['on'] );
-					?>
-					<li class="rnrd-signal-list__item rnrd-signal-list__item--<?php echo $on ? 'on' : 'off'; ?>">
-						<span class="rnrd-signal-list__mark dashicons <?php echo $on ? 'dashicons-yes' : 'dashicons-marker'; ?>" aria-hidden="true"></span>
-						<span class="rnrd-signal-list__label"><?php echo esc_html( $sig['label'] ); ?></span>
-						<?php if ( $on && ! empty( $sig['url'] ) ) : ?>
-							<a href="<?php echo esc_url( $sig['url'] ); ?>" target="_blank" rel="noopener" class="rnrd-signal-list__link" aria-label="<?php echo esc_attr( $sig['label'] ); ?>">
-								<span class="dashicons dashicons-external" aria-hidden="true"></span>
-							</a>
-						<?php endif; ?>
-					</li>
+		<div class="rnrd-insights-toolbar">
+			<nav class="rnrd-insights-subnav" aria-label="<?php esc_attr_e( 'AI Visibility sections', 'rankready-ai-llm-seo' ); ?>">
+				<?php foreach ( $sub_tabs as $slug => $label ) : ?>
+					<a href="<?php echo esc_url( add_query_arg( array( 'page' => self::MENU_SLUG, 'tab' => 'crawlers', 'sub' => $slug ), admin_url( 'admin.php' ) ) ); ?>"
+					   class="<?php echo $sub === $slug ? 'is-active' : ''; ?>">
+						<?php echo esc_html( $label ); ?>
+					</a>
 				<?php endforeach; ?>
-			</ul>
+			</nav>
 		</div>
-		<!-- ── /Agent Visibility Status ───────────────────────────────────── -->
 
+		<?php
+		switch ( $sub ) {
+			case 'robots':
+				self::render_visibility_sub_robots();
+				break;
+			case 'llms':
+				self::render_visibility_sub_llms();
+				break;
+			case 'markdown':
+				self::render_visibility_sub_markdown();
+				break;
+			case 'webmcp':
+				self::render_visibility_sub_webmcp();
+				break;
+			case 'okf':
+				self::render_visibility_sub_okf();
+				break;
+			case 'brand':
+			default:
+				self::render_visibility_sub_brand();
+				break;
+		}
+	}
+
+	/**
+	 * Emit hidden inputs preserving LLMS_GROUP options absent from the current
+	 * AI Visibility subtab form. Prevents options.php from nulling shared settings.
+	 *
+	 * @param string $view 'robots'|'llms'|'markdown'|'webmcp'
+	 */
+	private static function render_llms_preserve_hiddens( string $view ): void {
+		// Always preserve — no UI on any subtab.
+		printf(
+			'<input type="hidden" name="%1$s" value="on" />' . "\n",
+			esc_attr( RNRD_OPT_AI_REFERRAL_ENABLE )
+		);
+		printf(
+			'<input type="hidden" name="%1$s" value="%2$s" />' . "\n",
+			esc_attr( RNRD_OPT_MAX_SNIPPET_DEFAULT ),
+			esc_attr( (string) get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' ) )
+		);
+
+		$view_opts = array(
+			'robots'   => array(
+				RNRD_OPT_ROBOTS_ENABLE,
+				RNRD_OPT_CONTENT_SIGNALS_ENABLE,
+				RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN,
+				RNRD_OPT_CONTENT_SIGNALS_SEARCH,
+				RNRD_OPT_CONTENT_SIGNALS_AI_INPUT,
+			),
+			'llms'     => array(
+				RNRD_OPT_LLMS_ENABLE,
+				RNRD_OPT_LLMS_MAX_POSTS,
+				RNRD_OPT_LLMS_CACHE_TTL,
+				RNRD_OPT_LLMS_FULL_ENABLE,
+				RNRD_OPT_LLMS_SHOW_CATEGORIES,
+				RNRD_OPT_HIDE_BRANDING,
+			),
+			'markdown' => array(
+				RNRD_OPT_MD_ENABLE,
+				RNRD_OPT_MD_INCLUDE_META,
+				RNRD_OPT_MD_HINT_DIV,
+				RNRD_OPT_MD_ACCEPT_NEGOTIATION,
+				RNRD_OPT_MD_BOT_AUTO_SERVE,
+			),
+			'webmcp'   => array(
+				RNRD_OPT_MCP_ENABLE,
+				RNRD_OPT_MCP_EXPOSE_POSTS,
+				RNRD_OPT_MCP_EXPOSE_PAGES,
+				RNRD_OPT_MCP_EXPOSE_AUTHORS,
+				RNRD_OPT_MCP_EXPOSE_TAXONOMIES,
+				RNRD_OPT_MCP_EXPOSE_SITEMAP,
+				RNRD_OPT_MCP_EXPOSE_MENUS,
+				RNRD_OPT_MCP_EXPOSE_LLMS_TXT,
+				RNRD_OPT_MCP_EXPOSE_RR_AI,
+				RNRD_OPT_MCP_EXPOSE_FRESHNESS,
+			),
+		);
+
+		$scalar_defaults = array(
+			RNRD_OPT_LLMS_ENABLE                 => 'off',
+			RNRD_OPT_LLMS_MAX_POSTS              => 100,
+			RNRD_OPT_LLMS_CACHE_TTL              => 3600,
+			RNRD_OPT_LLMS_FULL_ENABLE            => 'off',
+			RNRD_OPT_LLMS_SHOW_CATEGORIES        => 'on',
+			RNRD_OPT_HIDE_BRANDING               => 'off',
+			RNRD_OPT_ROBOTS_ENABLE               => 'on',
+			RNRD_OPT_MD_ENABLE                   => 'off',
+			RNRD_OPT_MD_INCLUDE_META             => '1',
+			RNRD_OPT_MD_HINT_DIV                 => 'on',
+			RNRD_OPT_MD_ACCEPT_NEGOTIATION       => 'on',
+			RNRD_OPT_MD_BOT_AUTO_SERVE           => 'on',
+			RNRD_OPT_CONTENT_SIGNALS_ENABLE      => 'off',
+			RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN    => 'allow',
+			RNRD_OPT_CONTENT_SIGNALS_SEARCH      => 'allow',
+			RNRD_OPT_CONTENT_SIGNALS_AI_INPUT    => 'allow',
+			RNRD_OPT_MCP_ENABLE                  => 'on',
+			RNRD_OPT_MCP_EXPOSE_POSTS            => 'on',
+			RNRD_OPT_MCP_EXPOSE_PAGES            => 'on',
+			RNRD_OPT_MCP_EXPOSE_AUTHORS          => 'on',
+			RNRD_OPT_MCP_EXPOSE_TAXONOMIES       => 'on',
+			RNRD_OPT_MCP_EXPOSE_SITEMAP          => 'on',
+			RNRD_OPT_MCP_EXPOSE_MENUS            => 'on',
+			RNRD_OPT_MCP_EXPOSE_LLMS_TXT         => 'on',
+			RNRD_OPT_MCP_EXPOSE_RR_AI            => 'on',
+			RNRD_OPT_MCP_EXPOSE_FRESHNESS        => 'on',
+		);
+
+		$edited = isset( $view_opts[ $view ] ) ? $view_opts[ $view ] : array();
+		foreach ( $scalar_defaults as $opt => $default ) {
+			if ( in_array( $opt, $edited, true ) ) {
+				continue;
+			}
+			printf(
+				'<input type="hidden" name="%1$s" value="%2$s" />' . "\n",
+				esc_attr( $opt ),
+				esc_attr( (string) get_option( $opt, $default ) )
+			);
+		}
+
+		// Array options — preserve when not edited on this subtab.
+		if ( 'llms' !== $view ) {
+			$llms_types = (array) get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) );
+			foreach ( $llms_types as $pt ) {
+				printf(
+					'<input type="hidden" name="%1$s[]" value="%2$s" />' . "\n",
+					esc_attr( RNRD_OPT_LLMS_POST_TYPES ),
+					esc_attr( (string) $pt )
+				);
+			}
+			$exclude_cats = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_CATS, array() );
+			foreach ( $exclude_cats as $cat_id ) {
+				printf(
+					'<input type="hidden" name="%1$s[]" value="%2$s" />' . "\n",
+					esc_attr( RNRD_OPT_LLMS_EXCLUDE_CATS ),
+					esc_attr( (string) $cat_id )
+				);
+			}
+			$exclude_tags = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_TAGS, array() );
+			foreach ( $exclude_tags as $tag_id ) {
+				printf(
+					'<input type="hidden" name="%1$s[]" value="%2$s" />' . "\n",
+					esc_attr( RNRD_OPT_LLMS_EXCLUDE_TAGS ),
+					esc_attr( (string) $tag_id )
+				);
+			}
+		}
+
+		if ( 'markdown' !== $view ) {
+			$md_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+			foreach ( $md_types as $pt ) {
+				printf(
+					'<input type="hidden" name="%1$s[]" value="%2$s" />' . "\n",
+					esc_attr( RNRD_OPT_MD_POST_TYPES ),
+					esc_attr( (string) $pt )
+				);
+			}
+		}
+
+		if ( 'webmcp' !== $view ) {
+			$mcp_cpts = (array) get_option( RNRD_OPT_MCP_EXPOSE_CPTS, array() );
+			if ( empty( $mcp_cpts ) ) {
+				printf(
+					'<input type="hidden" name="%1$s[]" value="" />' . "\n",
+					esc_attr( RNRD_OPT_MCP_EXPOSE_CPTS )
+				);
+			} else {
+				foreach ( $mcp_cpts as $cpt ) {
+					printf(
+						'<input type="hidden" name="%1$s[]" value="%2$s" />' . "\n",
+						esc_attr( RNRD_OPT_MCP_EXPOSE_CPTS ),
+						esc_attr( (string) $cpt )
+					);
+				}
+			}
+		}
+
+		// robots_mode assoc array — preserve when not on robots subtab.
+		if ( 'robots' !== $view ) {
+			$rnrd_mode = self::get_robots_mode();
+			foreach ( $rnrd_mode as $ua => $state ) {
+				printf(
+					'<input type="hidden" name="%1$s[%2$s]" value="%3$s" />' . "\n",
+					esc_attr( RNRD_OPT_ROBOTS_MODE ),
+					esc_attr( (string) $ua ),
+					esc_attr( (string) $state )
+				);
+			}
+		}
+	}
+
+
+
+	/** AI Visibility → Brand Identity. */
+	private static function render_visibility_sub_brand(): void {
+		?>
 		<!-- ── Brand Identity (v1.2.0-beta.4 — unified) ───────────────────── -->
 		<?php
 		$rnrd_brand           = RNRD_Llms_Txt::get_brand_identity();
@@ -3669,10 +4453,7 @@ class RNRD_Admin {
 						<span class="rnrd-badge rnrd-badge--warn"><?php esc_html_e( 'Incomplete', 'rankready-ai-llm-seo' ); ?></span>
 					<?php endif; ?>
 				</h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Tell ChatGPT, Claude, Perplexity, and Gemini who you are — once. Powers llms.txt, robots.txt comment, FAQ prompt, AI summary prompt, MCP abilities, homepage markdown.', 'rankready-ai-llm-seo' ); ?></p>
-				<p class="rnrd-card-desc" style="margin-top:4px;">
-					<?php esc_html_e( 'How AI engines see your brand. Four fields, one place. Every consumer below reads the same values — fill these once and every llms.txt, robots.txt comment, FAQ prompt, AI summary prompt, MCP ability, and homepage Markdown stays consistent.', 'rankready-ai-llm-seo' ); ?>
-				</p>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Tell ChatGPT, Claude, Perplexity, and Gemini who you are once — powers llms.txt, prompts, MCP, and homepage Markdown.', 'rankready-ai-llm-seo' ); ?></p>
 
 				<table class="form-table rnrd-form-table">
 					<tr>
@@ -3743,26 +4524,462 @@ class RNRD_Admin {
 				<?php submit_button( __( 'Save Brand Identity', 'rankready-ai-llm-seo' ) ); ?>
 			</div>
 		</form>
-		<!-- ── /Brand Identity ───────────────────────────────────────────── -->
 
-		<!-- AI Crawler Access Log card removed in rc.16 — duplicate of the
-		     Insights → Training Bots / Citation Bots tabs. Users access live
-		     bot activity via the Insights main tab nav (no shortcut needed). -->
+		<?php
+	}
 
-
+	/** AI Visibility → LLM Crawler Access (robots.txt) + Content Signals. */
+	private static function render_visibility_sub_robots(): void {
+		?>
 		<form method="post" action="options.php" novalidate="novalidate">
 			<?php settings_fields( self::LLMS_GROUP ); ?>
+			<?php self::render_llms_preserve_hiddens( 'robots' ); ?>
+			<!-- LLM Crawler Access (robots.txt) -->
+			<?php $robots_enable = (string) get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' ); ?>
+			<div class="rnrd-card">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'LLM Crawler Access (robots.txt)', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Allow or block 29 named AI crawlers. Auto-syncs to your physical /robots.txt.', 'rankready-ai-llm-seo' ); ?></p>
 
-			<!-- AI Referral Traffic card removed from AI Crawlers tab in rc.16.
-			     Counts live on Insights → Real AI Referrals sub-tab; tracking
-			     itself is always on (no toggle, no opt-out per rc.16 spec).
-			     Hidden input below preserves the legacy option value for any
-			     external integration that checks RNRD_OPT_AI_REFERRAL_ENABLE. -->
-			<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AI_REFERRAL_ENABLE ); ?>" value="on" />
-			<!-- Preserve max_snippet_default — registered in LLMS_GROUP but has no visible toggle.
-			     Without this, options.php nulls it on every save → sanitize_on_off(null)='off'. -->
-			<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_MAX_SNIPPET_DEFAULT ); ?>" value="<?php echo esc_attr( get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' ) ); ?>" />
+				<table class="form-table rnrd-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable Crawler Rules', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<label class="rnrd-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_ROBOTS_ENABLE ); ?>"
+									   value="on" <?php checked( $robots_enable, 'on' ); ?>
+									   data-toggle-target="rnrd-robots-fields" />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Append LLM crawler rules to robots.txt', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<p class="description"><?php esc_html_e( 'Adds per-crawler User-agent blocks with Allow or Disallow directives. Safe — appends only, never touches existing rules.', 'rankready-ai-llm-seo' ); ?></p>
+						</td>
+					</tr>
+				</table>
 
+				<div id="rnrd-robots-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $robots_enable ? 'style="display:none;"' : ''; ?>>
+					<table class="form-table rnrd-form-table">
+																		<tr>
+							<th scope="row"><?php esc_html_e( 'AI Crawlers', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<?php
+								$rnrd_mode      = self::get_robots_mode();
+								$all_crawlers   = self::get_llm_crawlers();
+								$current_company = '';
+								$rnrd_states    = array(
+									'allow'   => __( 'Allow', 'rankready-ai-llm-seo' ),
+									'default' => __( 'Default', 'rankready-ai-llm-seo' ),
+									'block'   => __( 'Block', 'rankready-ai-llm-seo' ),
+								);
+								?>
+								<fieldset style="max-height:460px;overflow-y:auto;border:1px solid #ddd;padding:12px 16px;border-radius:4px;">
+									<div style="display:flex;align-items:center;gap:6px;margin:0 0 6px;">
+										<?php foreach ( $rnrd_states as $rnrd_key => $rnrd_label ) : ?>
+											<span style="flex:0 0 62px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1d2327;"><?php echo esc_html( $rnrd_label ); ?></span>
+										<?php endforeach; ?>
+										<span style="margin-left:8px;font-size:12px;color:#666;">
+											<?php esc_html_e( 'Set every crawler to:', 'rankready-ai-llm-seo' ); ?>
+											<?php foreach ( $rnrd_states as $rnrd_key => $rnrd_label ) : ?>
+												<button type="button" class="button-link rnrd-crawler-setall" data-rnrd-state="<?php echo esc_attr( $rnrd_key ); ?>" style="margin-left:6px;"><?php echo esc_html( $rnrd_label ); ?></button>
+											<?php endforeach; ?>
+										</span>
+									</div>
+									<hr style="margin:8px 0;" />
+									<?php foreach ( $all_crawlers as $ua => $info ) : ?>
+										<?php if ( $info[0] !== $current_company ) :
+											$current_company = $info[0];
+											if ( 'OpenAI' !== $current_company ) : ?>
+												<hr style="margin:8px 0;border:none;border-top:1px solid #eee;" />
+											<?php endif; ?>
+											<p style="margin:4px 0 2px;font-weight:600;color:#1d2327;font-size:13px;"><?php echo esc_html( $current_company ); ?></p>
+										<?php endif; ?>
+										<?php $rnrd_state = isset( $rnrd_mode[ $ua ] ) ? $rnrd_mode[ $ua ] : 'default'; ?>
+										<div style="display:flex;align-items:center;gap:6px;margin:0 0 4px;">
+											<?php foreach ( $rnrd_states as $rnrd_key => $rnrd_label ) : ?>
+												<span style="flex:0 0 62px;text-align:center;">
+													<input type="radio"
+														   name="<?php echo esc_attr( RNRD_OPT_ROBOTS_MODE ); ?>[<?php echo esc_attr( $ua ); ?>]"
+														   value="<?php echo esc_attr( $rnrd_key ); ?>"
+														   class="rnrd-crawler-state"
+														   style="margin:0;"
+														   <?php /* translators: 1: state name, 2: crawler user-agent */ ?>
+														   aria-label="<?php echo esc_attr( sprintf( __( '%1$s %2$s', 'rankready-ai-llm-seo' ), $rnrd_label, $ua ) ); ?>"
+														   <?php checked( $rnrd_state, $rnrd_key ); ?> />
+												</span>
+											<?php endforeach; ?>
+											<code style="font-size:12px;"><?php echo esc_html( $ua ); ?></code>
+											<span style="color:#666;font-size:12px;">— <?php echo esc_html( $info[1] ); ?></span>
+										</div>
+									<?php endforeach; ?>
+								</fieldset>
+								<p class="description" style="margin-top:8px;">
+									<strong><?php esc_html_e( 'Allow', 'rankready-ai-llm-seo' ); ?></strong> — <?php esc_html_e( 'writes "User-agent: X" with "Allow: /", inviting that crawler explicitly.', 'rankready-ai-llm-seo' ); ?><br />
+									<strong><?php esc_html_e( 'Default', 'rankready-ai-llm-seo' ); ?></strong> — <?php esc_html_e( 'RankReady writes nothing for that crawler, so it follows the rules your site already has. This is not a block.', 'rankready-ai-llm-seo' ); ?><br />
+									<strong><?php esc_html_e( 'Block', 'rankready-ai-llm-seo' ); ?></strong> — <?php esc_html_e( 'writes "Disallow: /", telling it to stop crawling. Use it for bots overwhelming your server.', 'rankready-ai-llm-seo' ); ?>
+								</p>
+							</td>
+						</tr>
+					</table>
+				</div>
+				<?php submit_button( __( 'Save Robots Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_robots', false ); ?>
+			</div>
+			<!-- Content Signals -->
+			<?php $signals_enable = (string) get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' ); ?>
+			<div class="rnrd-card">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'Content Signals', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Tell AI engines what your content may be used for (ai-train / search / ai-input).', 'rankready-ai-llm-seo' ); ?></p>
+
+				<table class="form-table rnrd-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable Content Signals', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<label class="rnrd-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_CONTENT_SIGNALS_ENABLE ); ?>"
+									   value="on" <?php checked( $signals_enable, 'on' ); ?>
+									   data-toggle-target="rnrd-content-signals-fields" />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Add Content Signals directives to robots.txt', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+						</td>
+					</tr>
+				</table>
+
+				<div id="rnrd-content-signals-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $signals_enable ? 'style="display:none;"' : ''; ?>>
+					<table class="form-table rnrd-form-table">
+						<?php
+						$signal_options = array(
+							RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN => array(
+								'label' => __( 'ai-train', 'rankready-ai-llm-seo' ),
+								'desc'  => __( 'May AI systems use this content to train models?', 'rankready-ai-llm-seo' ),
+							),
+							RNRD_OPT_CONTENT_SIGNALS_SEARCH   => array(
+								'label' => __( 'search', 'rankready-ai-llm-seo' ),
+								'desc'  => __( 'May AI systems use this content in search results?', 'rankready-ai-llm-seo' ),
+							),
+							RNRD_OPT_CONTENT_SIGNALS_AI_INPUT => array(
+								'label' => __( 'ai-input', 'rankready-ai-llm-seo' ),
+								'desc'  => __( 'May AI systems use this content as RAG/context input?', 'rankready-ai-llm-seo' ),
+							),
+						);
+						foreach ( $signal_options as $opt_key => $info ) :
+							$val = (string) get_option( $opt_key, 'allow' );
+							?>
+							<tr>
+								<th scope="row"><code><?php echo esc_html( $info['label'] ); ?></code></th>
+								<td>
+									<select name="<?php echo esc_attr( $opt_key ); ?>">
+										<option value="allow" <?php selected( $val, 'allow' ); ?>><?php esc_html_e( 'allow', 'rankready-ai-llm-seo' ); ?></option>
+										<option value="deny"  <?php selected( $val, 'deny' ); ?>><?php esc_html_e( 'deny', 'rankready-ai-llm-seo' ); ?></option>
+									</select>
+									<p class="description"><?php echo esc_html( $info['desc'] ); ?></p>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					</table>
+				</div>
+				<?php submit_button( __( 'Save Content Signals', 'rankready-ai-llm-seo' ), 'primary', 'submit_signals', false ); ?>
+			</div>
+
+		</form>
+		<?php
+	}
+
+	/** AI Visibility → LLMs.txt Generator. */
+	private static function render_visibility_sub_llms(): void {
+		?>
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::LLMS_GROUP ); ?>
+			<?php self::render_llms_preserve_hiddens( 'llms' ); ?>
+			<!-- LLMs.txt -->
+			<?php $llms_enable = (string) get_option( RNRD_OPT_LLMS_ENABLE, 'off' ); ?>
+			<div class="rnrd-card">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'LLMs.txt Generator', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Serve the llmstxt.org site index at /llms.txt and /llms-full.txt for AI engines.', 'rankready-ai-llm-seo' ); ?></p>
+
+				<table class="form-table rnrd-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable LLMs.txt', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<label class="rnrd-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_ENABLE ); ?>"
+									   value="on" <?php checked( $llms_enable, 'on' ); ?>
+									   data-toggle-target="rnrd-llms-fields" />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Serve /llms.txt on your site', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<?php if ( 'on' === $llms_enable ) : ?>
+								<p class="description" style="margin-top:8px;">
+									<?php esc_html_e( 'Live at:', 'rankready-ai-llm-seo' ); ?>
+									<a href="<?php echo esc_url( home_url( '/llms.txt' ) ); ?>" target="_blank"><code><?php echo esc_html( home_url( '/llms.txt' ) ); ?></code></a>
+								</p>
+							<?php endif; ?>
+						</td>
+					</tr>
+				</table>
+
+				<div id="rnrd-llms-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $llms_enable ? 'style="display:none;"' : ''; ?>>
+					<table class="form-table rnrd-form-table">
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Include Post Types', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<?php $llms_types = (array) get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) ); ?>
+								<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
+									<label style="display:block;margin-bottom:4px;">
+										<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_POST_TYPES ); ?>[]"
+											   value="<?php echo esc_attr( $slug ); ?>"
+											   <?php checked( in_array( $slug, $llms_types, true ) ); ?> />
+										<?php echo esc_html( $label ); ?>
+									</label>
+								<?php endforeach; ?>
+								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
+								<p class="description"><?php esc_html_e( 'Which post types to list in llms.txt as file lists.', 'rankready-ai-llm-seo' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="rnrd_llms_max"><?php esc_html_e( 'Max Posts per Type', 'rankready-ai-llm-seo' ); ?></label></th>
+							<td>
+								<input type="number" id="rnrd_llms_max" name="<?php echo esc_attr( RNRD_OPT_LLMS_MAX_POSTS ); ?>"
+									   value="<?php echo esc_attr( (string) get_option( RNRD_OPT_LLMS_MAX_POSTS, 100 ) ); ?>"
+									   min="10" max="500" step="10" class="small-text" />
+								<p class="description"><?php esc_html_e( 'Maximum number of posts per post type to include.', 'rankready-ai-llm-seo' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Exclude Categories', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<?php
+								$exclude_cats = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_CATS, array() );
+								$all_cats     = get_categories( array( 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC' ) );
+								?>
+								<?php if ( ! empty( $all_cats ) && ! is_wp_error( $all_cats ) ) : ?>
+									<fieldset style="max-height:200px;overflow-y:auto;border:1px solid #ddd;padding:8px 12px;border-radius:4px;">
+										<?php foreach ( $all_cats as $cat ) : ?>
+											<label style="display:block;margin-bottom:4px;">
+												<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_EXCLUDE_CATS ); ?>[]"
+													   value="<?php echo esc_attr( $cat->term_id ); ?>"
+													   <?php checked( in_array( (int) $cat->term_id, $exclude_cats, true ) ); ?> />
+												<?php echo esc_html( $cat->name ); ?> <span style="color:#999;">(<?php echo esc_html( $cat->count ); ?>)</span>
+											</label>
+										<?php endforeach; ?>
+									</fieldset>
+								<?php else : ?>
+									<p class="description"><?php esc_html_e( 'No categories found.', 'rankready-ai-llm-seo' ); ?></p>
+								<?php endif; ?>
+								<p class="description"><?php esc_html_e( 'Posts in checked categories will be excluded from llms.txt. Useful for filtering out demo, test, or irrelevant content.', 'rankready-ai-llm-seo' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Exclude Tags', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<?php
+								$exclude_tags = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_TAGS, array() );
+								$all_tags     = get_tags( array( 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC' ) );
+								?>
+								<?php if ( ! empty( $all_tags ) && ! is_wp_error( $all_tags ) ) : ?>
+									<fieldset style="max-height:200px;overflow-y:auto;border:1px solid #ddd;padding:8px 12px;border-radius:4px;">
+										<?php foreach ( $all_tags as $tag ) : ?>
+											<label style="display:block;margin-bottom:4px;">
+												<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_EXCLUDE_TAGS ); ?>[]"
+													   value="<?php echo esc_attr( $tag->term_id ); ?>"
+													   <?php checked( in_array( (int) $tag->term_id, $exclude_tags, true ) ); ?> />
+												<?php echo esc_html( $tag->name ); ?> <span style="color:#999;">(<?php echo esc_html( $tag->count ); ?>)</span>
+											</label>
+										<?php endforeach; ?>
+									</fieldset>
+								<?php else : ?>
+									<p class="description"><?php esc_html_e( 'No tags found.', 'rankready-ai-llm-seo' ); ?></p>
+								<?php endif; ?>
+								<p class="description"><?php esc_html_e( 'Posts with checked tags will be excluded from llms.txt.', 'rankready-ai-llm-seo' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Show Categories Section', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<?php $show_cats = (string) get_option( RNRD_OPT_LLMS_SHOW_CATEGORIES, 'on' ); ?>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_SHOW_CATEGORIES ); ?>"
+										   value="on" <?php checked( $show_cats, 'on' ); ?> />
+									<?php esc_html_e( 'Show "Optional" categories section at the bottom of llms.txt', 'rankready-ai-llm-seo' ); ?>
+								</label>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label><?php esc_html_e( 'Cache Duration', 'rankready-ai-llm-seo' ); ?></label></th>
+							<td>
+								<select name="<?php echo esc_attr( RNRD_OPT_LLMS_CACHE_TTL ); ?>">
+									<?php $current_ttl = (int) get_option( RNRD_OPT_LLMS_CACHE_TTL, 3600 ); ?>
+									<?php foreach ( array(
+										900   => __( '15 minutes', 'rankready-ai-llm-seo' ),
+										3600  => __( '1 hour', 'rankready-ai-llm-seo' ),
+										21600 => __( '6 hours', 'rankready-ai-llm-seo' ),
+										86400 => __( '24 hours', 'rankready-ai-llm-seo' ),
+									) as $seconds => $label ) : ?>
+										<option value="<?php echo esc_attr( $seconds ); ?>" <?php selected( $current_ttl, $seconds ); ?>>
+											<?php echo esc_html( $label ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+								<p class="description"><?php esc_html_e( 'How long to cache the generated llms.txt output.', 'rankready-ai-llm-seo' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Full Version', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<?php $llms_full = (string) get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ); ?>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_FULL_ENABLE ); ?>"
+										   value="on" <?php checked( $llms_full, 'on' ); ?> />
+									<?php esc_html_e( 'Also serve /llms-full.txt with full post content inlined', 'rankready-ai-llm-seo' ); ?>
+								</label>
+								<?php if ( 'on' === $llms_full && 'on' === $llms_enable ) : ?>
+									<p class="description" style="margin-top:4px;">
+										<a href="<?php echo esc_url( home_url( '/llms-full.txt' ) ); ?>" target="_blank"><code><?php echo esc_html( home_url( '/llms-full.txt' ) ); ?></code></a>
+									</p>
+								<?php endif; ?>
+							</td>
+						</tr>
+					</table>
+				</div>
+				<!-- Hide RankReady credit — Pro (locked + Coming Soon in Free) -->
+				<table class="form-table rnrd-form-table" style="margin-top:8px;">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Hide RankReady credit', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<?php if ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) : ?>
+								<label class="rnrd-toggle">
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_HIDE_BRANDING ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_HIDE_BRANDING ); ?>" value="on" <?php checked( get_option( RNRD_OPT_HIDE_BRANDING, 'off' ), 'on' ); ?> />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Remove "Generated from RankReady" line from /llms.txt and /llms-full.txt', 'rankready-ai-llm-seo' ); ?></span>
+								</label>
+							<?php else : ?>
+							<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_HIDE_BRANDING ); ?>" value="<?php echo esc_attr( get_option( RNRD_OPT_HIDE_BRANDING, 'off' ) ); ?>" />
+							<label style="opacity:0.5;display:inline-flex;align-items:center;gap:8px;">
+								<?php echo wp_kses_post( self::locked_checkbox_indicator() ); ?>
+								<?php esc_html_e( 'Remove "Generated from RankReady" line from /llms.txt and /llms-full.txt', 'rankready-ai-llm-seo' ); ?>
+								<span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<?php endif; ?>
+						</td>
+					</tr>
+				</table>
+
+				<?php submit_button( __( 'Save LLMs.txt Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_llms', false ); ?>
+			</div>
+
+		</form>
+		<?php
+	}
+
+	/** AI Visibility → Markdown Endpoints. */
+	private static function render_visibility_sub_markdown(): void {
+		?>
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::LLMS_GROUP ); ?>
+			<?php self::render_llms_preserve_hiddens( 'markdown' ); ?>
+			<!-- Markdown Endpoints -->
+			<?php $md_enable = (string) get_option( RNRD_OPT_MD_ENABLE, 'off' ); ?>
+			<div class="rnrd-card">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'Markdown Endpoints', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Every post as clean Markdown for AI bots — via .md URL or Accept: text/markdown.', 'rankready-ai-llm-seo' ); ?></p>
+
+				<table class="form-table rnrd-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable .md Endpoints', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<label class="rnrd-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_ENABLE ); ?>"
+									   value="on" <?php checked( $md_enable, 'on' ); ?>
+									   data-toggle-target="rnrd-md-fields" />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Add .md endpoint to each post URL', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<?php if ( 'on' === $md_enable ) : ?>
+								<p class="description" style="margin-top:8px;">
+									<?php esc_html_e( 'Example:', 'rankready-ai-llm-seo' ); ?>
+									<code>yoursite.com/sample-post.md</code>
+								</p>
+							<?php endif; ?>
+						</td>
+					</tr>
+				</table>
+
+				<div id="rnrd-md-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $md_enable ? 'style="display:none;"' : ''; ?>>
+					<table class="form-table rnrd-form-table">
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<?php $md_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) ); ?>
+								<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
+									<label style="display:block;margin-bottom:4px;">
+										<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_POST_TYPES ); ?>[]"
+											   value="<?php echo esc_attr( $slug ); ?>"
+											   <?php checked( in_array( $slug, $md_types, true ) ); ?> />
+										<?php echo esc_html( $label ); ?>
+									</label>
+								<?php endforeach; ?>
+								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Include Metadata', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_INCLUDE_META ); ?>"
+										   value="1" <?php checked( get_option( RNRD_OPT_MD_INCLUDE_META, '1' ), '1' ); ?> />
+									<?php esc_html_e( 'Add YAML frontmatter (title, date, author, excerpt, tags)', 'rankready-ai-llm-seo' ); ?>
+								</label>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'AI hint in body', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_HINT_DIV ); ?>"
+										   value="on" <?php checked( get_option( RNRD_OPT_MD_HINT_DIV, 'on' ), 'on' ); ?> />
+									<?php esc_html_e( 'Inject a hidden div pointing AI agents at the .md version', 'rankready-ai-llm-seo' ); ?>
+								</label>
+								<p class="description" style="font-size:11px;">
+									<?php esc_html_e( 'Visually invisible (clip-path + aria-hidden). Raw-HTML scrapers see "AI agents: a clean Markdown version is at URL.md". A documented technique for pointing agents at the Markdown version.', 'rankready-ai-llm-seo' ); ?>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Same-URL content negotiation', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_ACCEPT_NEGOTIATION ); ?>"
+										   value="on" <?php checked( get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' ), 'on' ); ?> />
+									<?php esc_html_e( 'Serve Markdown on the normal page URL when a request sends Accept: text/markdown (or is a known AI bot)', 'rankready-ai-llm-seo' ); ?>
+								</label>
+								<p class="description" style="font-size:11px;">
+									<strong><?php esc_html_e( 'Leave OFF unless you control your CDN cache key.', 'rankready-ai-llm-seo' ); ?></strong>
+									<?php esc_html_e( 'Caches that ignore Vary: Accept (Cloudflare APO, Varnish, Fastly, most shared hosts) will store the Markdown response under your normal page URL and then serve it to every visitor — blanking your page. Your Markdown is always available at the distinct .md URL (e.g. /page.md) regardless of this setting; AI agents discover it via the Link header and llms.txt. This same-URL path is OFF by default and only safe behind a cache that keys on the Accept header.', 'rankready-ai-llm-seo' ); ?>
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Auto-serve to AI bots', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_BOT_AUTO_SERVE ); ?>"
+										   value="on" <?php checked( get_option( RNRD_OPT_MD_BOT_AUTO_SERVE, 'on' ), 'on' ); ?> />
+									<?php esc_html_e( 'Serve Markdown to GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot, Google-Extended (12 bots total)', 'rankready-ai-llm-seo' ); ?>
+								</label>
+								<p class="description" style="font-size:11px;">
+									<?php esc_html_e( 'Detected via User-Agent header. Only applies when "Same-URL content negotiation" above is ON — it shares that same cache-poisoning risk on the normal page URL. The cache-safe .md URLs do not need this.', 'rankready-ai-llm-seo' ); ?>
+								</p>
+							</td>
+						</tr>
+					</table>
+				</div>
+				<?php submit_button( __( 'Save Markdown Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_md', false ); ?>
+			</div>
+
+		</form>
+		<?php
+	}
+
+	/** AI Visibility → WebMCP. */
+	private static function render_visibility_sub_webmcp(): void {
+		?>
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::LLMS_GROUP ); ?>
+			<?php self::render_llms_preserve_hiddens( 'webmcp' ); ?>
 			<!-- ── WebMCP (v1.2.0) ─────────────────────────────────────────────── -->
 			<?php
 			$rnrd_mcp_enable     = (string) get_option( RNRD_OPT_MCP_ENABLE, 'on' );
@@ -3994,434 +5211,14 @@ class RNRD_Admin {
 
 				<?php submit_button( __( 'Save WebMCP Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_mcp', false ); ?>
 			</div>
-			<!-- ── /WebMCP ──────────────────────────────────────────────────────── -->
-
-			<!-- LLMs.txt -->
-			<?php $llms_enable = (string) get_option( RNRD_OPT_LLMS_ENABLE, 'off' ); ?>
-			<div class="rnrd-card">
-				<h2 class="rnrd-card-title"><?php esc_html_e( 'LLMs.txt Generator', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Serve the llmstxt.org site index at /llms.txt and /llms-full.txt for AI engines.', 'rankready-ai-llm-seo' ); ?></p>
-
-				<table class="form-table rnrd-form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Enable LLMs.txt', 'rankready-ai-llm-seo' ); ?></th>
-						<td>
-							<label class="rnrd-toggle">
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_ENABLE ); ?>"
-									   value="on" <?php checked( $llms_enable, 'on' ); ?>
-									   data-toggle-target="rnrd-llms-fields" />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Serve /llms.txt on your site', 'rankready-ai-llm-seo' ); ?></span>
-							</label>
-							<?php if ( 'on' === $llms_enable ) : ?>
-								<p class="description" style="margin-top:8px;">
-									<?php esc_html_e( 'Live at:', 'rankready-ai-llm-seo' ); ?>
-									<a href="<?php echo esc_url( home_url( '/llms.txt' ) ); ?>" target="_blank"><code><?php echo esc_html( home_url( '/llms.txt' ) ); ?></code></a>
-								</p>
-							<?php endif; ?>
-						</td>
-					</tr>
-				</table>
-
-				<div id="rnrd-llms-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $llms_enable ? 'style="display:none;"' : ''; ?>>
-					<table class="form-table rnrd-form-table">
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Include Post Types', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<?php $llms_types = (array) get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) ); ?>
-								<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
-									<label style="display:block;margin-bottom:4px;">
-										<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_POST_TYPES ); ?>[]"
-											   value="<?php echo esc_attr( $slug ); ?>"
-											   <?php checked( in_array( $slug, $llms_types, true ) ); ?> />
-										<?php echo esc_html( $label ); ?>
-									</label>
-								<?php endforeach; ?>
-								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
-								<p class="description"><?php esc_html_e( 'Which post types to list in llms.txt as file lists.', 'rankready-ai-llm-seo' ); ?></p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label for="rnrd_llms_max"><?php esc_html_e( 'Max Posts per Type', 'rankready-ai-llm-seo' ); ?></label></th>
-							<td>
-								<input type="number" id="rnrd_llms_max" name="<?php echo esc_attr( RNRD_OPT_LLMS_MAX_POSTS ); ?>"
-									   value="<?php echo esc_attr( (string) get_option( RNRD_OPT_LLMS_MAX_POSTS, 100 ) ); ?>"
-									   min="10" max="500" step="10" class="small-text" />
-								<p class="description"><?php esc_html_e( 'Maximum number of posts per post type to include.', 'rankready-ai-llm-seo' ); ?></p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Exclude Categories', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<?php
-								$exclude_cats = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_CATS, array() );
-								$all_cats     = get_categories( array( 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC' ) );
-								?>
-								<?php if ( ! empty( $all_cats ) && ! is_wp_error( $all_cats ) ) : ?>
-									<fieldset style="max-height:200px;overflow-y:auto;border:1px solid #ddd;padding:8px 12px;border-radius:4px;">
-										<?php foreach ( $all_cats as $cat ) : ?>
-											<label style="display:block;margin-bottom:4px;">
-												<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_EXCLUDE_CATS ); ?>[]"
-													   value="<?php echo esc_attr( $cat->term_id ); ?>"
-													   <?php checked( in_array( (int) $cat->term_id, $exclude_cats, true ) ); ?> />
-												<?php echo esc_html( $cat->name ); ?> <span style="color:#999;">(<?php echo esc_html( $cat->count ); ?>)</span>
-											</label>
-										<?php endforeach; ?>
-									</fieldset>
-								<?php else : ?>
-									<p class="description"><?php esc_html_e( 'No categories found.', 'rankready-ai-llm-seo' ); ?></p>
-								<?php endif; ?>
-								<p class="description"><?php esc_html_e( 'Posts in checked categories will be excluded from llms.txt. Useful for filtering out demo, test, or irrelevant content.', 'rankready-ai-llm-seo' ); ?></p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Exclude Tags', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<?php
-								$exclude_tags = (array) get_option( RNRD_OPT_LLMS_EXCLUDE_TAGS, array() );
-								$all_tags     = get_tags( array( 'hide_empty' => false, 'orderby' => 'name', 'order' => 'ASC' ) );
-								?>
-								<?php if ( ! empty( $all_tags ) && ! is_wp_error( $all_tags ) ) : ?>
-									<fieldset style="max-height:200px;overflow-y:auto;border:1px solid #ddd;padding:8px 12px;border-radius:4px;">
-										<?php foreach ( $all_tags as $tag ) : ?>
-											<label style="display:block;margin-bottom:4px;">
-												<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_EXCLUDE_TAGS ); ?>[]"
-													   value="<?php echo esc_attr( $tag->term_id ); ?>"
-													   <?php checked( in_array( (int) $tag->term_id, $exclude_tags, true ) ); ?> />
-												<?php echo esc_html( $tag->name ); ?> <span style="color:#999;">(<?php echo esc_html( $tag->count ); ?>)</span>
-											</label>
-										<?php endforeach; ?>
-									</fieldset>
-								<?php else : ?>
-									<p class="description"><?php esc_html_e( 'No tags found.', 'rankready-ai-llm-seo' ); ?></p>
-								<?php endif; ?>
-								<p class="description"><?php esc_html_e( 'Posts with checked tags will be excluded from llms.txt.', 'rankready-ai-llm-seo' ); ?></p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Show Categories Section', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<?php $show_cats = (string) get_option( RNRD_OPT_LLMS_SHOW_CATEGORIES, 'on' ); ?>
-								<label>
-									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_SHOW_CATEGORIES ); ?>"
-										   value="on" <?php checked( $show_cats, 'on' ); ?> />
-									<?php esc_html_e( 'Show "Optional" categories section at the bottom of llms.txt', 'rankready-ai-llm-seo' ); ?>
-								</label>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><label><?php esc_html_e( 'Cache Duration', 'rankready-ai-llm-seo' ); ?></label></th>
-							<td>
-								<select name="<?php echo esc_attr( RNRD_OPT_LLMS_CACHE_TTL ); ?>">
-									<?php $current_ttl = (int) get_option( RNRD_OPT_LLMS_CACHE_TTL, 3600 ); ?>
-									<?php foreach ( array(
-										900   => __( '15 minutes', 'rankready-ai-llm-seo' ),
-										3600  => __( '1 hour', 'rankready-ai-llm-seo' ),
-										21600 => __( '6 hours', 'rankready-ai-llm-seo' ),
-										86400 => __( '24 hours', 'rankready-ai-llm-seo' ),
-									) as $seconds => $label ) : ?>
-										<option value="<?php echo esc_attr( $seconds ); ?>" <?php selected( $current_ttl, $seconds ); ?>>
-											<?php echo esc_html( $label ); ?>
-										</option>
-									<?php endforeach; ?>
-								</select>
-								<p class="description"><?php esc_html_e( 'How long to cache the generated llms.txt output.', 'rankready-ai-llm-seo' ); ?></p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Full Version', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<?php $llms_full = (string) get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ); ?>
-								<label>
-									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_FULL_ENABLE ); ?>"
-										   value="on" <?php checked( $llms_full, 'on' ); ?> />
-									<?php esc_html_e( 'Also serve /llms-full.txt with full post content inlined', 'rankready-ai-llm-seo' ); ?>
-								</label>
-								<?php if ( 'on' === $llms_full && 'on' === $llms_enable ) : ?>
-									<p class="description" style="margin-top:4px;">
-										<a href="<?php echo esc_url( home_url( '/llms-full.txt' ) ); ?>" target="_blank"><code><?php echo esc_html( home_url( '/llms-full.txt' ) ); ?></code></a>
-									</p>
-								<?php endif; ?>
-							</td>
-						</tr>
-					</table>
-				</div>
-				<!-- Hide RankReady credit — Pro (locked + Coming Soon in Free) -->
-				<table class="form-table rnrd-form-table" style="margin-top:8px;">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Hide RankReady credit', 'rankready-ai-llm-seo' ); ?></th>
-						<td>
-							<?php if ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) : ?>
-								<label class="rnrd-toggle">
-								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_HIDE_BRANDING ); ?>" value="off" />
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_HIDE_BRANDING ); ?>" value="on" <?php checked( get_option( RNRD_OPT_HIDE_BRANDING, 'off' ), 'on' ); ?> />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Remove "Generated from RankReady" line from /llms.txt and /llms-full.txt', 'rankready-ai-llm-seo' ); ?></span>
-								</label>
-							<?php else : ?>
-							<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_HIDE_BRANDING ); ?>" value="<?php echo esc_attr( get_option( RNRD_OPT_HIDE_BRANDING, 'off' ) ); ?>" />
-							<label style="opacity:0.5;display:inline-flex;align-items:center;gap:8px;">
-								<?php echo wp_kses_post( self::locked_checkbox_indicator() ); ?>
-								<?php esc_html_e( 'Remove "Generated from RankReady" line from /llms.txt and /llms-full.txt', 'rankready-ai-llm-seo' ); ?>
-								<span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span>
-							</label>
-							<?php endif; ?>
-						</td>
-					</tr>
-				</table>
-
-				<?php submit_button( __( 'Save LLMs.txt Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_llms', false ); ?>
-			</div>
-
-			<!-- Markdown Endpoints -->
-			<?php $md_enable = (string) get_option( RNRD_OPT_MD_ENABLE, 'off' ); ?>
-			<div class="rnrd-card">
-				<h2 class="rnrd-card-title"><?php esc_html_e( 'Markdown Endpoints', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Every post as clean Markdown for AI bots — via .md URL or Accept: text/markdown.', 'rankready-ai-llm-seo' ); ?></p>
-
-				<table class="form-table rnrd-form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Enable .md Endpoints', 'rankready-ai-llm-seo' ); ?></th>
-						<td>
-							<label class="rnrd-toggle">
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_ENABLE ); ?>"
-									   value="on" <?php checked( $md_enable, 'on' ); ?>
-									   data-toggle-target="rnrd-md-fields" />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Add .md endpoint to each post URL', 'rankready-ai-llm-seo' ); ?></span>
-							</label>
-							<?php if ( 'on' === $md_enable ) : ?>
-								<p class="description" style="margin-top:8px;">
-									<?php esc_html_e( 'Example:', 'rankready-ai-llm-seo' ); ?>
-									<code>yoursite.com/sample-post.md</code>
-								</p>
-							<?php endif; ?>
-						</td>
-					</tr>
-				</table>
-
-				<div id="rnrd-md-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $md_enable ? 'style="display:none;"' : ''; ?>>
-					<table class="form-table rnrd-form-table">
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<?php $md_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) ); ?>
-								<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
-									<label style="display:block;margin-bottom:4px;">
-										<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_POST_TYPES ); ?>[]"
-											   value="<?php echo esc_attr( $slug ); ?>"
-											   <?php checked( in_array( $slug, $md_types, true ) ); ?> />
-										<?php echo esc_html( $label ); ?>
-									</label>
-								<?php endforeach; ?>
-								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Include Metadata', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<label>
-									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_INCLUDE_META ); ?>"
-										   value="1" <?php checked( get_option( RNRD_OPT_MD_INCLUDE_META, '1' ), '1' ); ?> />
-									<?php esc_html_e( 'Add YAML frontmatter (title, date, author, excerpt, tags)', 'rankready-ai-llm-seo' ); ?>
-								</label>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'AI hint in body', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<label>
-									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_HINT_DIV ); ?>"
-										   value="on" <?php checked( get_option( RNRD_OPT_MD_HINT_DIV, 'on' ), 'on' ); ?> />
-									<?php esc_html_e( 'Inject a hidden div pointing AI agents at the .md version', 'rankready-ai-llm-seo' ); ?>
-								</label>
-								<p class="description" style="font-size:11px;">
-									<?php esc_html_e( 'Visually invisible (clip-path + aria-hidden). Raw-HTML scrapers see "AI agents: a clean Markdown version is at URL.md". A documented technique for pointing agents at the Markdown version.', 'rankready-ai-llm-seo' ); ?>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Same-URL content negotiation', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<label>
-									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_ACCEPT_NEGOTIATION ); ?>"
-										   value="on" <?php checked( get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' ), 'on' ); ?> />
-									<?php esc_html_e( 'Serve Markdown on the normal page URL when a request sends Accept: text/markdown (or is a known AI bot)', 'rankready-ai-llm-seo' ); ?>
-								</label>
-								<p class="description" style="font-size:11px;">
-									<strong><?php esc_html_e( 'Leave OFF unless you control your CDN cache key.', 'rankready-ai-llm-seo' ); ?></strong>
-									<?php esc_html_e( 'Caches that ignore Vary: Accept (Cloudflare APO, Varnish, Fastly, most shared hosts) will store the Markdown response under your normal page URL and then serve it to every visitor — blanking your page. Your Markdown is always available at the distinct .md URL (e.g. /page.md) regardless of this setting; AI agents discover it via the Link header and llms.txt. This same-URL path is OFF by default and only safe behind a cache that keys on the Accept header.', 'rankready-ai-llm-seo' ); ?>
-								</p>
-							</td>
-						</tr>
-						<tr>
-							<th scope="row"><?php esc_html_e( 'Auto-serve to AI bots', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<label>
-									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_BOT_AUTO_SERVE ); ?>"
-										   value="on" <?php checked( get_option( RNRD_OPT_MD_BOT_AUTO_SERVE, 'on' ), 'on' ); ?> />
-									<?php esc_html_e( 'Serve Markdown to GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot, Google-Extended (12 bots total)', 'rankready-ai-llm-seo' ); ?>
-								</label>
-								<p class="description" style="font-size:11px;">
-									<?php esc_html_e( 'Detected via User-Agent header. Only applies when "Same-URL content negotiation" above is ON — it shares that same cache-poisoning risk on the normal page URL. The cache-safe .md URLs do not need this.', 'rankready-ai-llm-seo' ); ?>
-								</p>
-							</td>
-						</tr>
-					</table>
-				</div>
-				<?php submit_button( __( 'Save Markdown Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_md', false ); ?>
-			</div>
-
-			<!-- LLM Crawler Access (robots.txt) -->
-			<?php $robots_enable = (string) get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' ); ?>
-			<div class="rnrd-card">
-				<h2 class="rnrd-card-title"><?php esc_html_e( 'LLM Crawler Access (robots.txt)', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Allow or block 29 named AI crawlers. Auto-syncs to your physical /robots.txt.', 'rankready-ai-llm-seo' ); ?></p>
-
-				<table class="form-table rnrd-form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Enable Crawler Rules', 'rankready-ai-llm-seo' ); ?></th>
-						<td>
-							<label class="rnrd-toggle">
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_ROBOTS_ENABLE ); ?>"
-									   value="on" <?php checked( $robots_enable, 'on' ); ?>
-									   data-toggle-target="rnrd-robots-fields" />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Append LLM crawler rules to robots.txt', 'rankready-ai-llm-seo' ); ?></span>
-							</label>
-							<p class="description"><?php esc_html_e( 'Adds per-crawler User-agent blocks with Allow or Disallow directives. Safe — appends only, never touches existing rules.', 'rankready-ai-llm-seo' ); ?></p>
-						</td>
-					</tr>
-				</table>
-
-				<div id="rnrd-robots-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $robots_enable ? 'style="display:none;"' : ''; ?>>
-					<table class="form-table rnrd-form-table">
-																		<tr>
-							<th scope="row"><?php esc_html_e( 'AI Crawlers', 'rankready-ai-llm-seo' ); ?></th>
-							<td>
-								<?php
-								$rnrd_mode      = self::get_robots_mode();
-								$all_crawlers   = self::get_llm_crawlers();
-								$current_company = '';
-								$rnrd_states    = array(
-									'allow'   => __( 'Allow', 'rankready-ai-llm-seo' ),
-									'default' => __( 'Default', 'rankready-ai-llm-seo' ),
-									'block'   => __( 'Block', 'rankready-ai-llm-seo' ),
-								);
-								?>
-								<fieldset style="max-height:460px;overflow-y:auto;border:1px solid #ddd;padding:12px 16px;border-radius:4px;">
-									<div style="display:flex;align-items:center;gap:6px;margin:0 0 6px;">
-										<?php foreach ( $rnrd_states as $rnrd_key => $rnrd_label ) : ?>
-											<span style="flex:0 0 62px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#1d2327;"><?php echo esc_html( $rnrd_label ); ?></span>
-										<?php endforeach; ?>
-										<span style="margin-left:8px;font-size:12px;color:#666;">
-											<?php esc_html_e( 'Set every crawler to:', 'rankready-ai-llm-seo' ); ?>
-											<?php foreach ( $rnrd_states as $rnrd_key => $rnrd_label ) : ?>
-												<button type="button" class="button-link rnrd-crawler-setall" data-rnrd-state="<?php echo esc_attr( $rnrd_key ); ?>" style="margin-left:6px;"><?php echo esc_html( $rnrd_label ); ?></button>
-											<?php endforeach; ?>
-										</span>
-									</div>
-									<hr style="margin:8px 0;" />
-									<?php foreach ( $all_crawlers as $ua => $info ) : ?>
-										<?php if ( $info[0] !== $current_company ) :
-											$current_company = $info[0];
-											if ( 'OpenAI' !== $current_company ) : ?>
-												<hr style="margin:8px 0;border:none;border-top:1px solid #eee;" />
-											<?php endif; ?>
-											<p style="margin:4px 0 2px;font-weight:600;color:#1d2327;font-size:13px;"><?php echo esc_html( $current_company ); ?></p>
-										<?php endif; ?>
-										<?php $rnrd_state = isset( $rnrd_mode[ $ua ] ) ? $rnrd_mode[ $ua ] : 'default'; ?>
-										<div style="display:flex;align-items:center;gap:6px;margin:0 0 4px;">
-											<?php foreach ( $rnrd_states as $rnrd_key => $rnrd_label ) : ?>
-												<span style="flex:0 0 62px;text-align:center;">
-													<input type="radio"
-														   name="<?php echo esc_attr( RNRD_OPT_ROBOTS_MODE ); ?>[<?php echo esc_attr( $ua ); ?>]"
-														   value="<?php echo esc_attr( $rnrd_key ); ?>"
-														   class="rnrd-crawler-state"
-														   style="margin:0;"
-														   <?php /* translators: 1: state name, 2: crawler user-agent */ ?>
-														   aria-label="<?php echo esc_attr( sprintf( __( '%1$s %2$s', 'rankready-ai-llm-seo' ), $rnrd_label, $ua ) ); ?>"
-														   <?php checked( $rnrd_state, $rnrd_key ); ?> />
-												</span>
-											<?php endforeach; ?>
-											<code style="font-size:12px;"><?php echo esc_html( $ua ); ?></code>
-											<span style="color:#666;font-size:12px;">— <?php echo esc_html( $info[1] ); ?></span>
-										</div>
-									<?php endforeach; ?>
-								</fieldset>
-								<p class="description" style="margin-top:8px;">
-									<strong><?php esc_html_e( 'Allow', 'rankready-ai-llm-seo' ); ?></strong> — <?php esc_html_e( 'writes "User-agent: X" with "Allow: /", inviting that crawler explicitly.', 'rankready-ai-llm-seo' ); ?><br />
-									<strong><?php esc_html_e( 'Default', 'rankready-ai-llm-seo' ); ?></strong> — <?php esc_html_e( 'RankReady writes nothing for that crawler, so it follows the rules your site already has. This is not a block.', 'rankready-ai-llm-seo' ); ?><br />
-									<strong><?php esc_html_e( 'Block', 'rankready-ai-llm-seo' ); ?></strong> — <?php esc_html_e( 'writes "Disallow: /", telling it to stop crawling. Use it for bots overwhelming your server.', 'rankready-ai-llm-seo' ); ?>
-								</p>
-							</td>
-						</tr>
-					</table>
-				</div>
-				<?php submit_button( __( 'Save Robots Settings', 'rankready-ai-llm-seo' ), 'primary', 'submit_robots', false ); ?>
-			</div>
-
-			<!-- Content Signals -->
-			<?php $signals_enable = (string) get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' ); ?>
-			<div class="rnrd-card">
-				<h2 class="rnrd-card-title"><?php esc_html_e( 'Content Signals', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Tell AI engines what your content may be used for (ai-train / search / ai-input).', 'rankready-ai-llm-seo' ); ?></p>
-
-				<table class="form-table rnrd-form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Enable Content Signals', 'rankready-ai-llm-seo' ); ?></th>
-						<td>
-							<label class="rnrd-toggle">
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_CONTENT_SIGNALS_ENABLE ); ?>"
-									   value="on" <?php checked( $signals_enable, 'on' ); ?>
-									   data-toggle-target="rnrd-content-signals-fields" />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Add Content Signals directives to robots.txt', 'rankready-ai-llm-seo' ); ?></span>
-							</label>
-						</td>
-					</tr>
-				</table>
-
-				<div id="rnrd-content-signals-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $signals_enable ? 'style="display:none;"' : ''; ?>>
-					<table class="form-table rnrd-form-table">
-						<?php
-						$signal_options = array(
-							RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN => array(
-								'label' => __( 'ai-train', 'rankready-ai-llm-seo' ),
-								'desc'  => __( 'May AI systems use this content to train models?', 'rankready-ai-llm-seo' ),
-							),
-							RNRD_OPT_CONTENT_SIGNALS_SEARCH   => array(
-								'label' => __( 'search', 'rankready-ai-llm-seo' ),
-								'desc'  => __( 'May AI systems use this content in search results?', 'rankready-ai-llm-seo' ),
-							),
-							RNRD_OPT_CONTENT_SIGNALS_AI_INPUT => array(
-								'label' => __( 'ai-input', 'rankready-ai-llm-seo' ),
-								'desc'  => __( 'May AI systems use this content as RAG/context input?', 'rankready-ai-llm-seo' ),
-							),
-						);
-						foreach ( $signal_options as $opt_key => $info ) :
-							$val = (string) get_option( $opt_key, 'allow' );
-							?>
-							<tr>
-								<th scope="row"><code><?php echo esc_html( $info['label'] ); ?></code></th>
-								<td>
-									<select name="<?php echo esc_attr( $opt_key ); ?>">
-										<option value="allow" <?php selected( $val, 'allow' ); ?>><?php esc_html_e( 'allow', 'rankready-ai-llm-seo' ); ?></option>
-										<option value="deny"  <?php selected( $val, 'deny' ); ?>><?php esc_html_e( 'deny', 'rankready-ai-llm-seo' ); ?></option>
-									</select>
-									<p class="description"><?php echo esc_html( $info['desc'] ); ?></p>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-					</table>
-				</div>
-				<?php submit_button( __( 'Save Content Signals', 'rankready-ai-llm-seo' ), 'primary', 'submit_signals', false ); ?>
-			</div>
-
 
 		</form>
+		<?php
+	}
 
-		<?php
-		// v1.2.0 — Manual "Flush LLMs.txt Cache" card removed. The cache auto-busts on
-		// publish / update / delete (transition_post_status + deleted_post) and on a
-		// 1-hour TTL, so a manual flush button was redundant clutter for users.
-		self::render_card_okf(); /* v1.1.5 — OKF lives with its machine-readable siblings (llms.txt / Markdown / WebMCP) on the AI Crawlers tab. */ ?>
-		<?php
+	/** AI Visibility → Open Knowledge Format (OKF). */
+	private static function render_visibility_sub_okf(): void {
+		self::render_card_okf();
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -4434,8 +5231,7 @@ class RNRD_Admin {
 			     (Generation + Display). All form-field names preserved verbatim. -->
 			<div class="rnrd-card">
 				<h2 class="rnrd-card-title"><?php esc_html_e( 'FAQ Generator', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Discover real user questions and answer them with AI. Outputs FAQPage schema that Google AI Overviews and Perplexity preferentially cite.', 'rankready-ai-llm-seo' ); ?></p>
-				<p class="rnrd-card-desc"><?php esc_html_e( 'Configure how FAQs are generated and displayed. Uses DataForSEO for question discovery and your active AI provider for answers with brand entity injection.', 'rankready-ai-llm-seo' ); ?></p>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Discover real user questions and answer them with AI — FAQPage schema that AI Overviews and Perplexity prefer to cite.', 'rankready-ai-llm-seo' ); ?></p>
 
 				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'Generation', 'rankready-ai-llm-seo' ); ?></h3>
 
@@ -4620,10 +5416,7 @@ class RNRD_Admin {
 				</span>
 			</h2>
 			<p class="rnrd-card-goal">
-				<?php esc_html_e( 'Hide the "Generated from RankReady" credit line on /llms.txt and /llms-full.txt.', 'rankready-ai-llm-seo' ); ?>
-			</p>
-			<p class="rnrd-card-desc">
-				<?php esc_html_e( 'The credit line is a single unbranded sentence — no URL, no version, no marketing. It appears at the bottom of /llms.txt and /llms-full.txt only (robots.txt has technical BEGIN/END markers that stay regardless, similar to "# BEGIN WordPress").', 'rankready-ai-llm-seo' ); ?>
+				<?php esc_html_e( 'Hide the “Generated from RankReady” credit on /llms.txt and /llms-full.txt.', 'rankready-ai-llm-seo' ); ?>
 			</p>
 
 			<table class="form-table rnrd-form-table">
@@ -4668,10 +5461,7 @@ class RNRD_Admin {
 		<!-- Bulk Author Changer -->
 		<div class="rnrd-card">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'Bulk Author Changer', 'rankready-ai-llm-seo' ); ?></h2>
-			<p class="rnrd-card-goal"><?php esc_html_e( 'Reassign authors across any post type — preview count before executing.', 'rankready-ai-llm-seo' ); ?></p>
-			<p class="rnrd-card-desc">
-				<?php esc_html_e( 'Reassign authors across any post type. Preview the affected count before executing.', 'rankready-ai-llm-seo' ); ?>
-			</p>
+			<p class="rnrd-card-goal"><?php esc_html_e( 'Reassign authors across any post type — preview the affected count before executing.', 'rankready-ai-llm-seo' ); ?></p>
 
 			<table class="form-table rnrd-form-table">
 				<!-- Post Types -->
@@ -4868,10 +5658,7 @@ class RNRD_Admin {
 		<!-- Content Freshness Alerts (merged with intro paragraph in rc.16) -->
 		<div class="rnrd-card">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'Content Freshness', 'rankready-ai-llm-seo' ); ?></h2>
-			<p class="rnrd-card-goal"><?php esc_html_e( 'Pages refreshed within 60 days are prioritised by ChatGPT, Perplexity, and Gemini.', 'rankready-ai-llm-seo' ); ?></p>
-			<p class="rnrd-card-desc">
-				<?php esc_html_e( 'A stale dateModified tells crawlers a page has not changed, so it gets recrawled less often. Use the scan tool below to surface posts you have not touched in a while, then work through the buckets in priority order.', 'rankready-ai-llm-seo' ); ?>
-			</p>
+			<p class="rnrd-card-goal"><?php esc_html_e( 'Pages refreshed within 60 days are prioritised by ChatGPT, Perplexity, and Gemini — scan to find stale posts.', 'rankready-ai-llm-seo' ); ?></p>
 			<!-- v1.1.12 — Stale Threshold + Scan button live on a single row.
 			     Threshold left, button + status pushed to the right. -->
 			<div class="rnrd-fw-controlbar">
@@ -4960,10 +5747,7 @@ class RNRD_Admin {
 		     for support. JS handler lives in assets/admin.js. -->
 		<div class="rnrd-card" id="rnrd-diagnostics-card">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'Diagnostics', 'rankready-ai-llm-seo' ); ?></h2>
-			<p class="rnrd-card-goal"><?php esc_html_e( 'Live probes that actually fetch your endpoints + detect plugin conflicts. Every failure ships with a fix.', 'rankready-ai-llm-seo' ); ?></p>
-			<p class="rnrd-card-desc">
-				<?php esc_html_e( 'Live probes that actually fetch /llms.txt, /robots.txt, /.well-known/mcp.json and every Markdown route — then detect cache/builder/SEO plugin conflicts. Every failure ships with a one-line fix.', 'rankready-ai-llm-seo' ); ?>
-			</p>
+			<p class="rnrd-card-goal"><?php esc_html_e( 'Live probes for /llms.txt, robots, Markdown, and WebMCP — plus cache/builder/SEO conflict detection with one-line fixes.', 'rankready-ai-llm-seo' ); ?></p>
 
 			<p>
 				<button type="button" id="rnrd-diag-run" class="button button-primary">
@@ -5060,8 +5844,7 @@ class RNRD_Admin {
 		<!-- Error Log -->
 		<div class="rnrd-card">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'Error Log', 'rankready-ai-llm-seo' ); ?></h2>
-			<p class="rnrd-card-goal"><?php esc_html_e( 'Recent API errors from OpenAI, Anthropic, Gemini, DeepSeek, DataForSEO. Last 50 entries.', 'rankready-ai-llm-seo' ); ?></p>
-			<p class="rnrd-card-desc"><?php esc_html_e( 'Recent API errors from OpenAI and DataForSEO. Shows the last 50 entries.', 'rankready-ai-llm-seo' ); ?></p>
+			<p class="rnrd-card-goal"><?php esc_html_e( 'Recent API errors from OpenAI, Anthropic, Gemini, DeepSeek, and DataForSEO — last 50 entries.', 'rankready-ai-llm-seo' ); ?></p>
 			<p>
 				<button type="button" id="rnrd-errors-load" class="button button-secondary"><?php esc_html_e( 'Load Error Log', 'rankready-ai-llm-seo' ); ?></button>
 				<button type="button" id="rnrd-errors-clear" class="button" style="margin-left:8px;"><?php esc_html_e( 'Clear Log', 'rankready-ai-llm-seo' ); ?></button>
@@ -5093,10 +5876,7 @@ class RNRD_Admin {
 			<?php settings_fields( self::OKF_GROUP ); /* Isolated group — only the two OKF options, cross-null-safe. */ ?>
 			<div class="rnrd-card" style="margin-bottom:24px;">
 				<h2 class="rnrd-card-title"><?php esc_html_e( 'Open Knowledge Format (OKF)', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Publish a clean, machine-readable bundle of your content in Google\'s Open Knowledge Format so AI agents can ingest it without scraping.', 'rankready-ai-llm-seo' ); ?></p>
-				<p class="rnrd-card-desc">
-					<?php esc_html_e( 'When enabled, RankReady serves an OKF v0.1 bundle: a manifest plus one Markdown concept file per published item, each tagged with type, description, canonical URL and tags. Generated entirely on your server — no data is sent anywhere.', 'rankready-ai-llm-seo' ); ?>
-				</p>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Publish a machine-readable OKF bundle so AI agents can ingest your content without scraping.', 'rankready-ai-llm-seo' ); ?></p>
 				<table class="form-table rnrd-form-table">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Enable OKF bundle', 'rankready-ai-llm-seo' ); ?></th>
@@ -5156,10 +5936,7 @@ class RNRD_Admin {
 
 			<div class="rnrd-card" style="margin-bottom:24px;">
 				<h2 class="rnrd-card-title"><?php esc_html_e( 'Data Retention', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Choose what happens to RankReady data when the plugin is uninstalled. Default keeps everything.', 'rankready-ai-llm-seo' ); ?></p>
-				<p class="rnrd-card-desc">
-					<?php esc_html_e( 'Control what happens to your RankReady data when the plugin is deleted.', 'rankready-ai-llm-seo' ); ?>
-				</p>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Choose what happens to RankReady data when the plugin is uninstalled — default keeps everything.', 'rankready-ai-llm-seo' ); ?></p>
 				<table class="form-table rnrd-form-table">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'On Deactivate', 'rankready-ai-llm-seo' ); ?></th>
@@ -5888,16 +6665,18 @@ class RNRD_Admin {
 		update_option( $option_key, $value );
 
 		// Redirect back to the current admin page (drops nonce + action args),
-		// keeping the active tab and adding ?rnrd_enabled=<key> for the banner.
+		// keeping the active tab/sub and adding ?rnrd_enabled=<key> for the banner.
 		$tab      = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'dashboard';
-		$redirect = add_query_arg(
-			array(
-				'page'       => self::MENU_SLUG,
-				'tab'        => $tab,
-				'rnrd_enabled' => $option_key,
-			),
-			admin_url( 'admin.php' )
+		$sub      = isset( $_GET['sub'] ) ? sanitize_key( wp_unslash( $_GET['sub'] ) ) : '';
+		$args     = array(
+			'page'         => self::MENU_SLUG,
+			'tab'          => $tab,
+			'rnrd_enabled' => $option_key,
 		);
+		if ( '' !== $sub ) {
+			$args['sub'] = $sub;
+		}
+		$redirect = add_query_arg( $args, admin_url( 'admin.php' ) );
 		wp_safe_redirect( $redirect );
 		exit;
 	}

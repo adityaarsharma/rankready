@@ -747,7 +747,7 @@ class RNRD_Faq {
 					'FAQ response parsed but contained no question/answer pairs. Raw: ' . mb_substr( $raw, 0, 500 ),
 					$post_id
 				);
-				return new \WP_Error( 'empty_faq', __( 'The AI response could not be read as FAQ items. This is usually a temporary provider issue — try again, or switch AI provider in Settings. If it keeps happening, check the error log on the Advanced tab.', 'rankready-ai-llm-seo' ) );
+				return new \WP_Error( 'empty_faq', __( 'The AI response could not be read as FAQ items. This is usually a temporary provider issue — try again, or switch AI provider in Settings. If it keeps happening, check the error log under Settings → Advanced.', 'rankready-ai-llm-seo' ) );
 			}
 
 			return new \WP_Error( 'empty_faq', __( 'The AI returned FAQ items, but all of them were rejected as low quality (too vague, or just restating the page). Add more specific detail to the content, or set a focus keyword, and try again.', 'rankready-ai-llm-seo' ) );

@@ -60,6 +60,14 @@
 }
 .rnrd-mb__field select { width: 100%; }
 .rnrd-mb__hint { margin: 2px 0 0; font-size: 11px; color: var(--rnrd-text-tertiary, #6B716D); }
+.rnrd-mb__summary { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--rnrd-border-subtle, #ECEDE7); }
+.rnrd-mb__provider { margin: 0 0 8px; font-size: 12px; line-height: 1.45; color: var(--rnrd-text-secondary, #3D423F); }
+.rnrd-mb__provider a { display: inline; margin-left: 4px; }
+.rnrd-mb__provider--warn { color: #92400E; }
+.rnrd-mb__summary-details { margin: 0 0 8px; }
+.rnrd-mb__summary-details .rnrd-mb__preview { margin: 6px 0 0; }
+.rnrd-mb__gen { width: 100%; justify-content: center; margin: 4px 0 4px; }
+.rnrd-mb__error { margin: 4px 0 0; font-size: 12px; color: #d63638; line-height: 1.4; }
 
 
 /* ── v1.1.0 — Author Profile card (was scattered on user-edit screen)

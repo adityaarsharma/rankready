@@ -475,7 +475,7 @@ class RNRD_Llms_Txt {
 		$robots_on  = 'on' === get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
 		$signals_on = 'on' === get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' );
 
-		if ( ! $llms_on && ! $md_on && ! $robots_on && ! $signals_on ) {
+		if ( ! $robots_on && ! $signals_on ) {
 			return '';
 		}
 
@@ -494,14 +494,17 @@ class RNRD_Llms_Txt {
 		// instead of branded header. Visible header is unbranded; the BEGIN
 		// marker is a technical identifier so sync_physical_robots_txt() can
 		// reliably locate + replace our block on re-saves.
-		$block  = "\n# BEGIN RankReady\n";
-		$block .= "# LLM & AI Crawler Rules\n";
+		$block = "\n# BEGIN RankReady\n";
+
+		if ( $robots_on ) {
+			$block .= "# LLM & AI Crawler Rules\n";
+		}
 
 		// Brand Terms — canonical names as a comment. Some AI crawlers
 		// (notably PerplexityBot and SearchBot variants) ingest robots.txt
 		// comments alongside directives for entity recognition.
 		$brand_terms = self::get_brand_terms_list();
-		if ( ! empty( $brand_terms ) ) {
+		if ( ( $robots_on || $signals_on ) && ! empty( $brand_terms ) ) {
 			$block .= '# Brand: ' . implode( ', ', $brand_terms ) . "\n";
 		}
 

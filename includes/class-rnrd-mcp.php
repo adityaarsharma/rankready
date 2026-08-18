@@ -193,16 +193,15 @@ class RNRD_MCP {
 	}
 
 	/**
-	 * v1.2.0-beta.6 — Per-resource toggle check. Returns true when the
-	 * resource is opted in (defaults defined in admin.php registration).
+	 * v1.2.0-beta.6 — Per-resource toggle check for safe public resources.
+	 * Missing option rows default ON, matching register_setting() and the
+	 * settings UI. Saved 'off' stays off. Do not use this helper for PII /
+	 * unwired resources (those default off and are not in exposure_state).
 	 *
 	 * @param string $resource_option One of the RNRD_OPT_MCP_EXPOSE_* constants.
 	 */
 	public static function resource_enabled( string $resource_option ): bool {
-		// Defer to register_setting() defaults: WP returns the registered
-		// default when no row exists. We just check 'on' as the canonical
-		// enabled value.
-		return 'on' === (string) get_option( $resource_option, 'off' );
+		return 'on' === (string) get_option( $resource_option, 'on' );
 	}
 
 	/**
@@ -212,20 +211,18 @@ class RNRD_MCP {
 	 */
 	public static function exposure_state(): array {
 		return array(
-			'posts'      => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_POSTS )
-				|| ( null === get_option( RNRD_OPT_MCP_EXPOSE_POSTS, null )
-					? true : false ), // default ON
-			'pages'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_PAGES, 'on' ),
-			'authors'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_AUTHORS, 'on' ),
-			'taxonomies' => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_TAXONOMIES, 'on' ),
-			'sitemap'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_SITEMAP, 'on' ),
+			'posts'      => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_POSTS ),
+			'pages'      => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_PAGES ),
+			'authors'    => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_AUTHORS ),
+			'taxonomies' => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_TAXONOMIES ),
+			'sitemap'    => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_SITEMAP ),
 			// TC-MCP-07: only resources with a wired, gated ability (see ability_gates())
 			// are advertised. 'menus' + comments/media/users/plugins/themes/settings had no
 			// ability, so advertising them was misleading and a latent footgun. Re-add each
 			// here only when a real gated ability ships for it.
-			'llms_txt'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_LLMS_TXT, 'on' ),
-			'rnrd_ai'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_RR_AI, 'on' ),
-			'freshness'  => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_FRESHNESS, 'on' ),
+			'llms_txt'   => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_LLMS_TXT ),
+			'rnrd_ai'    => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_RR_AI ),
+			'freshness'  => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_FRESHNESS ),
 			// CPT exposure is a Pro feature — never expose custom post types on a
 			// Free install even if the option somehow holds slugs (matches the UI,
 			// where the per-CPT toggles only render when rnrd_is_pro() is true).

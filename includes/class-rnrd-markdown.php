@@ -248,12 +248,11 @@ class RNRD_Markdown {
 			return;
 		}
 
-		// v1.1.5 (#6) — the homepage /index.md transient key depends only on
-		// permalink_structure (no modified-timestamp), so it was never invalidated and
-		// "Recent Posts" on /index.md could lag up to an hour behind a publish/edit/delete.
-		// Drop it on every post change (cheap; regenerates on next request) regardless of
-		// the post's type, since the front-page list can include any post type.
+		// v1.1.5 (#6) — listing transients (homepage /index.md and Posts-page .md)
+		// depend only on permalink_structure, so they were never invalidated and
+		// "Recent Posts" could lag up to an hour behind a publish/edit/delete.
 		delete_transient( 'rnrd_md_homepage_' . md5( (string) get_option( 'permalink_structure', '' ) ) );
+		delete_transient( self::posts_page_listing_transient_key() );
 
 		$post = get_post( $post_id );
 		if ( ! $post instanceof WP_Post ) {
@@ -297,6 +296,19 @@ class RNRD_Markdown {
 		$urls = array( $md_url );
 		if ( ! empty( $canonical ) ) {
 			$urls[] = $canonical;
+		}
+
+		// Recent-posts listings on the dedicated Posts page also changed.
+		$posts_page_id = self::posts_page_id();
+		if ( $posts_page_id > 0 && (int) $post->ID !== $posts_page_id ) {
+			$posts_page = get_post( $posts_page_id );
+			if ( $posts_page instanceof WP_Post ) {
+				$urls[] = self::get_md_url( $posts_page );
+				$permalink = get_permalink( $posts_page );
+				if ( ! empty( $permalink ) ) {
+					$urls[] = $permalink;
+				}
+			}
 		}
 
 		// Allow the Pro addon / third parties to extend the per-post purge list
@@ -401,21 +413,21 @@ class RNRD_Markdown {
 			exit;
 		}
 
-		// Resolve the path to a post first so we can pass it to the logger.
-		$post = self::resolve_post_from_path( $md_path );
-
-		// v1.1.2 — Homepage overview at the distinct `/index.md` URL.
-		// resolve_post_from_path('index') only returns a post when a STATIC page
-		// is set as the front page. On a blog-index front page (Reading Settings
-		// → "Your latest posts") there is no such post, so `/index.md` would 404
-		// and the site would have no cache-safe homepage markdown — its only
-		// homepage markdown used to come from the now-default-off Accept path.
-		// Serve the site overview here instead (cacheable: distinct URL, always
-		// markdown). serve_homepage_markdown() exits.
-		if ( ! $post instanceof WP_Post && 'index' === trim( $md_path, '/' ) ) {
-			RNRD_Crawler_Log::log( 'home_md' );
+		// 1) Front page surface at `/index.md`. serve_homepage_markdown() exits.
+		if ( self::home_surfaces_enabled() && 'index' === trim( (string) $md_path, '/' ) ) {
 			self::serve_homepage_markdown( false );
 		}
+
+		// 2) Posts page listing (is_home), e.g. /blog.md — match by page URI,
+		// not url_to_postid() (returns 0 for the blog index) and not Markdown
+		// post types. serve_posts_page_markdown() exits.
+		$posts_md_path = self::posts_page_md_path();
+		if ( self::home_surfaces_enabled() && '' !== $posts_md_path && $posts_md_path === trim( (string) $md_path, '/' ) ) {
+			self::serve_posts_page_markdown( false );
+		}
+
+		// 3) Singular post/page.
+		$post = self::resolve_post_from_path( $md_path );
 
 		// Password-protected posts must not leak via .md — get_the_content()
 		// hides the body on the HTML side, but post_to_markdown() reads raw
@@ -425,6 +437,19 @@ class RNRD_Markdown {
 			header( 'Content-Type: text/plain; charset=utf-8' );
 			echo '# 404 Not Found';
 			exit;
+		}
+
+		// When homepage/blog-index markdown is disabled, front/posts-page routes
+		// must not fall through and reappear via the singular resolver.
+		if ( ! self::home_surfaces_enabled() ) {
+			$front_id      = (int) get_option( 'page_on_front', 0 );
+			$posts_page_id = self::posts_page_id();
+			if ( ( $front_id > 0 && (int) $post->ID === $front_id ) || ( $posts_page_id > 0 && (int) $post->ID === $posts_page_id ) ) {
+				status_header( 404 );
+				header( 'Content-Type: text/plain; charset=utf-8' );
+				echo '# 404 Not Found';
+				exit;
+			}
 		}
 
 		// Check post type is enabled.
@@ -551,10 +576,17 @@ class RNRD_Markdown {
 
 		// text/markdown is preferred (or tied, or forced by AI bot UA). Serve it.
 
-		// Homepage (static front page OR blog posts index): generate a site overview.
-		if ( is_front_page() || is_home() ) {
-			RNRD_Crawler_Log::log( 'home_md' );
+		// is_front_page() → is_home() → is_singular(). Front must win on a
+		// latest-posts home where both front and home are true.
+		if ( self::home_surfaces_enabled() && is_front_page() ) {
 			self::serve_homepage_markdown();
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_home() ) {
+			if ( self::get_posts_page_post() instanceof WP_Post ) {
+				self::serve_posts_page_markdown();
+			}
 			return;
 		}
 
@@ -629,13 +661,45 @@ class RNRD_Markdown {
 		return isset( $types[ $type ] ) ? (float) $types[ $type ] : 0.0;
 	}
 
+	private static function home_surfaces_enabled(): bool {
+		return 'on' === get_option( RNRD_OPT_MD_HOME_ENABLE, 'on' );
+	}
+
 	/**
-	 * Serve a markdown overview of the site for homepage requests with Accept: text/markdown.
-	 *
-	 * Generates a clean markdown document describing the site and listing recent posts.
-	 * Cached for 1 hour and bust on post publish/update.
+	 * Distinct homepage markdown URL. Always /index.md — never example.com.md.
 	 */
-	private static function serve_homepage_markdown( bool $shared_url = true ): void {
+	public static function homepage_md_url(): string {
+		return untrailingslashit( home_url( '/' ) ) . '/index.md';
+	}
+
+	/**
+	 * Static front page when it can be served as homepage markdown.
+	 *
+	 * Homepage is first-class: does not require `page` in Markdown post types.
+	 * Password-protected or AI-excluded front pages fall through to the overview.
+	 */
+	private static function get_front_page_post(): ?WP_Post {
+		if ( 'page' !== get_option( 'show_on_front' ) ) {
+			return null;
+		}
+		$page_on_front = (int) get_option( 'page_on_front', 0 );
+		if ( $page_on_front <= 0 ) {
+			return null;
+		}
+		$post = get_post( $page_on_front );
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+			return null;
+		}
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			return null;
+		}
+		return $post;
+	}
+
+	/**
+	 * Site-overview markdown for latest-posts homes (and excluded/password fronts).
+	 */
+	private static function build_homepage_overview_markdown(): string {
 		// v1.2.0-rc.2 — hash the permalink structure so the transient name
 		// stays under WordPress's 172-char limit on exotic configurations
 		// (multilingual prefixes, custom CPT date paths, etc.).
@@ -643,59 +707,198 @@ class RNRD_Markdown {
 		$cache_key = 'rnrd_md_homepage_' . md5( (string) get_option( 'permalink_structure', '' ) );
 		$markdown  = get_transient( $cache_key );
 
-		if ( false === $markdown ) {
-			$site_name = get_bloginfo( 'name' );
-			$tagline   = get_bloginfo( 'description' );
-			$home_url  = home_url( '/' );
-
-			$lines   = array();
-			$lines[] = '# ' . $site_name;
-			if ( ! empty( $tagline ) ) {
-				$lines[] = '';
-				$lines[] = '> ' . $tagline;
-			}
-			$lines[] = '';
-			$lines[] = 'Source: ' . $home_url;
-			$lines[] = '';
-
-			// Link to llms.txt if enabled.
-			if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
-				$lines[] = 'Full site index: [llms.txt](' . home_url( '/llms.txt' ) . ')';
-				$lines[] = '';
-			}
-
-			// Recent posts.
-			$posts = get_posts( array(
-				'numberposts'      => 10,
-				'post_status'      => 'publish',
-				'has_password'     => false,
-				'suppress_filters' => false,
-			) );
-
-			if ( ! empty( $posts ) ) {
-				$lines[] = '## ' . __( 'Recent Posts', 'rankready-ai-llm-seo' );
-				$lines[] = '';
-				foreach ( $posts as $post ) {
-					$title   = html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' );
-					$lines[] = '- [' . $title . '](' . get_permalink( $post ) . ')';
-				}
-				$lines[] = '';
-			}
-
-			$markdown = implode( "\n", $lines );
-			set_transient( $cache_key, $markdown, HOUR_IN_SECONDS );
+		if ( false !== $markdown ) {
+			return (string) $markdown;
 		}
 
-		// v1.1.2 — Cache policy depends on the URL this overview is served at:
-		//   - $shared_url = true  → served on the canonical `/` via Accept
-		//     negotiation (opt-in path). `/` is shared with the HTML homepage and
-		//     Cloudflare APO ignores Vary: Accept, so force no-store (bug seen on
-		//     nexterwp.com, 2026-06-02).
-		//   - $shared_url = false → served at the distinct `/index.md` URL
-		//     (default discovery path for blog-index front pages). A distinct URL
-		//     is its own cache key and always returns markdown, so it is safe to
-		//     cache publicly.
-		$canonical = $shared_url ? home_url( '/' ) : home_url( '/index.md' );
+		$site_name = get_bloginfo( 'name' );
+		$tagline   = get_bloginfo( 'description' );
+		$home_url  = home_url( '/' );
+
+		$lines   = array();
+		$lines[] = '# ' . $site_name;
+		if ( ! empty( $tagline ) ) {
+			$lines[] = '';
+			$lines[] = '> ' . $tagline;
+		}
+		$lines[] = '';
+		$lines[] = 'Source: ' . $home_url;
+		$lines[] = '';
+
+		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
+			$lines[] = 'Full site index: [llms.txt](' . home_url( '/llms.txt' ) . ')';
+			$lines[] = '';
+		}
+
+		$posts = get_posts( array(
+			'numberposts'      => 10,
+			'post_status'      => 'publish',
+			'has_password'     => false,
+			'suppress_filters' => false,
+		) );
+
+		if ( ! empty( $posts ) ) {
+			$lines[] = '## ' . __( 'Recent Posts', 'rankready-ai-llm-seo' );
+			$lines[] = '';
+			foreach ( $posts as $post ) {
+				$title   = html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' );
+				$lines[] = '- [' . $title . '](' . get_permalink( $post ) . ')';
+			}
+			$lines[] = '';
+		}
+
+		$markdown = implode( "\n", $lines );
+		set_transient( $cache_key, $markdown, HOUR_IN_SECONDS );
+
+		return $markdown;
+	}
+
+	/**
+	 * Reading Settings → Posts page ID, or 0 when latest posts are the front.
+	 */
+	private static function posts_page_id(): int {
+		if ( 'page' !== get_option( 'show_on_front' ) ) {
+			return 0;
+		}
+		return (int) get_option( 'page_for_posts', 0 );
+	}
+
+	/**
+	 * Path of the Posts page without leading/trailing slashes (e.g. "blog").
+	 * Used to map /blog.md → the listing surface. Empty when there is no Posts page.
+	 */
+	private static function posts_page_md_path(): string {
+		$id = self::posts_page_id();
+		if ( $id <= 0 ) {
+			return '';
+		}
+		return trim( (string) get_page_uri( $id ), '/' );
+	}
+
+	private static function posts_page_listing_transient_key(): string {
+		return 'rnrd_md_posts_page_' . self::posts_page_id() . '_' . md5( (string) get_option( 'permalink_structure', '' ) );
+	}
+
+	/**
+	 * Dedicated Posts page when it can be served as a listing surface.
+	 *
+	 * First-class: does not require `page` in Markdown post types.
+	 * Password-protected or AI-excluded Posts pages are not advertised or served.
+	 */
+	private static function get_posts_page_post(): ?WP_Post {
+		$id = self::posts_page_id();
+		if ( $id <= 0 ) {
+			return null;
+		}
+		$post = get_post( $id );
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+			return null;
+		}
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			return null;
+		}
+		return $post;
+	}
+
+	/**
+	 * Recent-posts listing for the dedicated Posts page (e.g. /blog.md).
+	 */
+	private static function build_posts_page_markdown( WP_Post $page ): string {
+		$cache_key = self::posts_page_listing_transient_key();
+		$markdown  = get_transient( $cache_key );
+		if ( false !== $markdown ) {
+			return (string) $markdown;
+		}
+
+		$title = html_entity_decode( get_the_title( $page ), ENT_QUOTES, 'UTF-8' );
+		if ( '' === $title ) {
+			$title = __( 'Blog', 'rankready-ai-llm-seo' );
+		}
+		$source = get_permalink( $page );
+
+		$lines   = array();
+		$lines[] = '# ' . $title;
+		$lines[] = '';
+		$lines[] = 'Source: ' . $source;
+		$lines[] = '';
+
+		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
+			$lines[] = 'Full site index: [llms.txt](' . home_url( '/llms.txt' ) . ')';
+			$lines[] = '';
+		}
+
+		$posts = get_posts( array(
+			'numberposts'      => 10,
+			'post_status'      => 'publish',
+			'has_password'     => false,
+			'suppress_filters' => false,
+		) );
+
+		if ( ! empty( $posts ) ) {
+			$lines[] = '## ' . __( 'Recent Posts', 'rankready-ai-llm-seo' );
+			$lines[] = '';
+			foreach ( $posts as $post ) {
+				$post_title = html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' );
+				$lines[]    = '- [' . $post_title . '](' . get_permalink( $post ) . ')';
+			}
+			$lines[] = '';
+		}
+
+		$markdown = implode( "\n", $lines );
+		set_transient( $cache_key, $markdown, HOUR_IN_SECONDS );
+
+		return $markdown;
+	}
+
+	/**
+	 * Serve Posts-page listing markdown at `{posts-page}.md` or on the HTML
+	 * blog URL via Accept / AI-bot UA. Exits.
+	 */
+	private static function serve_posts_page_markdown( bool $shared_url = true ): void {
+		$page = self::get_posts_page_post();
+		if ( ! $page instanceof WP_Post ) {
+			status_header( 404 );
+			header( 'Content-Type: text/plain; charset=utf-8' );
+			echo '# 404 Not Found';
+			exit;
+		}
+
+		RNRD_Crawler_Log::log( 'home_md' );
+		$markdown  = self::build_posts_page_markdown( $page );
+		$canonical = $shared_url ? get_permalink( $page ) : self::get_md_url( $page );
+		self::serve_markdown( $markdown, $canonical, $shared_url );
+	}
+
+	/**
+	 * Serve homepage markdown at `/index.md` or on `/` via Accept / AI-bot UA.
+	 *
+	 * Static front page → that page's markdown (even if Pages is unchecked).
+	 * Latest-posts home → site overview. Both URLs share the same body.
+	 *
+	 * Cache policy depends on the URL:
+	 *   - $shared_url = true  → canonical `/` (Accept). Force no-store so APO
+	 *     cannot poison the HTML homepage (bug seen on nexterwp.com, 2026-06-02).
+	 *   - $shared_url = false → distinct `/index.md`. Safe to cache publicly.
+	 */
+	private static function serve_homepage_markdown( bool $shared_url = true ): void {
+		$post = self::get_front_page_post();
+		if ( $post instanceof WP_Post ) {
+			$post   = self::translate_post( $post );
+			$locale = self::resolved_locale( $post );
+			RNRD_Crawler_Log::log( 'markdown', $post );
+
+			$cache_key = 'rnrd_md_' . $post->ID . '_' . $locale . '_' . strtotime( $post->post_modified );
+			$markdown  = get_transient( $cache_key );
+			if ( false === $markdown ) {
+				$markdown = self::post_to_markdown( $post );
+				set_transient( $cache_key, $markdown, 5 * MINUTE_IN_SECONDS );
+			}
+		} else {
+			RNRD_Crawler_Log::log( 'home_md' );
+			$markdown = self::build_homepage_overview_markdown();
+		}
+
+		$canonical = $shared_url ? home_url( '/' ) : self::homepage_md_url();
 		self::serve_markdown( $markdown, $canonical, $shared_url );
 	}
 
@@ -793,7 +996,10 @@ class RNRD_Markdown {
 		// representations.
 		$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) : '';
 		$wants_md = '' !== $accept && false !== stripos( $accept, 'text/markdown' );
-		if ( ( is_front_page() || is_home() ) && $wants_md ) {
+		if ( self::home_surfaces_enabled() && is_front_page() && $wants_md ) {
+			RNRD_Cache::no_cache_headers();
+		}
+		if ( self::home_surfaces_enabled() && is_home() && $wants_md ) {
 			RNRD_Cache::no_cache_headers();
 		}
 
@@ -820,7 +1026,22 @@ class RNRD_Markdown {
 	// Helps crawlers discover the markdown version from the HTML page.
 
 	public static function add_md_link_tag(): void {
-		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			return;
+		}
+
+		// Front page: always advertise /index.md (not gated on Pages post type).
+		if ( self::home_surfaces_enabled() && is_front_page() ) {
+			self::echo_homepage_md_link_tags();
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_home() ) {
+			self::echo_posts_page_md_link_tags();
+			return;
+		}
+
+		if ( ! is_singular() ) {
 			return;
 		}
 
@@ -861,12 +1082,29 @@ class RNRD_Markdown {
 	 * machine-readable copy is here" signal.
 	 */
 	public static function add_ai_hint_div(): void {
-		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			return;
 		}
 		// v1.2.0-beta.3 — sub-toggle, default on. Users who prefer no hidden
 		// content (some SEO purists do) can disable from Markdown Endpoints card.
 		if ( 'on' !== get_option( RNRD_OPT_MD_HINT_DIV, 'on' ) ) {
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_front_page() ) {
+			self::echo_ai_hint_div( self::homepage_md_url() );
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_home() ) {
+			$page = self::get_posts_page_post();
+			if ( $page instanceof WP_Post ) {
+				self::echo_ai_hint_div( self::get_md_url( $page ) );
+			}
+			return;
+		}
+
+		if ( ! is_singular() ) {
 			return;
 		}
 
@@ -884,8 +1122,13 @@ class RNRD_Markdown {
 			return;
 		}
 
-		$md_url = esc_url( self::get_md_url( $post ) );
+		self::echo_ai_hint_div( self::get_md_url( $post ) );
+	}
 
+	/**
+	 * Hidden body hint pointing scrapers at a .md URL.
+	 */
+	private static function echo_ai_hint_div( string $md_url ): void {
 		// `aria-hidden` + clip-path drop the div from assistive tech and visual
 		// layout entirely. Keeping it in the DOM (not display:none) means raw
 		// HTML scrapers still see it — display:none can be ignored by some
@@ -899,8 +1142,82 @@ class RNRD_Markdown {
 		echo '</div>' . "\n";
 	}
 
+	/**
+	 * <link rel="alternate"> tags for the homepage /index.md surface.
+	 */
+	private static function echo_homepage_md_link_tags(): void {
+		$md_url = self::homepage_md_url();
+		echo '<link rel="alternate" type="text/markdown" href="' . esc_url( $md_url ) . '" />' . "\n";
+
+		$front = self::get_front_page_post();
+		if ( ! $front instanceof WP_Post ) {
+			return;
+		}
+		foreach ( self::get_translation_md_urls( $front ) as $code => $translated_md_url ) {
+			echo '<link rel="alternate" type="text/markdown" hreflang="' . esc_attr( $code ) . '" href="' . esc_url( $translated_md_url ) . '" />' . "\n";
+		}
+	}
+
+	/**
+	 * HTTP Link headers for the homepage /index.md surface.
+	 */
+	private static function send_homepage_md_link_headers(): void {
+		header( 'Link: <' . esc_url( self::homepage_md_url() ) . '>; rel="alternate"; type="text/markdown"', false );
+
+		$front = self::get_front_page_post();
+		if ( ! $front instanceof WP_Post ) {
+			return;
+		}
+		foreach ( self::get_translation_md_urls( $front ) as $code => $translated_md_url ) {
+			header( 'Link: <' . esc_url( $translated_md_url ) . '>; rel="alternate"; type="text/markdown"; hreflang="' . $code . '"', false );
+		}
+	}
+
+	/**
+	 * <link rel="alternate"> tags for the dedicated Posts page listing.
+	 */
+	private static function echo_posts_page_md_link_tags(): void {
+		$page = self::get_posts_page_post();
+		if ( ! $page instanceof WP_Post ) {
+			return;
+		}
+		$md_url = self::get_md_url( $page );
+		echo '<link rel="alternate" type="text/markdown" href="' . esc_url( $md_url ) . '" />' . "\n";
+		foreach ( self::get_translation_md_urls( $page ) as $code => $translated_md_url ) {
+			echo '<link rel="alternate" type="text/markdown" hreflang="' . esc_attr( $code ) . '" href="' . esc_url( $translated_md_url ) . '" />' . "\n";
+		}
+	}
+
+	/**
+	 * HTTP Link headers for the dedicated Posts page listing.
+	 */
+	private static function send_posts_page_md_link_headers(): void {
+		$page = self::get_posts_page_post();
+		if ( ! $page instanceof WP_Post ) {
+			return;
+		}
+		header( 'Link: <' . esc_url( self::get_md_url( $page ) ) . '>; rel="alternate"; type="text/markdown"', false );
+		foreach ( self::get_translation_md_urls( $page ) as $code => $translated_md_url ) {
+			header( 'Link: <' . esc_url( $translated_md_url ) . '>; rel="alternate"; type="text/markdown"; hreflang="' . $code . '"', false );
+		}
+	}
+
 	public static function add_md_link_header(): void {
-		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_front_page() ) {
+			self::send_homepage_md_link_headers();
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_home() ) {
+			self::send_posts_page_md_link_headers();
+			return;
+		}
+
+		if ( ! is_singular() ) {
 			return;
 		}
 
@@ -1297,6 +1614,16 @@ class RNRD_Markdown {
 				if ( $post instanceof WP_Post && 'publish' === $post->post_status ) {
 					return $post;
 				}
+			}
+		}
+
+		// Posts page listing (is_home). url_to_postid() returns 0 because the
+		// URL is the blog index, not a singular page. Map by page URI instead.
+		$posts_md_path = self::posts_page_md_path();
+		if ( '' !== $posts_md_path && $path === $posts_md_path ) {
+			$post = get_post( self::posts_page_id() );
+			if ( $post instanceof WP_Post && 'publish' === $post->post_status ) {
+				return $post;
 			}
 		}
 

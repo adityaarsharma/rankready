@@ -274,23 +274,10 @@ class RNRD_Llms_Txt {
 			header( 'Link: <' . esc_url( home_url( '/llms-full.txt' ) ) . '>; rel="llms-full-txt"', false );
 		}
 
-		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) && ! is_singular() ) {
-			// v1.1.2 — Advertise the distinct, cache-safe homepage markdown URL
-			// (/index.md), NOT the canonical `/`. Same-URL Accept negotiation is
-			// off by default, so `/` returns HTML; pointing agents there would
-			// hand them HTML when they asked for markdown. The /index.md endpoint
-			// always returns markdown and cannot poison the page cache.
-			//
-			// v1.2.1 — `! is_singular()` guard. RNRD_Markdown::add_md_link_header()
-			// already emits the per-page alternate on every singular view, and on a
-			// STATIC front page get_md_url() also resolves to /index.md — so without
-			// this guard both handlers appended the identical header and the homepage
-			// advertised /index.md twice (seen live on a production site). Sites using
-			// a blog-index front page never hit it, which is why it stayed hidden.
-			// Splitting on is_singular() means exactly one handler emits: this one for
-			// non-singular views (blog-index home, archives), add_md_link_header() for
-			// singular ones — which also stops posts from claiming the homepage's
-			// markdown as their own rel="alternate".
+		// Archives / search / other listings. Front and Posts-page indexes emit
+		// their own alternates from RNRD_Markdown. Emitting /index.md here would
+		// duplicate the front and mis-label the blog index.
+		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) && 'on' === get_option( RNRD_OPT_MD_HOME_ENABLE, 'on' ) && ! is_singular() && ! is_front_page() && ! is_home() ) {
 			header( 'Link: <' . esc_url( home_url( '/index.md' ) ) . '>; rel="alternate"; type="text/markdown"', false );
 		}
 
@@ -1419,6 +1406,16 @@ class RNRD_Llms_Txt {
 			home_url( '/.well-known/mcp.json' ),
 			home_url( '/index.md' ),
 		);
+
+		if ( 'on' === get_option( RNRD_OPT_MD_HOME_ENABLE, 'on' ) && class_exists( 'RNRD_Markdown' ) && 'page' === get_option( 'show_on_front' ) ) {
+			$posts_page_id = (int) get_option( 'page_for_posts', 0 );
+			if ( $posts_page_id > 0 ) {
+				$posts_page = get_post( $posts_page_id );
+				if ( $posts_page instanceof WP_Post ) {
+					$urls_to_purge[] = RNRD_Markdown::get_md_url( $posts_page );
+				}
+			}
+		}
 
 		// Allow third parties + the RankReady Pro addon to extend the purge list.
 		$urls_to_purge = (array) apply_filters( 'rankready_purge_urls', $urls_to_purge );

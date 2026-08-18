@@ -197,6 +197,7 @@ $rnrd_options = array(
 	'rnrd_llms_full_enable',
 	// Markdown.
 	'rnrd_md_enable',
+	'rnrd_md_home_enable',
 	'rnrd_md_post_types',
 	'rnrd_md_include_meta',
 	'rnrd_okf_enable',

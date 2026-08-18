@@ -679,6 +679,12 @@ class RNRD_Admin {
 			'default'           => 'off',
 		) );
 
+		register_setting( self::LLMS_GROUP, RNRD_OPT_MD_HOME_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+
 		register_setting( self::LLMS_GROUP, RNRD_OPT_MD_POST_TYPES, array(
 			'type'              => 'array',
 			'sanitize_callback' => array( self::class, 'sanitize_post_types' ),
@@ -1968,19 +1974,30 @@ class RNRD_Admin {
 	 * @param array<int,string> $slugs Post type slugs.
 	 */
 	private static function dash_available_for( array $slugs ): string {
+		return self::dash_available_for_with_prefix( $slugs, array() );
+	}
+
+	/**
+	 * Like dash_available_for() but prepends surface labels (e.g. Homepage, Blog Index)
+	 * before the post-type labels.
+	 *
+	 * @param string[] $slugs   Post type slugs.
+	 * @param string[] $prefix  Surface labels to prepend (already translated).
+	 */
+	private static function dash_available_for_with_prefix( array $slugs, array $prefix ): string {
 		$slugs = array_values( array_filter( array_map( 'strval', $slugs ) ) );
-		if ( empty( $slugs ) ) {
-			return __( 'Available for: no post types', 'rankready-ai-llm-seo' );
-		}
-		$labels = array();
+		$labels = $prefix;
 		foreach ( $slugs as $slug ) {
 			$obj = get_post_type_object( $slug );
 			$labels[] = ( $obj && ! empty( $obj->labels->name ) )
 				? (string) $obj->labels->name
 				: $slug;
 		}
+		if ( empty( $labels ) ) {
+			return __( 'Available for: no post types', 'rankready-ai-llm-seo' );
+		}
 		return sprintf(
-			/* translators: %s: comma-separated post type labels */
+			/* translators: %s: comma-separated labels */
 			__( 'Available for: %s', 'rankready-ai-llm-seo' ),
 			implode( ', ', $labels )
 		);
@@ -2125,10 +2142,11 @@ class RNRD_Admin {
 			? array( self::dash_available_for( $llms_types ) )
 			: array( __( 'Publish a site index AI engines can discover', 'rankready-ai-llm-seo' ) );
 
-		$md_on    = 'on' === (string) get_option( RNRD_OPT_MD_ENABLE, 'off' );
-		$md_types = array_values( array_filter( (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) ) ) );
-		$md_auto  = $md_on && 'on' === (string) get_option( RNRD_OPT_MD_BOT_AUTO_SERVE, 'on' );
-		$md_hint  = $md_on && 'on' === (string) get_option( RNRD_OPT_MD_HINT_DIV, 'on' );
+		$md_on      = 'on' === (string) get_option( RNRD_OPT_MD_ENABLE, 'off' );
+		$md_home_on = $md_on && 'on' === (string) get_option( RNRD_OPT_MD_HOME_ENABLE, 'on' );
+		$md_types   = array_values( array_filter( (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) ) ) );
+		$md_auto    = $md_on && 'on' === (string) get_option( RNRD_OPT_MD_BOT_AUTO_SERVE, 'on' );
+		$md_hint    = $md_on && 'on' === (string) get_option( RNRD_OPT_MD_HINT_DIV, 'on' );
 		if ( $md_on ) {
 			$md_opts = array();
 			if ( $md_hint ) {
@@ -2137,7 +2155,16 @@ class RNRD_Admin {
 			if ( $md_auto ) {
 				$md_opts[] = __( 'Auto-serve to AI bots', 'rankready-ai-llm-seo' );
 			}
-			$md_meta_lines = array( self::dash_available_for( $md_types ) );
+			$md_meta_lines = array();
+			$md_home_surfaces = array();
+			if ( $md_home_on ) {
+				$md_home_surfaces[] = __( 'Homepage', 'rankready-ai-llm-seo' );
+				$show_on_front_dash = (string) get_option( 'show_on_front', 'posts' );
+				if ( 'page' === $show_on_front_dash && get_option( 'page_for_posts', 0 ) > 0 ) {
+					$md_home_surfaces[] = __( 'Blog Index', 'rankready-ai-llm-seo' );
+				}
+			}
+			$md_meta_lines[] = self::dash_available_for_with_prefix( $md_types, $md_home_surfaces );
 			if ( $md_opts ) {
 				$md_meta_lines[] = implode( ' · ', $md_opts );
 			}
@@ -4295,6 +4322,7 @@ class RNRD_Admin {
 			),
 			'markdown' => array(
 				RNRD_OPT_MD_ENABLE,
+				RNRD_OPT_MD_HOME_ENABLE,
 				RNRD_OPT_MD_INCLUDE_META,
 				RNRD_OPT_MD_HINT_DIV,
 				RNRD_OPT_MD_ACCEPT_NEGOTIATION,
@@ -4323,6 +4351,7 @@ class RNRD_Admin {
 			RNRD_OPT_HIDE_BRANDING               => 'off',
 			RNRD_OPT_ROBOTS_ENABLE               => 'on',
 			RNRD_OPT_MD_ENABLE                   => 'off',
+			RNRD_OPT_MD_HOME_ENABLE              => 'on',
 			RNRD_OPT_MD_INCLUDE_META             => '1',
 			RNRD_OPT_MD_HINT_DIV                 => 'on',
 			RNRD_OPT_MD_ACCEPT_NEGOTIATION       => 'on',
@@ -4876,10 +4905,29 @@ class RNRD_Admin {
 			<?php settings_fields( self::LLMS_GROUP ); ?>
 			<?php self::render_llms_preserve_hiddens( 'markdown' ); ?>
 			<!-- Markdown Endpoints -->
-			<?php $md_enable = (string) get_option( RNRD_OPT_MD_ENABLE, 'off' ); ?>
+			<?php
+			$md_enable       = (string) get_option( RNRD_OPT_MD_ENABLE, 'off' );
+			$md_home_enable  = (string) get_option( RNRD_OPT_MD_HOME_ENABLE, 'on' );
+			$show_on_front   = (string) get_option( 'show_on_front', 'posts' );
+			$posts_page_id   = 'page' === $show_on_front ? (int) get_option( 'page_for_posts', 0 ) : 0;
+			$posts_page      = $posts_page_id > 0 ? get_post( $posts_page_id ) : null;
+			$has_posts_page  = $posts_page instanceof WP_Post;
+			$home_scope_name = $has_posts_page ? __( 'Homepage & Blog Index', 'rankready-ai-llm-seo' ) : __( 'Homepage', 'rankready-ai-llm-seo' );
+			$home_md_url     = home_url( '/index.md' );
+			$posts_md_url    = $has_posts_page ? ( class_exists( 'RNRD_Markdown' ) ? RNRD_Markdown::get_md_url( $posts_page ) : '' ) : '';
+			?>
+			<?php
+			$blog_index_active = $has_posts_page && 'on' === $md_home_enable;
+			$goal_desc = $blog_index_active
+				? __( 'Expose your homepage, blog index, and supported posts as clean Markdown for AI bots — via .md URLs or Accept: text/markdown.', 'rankready-ai-llm-seo' )
+				: __( 'Expose your homepage and supported posts as clean Markdown for AI bots — via .md URLs or Accept: text/markdown.', 'rankready-ai-llm-seo' );
+			$toggle_label = $blog_index_active
+				? __( 'Add .md endpoints to homepage, blog index, and supported post URLs', 'rankready-ai-llm-seo' )
+				: __( 'Add .md endpoints to homepage and supported post URLs', 'rankready-ai-llm-seo' );
+			?>
 			<div class="rnrd-card">
 				<h2 class="rnrd-card-title"><?php esc_html_e( 'Markdown Endpoints', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Every post as clean Markdown for AI bots — via .md URL or Accept: text/markdown.', 'rankready-ai-llm-seo' ); ?></p>
+				<p class="rnrd-card-goal"><?php echo esc_html( $goal_desc ); ?></p>
 
 				<table class="form-table rnrd-form-table">
 					<tr>
@@ -4889,7 +4937,7 @@ class RNRD_Admin {
 								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_ENABLE ); ?>"
 									   value="on" <?php checked( $md_enable, 'on' ); ?>
 									   data-toggle-target="rnrd-md-fields" />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Add .md endpoint to each post URL', 'rankready-ai-llm-seo' ); ?></span>
+								<span class="rnrd-toggle-label"><?php echo esc_html( $toggle_label ); ?></span>
 							</label>
 							<?php if ( 'on' === $md_enable ) : ?>
 								<p class="description" style="margin-top:8px;">
@@ -4903,6 +4951,30 @@ class RNRD_Admin {
 
 				<div id="rnrd-md-fields" class="rnrd-conditional-fields" <?php echo 'on' !== $md_enable ? 'style="display:none;"' : ''; ?>>
 					<table class="form-table rnrd-form-table">
+						<tr>
+							<th scope="row"><?php echo esc_html( $home_scope_name ); ?></th>
+							<td>
+								<label>
+									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_HOME_ENABLE ); ?>"
+										   value="on" <?php checked( $md_home_enable, 'on' ); ?> />
+									<?php
+									echo esc_html(
+										$has_posts_page
+											? __( 'Enable Markdown for your homepage and blog/posts page', 'rankready-ai-llm-seo' )
+											: __( 'Enable Markdown for your homepage', 'rankready-ai-llm-seo' )
+									);
+									?>
+								</label>
+							<p class="description" style="font-size:11px;">
+								<?php esc_html_e( 'Homepage:', 'rankready-ai-llm-seo' ); ?>
+								<a href="<?php echo esc_url( $home_md_url ); ?>" target="_blank"><code><?php echo esc_html( $home_md_url ); ?></code></a>
+								<?php if ( $has_posts_page && ! empty( $posts_md_url ) ) : ?><br />
+									<?php esc_html_e( 'Posts page:', 'rankready-ai-llm-seo' ); ?>
+									<a href="<?php echo esc_url( $posts_md_url ); ?>" target="_blank"><code><?php echo esc_html( $posts_md_url ); ?></code></a>
+								<?php endif; ?>
+							</p>
+							</td>
+						</tr>
 						<tr>
 							<th scope="row"><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></th>
 							<td>

@@ -251,6 +251,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_MCP_EXPOSE_SETTINGS',   'rnrd_mcp_expose_settings' );   // OFF — may leak secrets
 
 	// Markdown layer sub-toggles (controlled inside the Markdown Endpoints card).
+	define( 'RNRD_OPT_MD_HOME_ENABLE',        'rnrd_md_home_enable' );        // 'on' | 'off' — homepage / posts-page markdown surfaces
 	define( 'RNRD_OPT_MD_HINT_DIV',           'rnrd_md_hint_div' );         // 'on' | 'off' — hidden AI-hint div in body
 	define( 'RNRD_OPT_MD_BOT_AUTO_SERVE',     'rnrd_md_bot_auto_serve' );   // 'on' | 'off' — UA-based forced markdown for AI bots
 	// v1.1.2 — Same-URL Accept-header content negotiation. DEFAULT OFF.
@@ -904,6 +905,9 @@ register_activation_hook( RNRD_FILE, function (): void {
 	}
 	if ( false === get_option( RNRD_OPT_MD_ENABLE ) ) {
 		update_option( RNRD_OPT_MD_ENABLE, 'off' );
+	}
+	if ( false === get_option( RNRD_OPT_MD_HOME_ENABLE ) ) {
+		update_option( RNRD_OPT_MD_HOME_ENABLE, 'on' );
 	}
 	if ( false === get_option( RNRD_OPT_ROBOTS_ENABLE ) ) {
 		update_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );

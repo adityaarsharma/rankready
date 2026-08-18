@@ -6121,6 +6121,17 @@ class RNRD_Admin {
 		}
 	}
 
+	/**
+	 * True when Pro auto-generate-on-publish is actually live. The per-post
+	 * "Disable AI summary on publish" checkbox is only meaningful then.
+	 * Free (and Pro with the site toggle off) must not show or save it —
+	 * a missing checkbox would otherwise clear leftover _rnrd_disable_summary.
+	 */
+	private static function is_summary_autogen_enabled(): bool {
+		return function_exists( 'rnrd_is_pro' ) && rnrd_is_pro()
+			&& 'on' === get_option( RNRD_OPT_AUTO_GENERATE, 'off' );
+	}
+
 	public static function render_meta_box( $post ): void {
 		$disabled        = (bool) get_post_meta( $post->ID, RNRD_META_DISABLE, true );
 		$llms_excluded   = '1' === (string) get_post_meta( $post->ID, RNRD_META_LLMS_EXCLUDE, true );
@@ -6197,12 +6208,14 @@ class RNRD_Admin {
 						</label>
 					</div>
 
+					<?php if ( self::is_summary_autogen_enabled() ) : ?>
 					<div class="rnrd-mb__field">
 						<label>
 							<input type="checkbox" name="rnrd_disable_summary" value="1" <?php checked( $disabled ); ?> />
 							<?php esc_html_e( 'Disable AI summary on publish', 'rankready-ai-llm-seo' ); ?>
 						</label>
 					</div>
+					<?php endif; ?>
 
 					<?php if ( $generated ) : ?>
 						<p class="rnrd-mb__hint">
@@ -6297,9 +6310,12 @@ class RNRD_Admin {
 			return;
 		}
 
-		// AI summary disable.
-		$disabled = isset( $_POST['rnrd_disable_summary'] ) ? '1' : '';
-		update_post_meta( $post_id, RNRD_META_DISABLE, $disabled );
+		// AI summary disable — only when the checkbox was shown (Pro + auto-gen on).
+		// Otherwise leave leftover _rnrd_disable_summary untouched.
+		if ( self::is_summary_autogen_enabled() ) {
+			$disabled = isset( $_POST['rnrd_disable_summary'] ) ? '1' : '';
+			update_post_meta( $post_id, RNRD_META_DISABLE, $disabled );
+		}
 
 		// llms.txt per-post exclusion (v1.2.0).
 		$llms_excluded = isset( $_POST['rnrd_llms_exclude'] ) ? '1' : '';

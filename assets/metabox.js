@@ -1,9 +1,10 @@
 /**
- * RankReady — post-edit meta box Generate control.
+ * RankReady — post-edit meta box Generate controls (Summary + FAQ).
  *
- * POST /rankready/v1/regenerate/{id} with the same 60s cooldown as the
- * Gutenberg block and Elementor widget. Lean file: post-edit screens must
- * not load assets/admin.js.
+ * Summary: POST /rankready/v1/regenerate/{id}
+ * FAQ:     POST /rankready/v1/faq/generate/{id}
+ * Same 60s cooldown as the Gutenberg blocks / Elementor widgets.
+ * Lean file: post-edit screens must not load assets/admin.js.
  */
 ( function () {
 	'use strict';
@@ -14,22 +15,6 @@
 
 	function t( key, fallback ) {
 		return i18n[ key ] || fallback;
-	}
-
-	function decodeBullets( raw ) {
-		if ( ! raw ) {
-			return [];
-		}
-		try {
-			var parsed = JSON.parse( raw );
-			if ( parsed && Array.isArray( parsed.bullets ) && parsed.bullets.length ) {
-				return parsed.bullets.filter( function ( b ) {
-					return String( b || '' ).trim() !== '';
-				} );
-			}
-		} catch ( e ) { /* not JSON */ }
-		var text = String( raw ).trim();
-		return text ? [ text ] : [];
 	}
 
 	function remaining( generatedUnix ) {
@@ -48,11 +33,106 @@
 		return fallback || t( 'failed', 'Generation failed.' );
 	}
 
+	function decodeBullets( raw ) {
+		if ( ! raw ) {
+			return [];
+		}
+		try {
+			var parsed = JSON.parse( raw );
+			if ( parsed && Array.isArray( parsed.bullets ) && parsed.bullets.length ) {
+				return parsed.bullets.filter( function ( b ) {
+					return String( b || '' ).trim() !== '';
+				} );
+			}
+		} catch ( e ) { /* not JSON */ }
+		var text = String( raw ).trim();
+		return text ? [ text ] : [];
+	}
+
+	function normalizeFaq( rows ) {
+		if ( ! Array.isArray( rows ) ) {
+			return [];
+		}
+		return rows.filter( function ( row ) {
+			return row && String( row.question || '' ).trim() !== '';
+		} );
+	}
+
+	function kindConfig( kind ) {
+		if ( kind === 'faq' ) {
+			return {
+				path: 'faq/generate/',
+				body: { keyword: '', count: 0 },
+				idle: 'generateFaq',
+				idleFb: 'Generate FAQ',
+				done: 'regenerateFaq',
+				doneFb: 'Regenerate FAQ',
+				busy: 'generatingFaq',
+				busyFb: 'Generating FAQ…',
+				busyDone: 'regeneratingFaq',
+				busyDoneFb: 'Regenerating FAQ…',
+				just: 'generatedFaqJust',
+				justFb: 'FAQ generated just now',
+				parse: function ( body ) {
+					return normalizeFaq( body && body.faq );
+				},
+				fill: fillFaq,
+			};
+		}
+		return {
+			path: 'regenerate/',
+			body: null,
+			idle: 'generate',
+			idleFb: 'Generate Summary',
+			done: 'regenerate',
+			doneFb: 'Regenerate Summary',
+			busy: 'generating',
+			busyFb: 'Generating Summary…',
+			busyDone: 'regenerating',
+			busyDoneFb: 'Regenerating Summary…',
+			just: 'generatedJust',
+			justFb: 'Summary generated just now',
+			parse: function ( body ) {
+				return decodeBullets( body && body.summary );
+			},
+			fill: fillSummary,
+		};
+	}
+
+	function fillSummary( list, items ) {
+		list.textContent = '';
+		items.forEach( function ( bullet ) {
+			var li = document.createElement( 'li' );
+			li.textContent = bullet;
+			list.appendChild( li );
+		} );
+	}
+
+	function fillFaq( list, items ) {
+		list.textContent = '';
+		items.forEach( function ( row ) {
+			var li = document.createElement( 'li' );
+			var q = document.createElement( 'strong' );
+			q.textContent = String( row.question || '' );
+			li.appendChild( q );
+			var answer = String( row.answer || '' ).replace( /<[^>]+>/g, ' ' ).replace( /\s+/g, ' ' ).trim();
+			if ( answer ) {
+				var a = document.createElement( 'span' );
+				a.className = 'rnrd-mb__faq-a';
+				a.textContent = answer;
+				li.appendChild( a );
+			}
+			list.appendChild( li );
+		} );
+	}
+
 	function init( wrap ) {
-		var btn = wrap.querySelector( '[data-rnrd-gen-summary]' );
+		var kind = wrap.getAttribute( 'data-rnrd-mb-gen' ) || 'summary';
+		var spec = kindConfig( kind );
+		var btn = wrap.querySelector( '[data-rnrd-gen]' );
 		var errEl = wrap.querySelector( '.rnrd-mb__error' );
-		var details = wrap.querySelector( '.rnrd-mb__summary-details' );
-		var list = wrap.querySelector( '.rnrd-mb__preview ul' );
+		var details = wrap.querySelector( '.rnrd-mb__reveal' );
+		var list = wrap.querySelector( '[data-rnrd-mb-list]' );
 		var generatedEl = wrap.querySelector( '.rnrd-mb__generated' );
 		if ( ! btn ) {
 			return;
@@ -61,7 +141,7 @@
 		var postId = parseInt( wrap.getAttribute( 'data-post-id' ), 10 ) || 0;
 		var hasKey = wrap.getAttribute( 'data-has-key' ) === '1';
 		var typeEnabled = wrap.getAttribute( 'data-type-enabled' ) === '1';
-		var hasSummary = wrap.getAttribute( 'data-has-summary' ) === '1';
+		var hasContent = wrap.getAttribute( 'data-has-content' ) === '1';
 		var generated = parseInt( wrap.getAttribute( 'data-generated' ), 10 ) || 0;
 		var loading = false;
 		var cooldownTimer = null;
@@ -86,15 +166,15 @@
 		function paintButton() {
 			var left = remaining( generated );
 			if ( loading ) {
-				btn.textContent = hasSummary
-					? t( 'regenerating', 'Regenerating…' )
-					: t( 'generating', 'Generating…' );
+				btn.textContent = hasContent
+					? t( spec.busyDone, spec.busyDoneFb )
+					: t( spec.busy, spec.busyFb );
 			} else if ( left > 0 ) {
 				btn.textContent = t( 'wait', 'Wait %ds' ).replace( '%d', String( left ) );
 			} else {
-				btn.textContent = hasSummary
-					? t( 'regenerate', 'Regenerate' )
-					: t( 'generate', 'Generate' );
+				btn.textContent = hasContent
+					? t( spec.done, spec.doneFb )
+					: t( spec.idle, spec.idleFb );
 			}
 			btn.disabled = ! canClick();
 			btn.setAttribute( 'aria-busy', loading ? 'true' : 'false' );
@@ -119,30 +199,25 @@
 			}, 1000 );
 		}
 
-		function fillSummary( bullets ) {
+		function applyItems( items ) {
 			if ( ! list || ! details ) {
 				return;
 			}
-			list.textContent = '';
-			bullets.forEach( function ( bullet ) {
-				var li = document.createElement( 'li' );
-				li.textContent = bullet;
-				list.appendChild( li );
-			} );
-			var show = bullets.length > 0;
+			spec.fill( list, items );
+			var show = items.length > 0;
 			details.hidden = ! show;
 			if ( show ) {
 				details.open = true;
 			}
-			hasSummary = show;
-			wrap.setAttribute( 'data-has-summary', show ? '1' : '0' );
+			hasContent = show;
+			wrap.setAttribute( 'data-has-content', show ? '1' : '0' );
 		}
 
 		function markGenerated() {
 			generated = Math.floor( Date.now() / 1000 );
 			wrap.setAttribute( 'data-generated', String( generated ) );
 			if ( generatedEl ) {
-				generatedEl.textContent = t( 'generatedJust', 'Summary generated just now' );
+				generatedEl.textContent = t( spec.just, spec.justFb );
 				generatedEl.hidden = false;
 			}
 		}
@@ -158,14 +233,19 @@
 			setError( '' );
 			paintButton();
 
-			fetch( String( cfg.restUrl || '' ) + 'regenerate/' + postId, {
+			var opts = {
 				method: 'POST',
 				credentials: 'same-origin',
 				headers: {
 					'Content-Type': 'application/json',
 					'X-WP-Nonce': cfg.nonce || '',
 				},
-			} )
+			};
+			if ( spec.body ) {
+				opts.body = JSON.stringify( spec.body );
+			}
+
+			fetch( String( cfg.restUrl || '' ) + spec.path + postId, opts )
 				.then( function ( r ) {
 					return r.json().then( function ( body ) {
 						return { ok: r.ok, status: r.status, body: body || {} };
@@ -173,9 +253,11 @@
 				} )
 				.then( function ( res ) {
 					loading = false;
-					if ( ! res.ok ) {
-						var msg = restError( res.body, t( 'failed', 'Generation failed.' ) );
-						if ( res.body && res.body.code === 'rnrd_rate_limited' ) {
+					var body = res.body;
+					var failed = ! res.ok || body.success === false;
+					if ( failed ) {
+						var msg = restError( body, t( 'failed', 'Generation failed.' ) );
+						if ( body.code === 'rnrd_rate_limited' ) {
 							var secs = parseInt( String( msg ).match( /\d+/ ), 10 );
 							if ( secs ) {
 								generated = Math.floor( Date.now() / 1000 ) - ( COOLDOWN - secs );
@@ -186,7 +268,7 @@
 						tickCooldown();
 						return;
 					}
-					fillSummary( decodeBullets( res.body.summary ) );
+					applyItems( spec.parse( body ) );
 					markGenerated();
 					tickCooldown();
 				} )
@@ -202,7 +284,7 @@
 	}
 
 	function boot() {
-		var wraps = document.querySelectorAll( '[data-rnrd-mb-summary]' );
+		var wraps = document.querySelectorAll( '[data-rnrd-mb-gen]' );
 		Array.prototype.forEach.call( wraps, init );
 	}
 

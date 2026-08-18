@@ -388,15 +388,20 @@ class RNRD_Admin {
 					'nonce'    => wp_create_nonce( 'wp_rest' ),
 					'cooldown' => 60,
 					'i18n'     => array(
-						'generate'      => __( 'Generate', 'rankready-ai-llm-seo' ),
-						'regenerate'    => __( 'Regenerate', 'rankready-ai-llm-seo' ),
-						'generating'    => __( 'Generating…', 'rankready-ai-llm-seo' ),
-						'regenerating'  => __( 'Regenerating…', 'rankready-ai-llm-seo' ),
+						'generate'         => __( 'Generate Summary', 'rankready-ai-llm-seo' ),
+						'regenerate'       => __( 'Regenerate Summary', 'rankready-ai-llm-seo' ),
+						'generating'       => __( 'Generating Summary…', 'rankready-ai-llm-seo' ),
+						'regenerating'     => __( 'Regenerating Summary…', 'rankready-ai-llm-seo' ),
+						'generateFaq'      => __( 'Generate FAQ', 'rankready-ai-llm-seo' ),
+						'regenerateFaq'    => __( 'Regenerate FAQ', 'rankready-ai-llm-seo' ),
+						'generatingFaq'    => __( 'Generating FAQ…', 'rankready-ai-llm-seo' ),
+						'regeneratingFaq'  => __( 'Regenerating FAQ…', 'rankready-ai-llm-seo' ),
 						/* translators: %d: seconds remaining before the next generate is allowed */
-						'wait'          => __( 'Wait %ds', 'rankready-ai-llm-seo' ),
-						'failed'        => __( 'Generation failed.', 'rankready-ai-llm-seo' ),
-						'saveFirst'     => __( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ),
-						'generatedJust' => __( 'Summary generated just now', 'rankready-ai-llm-seo' ),
+						'wait'             => __( 'Wait %ds', 'rankready-ai-llm-seo' ),
+						'failed'           => __( 'Generation failed.', 'rankready-ai-llm-seo' ),
+						'saveFirst'        => __( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ),
+						'generatedJust'    => __( 'Summary generated just now', 'rankready-ai-llm-seo' ),
+						'generatedFaqJust' => __( 'FAQ generated just now', 'rankready-ai-llm-seo' ),
 					),
 				) );
 			}
@@ -1792,16 +1797,6 @@ class RNRD_Admin {
 		);
 		?>
 
-		<?php if ( ! $api_set ) : ?>
-		<div class="rnrd-card rnrd-dash-alert rnrd-dash-alert--warn" role="status">
-			<p class="rnrd-dash-alert__text">
-				<strong><?php esc_html_e( 'AI setup needed.', 'rankready-ai-llm-seo' ); ?></strong>
-				<?php esc_html_e( 'Choose a provider and add an API key to generate Summaries and FAQs.', 'rankready-ai-llm-seo' ); ?>
-				<a href="<?php echo esc_url( $settings_url ); ?>"><?php esc_html_e( 'Open Settings →', 'rankready-ai-llm-seo' ); ?></a>
-			</p>
-		</div>
-		<?php endif; ?>
-
 		<?php self::render_card_agent_visibility(); ?>
 
 		<div class="rnrd-card rnrd-dash-summary" style="margin-bottom:20px;">
@@ -2036,11 +2031,11 @@ class RNRD_Admin {
 	private static function dash_auto_placement_label( string $mode ): string {
 		switch ( $mode ) {
 			case 'before':
-				return __( 'Before content · auto', 'rankready-ai-llm-seo' );
+				return __( 'Auto-display: before content', 'rankready-ai-llm-seo' );
 			case 'after':
-				return __( 'After content · auto', 'rankready-ai-llm-seo' );
+				return __( 'Auto-display: after content', 'rankready-ai-llm-seo' );
 			case 'both':
-				return __( 'Before & after content · auto', 'rankready-ai-llm-seo' );
+				return __( 'Auto-display: before&amp;after content', 'rankready-ai-llm-seo' );
 			case 'off':
 			default:
 				return __( 'Manual placement', 'rankready-ai-llm-seo' );
@@ -6105,40 +6100,70 @@ class RNRD_Admin {
 	// ── Per-post meta box ─────────────────────────────────────────────────────
 
 	/**
-	 * Union of every post type RankReady actually targets (Summary + llms.txt +
-	 * Markdown selections). Single source of truth used by BOTH the meta-box
-	 * registration AND the admin-asset enqueue, so RankReady chrome and its
-	 * stylesheet only ever appear on the same screens — never on EDD `download`,
-	 * WooCommerce `product`, or any other third-party / core CPT editor.
+	 * Unique post-type slugs from one or more option lists.
 	 *
-	 * @return string[] List of post-type slugs.
+	 * @param array<int,mixed> ...$lists
+	 * @return string[]
 	 */
-	public static function get_meta_box_post_types(): array {
+	private static function unique_post_types( ...$lists ): array {
 		$pts = array();
-		foreach ( array(
-			(array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ),
-			(array) get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) ),
-			(array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) ),
-		) as $list ) {
-			foreach ( $list as $pt ) {
+		foreach ( $lists as $list ) {
+			foreach ( (array) $list as $pt ) {
 				if ( is_string( $pt ) && '' !== $pt ) {
 					$pts[ $pt ] = true;
 				}
 			}
 		}
-
 		return array_keys( $pts );
 	}
 
+	/**
+	 * Union of every post type RankReady actually targets. Single source of
+	 * truth for admin-asset enqueue so RankReady chrome never loads on CPTs
+	 * with no RankReady UI (EDD download, Woo product, etc.).
+	 *
+	 * @return string[] List of post-type slugs.
+	 */
+	public static function get_meta_box_post_types(): array {
+		return self::unique_post_types(
+			get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ),
+			get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ),
+			get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) ),
+			get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) )
+		);
+	}
+
 	public static function register_meta_box(): void {
-		// Union of every post type RankReady touches — keeps the consolidated
-		// meta box visible wherever any RankReady feature applies. Reduces
-		// "where do I tick exclude from AI surfaces?" support tickets.
-		foreach ( self::get_meta_box_post_types() as $pt ) {
+		foreach ( self::unique_post_types( get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ) ) as $pt ) {
 			add_meta_box(
 				'rnrd_summary_meta',
-				__( 'RankReady — Agent Visibility', 'rankready-ai-llm-seo' ),
-				array( self::class, 'render_meta_box' ),
+				__( 'RankReady: AI Summary', 'rankready-ai-llm-seo' ),
+				array( self::class, 'render_summary_meta_box' ),
+				$pt,
+				'side',
+				'default'
+			);
+		}
+
+		foreach ( self::unique_post_types( get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ) ) as $pt ) {
+			add_meta_box(
+				'rnrd_faq_meta',
+				__( 'RankReady: AI FAQ', 'rankready-ai-llm-seo' ),
+				array( self::class, 'render_faq_meta_box' ),
+				$pt,
+				'side',
+				'default'
+			);
+		}
+
+		foreach ( self::unique_post_types(
+			get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) ),
+			get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) )
+		) as $pt ) {
+			add_meta_box(
+				'rnrd_visibility_meta',
+				__( 'RankReady: AI Visibility', 'rankready-ai-llm-seo' ),
+				array( self::class, 'render_visibility_meta_box' ),
 				$pt,
 				'side',
 				'default'
@@ -6157,102 +6182,110 @@ class RNRD_Admin {
 			&& 'on' === get_option( RNRD_OPT_AUTO_GENERATE, 'off' );
 	}
 
-	public static function render_meta_box( $post ): void {
-		$disabled        = (bool) get_post_meta( $post->ID, RNRD_META_DISABLE, true );
-		$llms_excluded   = '1' === (string) get_post_meta( $post->ID, RNRD_META_LLMS_EXCLUDE, true );
-		$snippet_pref    = (string) get_post_meta( $post->ID, RNRD_META_MAX_SNIPPET, true );
-		$snippet_default = 'on' === get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' );
-		$summary         = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
-		$generated       = (int) get_post_meta( $post->ID, RNRD_META_GENERATED, true );
-		$faq             = (string) get_post_meta( $post->ID, RNRD_META_FAQ, true );
+	/**
+	 * One-line frontend placement for the post-edit meta box.
+	 * Auto-display position, or manual (block / Elementor) when off.
+	 */
+	private static function metabox_placement_label( bool $auto, string $position ): string {
+		if ( ! $auto ) {
+			return __( 'Manual: Gutenberg block or Elementor widget', 'rankready-ai-llm-seo' );
+		}
+		return 'after' === $position
+			? __( 'Auto-display: after content', 'rankready-ai-llm-seo' )
+			: __( 'Auto-display: before content', 'rankready-ai-llm-seo' );
+	}
 
-		$decoded         = class_exists( 'RNRD_Generator' ) ? RNRD_Generator::decode_summary( $summary ) : array( 'type' => 'empty', 'data' => array() );
-		$summary_items   = array();
+	/**
+	 * Short model name for the generate metaboxes, e.g. "Claude Haiku 4.5".
+	 */
+	private static function metabox_model_short_label(): string {
+		if ( ! class_exists( 'RNRD_LLM' ) ) {
+			return '';
+		}
+		$provider    = RNRD_LLM::get_active_provider();
+		$model_id    = RNRD_LLM::get_model( $provider );
+		$models      = RNRD_LLM::get_models_for( $provider );
+		$model_label = isset( $models[ $model_id ] ) ? (string) $models[ $model_id ] : $model_id;
+		$short       = trim( (string) preg_replace( '/\s*\([^)]*\)\s*$/', '', $model_label ) );
+		return '' !== $short ? $short : $model_id;
+	}
+
+	/**
+	 * Display + current model footer shared by the Summary and FAQ metaboxes.
+	 */
+	private static function render_metabox_footer( bool $has_key, string $placement ): void {
+		$settings_url = admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=settings' );
+		?>
+		<div class="rnrd-mb__meta">
+			<div class="rnrd-mb__meta-row">
+				<span class="rnrd-mb__field-label"><?php esc_html_e( 'Display', 'rankready-ai-llm-seo' ); ?></span>
+				<p class="rnrd-mb__meta-v"><?php echo esc_html( $placement ); ?></p>
+			</div>
+			<div class="rnrd-mb__meta-row<?php echo $has_key ? '' : ' rnrd-mb__meta-row--warn'; ?>">
+				<span class="rnrd-mb__field-label"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></span>
+				<?php if ( ! $has_key ) : ?>
+					<p class="rnrd-mb__meta-v">
+						<?php esc_html_e( 'AI setup needed. Add a provider and API key to generate.', 'rankready-ai-llm-seo' ); ?>
+						<a href="<?php echo esc_url( $settings_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Open Settings →', 'rankready-ai-llm-seo' ); ?></a>
+					</p>
+				<?php else : ?>
+					<p class="rnrd-mb__meta-v">
+						<?php echo esc_html( self::metabox_model_short_label() ); ?>
+						<a href="<?php echo esc_url( $settings_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Change →', 'rankready-ai-llm-seo' ); ?></a>
+					</p>
+				<?php endif; ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	public static function render_summary_meta_box( $post ): void {
+		$disabled      = (bool) get_post_meta( $post->ID, RNRD_META_DISABLE, true );
+		$summary       = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
+		$generated     = (int) get_post_meta( $post->ID, RNRD_META_GENERATED, true );
+		$decoded       = class_exists( 'RNRD_Generator' ) ? RNRD_Generator::decode_summary( $summary ) : array( 'type' => 'empty', 'data' => array() );
+		$summary_items = array();
 		if ( 'bullets' === $decoded['type'] && ! empty( $decoded['data'] ) ) {
 			$summary_items = array_values( (array) $decoded['data'] );
 		} elseif ( 'text' === $decoded['type'] && '' !== trim( (string) $decoded['data'] ) ) {
 			$summary_items = array( (string) $decoded['data'] );
 		}
-		$has_summary     = ! empty( $summary_items );
-		$has_key         = class_exists( 'RNRD_LLM' ) && RNRD_LLM::active_provider_ready();
-		$settings_url    = admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=settings' );
-		$summary_types   = (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) );
-		$type_enabled    = in_array( $post->post_type, $summary_types, true );
-		$auto_display    = 'on' === (string) get_option( RNRD_OPT_AUTO_DISPLAY, 'off' );
-		$can_generate    = $has_key && $type_enabled && (int) $post->ID > 0;
+		$has_summary  = ! empty( $summary_items );
+		$has_key      = class_exists( 'RNRD_LLM' ) && RNRD_LLM::active_provider_ready();
+		$can_generate = $has_key && (int) $post->ID > 0;
+		$summary_auto = 'on' === (string) get_option( RNRD_OPT_AUTO_DISPLAY, 'off' );
+		$summary_pos  = (string) get_option( RNRD_OPT_DISPLAY_POSITION, 'before' );
+		$gen_label    = $has_summary ? __( 'Regenerate Summary', 'rankready-ai-llm-seo' ) : __( 'Generate Summary', 'rankready-ai-llm-seo' );
+		$autogen_on   = self::is_summary_autogen_enabled();
 
-		$gen_label = $has_summary
-			? __( 'Regenerate', 'rankready-ai-llm-seo' )
-			: __( 'Generate', 'rankready-ai-llm-seo' );
-
-		// ── Compute status banner ────────────────────────────────────────
-		// Decide tone (ok / warn / muted) + plain-English headline + sub.
-		$status = self::compute_meta_box_status( $post, $disabled, $llms_excluded, $has_summary, ! empty( $faq ) );
-
-		wp_nonce_field( 'rnrd_meta_box', 'rnrd_meta_nonce' );
-		// Meta-box CSS lives in assets/admin-screens.css. Generate JS is
-		// assets/metabox.js — both enqueued on post-edit via enqueue_admin_assets().
+		wp_nonce_field( 'rnrd_summary_meta', 'rnrd_summary_nonce' );
 		?>
-
 		<div class="rnrd-mb">
-			<div class="rnrd-mb__status rnrd-mb__status--<?php echo esc_attr( $status['tone'] ); ?>">
-				<span class="rnrd-mb__icon" aria-hidden="true"><?php echo esc_html( $status['icon'] ); ?></span>
-				<span>
-					<span class="rnrd-mb__title"><?php echo esc_html( $status['title'] ); ?></span>
-					<span class="rnrd-mb__sub"><?php echo esc_html( $status['sub'] ); ?></span>
-				</span>
-			</div>
+			<?php if ( $autogen_on && $disabled ) : ?>
+				<p class="rnrd-mb__visibility-warn">
+					<?php esc_html_e( 'AI summary is disabled on publish for this post.', 'rankready-ai-llm-seo' ); ?>
+				</p>
+			<?php endif; ?>
+
+			<?php if ( (int) $post->ID < 1 ) : ?>
+				<p class="rnrd-mb__hint"><?php esc_html_e( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ); ?></p>
+			<?php endif; ?>
 
 			<div
-				class="rnrd-mb__field rnrd-mb__summary"
-				data-rnrd-mb-summary
+				class="rnrd-mb__gen-wrap"
+				data-rnrd-mb-gen="summary"
 				data-post-id="<?php echo esc_attr( (string) (int) $post->ID ); ?>"
 				data-generated="<?php echo esc_attr( (string) $generated ); ?>"
 				data-has-key="<?php echo $has_key ? '1' : '0'; ?>"
-				data-type-enabled="<?php echo $type_enabled ? '1' : '0'; ?>"
-				data-has-summary="<?php echo $has_summary ? '1' : '0'; ?>"
+				data-type-enabled="1"
+				data-has-content="<?php echo $has_summary ? '1' : '0'; ?>"
 			>
-				<span class="rnrd-mb__field-label"><?php esc_html_e( 'AI Summary', 'rankready-ai-llm-seo' ); ?></span>
+				<p class="rnrd-mb__desc"><?php esc_html_e( 'Key Takeaways — the lines ChatGPT and Perplexity quote directly.', 'rankready-ai-llm-seo' ); ?></p>
 
-				<?php if ( ! $has_key ) : ?>
-					<p class="rnrd-mb__provider rnrd-mb__provider--warn">
-						<strong><?php esc_html_e( 'AI setup needed.', 'rankready-ai-llm-seo' ); ?></strong>
-						<?php esc_html_e( 'Choose a provider and add an API key to generate Summaries and FAQs.', 'rankready-ai-llm-seo' ); ?>
-						<a href="<?php echo esc_url( $settings_url ); ?>"><?php esc_html_e( 'Open Settings →', 'rankready-ai-llm-seo' ); ?></a>
-					</p>
-				<?php else : ?>
-					<?php
-					$provider       = RNRD_LLM::get_active_provider();
-					$provider_label = RNRD_LLM::get_provider_label( $provider );
-					$model_id       = RNRD_LLM::get_model( $provider );
-					$models         = RNRD_LLM::get_models_for( $provider );
-					$model_label    = isset( $models[ $model_id ] ) ? (string) $models[ $model_id ] : $model_id;
-					?>
-					<p class="rnrd-mb__provider">
-						<?php
-						echo esc_html( sprintf(
-							/* translators: 1: provider label, 2: model label */
-							__( 'Using %1$s · %2$s', 'rankready-ai-llm-seo' ),
-							$provider_label,
-							$model_label
-						) );
-						?>
-						<a href="<?php echo esc_url( $settings_url ); ?>"><?php esc_html_e( 'Change in Settings →', 'rankready-ai-llm-seo' ); ?></a>
-					</p>
-				<?php endif; ?>
-
-				<?php if ( ! $type_enabled ) : ?>
-					<p class="rnrd-mb__hint">
-						<?php esc_html_e( 'AI Summary is not enabled for this post type. Turn it on in AI Content → AI Summary → Post types.', 'rankready-ai-llm-seo' ); ?>
-					</p>
-				<?php elseif ( (int) $post->ID < 1 ) : ?>
-					<p class="rnrd-mb__hint"><?php esc_html_e( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ); ?></p>
-				<?php endif; ?>
-
-				<details class="rnrd-mb__summary-details"<?php echo $has_summary ? '' : ' hidden'; ?>>
+				<details class="rnrd-mb__reveal"<?php echo $has_summary ? '' : ' hidden'; ?>>
 					<summary><?php esc_html_e( 'Show summary', 'rankready-ai-llm-seo' ); ?></summary>
 					<div class="rnrd-mb__preview">
-						<ul>
+						<ul data-rnrd-mb-list>
 							<?php foreach ( $summary_items as $bullet ) : ?>
 								<li><?php echo esc_html( $bullet ); ?></li>
 							<?php endforeach; ?>
@@ -6263,7 +6296,7 @@ class RNRD_Admin {
 				<button
 					type="button"
 					class="button button-secondary rnrd-mb__gen"
-					data-rnrd-gen-summary
+					data-rnrd-gen
 					<?php disabled( ! $can_generate ); ?>
 				><?php echo esc_html( $gen_label ); ?></button>
 
@@ -6280,128 +6313,146 @@ class RNRD_Admin {
 					}
 					?>
 				</p>
-
-				<?php if ( $auto_display ) : ?>
-					<p class="rnrd-mb__hint"><?php esc_html_e( 'When published, Auto Display injects this summary into the post.', 'rankready-ai-llm-seo' ); ?></p>
-				<?php endif; ?>
 			</div>
 
-			<details<?php echo ( $disabled || $llms_excluded || '' !== $snippet_pref ) ? ' open' : ''; ?>>
-				<summary><?php esc_html_e( 'Advanced options', 'rankready-ai-llm-seo' ); ?></summary>
-				<div class="rnrd-mb__advanced">
-
-					<div class="rnrd-mb__field">
-						<label class="rnrd-mb__field-label" for="rnrd_max_snippet"><?php esc_html_e( 'AI snippet', 'rankready-ai-llm-seo' ); ?></label>
-						<select name="rnrd_max_snippet" id="rnrd_max_snippet">
-							<option value="" <?php selected( $snippet_pref, '' ); ?>>
-								<?php
-								printf(
-								/* translators: %s: name of the default summary mode */
-									esc_html__( 'Use default (%s)', 'rankready-ai-llm-seo' ),
-									$snippet_default ? esc_html__( 'Allow full snippet', 'rankready-ai-llm-seo' ) : esc_html__( 'Standard snippet', 'rankready-ai-llm-seo' )
-								);
-								?>
-							</option>
-							<option value="on" <?php selected( $snippet_pref, 'on' ); ?>>
-								<?php esc_html_e( 'Allow full snippet (max-snippet:-1)', 'rankready-ai-llm-seo' ); ?>
-							</option>
-							<option value="off" <?php selected( $snippet_pref, 'off' ); ?>>
-								<?php esc_html_e( 'Standard snippet only', 'rankready-ai-llm-seo' ); ?>
-							</option>
-						</select>
-						<p class="rnrd-mb__hint"><?php esc_html_e( 'How much of this page AI engines may quote.', 'rankready-ai-llm-seo' ); ?></p>
-					</div>
-
-					<div class="rnrd-mb__field">
-						<label>
-							<input type="checkbox" name="rnrd_llms_exclude" value="1" <?php checked( $llms_excluded ); ?> />
-							<?php esc_html_e( 'Exclude this post from AI surfaces (llms.txt, Markdown, WebMCP, OKF)', 'rankready-ai-llm-seo' ); ?>
-						</label>
-					</div>
-
-					<?php if ( self::is_summary_autogen_enabled() ) : ?>
-					<div class="rnrd-mb__field">
-						<label>
-							<input type="checkbox" name="rnrd_disable_summary" value="1" <?php checked( $disabled ); ?> />
-							<?php esc_html_e( 'Disable AI summary on publish', 'rankready-ai-llm-seo' ); ?>
-						</label>
-					</div>
-					<?php endif; ?>
-
+			<?php if ( $autogen_on ) : ?>
+				<div class="rnrd-mb__field rnrd-mb__opt">
+					<label>
+						<input type="checkbox" name="rnrd_disable_summary" value="1" <?php checked( $disabled ); ?> />
+						<?php esc_html_e( 'Disable AI summary on publish', 'rankready-ai-llm-seo' ); ?>
+					</label>
 				</div>
-			</details>
+			<?php endif; ?>
+
+			<?php self::render_metabox_footer( $has_key, self::metabox_placement_label( $summary_auto, $summary_pos ) ); ?>
 		</div>
 		<?php
 	}
 
-	/**
-	 * Compute the status banner shown at the top of the meta box.
-	 *
-	 * Three tones, one short headline + one subline. Aim: editor scans for
-	 * 1 second and knows whether the post is AI-ready.
-	 *
-	 * Tone priority (worst signal wins):
-	 *   warn  → opted out (disable / exclude) — user knows but flag it anyway
-	 *   muted → not yet generated (no summary AND no FAQ on a fresh post)
-	 *   ok    → fully optimised
-	 *
-	 * @return array{tone:string,icon:string,title:string,sub:string}
-	 */
-	private static function compute_meta_box_status( $post, bool $disabled, bool $llms_excluded, bool $has_summary, bool $has_faq ): array {
-		if ( $disabled || $llms_excluded ) {
-			$flags = array();
-			if ( $disabled )      { $flags[] = __( 'AI summary disabled', 'rankready-ai-llm-seo' ); }
-			if ( $llms_excluded ) { $flags[] = __( 'excluded from AI surfaces', 'rankready-ai-llm-seo' ); }
-			return array(
-				'tone'  => 'warn',
-				'icon'  => '⚠',
-				'title' => __( 'AI visibility reduced', 'rankready-ai-llm-seo' ),
-				'sub'   => implode( ' • ', $flags ),
-			);
-		}
+	public static function render_faq_meta_box( $post ): void {
+		$faq_items     = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_faq_data( (int) $post->ID ) : array();
+		$faq_items     = is_array( $faq_items ) ? $faq_items : array();
+		$has_faq       = ! empty( $faq_items );
+		$faq_generated = (int) get_post_meta( $post->ID, RNRD_META_FAQ_GENERATED, true );
+		$has_key       = class_exists( 'RNRD_LLM' ) && RNRD_LLM::active_provider_ready();
+		$can_generate  = $has_key && (int) $post->ID > 0;
+		$faq_auto      = 'on' === (string) get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' );
+		$faq_pos       = (string) get_option( RNRD_OPT_FAQ_POSITION, 'after' );
+		$gen_label     = $has_faq ? __( 'Regenerate FAQ', 'rankready-ai-llm-seo' ) : __( 'Generate FAQ', 'rankready-ai-llm-seo' );
+		?>
+		<div class="rnrd-mb">
+			<?php if ( (int) $post->ID < 1 ) : ?>
+				<p class="rnrd-mb__hint"><?php esc_html_e( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ); ?></p>
+			<?php endif; ?>
 
-		if ( $has_summary && $has_faq ) {
-			return array(
-				'tone'  => 'ok',
-				'icon'  => '✓',
-				'title' => __( 'Optimised for AI', 'rankready-ai-llm-seo' ),
-				'sub'   => __( 'Summary + FAQ ready. ChatGPT, Perplexity & Claude can cite this page.', 'rankready-ai-llm-seo' ),
-			);
-		}
+			<div
+				class="rnrd-mb__gen-wrap"
+				data-rnrd-mb-gen="faq"
+				data-post-id="<?php echo esc_attr( (string) (int) $post->ID ); ?>"
+				data-generated="<?php echo esc_attr( (string) $faq_generated ); ?>"
+				data-has-key="<?php echo $has_key ? '1' : '0'; ?>"
+				data-type-enabled="1"
+				data-has-content="<?php echo $has_faq ? '1' : '0'; ?>"
+			>
+				<p class="rnrd-mb__desc"><?php esc_html_e( 'Discover real user questions and answer them with AI — quotable Q&A that can boost your citation rate.', 'rankready-ai-llm-seo' ); ?></p>
 
-		if ( $has_summary ) {
-			return array(
-				'tone'  => 'ok',
-				'icon'  => '✓',
-				'title' => __( 'AI summary ready', 'rankready-ai-llm-seo' ),
-				'sub'   => __( 'Add an FAQ to boost citation rate.', 'rankready-ai-llm-seo' ),
-			);
-		}
+				<details class="rnrd-mb__reveal"<?php echo $has_faq ? '' : ' hidden'; ?>>
+					<summary><?php esc_html_e( 'Show FAQ', 'rankready-ai-llm-seo' ); ?></summary>
+					<div class="rnrd-mb__preview">
+						<ul class="rnrd-mb__faq-list" data-rnrd-mb-list>
+							<?php
+							foreach ( $faq_items as $faq_row ) :
+								$q = isset( $faq_row['question'] ) ? (string) $faq_row['question'] : '';
+								$a = isset( $faq_row['answer'] ) ? wp_strip_all_tags( (string) $faq_row['answer'] ) : '';
+								if ( '' === $q ) {
+									continue;
+								}
+								?>
+								<li>
+									<strong><?php echo esc_html( $q ); ?></strong>
+									<?php if ( '' !== $a ) : ?>
+										<span class="rnrd-mb__faq-a"><?php echo esc_html( $a ); ?></span>
+									<?php endif; ?>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					</div>
+				</details>
 
-		if ( 'publish' !== $post->post_status ) {
-			return array(
-				'tone'  => 'muted',
-				'icon'  => '○',
-				'title' => __( 'Not yet generated', 'rankready-ai-llm-seo' ),
-				'sub'   => __( 'Use Generate below to create a summary.', 'rankready-ai-llm-seo' ),
-			);
-		}
+				<button
+					type="button"
+					class="button button-secondary rnrd-mb__gen"
+					data-rnrd-gen
+					<?php disabled( ! $can_generate ); ?>
+				><?php echo esc_html( $gen_label ); ?></button>
 
-		return array(
-			'tone'  => 'muted',
-			'icon'  => '○',
-			'title' => __( 'Not yet optimised', 'rankready-ai-llm-seo' ),
-			'sub'   => __( 'Use Generate below to create a summary.', 'rankready-ai-llm-seo' ),
-		);
+				<p class="rnrd-mb__error" hidden></p>
+
+				<p class="rnrd-mb__hint rnrd-mb__generated"<?php echo $faq_generated ? '' : ' hidden'; ?>>
+					<?php
+					if ( $faq_generated ) {
+						printf(
+							/* translators: %s: human-readable age like "3 minutes" */
+							esc_html__( 'FAQ generated %s ago', 'rankready-ai-llm-seo' ),
+							esc_html( human_time_diff( $faq_generated ) )
+						);
+					}
+					?>
+				</p>
+			</div>
+
+			<?php self::render_metabox_footer( $has_key, self::metabox_placement_label( $faq_auto, $faq_pos ) ); ?>
+		</div>
+		<?php
+	}
+
+	public static function render_visibility_meta_box( $post ): void {
+		$llms_excluded   = '1' === (string) get_post_meta( $post->ID, RNRD_META_LLMS_EXCLUDE, true );
+		$snippet_pref    = (string) get_post_meta( $post->ID, RNRD_META_MAX_SNIPPET, true );
+		$snippet_default = 'on' === get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' );
+
+		wp_nonce_field( 'rnrd_visibility_meta', 'rnrd_visibility_nonce' );
+		?>
+		<div class="rnrd-mb">
+			<?php if ( $llms_excluded ) : ?>
+				<p class="rnrd-mb__visibility-warn">
+					<?php esc_html_e( 'This post is excluded from AI surfaces.', 'rankready-ai-llm-seo' ); ?>
+				</p>
+			<?php endif; ?>
+
+			<div class="rnrd-mb__field">
+				<label>
+					<input type="checkbox" name="rnrd_llms_exclude" value="1" <?php checked( $llms_excluded ); ?> />
+					<?php esc_html_e( 'Exclude this post from AI surfaces (llms.txt, Markdown, WebMCP, OKF)', 'rankready-ai-llm-seo' ); ?>
+				</label>
+			</div>
+
+			<div class="rnrd-mb__field">
+				<label class="rnrd-mb__field-label" for="rnrd_max_snippet"><?php esc_html_e( 'AI snippet', 'rankready-ai-llm-seo' ); ?></label>
+				<select name="rnrd_max_snippet" id="rnrd_max_snippet">
+					<option value="" <?php selected( $snippet_pref, '' ); ?>>
+						<?php
+						printf(
+						/* translators: %s: name of the default summary mode */
+							esc_html__( 'Use default (%s)', 'rankready-ai-llm-seo' ),
+							$snippet_default ? esc_html__( 'Allow full snippet', 'rankready-ai-llm-seo' ) : esc_html__( 'Standard snippet', 'rankready-ai-llm-seo' )
+						);
+						?>
+					</option>
+					<option value="on" <?php selected( $snippet_pref, 'on' ); ?>>
+						<?php esc_html_e( 'Allow full snippet (max-snippet:-1)', 'rankready-ai-llm-seo' ); ?>
+					</option>
+					<option value="off" <?php selected( $snippet_pref, 'off' ); ?>>
+						<?php esc_html_e( 'Standard snippet only', 'rankready-ai-llm-seo' ); ?>
+					</option>
+				</select>
+				<p class="rnrd-mb__hint"><?php esc_html_e( 'How much of this page AI engines may quote.', 'rankready-ai-llm-seo' ); ?></p>
+			</div>
+		</div>
+		<?php
 	}
 
 	public static function save_meta_box( $post_id ): void {
-		if ( ! isset( $_POST['rnrd_meta_nonce'] ) ) {
-			return;
-		}
-		if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['rnrd_meta_nonce'] ) ), 'rnrd_meta_box' ) ) {
-			return;
-		}
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
@@ -6409,26 +6460,36 @@ class RNRD_Admin {
 			return;
 		}
 
-		// AI summary disable — only when the checkbox was shown (Pro + auto-gen on).
-		// Otherwise leave leftover _rnrd_disable_summary untouched.
-		if ( self::is_summary_autogen_enabled() ) {
+		$summary_ok = isset( $_POST['rnrd_summary_nonce'] )
+			&& wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['rnrd_summary_nonce'] ) ), 'rnrd_summary_meta' );
+		$vis_ok     = isset( $_POST['rnrd_visibility_nonce'] )
+			&& wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['rnrd_visibility_nonce'] ) ), 'rnrd_visibility_meta' );
+
+		if ( ! $summary_ok && ! $vis_ok ) {
+			return;
+		}
+
+		// Only when the Summary box (and its checkbox) was actually on this screen.
+		if ( $summary_ok && self::is_summary_autogen_enabled() ) {
 			$disabled = isset( $_POST['rnrd_disable_summary'] ) ? '1' : '';
 			update_post_meta( $post_id, RNRD_META_DISABLE, $disabled );
 		}
 
-		// llms.txt per-post exclusion (v1.2.0).
-		$llms_excluded = isset( $_POST['rnrd_llms_exclude'] ) ? '1' : '';
-		update_post_meta( $post_id, RNRD_META_LLMS_EXCLUDE, $llms_excluded );
+		// Only when the Visibility box was on this screen — missing fields must
+		// not clear exclude/snippet on post types that do not show that box.
+		if ( $vis_ok ) {
+			$llms_excluded = isset( $_POST['rnrd_llms_exclude'] ) ? '1' : '';
+			update_post_meta( $post_id, RNRD_META_LLMS_EXCLUDE, $llms_excluded );
 
-		// max-snippet preference (v1.2.0) — '' inherits sitewide default.
-		$snippet = isset( $_POST['rnrd_max_snippet'] ) ? sanitize_key( wp_unslash( $_POST['rnrd_max_snippet'] ) ) : '';
-		if ( ! in_array( $snippet, array( '', 'on', 'off' ), true ) ) {
-			$snippet = '';
-		}
-		if ( '' === $snippet ) {
-			delete_post_meta( $post_id, RNRD_META_MAX_SNIPPET );
-		} else {
-			update_post_meta( $post_id, RNRD_META_MAX_SNIPPET, $snippet );
+			$snippet = isset( $_POST['rnrd_max_snippet'] ) ? sanitize_key( wp_unslash( $_POST['rnrd_max_snippet'] ) ) : '';
+			if ( ! in_array( $snippet, array( '', 'on', 'off' ), true ) ) {
+				$snippet = '';
+			}
+			if ( '' === $snippet ) {
+				delete_post_meta( $post_id, RNRD_META_MAX_SNIPPET );
+			} else {
+				update_post_meta( $post_id, RNRD_META_MAX_SNIPPET, $snippet );
+			}
 		}
 	}
 

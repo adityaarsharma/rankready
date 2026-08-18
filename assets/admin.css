@@ -3750,22 +3750,6 @@ a.rnrd-kpi--link:focus .rnrd-kpi__go {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 .rnrd-mb { font-size: 13px; }
-.rnrd-mb__status {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 10px 12px;
-    margin: -6px -12px 10px;
-    border-radius: 0;
-    font-size: 13px;
-    line-height: 1.4;
-}
-.rnrd-mb__status--ok    { background: #D4FAEA; color: #0A6E50; }
-.rnrd-mb__status--warn  { background: #FEF3C7; color: #92400E; }
-.rnrd-mb__status--muted { background: var(--rnrd-bg-canvas, #F8F9F6); color: var(--rnrd-text-tertiary, #6B716D); }
-.rnrd-mb__icon  { font-size: 16px; line-height: 1.2; flex-shrink: 0; }
-.rnrd-mb__title { font-weight: 600; margin-bottom: 2px; }
-.rnrd-mb__sub   { font-size: 12px; opacity: 0.85; }
 .rnrd-mb__preview {
     margin: 0 0 10px;
     padding: 8px 10px;

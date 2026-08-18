@@ -482,8 +482,8 @@ class RNRD_Block {
 			return $content;
 		}
 
-		// Skip if block is already in content
-		if ( has_block( 'rankready/ai-summary', $post ) ) {
+		// Skip if the Gutenberg block or shortcode already places the summary.
+		if ( RNRD_Shortcode::post_has_manual( $post, 'rankready/ai-summary', RNRD_Shortcode::SUMMARY ) ) {
 			return $content;
 		}
 
@@ -585,10 +585,10 @@ class RNRD_Block {
 		}
 
 		// Always load styles when summary, FAQ, or author-box data may render.
-		// Display can come from: Gutenberg block, Elementor widget, theme builder widget, or auto-display.
+		// Display can come from: Gutenberg block, Elementor widget, shortcode, or auto-display.
 		$has_summary    = ! empty( get_post_meta( $post_id, RNRD_META_SUMMARY, true ) );
 		$has_faq        = ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) );
-		$has_author_box = has_block( 'rankready/author-box', $post_id )
+		$has_author_box = RNRD_Shortcode::post_has_manual( $post_id, 'rankready/author-box', RNRD_Shortcode::AUTHOR )
 			|| 'off' !== (string) get_option( RNRD_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
 
 		if ( $has_summary || $has_faq || $has_author_box ) {

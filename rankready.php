@@ -807,6 +807,7 @@ add_action( 'plugins_loaded', function (): void {
 	// meta-box save POST, so the settings UI + meta box keep working.
 	if ( is_admin() ) {
 		RNRD_Admin::init();
+		RNRD_Metabox::init();       // Post-edit Summary / FAQ / Visibility boxes.
 		RNRD_Welcome::init();          // 1-question onboarding flow on first activation.
 		RNRD_Agent_Dashboard::init();  // Unified dashboard widget (admin only).
 	}
@@ -819,6 +820,7 @@ add_action( 'plugins_loaded', function (): void {
 	RNRD_OKF::init();              // Open Knowledge Format (OKF) bundle at /okf/.
 	RNRD_Faq::init();
 	RNRD_Author_Box::init();
+	RNRD_Shortcode::init();    // [rankready_summary], [rankready_faq], [rankready_author].
 	RNRD_Crawler_Log::init();
 
 	// v1.2.0 — Agent Ready feature modules.

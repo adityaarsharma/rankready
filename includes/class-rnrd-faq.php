@@ -9,7 +9,7 @@
  *
  * Outputs:
  * - FAQPage JSON-LD schema (compound with Article, skipped if Rank Math FAQ block exists)
- * - Gutenberg block / Elementor widget / auto-display
+ * - Gutenberg block / Elementor widget / shortcode / auto-display
  * - FAQ section in .md Markdown endpoints
  *
  * @package RankReady
@@ -59,6 +59,11 @@ class RNRD_Faq {
 
 		// Per-post disable.
 		if ( get_post_meta( $post->ID, RNRD_META_FAQ_DISABLE, true ) ) {
+			return $content;
+		}
+
+		// Skip if the Gutenberg block or shortcode already places the FAQ.
+		if ( RNRD_Shortcode::post_has_manual( $post, 'rankready/faq', RNRD_Shortcode::FAQ ) ) {
 			return $content;
 		}
 

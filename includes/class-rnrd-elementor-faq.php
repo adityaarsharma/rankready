@@ -33,7 +33,7 @@ class RNRD_Elementor_Faq_Widget extends \Elementor\Widget_Base {
 				? RNRD_Elementor_Widget::regen_control_html(
 					'faq',
 					esc_html__( 'Generate FAQ', 'rankready-ai-llm-seo' ),
-					esc_html__( 'FAQs auto-generate from your content. Use this to (re)generate manually.', 'rankready-ai-llm-seo' )
+					esc_html__( 'Use this button to (re)generate the FAQ manually.', 'rankready-ai-llm-seo' )
 				)
 				: '',
 			'content_classes' => 'rnrd-el-regen-control',

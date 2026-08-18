@@ -89,7 +89,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 		return self::regen_control_html(
 			'summary',
 			esc_html__( 'Generate Summary', 'rankready-ai-llm-seo' ),
-			esc_html__( 'Summaries auto-generate on publish. Use this to refresh manually after editing the post body.', 'rankready-ai-llm-seo' )
+			esc_html__( 'Use this to refresh manually after editing the post body.', 'rankready-ai-llm-seo' )
 		);
 	}
 
@@ -149,7 +149,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 				. '<strong style="display:block;margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">' . esc_html__( 'How this widget works', 'rankready-ai-llm-seo' ) . '</strong>'
 				. esc_html__( 'On a single post or page, this widget shows that post\'s AI summary. On a Theme Builder Archive or Single template, every post in the loop renders its own summary — no separate archive-level summary is generated.', 'rankready-ai-llm-seo' )
 				. '<br><br>'
-				. esc_html__( 'Summaries auto-generate on publish. Use the button above to refresh one manually — you do not need it for the summary to appear.', 'rankready-ai-llm-seo' )
+				. esc_html__( 'Use the button above to refresh one manually — you do not need it for the summary to appear.', 'rankready-ai-llm-seo' )
 				. '</div>',
 			'content_classes' => 'rnrd-el-info',
 		) );

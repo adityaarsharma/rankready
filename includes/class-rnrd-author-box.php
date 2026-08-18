@@ -998,7 +998,7 @@ class RNRD_Author_Box {
 
 	/**
 	 * Render the author box. Called by the Gutenberg block render_callback,
-	 * the Elementor widget, and the auto-display filter.
+	 * the Elementor widget, the [rankready_author] shortcode, and auto-display.
 	 *
 	 * @param int   $user_id  Author user ID.
 	 * @param array $attrs    Block/widget attributes.
@@ -1355,8 +1355,10 @@ class RNRD_Author_Box {
 		$allowed = (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
 		if ( ! in_array( $post->post_type, $allowed, true ) ) return $content;
 
-		// Skip if the block is already in content.
-		if ( has_block( 'rankready/author-box', $post ) ) return $content;
+		// Skip if the Gutenberg block or shortcode already places the author box.
+		if ( RNRD_Shortcode::post_has_manual( $post, 'rankready/author-box', RNRD_Shortcode::AUTHOR ) ) {
+			return $content;
+		}
 
 		$html = self::render_html( (int) $post->post_author, array(), $post_id );
 		if ( '' === $html ) return $content;

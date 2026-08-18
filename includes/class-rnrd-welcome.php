@@ -98,6 +98,18 @@ class RNRD_Welcome {
 			exit;
 		}
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		$step = isset( $_GET['step'] ) ? absint( wp_unslash( $_GET['step'] ) ) : 1;
+		$step = max( 1, min( 3, $step ) );
+
+		// Congratulations is only valid after step 2 wrote FLAG_OPTION.
+		// A bookmark or guessed ?step=3 must not claim the site is set up.
+		if ( self::MENU_SLUG === $page && 3 === $step && ! get_option( self::FLAG_OPTION ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&step=2' ) );
+			exit;
+		}
+
 		// Already onboarded — no further automatic redirects.
 		if ( get_option( self::FLAG_OPTION ) ) {
 			return;
@@ -107,8 +119,6 @@ class RNRD_Welcome {
 		//    having onboarded — send them through the wizard once. Only when
 		//    they land on the main RankReady page (never the wizard page itself,
 		//    never any unrelated admin screen, never during the update process).
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
 		if ( self::SETTINGS_SLUG === $page ) {
 			wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG ) );
 			exit;
@@ -549,6 +559,12 @@ class RNRD_Welcome {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$step = isset( $_GET['step'] ) ? absint( wp_unslash( $_GET['step'] ) ) : 1;
 		$step = max( 1, min( 3, $step ) );
+
+		// Defensive: maybe_redirect() already bounces this on admin_init.
+		// If we still reach here with no completion flag, do not render Done.
+		if ( 3 === $step && ! get_option( self::FLAG_OPTION ) ) {
+			$step = 2;
+		}
 
 		switch ( $step ) {
 			case 3:

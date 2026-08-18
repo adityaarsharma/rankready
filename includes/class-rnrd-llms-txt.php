@@ -944,16 +944,19 @@ class RNRD_Llms_Txt {
 		// SEO plugin's early template_redirect router, aggressive rewrite ordering, or
 		// a query_vars strip) WP never surfaces our query var even though the rule
 		// matched — the raw-path check keeps the endpoint working. (Support: barisdayak.com.)
-		$path = self::request_path();
+		$path     = self::request_path();
+		$llms_on  = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$full_on  = 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
+		$other    = self::another_plugin_handles_llms_txt();
 
-		if ( get_query_var( 'rnrd_llms_txt' )
-			|| ( 'llms.txt' === $path && 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) && ! self::another_plugin_handles_llms_txt() ) ) {
+		if ( $llms_on && ! $other
+			&& ( get_query_var( 'rnrd_llms_txt' ) || 'llms.txt' === $path ) ) {
 			RNRD_Crawler_Log::log( 'llms_txt' );
 			self::serve_llms_txt( false );
 		}
 
-		if ( get_query_var( 'rnrd_llms_full_txt' )
-			|| ( 'llms-full.txt' === $path && 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) ) ) {
+		if ( $llms_on && $full_on
+			&& ( get_query_var( 'rnrd_llms_full_txt' ) || 'llms-full.txt' === $path ) ) {
 			RNRD_Crawler_Log::log( 'llms_full' );
 			self::serve_llms_txt( true );
 		}

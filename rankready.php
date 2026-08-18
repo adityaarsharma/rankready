@@ -691,21 +691,19 @@ add_action( 'plugins_loaded', function (): void {
 				&& false !== strpos( (string) $rules[ $pattern ], $query_var );
 		};
 
+		$llms_on    = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$llms_other = class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::another_plugin_handles_llms_txt();
+		$want_llms  = $llms_on && ! $llms_other;
+		$want_full  = $llms_on && 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
+
 		// Check llms.txt — skip if another plugin is known to handle it.
-		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) && ! isset( $rules['^llms\.txt$'] ) ) {
-			// v1.1.5 (#10) — defer to the canonical detector instead of an inline
-			// Rank Math/Yoast-only check. It also recognises AIOSEO, SEOPress and the
-			// rankready_force_llms_txt filter, so on those-as-llms-provider sites the
-			// missing ^llms\.txt$ rule is EXPECTED and we no longer trigger a needless
-			// flush_rewrite_rules() on every admin load (the throttle masked it hourly).
-			// One source of truth — see RNRD_Llms_Txt::another_plugin_handles_llms_txt().
-			if ( class_exists( 'RNRD_Llms_Txt' ) && ! RNRD_Llms_Txt::another_plugin_handles_llms_txt() ) {
-				$needs = true;
-			}
+		if ( $want_llms && ! isset( $rules['^llms\.txt$'] ) ) {
+			// v1.1.5 (#10) — defer to the canonical detector; see RNRD_Llms_Txt::another_plugin_handles_llms_txt().
+			$needs = true;
 		}
 
-		// Check llms-full.txt — never handled by other plugins.
-		if ( ! $needs && 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) && ! isset( $rules['^llms-full\.txt$'] ) ) {
+		// Check llms-full.txt — requires both master llms.txt and the full toggle.
+		if ( ! $needs && $want_full && ! isset( $rules['^llms-full\.txt$'] ) ) {
 			$needs = true;
 		}
 
@@ -735,16 +733,11 @@ add_action( 'plugins_loaded', function (): void {
 
 		// Stale rules: feature OFF but our rewrite still persisted (e.g. same-request
 		// flush after a toggle used to bake in rules registered from the old value).
-		$llms_on    = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
-		$llms_other = class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::another_plugin_handles_llms_txt();
-		$want_llms  = $llms_on && ! $llms_other;
-
 		if ( ! $needs && ! $want_llms && $ours( '^llms\.txt$', 'rnrd_llms_txt' ) ) {
 			$needs = true;
 		}
 
-		if ( ! $needs && 'on' !== get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' )
-			&& $ours( '^llms-full\.txt$', 'rnrd_llms_full_txt' ) ) {
+		if ( ! $needs && ! $want_full && $ours( '^llms-full\.txt$', 'rnrd_llms_full_txt' ) ) {
 			$needs = true;
 		}
 

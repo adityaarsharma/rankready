@@ -229,7 +229,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_AI_REFERRAL_ENABLE',    'rnrd_ai_referral_enable' ); // 'on' | 'off' — master toggle.
 
 	// WebMCP — master toggle for /.well-known/mcp.json + Abilities API registration.
-	define( 'RNRD_OPT_MCP_ENABLE',            'rnrd_mcp_enable' );          // 'on' | 'off'
+	define( 'RNRD_OPT_MCP_ENABLE',            'rnrd_mcp_enable' );          // 'on' | 'off' — opt-in, default off.
 
 	// WebMCP — per-resource exposure toggles (v1.2.0-beta.6).
 	// Sensible defaults: public content ON, PII/heavy/stack-reveal resources OFF.
@@ -728,7 +728,7 @@ add_action( 'plugins_loaded', function (): void {
 		}
 
 		// Check WebMCP manifest rewrite rule (v1.2.0 — restored serving endpoint).
-		if ( ! $needs && 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' ) && ! isset( $rules['^\.well-known/mcp\.json$'] ) ) {
+		if ( ! $needs && 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'off' ) && ! isset( $rules['^\.well-known/mcp\.json$'] ) ) {
 			$needs = true;
 		}
 
@@ -753,7 +753,7 @@ add_action( 'plugins_loaded', function (): void {
 			$needs = true;
 		}
 
-		if ( ! $needs && 'on' !== get_option( RNRD_OPT_MCP_ENABLE, 'on' )
+		if ( ! $needs && 'on' !== get_option( RNRD_OPT_MCP_ENABLE, 'off' )
 			&& $ours( '^\.well-known/mcp\.json$', 'rnrd_mcp' ) ) {
 			$needs = true;
 		}
@@ -905,6 +905,9 @@ register_activation_hook( RNRD_FILE, function (): void {
 	}
 	if ( false === get_option( RNRD_OPT_MD_ENABLE ) ) {
 		update_option( RNRD_OPT_MD_ENABLE, 'off' );
+	}
+	if ( false === get_option( RNRD_OPT_MCP_ENABLE ) ) {
+		update_option( RNRD_OPT_MCP_ENABLE, 'off' );
 	}
 	if ( false === get_option( RNRD_OPT_MD_HOME_ENABLE ) ) {
 		update_option( RNRD_OPT_MD_HOME_ENABLE, 'on' );

@@ -707,9 +707,7 @@ class RNRD_Cache {
 		// At least one dynamic endpoint enabled (otherwise nothing to exclude).
 		$llms = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
 		$md   = 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
-		// Default must match RNRD_MCP::is_enabled() ('on'). Reading 'off' here made the
-		// cache-exclusion advice skip a manifest that was actually being served.
-		$mcp  = 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' );
+		$mcp  = 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'off' );
 		if ( ! $llms && ! $md && ! $mcp ) {
 			return;
 		}

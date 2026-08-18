@@ -163,11 +163,11 @@ class RNRD_MCP {
 	}
 
 	/**
-	 * Master toggle check. Defaults to enabled — agent visibility is the
-	 * core value RankReady ships, opt-out rather than opt-in.
+	 * Master toggle check. Defaults to off — WebMCP is opt-in, matching
+	 * the onboarding wizard. Sites that already saved 'on' stay on.
 	 */
 	public static function is_enabled(): bool {
-		return 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' );
+		return 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'off' );
 	}
 
 	// ── Abilities API registration ────────────────────────────────────────

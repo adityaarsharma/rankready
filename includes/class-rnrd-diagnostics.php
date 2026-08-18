@@ -530,9 +530,7 @@ class RNRD_Diagnostics {
 	}
 
 	private static function probe_mcp_manifest(): array {
-		// Default must match RNRD_MCP::is_enabled() ('on'). Reading 'off' told users
-		// WebMCP was disabled while /.well-known/mcp.json was live and serving.
-		if ( 'on' !== get_option( 'rnrd_mcp_enable', 'on' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_MCP_ENABLE, 'off' ) ) {
 			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'info',
 				'WebMCP toggle is OFF.',
 				'Enable AI Visibility → WebMCP Manifest to expose 16 abilities to Claude/Cursor/VS Code.'

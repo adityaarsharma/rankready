@@ -751,12 +751,12 @@ class RNRD_Admin {
 		) );
 
 		// v1.2.0-beta.3 — WebMCP master toggle.
-		// v1.2.0: WebMCP master is ON by default — the manifest is served and only
-		// public resources are exposed out of the box (matches is_enabled + onboarding).
+		// Opt-in: matches onboarding (unchecked until the user ticks WebMCP)
+		// and RNRD_MCP::is_enabled(). Existing rows that saved 'on' stay on.
 		register_setting( self::LLMS_GROUP, RNRD_OPT_MCP_ENABLE, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
-			'default'           => 'on',
+			'default'           => 'off',
 		) );
 
 		// v1.2.0-beta.6 — Per-resource MCP exposure toggles.
@@ -2191,7 +2191,7 @@ class RNRD_Admin {
 			);
 		}
 
-		$mcp_on = 'on' === (string) get_option( RNRD_OPT_MCP_ENABLE, 'on' );
+		$mcp_on = 'on' === (string) get_option( RNRD_OPT_MCP_ENABLE, 'off' );
 		$mcp_previews = $mcp_on
 			? array(
 				array(
@@ -2492,7 +2492,7 @@ class RNRD_Admin {
 			array(
 				'group'    => __( 'Discovery', 'rankready-ai-llm-seo' ),
 				'label'    => __( 'WebMCP manifest', 'rankready-ai-llm-seo' ),
-				'active'   => 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' ),
+				'active'   => 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'off' ),
 				'deeplink' => $tab_crawlers_webmcp,
 			),
 
@@ -4377,7 +4377,7 @@ class RNRD_Admin {
 			RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN    => 'allow',
 			RNRD_OPT_CONTENT_SIGNALS_SEARCH      => 'allow',
 			RNRD_OPT_CONTENT_SIGNALS_AI_INPUT    => 'allow',
-			RNRD_OPT_MCP_ENABLE                  => 'on',
+			RNRD_OPT_MCP_ENABLE                  => 'off',
 			RNRD_OPT_MCP_EXPOSE_POSTS            => 'on',
 			RNRD_OPT_MCP_EXPOSE_PAGES            => 'on',
 			RNRD_OPT_MCP_EXPOSE_AUTHORS          => 'on',
@@ -5076,7 +5076,7 @@ class RNRD_Admin {
 			<?php self::render_llms_preserve_hiddens( 'webmcp' ); ?>
 			<!-- ── WebMCP (v1.2.0) ─────────────────────────────────────────────── -->
 			<?php
-			$rnrd_mcp_enable     = (string) get_option( RNRD_OPT_MCP_ENABLE, 'on' );
+			$rnrd_mcp_enable     = (string) get_option( RNRD_OPT_MCP_ENABLE, 'off' );
 			$rnrd_abilities_api  = function_exists( 'wp_register_ability' );
 			$rnrd_manifest_url   = home_url( '/.well-known/mcp.json' );
 			?>
@@ -6395,7 +6395,7 @@ class RNRD_Admin {
 		if ( ! $screen || false === strpos( (string) $screen->id, 'rankready' ) ) {
 			return;
 		}
-		if ( 'on' !== get_option( RNRD_OPT_MCP_ENABLE, 'on' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_MCP_ENABLE, 'off' ) ) {
 			return;
 		}
 		if ( get_user_meta( get_current_user_id(), '_rnrd_nginx_wk_dismissed', true ) ) {

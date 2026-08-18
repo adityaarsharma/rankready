@@ -436,6 +436,13 @@ class RNRD_Markdown {
 			exit;
 		}
 
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			status_header( 404 );
+			header( 'Content-Type: text/plain; charset=utf-8' );
+			echo '# 404 Not Found';
+			exit;
+		}
+
 		// v1.1.17 — Switch to translated post if WPML / Polylang / TranslatePress
 		// resolves a translation for the active locale. Falls through to the
 		// original $post when no translation plugin is active.
@@ -563,6 +570,10 @@ class RNRD_Markdown {
 
 		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+			return;
+		}
+
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
 			return;
 		}
 
@@ -823,6 +834,10 @@ class RNRD_Markdown {
 			return;
 		}
 
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			return;
+		}
+
 		$md_url = self::get_md_url( $post );
 		echo '<link rel="alternate" type="text/markdown" href="' . esc_url( $md_url ) . '" />' . "\n";
 
@@ -865,6 +880,10 @@ class RNRD_Markdown {
 			return;
 		}
 
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			return;
+		}
+
 		$md_url = esc_url( self::get_md_url( $post ) );
 
 		// `aria-hidden` + clip-path drop the div from assistive tech and visual
@@ -892,6 +911,10 @@ class RNRD_Markdown {
 
 		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+			return;
+		}
+
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
 			return;
 		}
 

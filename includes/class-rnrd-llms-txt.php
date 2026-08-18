@@ -1766,13 +1766,13 @@ class RNRD_Llms_Txt {
 	 * @return bool True if the post should be excluded.
 	 */
 	// v1.1.5 — made public so RNRD_OKF reuses the same exclusion rules (per-post
-	// "Exclude from llms.txt" toggle + Yoast/Rank Math/AIOSEO/SEOPress noindex) as the
+	// "Exclude this post from AI surfaces" toggle + Yoast/Rank Math/AIOSEO/SEOPress noindex) as the
 	// single source of truth for what belongs on an AI-readable surface.
 	public static function should_exclude_from_llms( WP_Post $post ): bool {
 		$post_id = $post->ID;
 
 		// ── Per-post RankReady opt-out (v1.2.0) ──────────────────────────
-		// Editors can tick "Exclude from llms.txt" in the meta box.
+		// Editors can tick "Exclude this post from AI surfaces" in the meta box.
 		if ( '1' === (string) get_post_meta( $post_id, RNRD_META_LLMS_EXCLUDE, true ) ) {
 			return true;
 		}

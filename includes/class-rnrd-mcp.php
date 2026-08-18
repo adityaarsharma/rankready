@@ -699,6 +699,29 @@ class RNRD_MCP {
 		);
 	}
 
+	/**
+	 * Whether a post may appear on WebMCP surfaces.
+	 *
+	 * Same gate as llms.txt / Markdown / OKF: published, not password-protected,
+	 * and not excluded via RankReady's per-post opt-out or SEO-plugin noindex.
+	 */
+	private static function is_post_exposable( $post ): bool {
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+			return false;
+		}
+		return ! ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) );
+	}
+
+	/**
+	 * Drop excluded posts from list/search/sitemap results.
+	 *
+	 * @param WP_Post[] $posts
+	 * @return WP_Post[]
+	 */
+	private static function filter_exposable_posts( array $posts ): array {
+		return array_values( array_filter( $posts, array( self::class, 'is_post_exposable' ) ) );
+	}
+
 	public static function ability_search_posts( array $input ): array {
 		if ( $g = self::guard( 'search-posts' ) ) { return $g; }
 		$query = isset( $input['query'] ) ? (string) $input['query'] : '';
@@ -718,6 +741,7 @@ class RNRD_MCP {
 			'posts_per_page' => $limit,
 			'orderby'        => 'relevance',
 		) );
+		$posts = self::filter_exposable_posts( $posts );
 
 		$results = array();
 		foreach ( $posts as $p ) {
@@ -738,7 +762,7 @@ class RNRD_MCP {
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+		if ( ! self::is_post_exposable( $post ) ) {
 			return array( 'title' => '', 'url' => '', 'bullets' => array() );
 		}
 
@@ -763,7 +787,7 @@ class RNRD_MCP {
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+		if ( ! self::is_post_exposable( $post ) ) {
 			return array( 'title' => '', 'url' => '', 'faq' => array() );
 		}
 
@@ -797,6 +821,7 @@ class RNRD_MCP {
 			'orderby'        => 'modified',
 			'order'          => 'DESC',
 		) );
+		$posts = self::filter_exposable_posts( $posts );
 
 		$out = array();
 		foreach ( $posts as $p ) {
@@ -862,7 +887,7 @@ class RNRD_MCP {
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+		if ( ! self::is_post_exposable( $post ) ) {
 			return array( 'id' => 0, 'title' => '', 'markdown' => '' );
 		}
 		return self::post_payload( $post );
@@ -907,7 +932,7 @@ class RNRD_MCP {
 		}
 
 		$post = get_post( $post_id );
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+		if ( ! self::is_post_exposable( $post ) ) {
 			return array( 'id' => 0 );
 		}
 		return self::post_payload( $post );
@@ -929,6 +954,7 @@ class RNRD_MCP {
 			'orderby'        => 'menu_order title',
 			'order'          => 'ASC',
 		) );
+		$pages = self::filter_exposable_posts( $pages );
 
 		$out = array();
 		foreach ( $pages as $p ) {
@@ -1101,7 +1127,7 @@ class RNRD_MCP {
 		) );
 
 		$urls = array();
-		foreach ( $entries as $p ) {
+		foreach ( self::filter_exposable_posts( $entries ) as $p ) {
 			$urls[] = array(
 				'url'       => get_permalink( $p ),
 				'lastmod'   => mysql2date( 'c', $p->post_modified_gmt ),
@@ -1142,7 +1168,7 @@ class RNRD_MCP {
 		) );
 
 		$out = array();
-		foreach ( $posts as $p ) {
+		foreach ( self::filter_exposable_posts( $posts ) as $p ) {
 			$out[] = array(
 				'id'        => (int) $p->ID,
 				'title'     => html_entity_decode( get_the_title( $p ), ENT_QUOTES, 'UTF-8' ),

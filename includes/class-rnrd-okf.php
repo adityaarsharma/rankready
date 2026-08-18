@@ -350,7 +350,7 @@ class RNRD_OKF {
 		) );
 
 		// v1.1.5 — respect the SAME exclusion rules as llms.txt: the per-post
-		// "Exclude from llms.txt" toggle and SEO-plugin noindex (Yoast / Rank Math /
+		// "Exclude this post from AI surfaces" toggle and SEO-plugin noindex (Yoast / Rank Math /
 		// AIOSEO / SEOPress). A post a user has hidden from AI crawlers must not leak
 		// into the OKF bundle either. Single source of truth: RNRD_Llms_Txt.
 		if ( class_exists( 'RNRD_Llms_Txt' ) ) {

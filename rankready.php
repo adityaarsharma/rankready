@@ -222,7 +222,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_META_MAX_SNIPPET',          '_rnrd_max_snippet' );          // per-post override: 'on'|'off'|'' (inherit)
 
 	// Per-post llms.txt exclusion.
-	define( 'RNRD_META_LLMS_EXCLUDE',         '_rnrd_llms_exclude' );         // '1' = exclude this post from llms.txt
+	define( 'RNRD_META_LLMS_EXCLUDE',         '_rnrd_llms_exclude' );         // '1' = exclude from AI surfaces (llms.txt, Markdown, WebMCP, OKF)
 
 	// AI Referral Traffic — daily counts per source, rolling 30 days.
 	define( 'RNRD_OPT_AI_REFERRAL_STATS',     'rnrd_ai_referral_stats' );

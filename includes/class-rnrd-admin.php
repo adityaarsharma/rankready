@@ -6019,7 +6019,7 @@ class RNRD_Admin {
 	public static function register_meta_box(): void {
 		// Union of every post type RankReady touches — keeps the consolidated
 		// meta box visible wherever any RankReady feature applies. Reduces
-		// "where do I tick exclude from llms.txt?" support tickets.
+		// "where do I tick exclude from AI surfaces?" support tickets.
 		foreach ( self::get_meta_box_post_types() as $pt ) {
 			add_meta_box(
 				'rnrd_summary_meta',
@@ -6104,7 +6104,7 @@ class RNRD_Admin {
 					<div class="rnrd-mb__field">
 						<label>
 							<input type="checkbox" name="rnrd_llms_exclude" value="1" <?php checked( $llms_excluded ); ?> />
-							<?php esc_html_e( 'Exclude this post from llms.txt', 'rankready-ai-llm-seo' ); ?>
+							<?php esc_html_e( 'Exclude this post from AI surfaces (llms.txt, Markdown, WebMCP, OKF)', 'rankready-ai-llm-seo' ); ?>
 						</label>
 					</div>
 
@@ -6150,7 +6150,7 @@ class RNRD_Admin {
 		if ( $disabled || $llms_excluded ) {
 			$flags = array();
 			if ( $disabled )      { $flags[] = __( 'AI summary disabled', 'rankready-ai-llm-seo' ); }
-			if ( $llms_excluded ) { $flags[] = __( 'excluded from llms.txt', 'rankready-ai-llm-seo' ); }
+			if ( $llms_excluded ) { $flags[] = __( 'excluded from AI surfaces', 'rankready-ai-llm-seo' ); }
 			return array(
 				'tone'  => 'warn',
 				'icon'  => '⚠',

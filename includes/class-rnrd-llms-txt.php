@@ -478,6 +478,22 @@ class RNRD_Llms_Txt {
 		);
 	}
 
+	/**
+	 * Strip any RankReady-managed robots.txt block variants from a robots body.
+	 *
+	 * Supports the current BEGIN/END marker format plus legacy pre-marker
+	 * comment styles so upgrades and deactivation cleanup stay in sync.
+	 *
+	 * @param string $contents Raw robots.txt body.
+	 * @return string
+	 */
+	public static function strip_rankready_robots_block( string $contents ): string {
+		$contents = preg_replace( '/\n?# BEGIN RankReady\n.*?# END RankReady\n?/s', '', $contents );
+		$contents = preg_replace( '/\n?# -+ LLM.*?\(RankReady\).*?\n.*?(?=\n#[^-]|\n?$)/s', '', $contents );
+		$contents = preg_replace( '/\n?#[^\n]*LLM[^\n]*RankReady[^\n]*\n.*?(?=\n#[^-]|\n?$)/s', '', $contents );
+		return is_string( $contents ) ? $contents : '';
+	}
+
 	public static function generate_robots_block( ?string $surrounding_robots = null ): string {
 		$llms_on    = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
 		$full_on    = 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
@@ -738,13 +754,8 @@ class RNRD_Llms_Txt {
 			return;
 		}
 
-		// Remove any existing RankReady block.
-		// rc.11 — new format uses `# BEGIN RankReady` ... `# END RankReady` markers.
-		// Older formats (rc.10 and earlier) used `# -- LLM ... (RankReady) --` style.
-		// Match all 3 patterns so upgrades cleanly replace old blocks.
-		$new_contents = preg_replace( '/\n?# BEGIN RankReady\n.*?# END RankReady\n?/s', '', $contents );
-		$new_contents = preg_replace( '/\n?# -+ LLM.*?\(RankReady\).*?\n.*?(?=\n#[^-]|\n?$)/s', '', $new_contents );
-		$new_contents = preg_replace( '/\n?#[^\n]*LLM[^\n]*RankReady[^\n]*\n.*?(?=\n#[^-]|\n?$)/s', '', $new_contents );
+		// Remove any current or legacy RankReady-managed block before re-rendering.
+		$new_contents = self::strip_rankready_robots_block( $contents );
 
 		// v1.2.1 — Remove orphaned Content Signals blocks.
 		//

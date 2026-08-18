@@ -1044,7 +1044,7 @@ register_deactivation_hook( RNRD_FILE, function (): void {
 		if ( WP_Filesystem() && $wp_filesystem->exists( $robots_file ) && $wp_filesystem->is_writable( $robots_file ) ) {
 			$contents = $wp_filesystem->get_contents( $robots_file );
 			if ( false !== $contents && false !== strpos( $contents, 'RankReady' ) ) {
-				$contents = preg_replace( '/\n?#[^\n]*LLM[^\n]*RankReady[^\n]*\n.*?(?=\n#[^-]|\n?$)/s', '', $contents );
+				$contents = RNRD_Llms_Txt::strip_rankready_robots_block( $contents );
 				$contents = rtrim( $contents ) . "\n";
 				$wp_filesystem->put_contents( $robots_file, $contents, FS_CHMOD_FILE );
 			}

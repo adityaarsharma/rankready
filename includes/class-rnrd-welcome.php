@@ -200,13 +200,7 @@ class RNRD_Welcome {
 		self::seed_cpt_defaults_if_unset();
 		self::apply_feature_dependents();
 
-		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
-			RNRD_Llms_Txt::add_rewrite_rules();
-		}
-		if ( class_exists( 'RNRD_Markdown' ) ) {
-			RNRD_Markdown::add_rewrite_rules();
-		}
-		flush_rewrite_rules( false );
+		delete_transient( 'rnrd_rewrite_ok' );
 
 		update_option( self::FLAG_OPTION, time() );
 

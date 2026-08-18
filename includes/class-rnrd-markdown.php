@@ -63,8 +63,7 @@ class RNRD_Markdown {
 		// Prevent WordPress from adding trailing slash to .md URLs.
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_md_trailing_slash' ), 10, 2 );
 
-		// Flush rewrite rules when the setting changes.
-		add_action( 'update_option_' . RNRD_OPT_MD_ENABLE, array( self::class, 'flush_rules' ) );
+		// Rewrite flush: pre_update_option_* busts rnrd_rewrite_ok; admin_init self-heal flushes.
 
 		// Register query vars via named method (not anonymous closure).
 		add_filter( 'query_vars', array( self::class, 'register_query_vars' ) );
@@ -360,10 +359,6 @@ class RNRD_Markdown {
 			'index.php?rnrd_md_path=$matches[1]',
 			'top'
 		);
-	}
-
-	public static function flush_rules(): void {
-		flush_rewrite_rules( false );
 	}
 
 	// ── Handle .md URL request ───────────────────────────────────────────────

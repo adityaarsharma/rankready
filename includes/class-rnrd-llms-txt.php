@@ -96,9 +96,7 @@ class RNRD_Llms_Txt {
 		// Prevent WordPress from adding trailing slash to .txt URLs.
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_txt_trailing_slash' ), 10, 2 );
 
-		// Flush rewrite rules when settings change.
-		add_action( 'update_option_' . RNRD_OPT_LLMS_ENABLE,      array( self::class, 'flush_rules' ) );
-		add_action( 'update_option_' . RNRD_OPT_LLMS_FULL_ENABLE, array( self::class, 'flush_rules' ) );
+		// Rewrite flush: pre_update_option_* busts rnrd_rewrite_ok; admin_init self-heal flushes.
 
 		// Bust cache when posts are published/updated/deleted.
 		add_action( 'transition_post_status', array( self::class, 'bust_cache_on_status_change' ), 10, 3 );
@@ -936,10 +934,6 @@ class RNRD_Llms_Txt {
 		$vars[] = 'rnrd_llms_txt';
 		$vars[] = 'rnrd_llms_full_txt';
 		return $vars;
-	}
-
-	public static function flush_rules(): void {
-		flush_rewrite_rules( false );
 	}
 
 	// ── Request handler ───────────────────────────────────────────────────────

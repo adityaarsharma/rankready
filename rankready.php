@@ -668,16 +668,28 @@ add_action( 'plugins_loaded', function (): void {
 	add_filter( 'pre_update_option_' . RNRD_OPT_LLMS_FULL_ENABLE, function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
 	add_filter( 'pre_update_option_' . RNRD_OPT_MD_ENABLE,        function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
 	add_filter( 'pre_update_option_' . RNRD_OPT_OKF_ENABLE,       function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
+	add_filter( 'pre_update_option_' . RNRD_OPT_MCP_ENABLE,       function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
 
-	// Fix part 2: on admin page loads, detect missing rules and auto-flush.
+	// Fix part 2: on admin GET loads, detect missing or stale rules and auto-flush.
+	// Skip POST — options.php runs admin_init before saving; evaluating here would
+	// mark rewrites OK with the pre-save option and throttle the post-redirect GET.
 	// Transient throttles this to at most once per hour.
 	add_action( 'admin_init', function (): void {
+		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) {
+			return;
+		}
+
 		if ( get_transient( 'rnrd_rewrite_ok' ) ) {
 			return;
 		}
 
 		$rules = (array) get_option( 'rewrite_rules', array() );
 		$needs = false;
+
+		$ours = static function ( string $pattern, string $query_var ) use ( $rules ): bool {
+			return isset( $rules[ $pattern ] )
+				&& false !== strpos( (string) $rules[ $pattern ], $query_var );
+		};
 
 		// Check llms.txt — skip if another plugin is known to handle it.
 		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) && ! isset( $rules['^llms\.txt$'] ) ) {
@@ -717,7 +729,38 @@ add_action( 'plugins_loaded', function (): void {
 		}
 
 		// Check WebMCP manifest rewrite rule (v1.2.0 — restored serving endpoint).
-		if ( ! $needs && 'on' === get_option( 'rnrd_mcp_enable', 'on' ) && ! isset( $rules['^\.well-known/mcp\.json$'] ) ) {
+		if ( ! $needs && 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' ) && ! isset( $rules['^\.well-known/mcp\.json$'] ) ) {
+			$needs = true;
+		}
+
+		// Stale rules: feature OFF but our rewrite still persisted (e.g. same-request
+		// flush after a toggle used to bake in rules registered from the old value).
+		$llms_on    = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$llms_other = class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::another_plugin_handles_llms_txt();
+		$want_llms  = $llms_on && ! $llms_other;
+
+		if ( ! $needs && ! $want_llms && $ours( '^llms\.txt$', 'rnrd_llms_txt' ) ) {
+			$needs = true;
+		}
+
+		if ( ! $needs && 'on' !== get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' )
+			&& $ours( '^llms-full\.txt$', 'rnrd_llms_full_txt' ) ) {
+			$needs = true;
+		}
+
+		$md_pattern = '^(?!wp-admin|wp-content|wp-includes|wp-json)(.+)\.md$';
+		if ( ! $needs && 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' )
+			&& $ours( $md_pattern, 'rnrd_md_path' ) ) {
+			$needs = true;
+		}
+
+		if ( ! $needs && 'on' !== get_option( RNRD_OPT_OKF_ENABLE, 'off' )
+			&& $ours( '^okf/?$', 'rnrd_okf' ) ) {
+			$needs = true;
+		}
+
+		if ( ! $needs && 'on' !== get_option( RNRD_OPT_MCP_ENABLE, 'on' )
+			&& $ours( '^\.well-known/mcp\.json$', 'rnrd_mcp' ) ) {
 			$needs = true;
 		}
 

@@ -21,3 +21,7 @@ SCREENSHOTS.md
 .wp-env.json
 .wp-org-prefix
 ROADMAP.md
+
+# Test artefacts
+tests
+reports

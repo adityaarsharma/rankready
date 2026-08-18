@@ -140,6 +140,16 @@ class RNRD_Llms_Txt {
 		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN, array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_SEARCH,   array( self::class, 'sync_physical_robots_txt' ) );
 		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_INPUT, array( self::class, 'sync_physical_robots_txt' ) );
+		add_action( 'add_option_' . RNRD_OPT_ROBOTS_ENABLE,               array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
+		add_action( 'add_option_' . RNRD_OPT_ROBOTS_CRAWLERS,             array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
+		add_action( 'add_option_' . RNRD_OPT_ROBOTS_BLOCKED,              array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
+		add_action( 'add_option_' . RNRD_OPT_LLMS_ENABLE,                 array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
+		add_action( 'add_option_' . RNRD_OPT_LLMS_FULL_ENABLE,            array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
+		add_action( 'add_option_' . RNRD_OPT_MD_ENABLE,                   array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
+		add_action( 'add_option_' . RNRD_OPT_CONTENT_SIGNALS_ENABLE,      array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
+		add_action( 'add_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN,    array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
+		add_action( 'add_option_' . RNRD_OPT_CONTENT_SIGNALS_SEARCH,      array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
+		add_action( 'add_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_INPUT,    array( self::class, 'sync_physical_robots_txt' ), 10, 0 );
 
 		// v1.2.1 — Derive the two legacy crawler arrays whenever the Allow /
 		// Default / Block map changes. Registered here rather than in RNRD_Admin

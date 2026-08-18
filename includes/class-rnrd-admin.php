@@ -392,8 +392,9 @@ class RNRD_Admin {
 		wp_enqueue_style( 'rnrd-admin', RNRD_URL . 'assets/admin.css', array( 'rnrd-design-tokens' ), $admin_ver );
 		wp_enqueue_script( 'rnrd-admin', RNRD_URL . 'assets/admin.js', array(), $js_ver, true );
 		wp_localize_script( 'rnrd-admin', 'rnrdAdmin', array(
-			'nonce'   => wp_create_nonce( 'wp_rest' ),
-			'apiBase' => rest_url( 'rankready/v1' ),
+			'nonce'           => wp_create_nonce( 'wp_rest' ),
+			'apiBase'         => rest_url( 'rankready/v1' ),
+			'minOnePostType'  => __( 'Select at least one post type.', 'rankready-ai-llm-seo' ),
 		) );
 
 		// v1.1.0 — Inline Cloudflare card controller. Kept inline so the card's
@@ -3788,7 +3789,7 @@ class RNRD_Admin {
 						<th scope="row"><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
 							<?php $selected_types = (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ); ?>
-							<div class="rnrd-checkboxes-inline">
+							<fieldset class="rnrd-checkboxes-inline" data-rnrd-min-one-checkboxes>
 								<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
 									<label>
 										<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_POST_TYPES ); ?>[]"
@@ -3797,9 +3798,9 @@ class RNRD_Admin {
 										<?php echo esc_html( $label ); ?>
 									</label>
 								<?php endforeach; ?>
-							</div>
+							</fieldset>
 								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
-							<p class="description"><?php esc_html_e( 'Summaries will only auto-generate for selected post types.', 'rankready-ai-llm-seo' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Summaries will only auto-generate for selected post types. At least one post type is required.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -4719,6 +4720,7 @@ class RNRD_Admin {
 							<th scope="row"><?php esc_html_e( 'Include Post Types', 'rankready-ai-llm-seo' ); ?></th>
 							<td>
 								<?php $llms_types = (array) get_option( RNRD_OPT_LLMS_POST_TYPES, array( 'post', 'page' ) ); ?>
+								<fieldset data-rnrd-min-one-checkboxes>
 								<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
 									<label style="display:block;margin-bottom:4px;">
 										<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_LLMS_POST_TYPES ); ?>[]"
@@ -4727,8 +4729,9 @@ class RNRD_Admin {
 										<?php echo esc_html( $label ); ?>
 									</label>
 								<?php endforeach; ?>
+								</fieldset>
 								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
-								<p class="description"><?php esc_html_e( 'Which post types to list in llms.txt as file lists.', 'rankready-ai-llm-seo' ); ?></p>
+								<p class="description"><?php esc_html_e( 'Which post types to list in llms.txt as file lists. At least one post type is required.', 'rankready-ai-llm-seo' ); ?></p>
 							</td>
 						</tr>
 						<tr>
@@ -4904,6 +4907,7 @@ class RNRD_Admin {
 							<th scope="row"><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></th>
 							<td>
 								<?php $md_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) ); ?>
+								<fieldset data-rnrd-min-one-checkboxes>
 								<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
 									<label style="display:block;margin-bottom:4px;">
 										<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MD_POST_TYPES ); ?>[]"
@@ -4912,6 +4916,7 @@ class RNRD_Admin {
 										<?php echo esc_html( $label ); ?>
 									</label>
 								<?php endforeach; ?>
+								</fieldset>
 								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
 							</td>
 						</tr>
@@ -5240,6 +5245,7 @@ class RNRD_Admin {
 						<th scope="row"><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
 							<?php $faq_types = (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ); ?>
+							<fieldset data-rnrd-min-one-checkboxes>
 							<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
 								<label style="display:block;margin-bottom:4px;">
 									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_FAQ_POST_TYPES ); ?>[]"
@@ -5248,8 +5254,9 @@ class RNRD_Admin {
 									<?php echo esc_html( $label ); ?>
 								</label>
 							<?php endforeach; ?>
+							</fieldset>
 								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
-							<p class="description"><?php esc_html_e( 'FAQ will be generated for these post types.', 'rankready-ai-llm-seo' ); ?></p>
+							<p class="description"><?php esc_html_e( 'FAQ will be generated for these post types. At least one post type is required.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -5892,12 +5899,14 @@ class RNRD_Admin {
 						<th scope="row"><?php esc_html_e( 'Include post types', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
 							<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_OKF_POST_TYPES ); ?>[]" value="" />
+							<fieldset data-rnrd-min-one-checkboxes>
 							<?php foreach ( self::get_allowed_post_types() as $okf_pt_slug => $okf_pt_label ) : ?>
 								<label style="display:block;margin-bottom:4px;">
 									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_OKF_POST_TYPES ); ?>[]" value="<?php echo esc_attr( $okf_pt_slug ); ?>" <?php checked( in_array( $okf_pt_slug, $sel_types, true ) ); ?> />
 									<?php echo esc_html( $okf_pt_label ); ?>
 								</label>
 							<?php endforeach; ?>
+							</fieldset>
 							<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
 						</td>
 					</tr>

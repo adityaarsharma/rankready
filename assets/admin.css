@@ -272,6 +272,18 @@
 	gap: 6px 20px;
 }
 
+fieldset[data-rnrd-min-one-checkboxes] {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	min-width: 0;
+}
+
+.rnrd-form-table .description.rnrd-min-one-hint,
+.rnrd-card .rnrd-form-table .description.rnrd-min-one-hint {
+	color: var(--rnrd-error);
+}
+
 .rnrd-checkboxes-inline label {
 	display: flex;
 	align-items: center;

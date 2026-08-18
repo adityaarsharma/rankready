@@ -1412,4 +1412,48 @@
 	}
 	initFreshnessWidget();
 
+	/* ═══════════════════════════════════════════════════════════════════════
+	 * MIN-ONE POST TYPE CHECKBOX GROUPS
+	 * Unchecking the last box is blocked immediately so Settings API
+	 * sanitizers cannot silently re-check "Post" after save.
+	 * ═══════════════════════════════════════════════════════════════════════ */
+
+	function bindMinOneCheckboxGroups() {
+		var fallback = ( window.rnrdAdmin && rnrdAdmin.minOnePostType )
+			? rnrdAdmin.minOnePostType
+			: 'Select at least one post type.';
+
+		document.querySelectorAll( '[data-rnrd-min-one-checkboxes]' ).forEach( function ( group ) {
+			var boxes = group.querySelectorAll( 'input[type="checkbox"][value]' );
+			if ( ! boxes.length ) {
+				return;
+			}
+			var hint = group.parentNode
+				? group.parentNode.querySelector( '.rnrd-min-one-hint' )
+				: null;
+			if ( ! hint ) {
+				hint = document.createElement( 'p' );
+				hint.className = 'description rnrd-min-one-hint';
+				hint.hidden = true;
+				group.insertAdjacentElement( 'afterend', hint );
+			}
+			var msg = group.getAttribute( 'data-rnrd-min-one-hint' ) || fallback;
+
+			boxes.forEach( function ( cb ) {
+				cb.addEventListener( 'change', function () {
+					var checked = group.querySelectorAll( 'input[type="checkbox"][value]:checked' );
+					if ( checked.length ) {
+						hint.hidden = true;
+						hint.textContent = '';
+						return;
+					}
+					cb.checked = true;
+					hint.textContent = msg;
+					hint.hidden = false;
+				} );
+			} );
+		} );
+	}
+	bindMinOneCheckboxGroups();
+
 } )();

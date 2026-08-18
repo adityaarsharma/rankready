@@ -2072,19 +2072,20 @@ class RNRD_Admin {
 			),
 		);
 
-		$robots_on    = 'on' === (string) get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
-		$all_bots     = class_exists( 'RNRD_Llms_Txt' ) ? RNRD_Llms_Txt::get_llm_crawlers() : array();
-		$bot_total    = count( $all_bots );
-		$allowed_opt  = get_option( RNRD_OPT_ROBOTS_CRAWLERS, null );
-		$bots_allowed = ( null === $allowed_opt )
-			? $bot_total
-			: count( array_filter( (array) $allowed_opt ) );
+		$robots_on      = 'on' === (string) get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
+		$robots_mode    = self::get_robots_mode();
+		$bots_allowed   = count( array_filter( $robots_mode, static function ( string $state ): bool {
+			return 'allow' === $state;
+		} ) );
+		$bots_blocked   = count( array_filter( $robots_mode, static function ( string $state ): bool {
+			return 'block' === $state;
+		} ) );
 		$robots_meta = $robots_on
 			? sprintf(
-				/* translators: 1: allowed bots, 2: total bots */
-				__( '%1$d of %2$d crawlers allowed', 'rankready-ai-llm-seo' ),
+				/* translators: 1: allowed crawler count, 2: blocked crawler count */
+				__( '%1$d crawlers allowed · %2$d blocked', 'rankready-ai-llm-seo' ),
 				(int) $bots_allowed,
-				(int) $bot_total
+				(int) $bots_blocked
 			)
 			: __( 'Allow or block named AI crawlers in robots.txt', 'rankready-ai-llm-seo' );
 
@@ -2095,27 +2096,43 @@ class RNRD_Admin {
 			),
 		);
 
-		$signals_on  = 'on' === (string) get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' );
-		$signal_bits = array();
+		$signals_on      = 'on' === (string) get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' );
+		$signal_allowed  = array();
+		$signal_denied   = array();
 		if ( $signals_on ) {
 			if ( 'allow' === (string) get_option( RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN, 'allow' ) ) {
-				$signal_bits[] = __( 'train', 'rankready-ai-llm-seo' );
+				$signal_allowed[] = __( 'ai-train', 'rankready-ai-llm-seo' );
+			} else {
+				$signal_denied[] = __( 'ai-train', 'rankready-ai-llm-seo' );
 			}
 			if ( 'allow' === (string) get_option( RNRD_OPT_CONTENT_SIGNALS_SEARCH, 'allow' ) ) {
-				$signal_bits[] = __( 'search', 'rankready-ai-llm-seo' );
+				$signal_allowed[] = __( 'search', 'rankready-ai-llm-seo' );
+			} else {
+				$signal_denied[] = __( 'search', 'rankready-ai-llm-seo' );
 			}
 			if ( 'allow' === (string) get_option( RNRD_OPT_CONTENT_SIGNALS_AI_INPUT, 'allow' ) ) {
-				$signal_bits[] = __( 'input', 'rankready-ai-llm-seo' );
+				$signal_allowed[] = __( 'ai-input', 'rankready-ai-llm-seo' );
+			} else {
+				$signal_denied[] = __( 'ai-input', 'rankready-ai-llm-seo' );
 			}
 		}
-		if ( $signals_on && $signal_bits ) {
-			$signals_meta = sprintf(
-				/* translators: %s: comma-separated usage modes (train, search, input) */
-				__( 'AI engines can use your content for: %s', 'rankready-ai-llm-seo' ),
-				implode( ', ', $signal_bits )
-			);
-		} elseif ( $signals_on ) {
-			$signals_meta = __( 'Content Signals directives are in robots.txt', 'rankready-ai-llm-seo' );
+		if ( $signals_on ) {
+			$signal_meta_parts = array();
+			if ( $signal_allowed ) {
+				$signal_meta_parts[] = sprintf(
+					/* translators: %s: comma-separated allowed signal directives */
+					__( 'Allowed: %s', 'rankready-ai-llm-seo' ),
+					implode( ', ', $signal_allowed )
+				);
+			}
+			if ( $signal_denied ) {
+				$signal_meta_parts[] = sprintf(
+					/* translators: %s: comma-separated denied signal directives */
+					__( 'Denied: %s', 'rankready-ai-llm-seo' ),
+					implode( ', ', $signal_denied )
+				);
+			}
+			$signals_meta = implode( ' · ', $signal_meta_parts );
 		} else {
 			$signals_meta = __( 'Tell AI engines how they may use your content for training, search, and input', 'rankready-ai-llm-seo' );
 		}

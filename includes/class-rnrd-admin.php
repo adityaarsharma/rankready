@@ -2209,6 +2209,11 @@ class RNRD_Admin {
 		}
 		$signals_previews = $signals_on ? $robots_previews : array();
 
+		$snippet_on = 'on' === (string) get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' );
+		$snippet_meta = $snippet_on
+			? __( 'Full snippet (max-snippet:-1) by default', 'rankready-ai-llm-seo' )
+			: __( 'Standard snippet by default — AI quotes stay capped', 'rankready-ai-llm-seo' );
+
 		// llms-full is an extension of llms.txt — only preview when the base endpoint is on.
 		$llms_on       = 'on' === (string) get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
 		$full_on       = 'on' === (string) get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
@@ -2315,6 +2320,14 @@ class RNRD_Admin {
 				'meta_lines' => array( $signals_meta ),
 				'configure'  => $robots_url,
 				'previews'   => $signals_previews,
+			),
+			array(
+				'label'      => __( 'AI Snippet', 'rankready-ai-llm-seo' ),
+				'on'         => $snippet_on,
+				'status'     => $snippet_on ? '' : $off_label,
+				'meta_lines' => array( $snippet_meta ),
+				'configure'  => $robots_url,
+				'previews'   => array(),
 			),
 			array(
 				'label'      => __( 'LLMs.txt Generator', 'rankready-ai-llm-seo' ),
@@ -2588,9 +2601,7 @@ class RNRD_Admin {
 			),
 			array(
 				'group'    => __( 'Content AI', 'rankready-ai-llm-seo' ),
-				'label'    => __( 'max-snippet:-1 default', 'rankready-ai-llm-seo' ),
-				'active'   => 'on' === get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_crawlers_robots,
 			),
 
 			// ── Brand Authority (4) ──────────────────────────────────────────
@@ -4439,11 +4450,6 @@ class RNRD_Admin {
 			'<input type="hidden" name="%1$s" value="on" />' . "\n",
 			esc_attr( RNRD_OPT_AI_REFERRAL_ENABLE )
 		);
-		printf(
-			'<input type="hidden" name="%1$s" value="%2$s" />' . "\n",
-			esc_attr( RNRD_OPT_MAX_SNIPPET_DEFAULT ),
-			esc_attr( (string) get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' ) )
-		);
 
 		$view_opts = array(
 			'robots'   => array(
@@ -4452,6 +4458,7 @@ class RNRD_Admin {
 				RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN,
 				RNRD_OPT_CONTENT_SIGNALS_SEARCH,
 				RNRD_OPT_CONTENT_SIGNALS_AI_INPUT,
+				RNRD_OPT_MAX_SNIPPET_DEFAULT,
 			),
 			'llms'     => array(
 				RNRD_OPT_LLMS_ENABLE,
@@ -4501,6 +4508,7 @@ class RNRD_Admin {
 			RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN    => 'allow',
 			RNRD_OPT_CONTENT_SIGNALS_SEARCH      => 'allow',
 			RNRD_OPT_CONTENT_SIGNALS_AI_INPUT    => 'allow',
+			RNRD_OPT_MAX_SNIPPET_DEFAULT         => 'on',
 			RNRD_OPT_MCP_ENABLE                  => 'off',
 			RNRD_OPT_MCP_EXPOSE_POSTS            => 'on',
 			RNRD_OPT_MCP_EXPOSE_PAGES            => 'on',
@@ -4846,6 +4854,29 @@ class RNRD_Admin {
 					</table>
 				</div>
 				<?php submit_button( __( 'Save Content Signals', 'rankready-ai-llm-seo' ), 'primary', 'submit_signals', false ); ?>
+			</div>
+			<!-- AI Snippet (site-wide default; per-post override is the Visibility metabox) -->
+			<?php $snippet_default = (string) get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' ); ?>
+			<div class="rnrd-card">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Snippet', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Allow AI engines to quote the full passage (max-snippet:-1) instead of the ~160-character cap.', 'rankready-ai-llm-seo' ); ?></p>
+
+				<table class="form-table rnrd-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Default for new posts', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<label class="rnrd-toggle">
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_MAX_SNIPPET_DEFAULT ); ?>"
+									   value="on" <?php checked( $snippet_default, 'on' ); ?> />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Allow full snippet (max-snippet:-1)', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<p class="description">
+								<?php esc_html_e( 'When on, RankReady adds max-snippet:-1, max-image-preview:large, and max-video-preview:-1 to the page robots meta. Posts marked noindex are skipped. Each post can still override this under RankReady: AI Visibility (Use default / Allow full snippet / Standard snippet only).', 'rankready-ai-llm-seo' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button( __( 'Save AI Snippet', 'rankready-ai-llm-seo' ), 'primary', 'submit_snippet', false ); ?>
 			</div>
 
 		</form>

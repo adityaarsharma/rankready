@@ -17,6 +17,7 @@ class RNRD_Metabox {
 
 	public static function init(): void {
 		add_action( 'add_meta_boxes', array( self::class, 'register' ) );
+		add_action( 'add_meta_boxes', array( self::class, 'register_postbox_classes' ), 20 );
 		add_action( 'save_post',      array( self::class, 'save' ) );
 	}
 
@@ -89,6 +90,49 @@ class RNRD_Metabox {
 				'default'
 			);
 		}
+	}
+
+	/**
+	 * Whether the current post-edit screen is the block editor.
+	 *
+	 * Classic Editor (plugin or per-post switch) stays false so those boxes
+	 * keep WordPress's default open state.
+	 */
+	private static function is_block_editor_screen(): bool {
+		if ( ! function_exists( 'use_block_editor_for_post' ) ) {
+			return false;
+		}
+		$post = get_post();
+		if ( $post instanceof WP_Post ) {
+			return (bool) use_block_editor_for_post( $post );
+		}
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		return $screen && ! empty( $screen->is_block_editor );
+	}
+
+	/**
+	 * Mark RankReady boxes so block-editor CSS can target them, and start
+	 * them collapsed in Gutenberg (native document panels start closed).
+	 */
+	public static function register_postbox_classes(): void {
+		$ids = array( 'rnrd_summary_meta', 'rnrd_faq_meta', 'rnrd_visibility_meta' );
+		foreach ( self::get_post_types() as $pt ) {
+			foreach ( $ids as $id ) {
+				add_filter( "postbox_classes_{$pt}_{$id}", array( self::class, 'postbox_classes' ) );
+			}
+		}
+	}
+
+	/**
+	 * @param string[] $classes
+	 * @return string[]
+	 */
+	public static function postbox_classes( array $classes ): array {
+		$classes[] = 'rnrd-postbox';
+		if ( self::is_block_editor_screen() ) {
+			$classes[] = 'closed';
+		}
+		return $classes;
 	}
 
 	/**

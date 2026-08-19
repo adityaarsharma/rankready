@@ -123,6 +123,53 @@
 .rnrd-mb__faq-list strong { display: block; margin-bottom: 2px; }
 .rnrd-mb__faq-a { display: block; font-size: 11px; color: var(--rnrd-text-tertiary, #6B716D); }
 
+/* Block editor only — classic metabox shell → document-sidebar panel.
+ * Classic Editor is unchanged: no .block-editor-page on body. */
+body.block-editor-page .rnrd-postbox.postbox {
+	border: none;
+	border-top: 1px solid #e0e0e0;
+	border-radius: 0;
+	box-shadow: none;
+	background: transparent;
+	margin: 0;
+}
+body.block-editor-page .rnrd-postbox.postbox:last-of-type {
+	border-bottom: 1px solid #e0e0e0;
+}
+body.block-editor-page .rnrd-postbox .postbox-header {
+	border: none;
+	background: transparent;
+	min-height: 48px;
+}
+body.block-editor-page .rnrd-postbox .postbox-header .hndle {
+	font-size: 13px !important;
+	font-weight: 500 !important;
+	padding: 16px 16px 16px 16px !important;
+	cursor: pointer;
+}
+body.block-editor-page .rnrd-postbox .handle-order-higher:focus, body.block-editor-page .rnrd-postbox .handle-order-lower:focus, body.block-editor-page .rnrd-postbox .handlediv:focus {
+	outline: none !important;
+	box-shadow: none !important;
+}
+body.block-editor-page .rnrd-postbox .handle-order-higher,
+body.block-editor-page .rnrd-postbox .handle-order-lower {
+	display: none;
+}
+body.block-editor-page .rnrd-postbox .handlediv {
+	height: 48px;
+	width: 48px;
+}
+body.block-editor-page .rnrd-postbox .inside {
+	margin: 0;
+	padding: 0 16px 16px;
+}
+body.block-editor-page .rnrd-postbox.closed .inside {
+	display: none;
+}
+body.block-editor-page .rnrd-mb__desc {
+	margin-top: 0;
+}
+
 
 /* ── v1.1.0 — Author Profile card (was scattered on user-edit screen)
  * Wraps the author box section in a clean card with proper section spacing.

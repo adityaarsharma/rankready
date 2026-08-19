@@ -57,8 +57,11 @@ class RNRD_Shortcode {
 	 * @param array<string,mixed>|string $atts
 	 */
 	public static function render_summary( $atts = array() ): string {
+		if ( ! class_exists( 'RNRD_Block' ) || ! RNRD_Block::is_summary_enabled() ) {
+			return '';
+		}
 		$post_id = get_the_ID();
-		if ( ! $post_id || ! class_exists( 'RNRD_Block' ) ) {
+		if ( ! $post_id ) {
 			return '';
 		}
 		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
@@ -72,8 +75,11 @@ class RNRD_Shortcode {
 	 * @param array<string,mixed>|string $atts
 	 */
 	public static function render_faq( $atts = array() ): string {
+		if ( ! class_exists( 'RNRD_Faq' ) || ! RNRD_Faq::is_enabled() ) {
+			return '';
+		}
 		$post_id = get_the_ID();
-		if ( ! $post_id || ! class_exists( 'RNRD_Faq' ) ) {
+		if ( ! $post_id ) {
 			return '';
 		}
 		$faq_data = RNRD_Faq::get_faq_data( (int) $post_id );
@@ -87,10 +93,7 @@ class RNRD_Shortcode {
 	 * @param array<string,mixed>|string $atts
 	 */
 	public static function render_author( $atts = array() ): string {
-		if ( 'on' !== get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' ) ) {
-			return '';
-		}
-		if ( ! class_exists( 'RNRD_Author_Box' ) ) {
+		if ( ! class_exists( 'RNRD_Author_Box' ) || ! RNRD_Author_Box::is_enabled() ) {
 			return '';
 		}
 		$post_id = get_the_ID();

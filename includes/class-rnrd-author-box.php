@@ -16,6 +16,14 @@ defined( 'ABSPATH' ) || exit;
 
 class RNRD_Author_Box {
 
+	/**
+	 * Frontend output for the Author Box (block, widget, shortcode, auto-display).
+	 * Profile fields and Person schema stay available when this is off.
+	 */
+	public static function is_enabled(): bool {
+		return 'on' === get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' );
+	}
+
 	// ── All profile field meta keys (user meta) ──────────────────────────────
 	// Kept as a single map so register_meta(), render(), schema build, and
 	// uninstall all read from the same source of truth.
@@ -1333,7 +1341,7 @@ class RNRD_Author_Box {
 
 	public static function maybe_auto_display( $content ) {
 		if ( ! is_singular() || ! is_main_query() || ! in_the_loop() ) return $content;
-		if ( 'on' !== get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' ) ) return $content;
+		if ( ! self::is_enabled() ) return $content;
 
 		$position = (string) get_option( RNRD_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
 		if ( 'off' === $position ) return $content;
@@ -1375,6 +1383,9 @@ class RNRD_Author_Box {
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function render_block( $attrs, $content = '', $block = null ): string {
+		if ( ! self::is_enabled() ) {
+			return '';
+		}
 		$post_id = get_the_ID();
 		if ( ! $post_id ) return '';
 

@@ -284,6 +284,9 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 	}
 
 	protected function render(): void {
+		if ( class_exists( 'RNRD_Block' ) && ! RNRD_Block::is_summary_enabled() ) {
+			return;
+		}
 		$settings = $this->get_settings_for_display();
 		$post_id  = get_the_ID();
 

@@ -103,7 +103,10 @@ class RNRD_Metabox {
 	/**
 	 * One-line frontend placement for the generate meta boxes.
 	 */
-	private static function placement_label( bool $auto, string $position, string $shortcode ): string {
+	private static function placement_label( bool $enabled, bool $auto, string $position, string $shortcode ): string {
+		if ( ! $enabled ) {
+			return __( 'Hidden on frontend', 'rankready-ai-llm-seo' );
+		}
 		if ( ! $auto ) {
 			return sprintf(
 				/* translators: %s: shortcode like [rankready_summary] */
@@ -251,7 +254,12 @@ class RNRD_Metabox {
 			<?php
 			self::render_footer(
 				$has_key,
-				self::placement_label( $summary_auto, $summary_pos, RNRD_Shortcode::tag( RNRD_Shortcode::SUMMARY ) ),
+				self::placement_label(
+					class_exists( 'RNRD_Block' ) && RNRD_Block::is_summary_enabled(),
+					$summary_auto,
+					$summary_pos,
+					RNRD_Shortcode::tag( RNRD_Shortcode::SUMMARY )
+				),
 				admin_url( 'admin.php?page=' . self::SETTINGS_SLUG . '&tab=content&sub=summary' )
 			);
 			?>
@@ -334,7 +342,12 @@ class RNRD_Metabox {
 			<?php
 			self::render_footer(
 				$has_key,
-				self::placement_label( $faq_auto, $faq_pos, RNRD_Shortcode::tag( RNRD_Shortcode::FAQ ) ),
+				self::placement_label(
+					class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled(),
+					$faq_auto,
+					$faq_pos,
+					RNRD_Shortcode::tag( RNRD_Shortcode::FAQ )
+				),
 				admin_url( 'admin.php?page=' . self::SETTINGS_SLUG . '&tab=content&sub=faq' )
 			);
 			?>

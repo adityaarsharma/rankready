@@ -578,6 +578,12 @@ class RNRD_Admin {
 			'default'           => 'off',
 		) );
 
+		register_setting( self::CONTENT_GROUP, RNRD_OPT_SUMMARY_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+
 		register_setting( self::CONTENT_GROUP, RNRD_OPT_AUTO_DISPLAY, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_auto_display' ),
@@ -886,6 +892,12 @@ class RNRD_Admin {
 			'type'              => 'string',
 			'sanitize_callback' => 'sanitize_textarea_field',
 			'default'           => '',
+		) );
+
+		register_setting( self::FAQ_GROUP, RNRD_OPT_FAQ_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
 		) );
 
 		register_setting( self::FAQ_GROUP, RNRD_OPT_FAQ_AUTO_DISPLAY, array(
@@ -1712,8 +1724,10 @@ class RNRD_Admin {
 			)
 		);
 
-		$author_on = 'on' === get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' );
-		$api_set   = RNRD_LLM::active_provider_ready();
+		$author_on  = 'on' === get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' );
+		$summary_on = 'on' === get_option( RNRD_OPT_SUMMARY_ENABLE, 'on' );
+		$faq_on     = 'on' === get_option( RNRD_OPT_FAQ_ENABLE, 'on' );
+		$api_set    = RNRD_LLM::active_provider_ready();
 
 		// AI Content tile status (cheap option reads — no extra DB counts).
 		$summary_types = array_values( array_filter( (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ) ) );
@@ -1813,7 +1827,7 @@ class RNRD_Admin {
 					</div>
 					<div class="rnrd-kpi__period"><?php echo esc_html( self::dash_post_types_meta( $summary_types ) ); ?></div>
 					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $summary_count ) ); ?></div>
-					<div class="rnrd-kpi__foot"><?php echo esc_html( self::dash_auto_placement_label( $summary_place ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php echo esc_html( $summary_on ? self::dash_auto_placement_label( $summary_place ) : __( 'Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></div>
 				</a>
 				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_faq_url ); ?>" aria-label="<?php esc_attr_e( 'AI FAQ Generator — open AI Content', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">
@@ -1822,7 +1836,7 @@ class RNRD_Admin {
 					</div>
 					<div class="rnrd-kpi__period"><?php echo esc_html( self::dash_post_types_meta( $faq_types ) ); ?></div>
 					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $faq_count ) ); ?></div>
-					<div class="rnrd-kpi__foot"><?php echo esc_html( self::dash_auto_placement_label( $faq_place ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php echo esc_html( $faq_on ? self::dash_auto_placement_label( $faq_place ) : __( 'Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></div>
 				</a>
 				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_author_url ); ?>" aria-label="<?php esc_attr_e( 'Author Box (E-E-A-T) — open AI Content', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">
@@ -1831,7 +1845,7 @@ class RNRD_Admin {
 					</div>
 					<div class="rnrd-kpi__period"><?php echo $author_on ? esc_html( self::dash_post_types_meta( $author_types ) ) : esc_html__( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
 					<div class="rnrd-kpi__value"><?php echo $author_on ? esc_html__( 'On', 'rankready-ai-llm-seo' ) : esc_html__( 'Off', 'rankready-ai-llm-seo' ); ?></div>
-					<div class="rnrd-kpi__foot"><?php echo esc_html( $author_on ? self::dash_auto_placement_label( $author_place ) : __( 'Feature disabled', 'rankready-ai-llm-seo' ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php echo esc_html( $author_on ? self::dash_auto_placement_label( $author_place ) : __( 'Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></div>
 				</a>
 				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_schema_url ); ?>" aria-label="<?php esc_attr_e( 'Schema — open AI Content', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">
@@ -3912,6 +3926,18 @@ class RNRD_Admin {
 
 				<table class="form-table rnrd-form-table">
 					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable AI Summary', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<?php $summary_enable = (string) get_option( RNRD_OPT_SUMMARY_ENABLE, 'on' ); ?>
+							<label class="rnrd-toggle">
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_SUMMARY_ENABLE ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_SUMMARY_ENABLE ); ?>" value="on" <?php checked( $summary_enable, 'on' ); ?> />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Show summaries on the frontend', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<p class="description"><?php esc_html_e( 'When off, summaries stay hidden (block, widget, shortcode, and auto-display). Generated text is still used in llms.txt, Markdown, and WebMCP.', 'rankready-ai-llm-seo' ); ?></p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><?php esc_html_e( 'Auto Display', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
 							<?php $auto_display = (string) get_option( RNRD_OPT_AUTO_DISPLAY, 'off' ); ?>
@@ -4023,9 +4049,11 @@ class RNRD_Admin {
 						<th><?php esc_html_e( 'Enable Author Box', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
 							<label class="rnrd-toggle">
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_ENABLE ); ?>" value="off" />
 								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_ENABLE ); ?>" value="on" <?php checked( $enable, 'on' ); ?> />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Master toggle for the Author Box feature (block, Elementor widget, shortcode, schema, auto-display).', 'rankready-ai-llm-seo' ); ?></span>
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Show the author box on the frontend', 'rankready-ai-llm-seo' ); ?></span>
 							</label>
+							<p class="description"><?php esc_html_e( 'When off, the author box is hidden (block, widget, shortcode, and auto-display). Profile data is kept.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -5457,6 +5485,18 @@ class RNRD_Admin {
 				?></p>
 
 				<table class="form-table rnrd-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable AI FAQ', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<?php $faq_enable = (string) get_option( RNRD_OPT_FAQ_ENABLE, 'on' ); ?>
+							<label class="rnrd-toggle">
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_FAQ_ENABLE ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_FAQ_ENABLE ); ?>" value="on" <?php checked( $faq_enable, 'on' ); ?> />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Show FAQs on the frontend', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<p class="description"><?php esc_html_e( 'When off, FAQs stay hidden (block, widget, shortcode, and auto-display). Generated Q&A is still used in Markdown and other AI surfaces.', 'rankready-ai-llm-seo' ); ?></p>
+						</td>
+					</tr>
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Auto Display', 'rankready-ai-llm-seo' ); ?></th>
 						<td>

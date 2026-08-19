@@ -19,6 +19,14 @@ defined( 'ABSPATH' ) || exit;
 
 class RNRD_Faq {
 
+	/**
+	 * Frontend output for AI FAQ (block, widget, shortcode, auto-display, FAQPage schema).
+	 * Generated Q&A still feeds Markdown and other AI surfaces when this is off.
+	 */
+	public static function is_enabled(): bool {
+		return 'on' === get_option( RNRD_OPT_FAQ_ENABLE, 'on' );
+	}
+
 	public static function init(): void {
 		// Auto-display FAQ via the_content filter.
 		add_filter( 'the_content', array( self::class, 'auto_display_faq' ), 95 );
@@ -39,6 +47,9 @@ class RNRD_Faq {
 	 * Auto-append FAQ below/above content if enabled.
 	 */
 	public static function auto_display_faq( string $content ): string {
+		if ( ! self::is_enabled() ) {
+			return $content;
+		}
 		if ( 'on' !== get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' ) ) {
 			return $content;
 		}
@@ -163,6 +174,9 @@ class RNRD_Faq {
 	 * - No FAQ data exists for the post
 	 */
 	public static function inject_faq_schema(): void {
+		if ( ! self::is_enabled() ) {
+			return;
+		}
 		if ( 'on' !== get_option( RNRD_OPT_SCHEMA_FAQ, 'on' ) ) {
 			return;
 		}

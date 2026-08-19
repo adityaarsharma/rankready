@@ -282,6 +282,9 @@ class RNRD_Elementor_Author_Box_Widget extends \Elementor\Widget_Base {
 	}
 
 	protected function render(): void {
+		if ( class_exists( 'RNRD_Author_Box' ) && ! RNRD_Author_Box::is_enabled() ) {
+			return;
+		}
 		$settings = $this->get_settings_for_display();
 
 		$source  = isset( $settings['author_source'] ) ? $settings['author_source'] : 'post';

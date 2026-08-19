@@ -9,6 +9,14 @@ defined( 'ABSPATH' ) || exit;
 
 class RNRD_Block {
 
+	/**
+	 * Frontend output for AI Summary (block, widget, shortcode, auto-display).
+	 * Generated summaries still feed llms.txt / Markdown / WebMCP when this is off.
+	 */
+	public static function is_summary_enabled(): bool {
+		return 'on' === get_option( RNRD_OPT_SUMMARY_ENABLE, 'on' );
+	}
+
 	public static function init(): void {
 		add_action( 'init',                        array( self::class, 'register_block' ) );
 		add_action( 'init',                        array( self::class, 'register_faq_block' ) );
@@ -164,6 +172,9 @@ class RNRD_Block {
 	// ── FAQ server-side render ────────────────────────────────────────────────
 
 	public static function render_faq( $attrs, $content = '', $block = null ): string {
+		if ( ! RNRD_Faq::is_enabled() ) {
+			return '';
+		}
 		$post_id = get_the_ID();
 		if ( ! $post_id ) {
 			return '';
@@ -293,6 +304,9 @@ class RNRD_Block {
 	// ── Server-side render ────────────────────────────────────────────────────
 
 	public static function render( $attrs, $content = '', $block = null ): string {
+		if ( ! self::is_summary_enabled() ) {
+			return '';
+		}
 		$post_id = get_the_ID();
 		if ( ! $post_id ) {
 			return '';
@@ -452,6 +466,9 @@ class RNRD_Block {
 	// ── Auto-display via the_content filter ───────────────────────────────────
 
 	public static function maybe_auto_display( $content ): string {
+		if ( ! self::is_summary_enabled() ) {
+			return $content;
+		}
 		if ( ! is_singular() || ! is_main_query() || ! in_the_loop() ) {
 			return $content;
 		}
@@ -876,10 +893,10 @@ class RNRD_Block {
 		// ── 1. Speakable — voice search / Google Assistant ─────────────
 		if ( 'on' === get_option( RNRD_OPT_SCHEMA_SPEAKABLE, 'on' ) ) {
 			$speakable_selectors = array( 'h1', '.entry-title' );
-			if ( ! empty( get_post_meta( $post_id, RNRD_META_SUMMARY, true ) ) ) {
+			if ( self::is_summary_enabled() && ! empty( get_post_meta( $post_id, RNRD_META_SUMMARY, true ) ) ) {
 				$speakable_selectors[] = '.rnrd-summary';
 			}
-			if ( ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) ) ) {
+			if ( class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled() && ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) ) ) {
 				$speakable_selectors[] = '.rnrd-faq-wrapper';
 			}
 			$props['speakable'] = array(
@@ -894,7 +911,7 @@ class RNRD_Block {
 		// to the string "1" during serialization, which fails strict validation.
 		// Omitting the property defaults to "freely accessible" per schema.org,
 		// which is exactly what we want.
-		if ( 'bullets' === $summary['type'] && is_array( $summary['data'] ) && ! empty( $summary['data'] ) ) {
+		if ( self::is_summary_enabled() && 'bullets' === $summary['type'] && is_array( $summary['data'] ) && ! empty( $summary['data'] ) ) {
 			$label = (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
 			$props['hasPart'] = array(
 				array(
@@ -907,7 +924,7 @@ class RNRD_Block {
 
 			// Also add FAQ section as a hasPart if it exists.
 			$faq_data = get_post_meta( $post_id, RNRD_META_FAQ, true );
-			if ( ! empty( $faq_data ) ) {
+			if ( class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled() && ! empty( $faq_data ) ) {
 				$faq_items = json_decode( $faq_data, true );
 				if ( is_array( $faq_items ) && ! empty( $faq_items ) ) {
 					$faq_text = array();

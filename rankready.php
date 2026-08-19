@@ -94,6 +94,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_SHOW_LABEL',       'rnrd_default_show_label' );
 	define( 'RNRD_OPT_HEADING_TAG',      'rnrd_default_heading_tag' );
 	define( 'RNRD_OPT_AUTO_GENERATE',    'rnrd_auto_generate' );
+	define( 'RNRD_OPT_SUMMARY_ENABLE',   'rnrd_summary_enable' ); // Frontend: block, widget, shortcode, auto-display.
 	define( 'RNRD_OPT_AUTO_DISPLAY',     'rnrd_auto_display' );
 	define( 'RNRD_OPT_DISPLAY_POSITION', 'rnrd_display_position' );
 	define( 'RNRD_OPT_CUSTOM_PROMPT',    'rnrd_custom_prompt' );
@@ -172,6 +173,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_FAQ_POST_TYPES',   'rnrd_faq_post_types' );
 	define( 'RNRD_OPT_FAQ_COUNT',        'rnrd_faq_count' );
 	define( 'RNRD_OPT_FAQ_BRAND_TERMS',  'rnrd_faq_brand_terms' );
+	define( 'RNRD_OPT_FAQ_ENABLE',       'rnrd_faq_enable' ); // Frontend: block, widget, shortcode, auto-display.
 	define( 'RNRD_OPT_FAQ_AUTO_DISPLAY', 'rnrd_faq_auto_display' );
 	define( 'RNRD_OPT_FAQ_POSITION',     'rnrd_faq_position' );
 	define( 'RNRD_OPT_FAQ_HEADING_TAG',  'rnrd_faq_heading_tag' );
@@ -186,7 +188,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_HIDE_BRANDING', 'rnrd_hide_branding' );
 
 	// Option keys — Author Box (EEAT).
-	define( 'RNRD_OPT_AUTHOR_ENABLE',         'rnrd_author_enable' );          // Master toggle for the feature.
+	define( 'RNRD_OPT_AUTHOR_ENABLE',         'rnrd_author_enable' );          // Frontend: block, widget, shortcode, auto-display.
 	define( 'RNRD_OPT_AUTHOR_AUTO_DISPLAY',   'rnrd_author_auto_display' );    // 'off' | 'before' | 'after' | 'both'
 	define( 'RNRD_OPT_AUTHOR_LAYOUT',         'rnrd_author_layout' );          // 'card' | 'compact' | 'inline'
 	define( 'RNRD_OPT_AUTHOR_HEADING',        'rnrd_author_heading' );         // Default heading text ("About the Author").
@@ -925,6 +927,12 @@ register_activation_hook( RNRD_FILE, function (): void {
 	}
 	if ( false === get_option( RNRD_OPT_FAQ_HEADING_TAG ) ) {
 		update_option( RNRD_OPT_FAQ_HEADING_TAG, 'h3' );
+	}
+	if ( false === get_option( RNRD_OPT_SUMMARY_ENABLE ) ) {
+		update_option( RNRD_OPT_SUMMARY_ENABLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_FAQ_ENABLE ) ) {
+		update_option( RNRD_OPT_FAQ_ENABLE, 'on' );
 	}
 	if ( false === get_option( RNRD_OPT_FAQ_AUTO_DISPLAY ) ) {
 		update_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' );

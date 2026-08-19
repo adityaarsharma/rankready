@@ -1703,33 +1703,47 @@ class RNRD_Admin {
 	private static function render_tab_dashboard(): void {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- DISTINCT count of own meta_key; no WP-API equivalent.
-		$summary_count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
-				RNRD_META_SUMMARY
-			)
-		);
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Same pattern for FAQ meta.
-		$faq_count = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value != ''",
-				RNRD_META_FAQ
-			)
-		);
-
-		$author_on  = 'on' === get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' );
-		$summary_on = 'on' === get_option( RNRD_OPT_SUMMARY_ENABLE, 'on' );
-		$faq_on     = 'on' === get_option( RNRD_OPT_FAQ_ENABLE, 'on' );
-		$api_set    = RNRD_LLM::active_provider_ready();
-
-		// AI Content tile status (cheap option reads — no extra DB counts).
+		// AI Content tile — post types read first so counts can be scoped to them.
 		$summary_types = array_values( array_filter( (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ) ) );
 		$summary_place = class_exists( 'RNRD_Summary' ) ? RNRD_Summary::get_auto_display() : 'off';
 
 		$faq_types = array_values( array_filter( (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ) ) );
 		$faq_place = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_auto_display() : 'off';
+
+		// Count generated summaries/FAQs scoped to the configured post types only.
+		// When no post types are configured the feature is effectively disabled — skip the query.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- DISTINCT count of own meta_key; no WP-API equivalent.
+		if ( ! empty( $summary_types ) ) {
+			$summary_in    = implode( ',', array_fill( 0, count( $summary_types ), '%s' ) );
+			$summary_args  = array_merge( array( RNRD_META_SUMMARY ), $summary_types );
+			$summary_count = (int) $wpdb->get_var( // phpcs:ignore
+				$wpdb->prepare(
+					"SELECT COUNT(DISTINCT pm.post_id) FROM {$wpdb->postmeta} pm JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE pm.meta_key = %s AND pm.meta_value != '' AND p.post_type IN ({$summary_in}) AND p.post_status = 'publish'",
+					$summary_args
+				)
+			);
+		} else {
+			$summary_count = 0;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Same pattern for FAQ meta.
+		if ( ! empty( $faq_types ) ) {
+			$faq_in    = implode( ',', array_fill( 0, count( $faq_types ), '%s' ) );
+			$faq_args  = array_merge( array( RNRD_META_FAQ ), $faq_types );
+			$faq_count = (int) $wpdb->get_var( // phpcs:ignore
+				$wpdb->prepare(
+					"SELECT COUNT(DISTINCT pm.post_id) FROM {$wpdb->postmeta} pm JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE pm.meta_key = %s AND pm.meta_value != '' AND p.post_type IN ({$faq_in}) AND p.post_status = 'publish'",
+					$faq_args
+				)
+			);
+		} else {
+			$faq_count = 0;
+		}
+
+		$author_on  = 'on' === get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' );
+		$summary_on = 'on' === get_option( RNRD_OPT_SUMMARY_ENABLE, 'on' );
+		$faq_on     = 'on' === get_option( RNRD_OPT_FAQ_ENABLE, 'on' );
+		$api_set    = RNRD_LLM::active_provider_ready();
 
 		$author_types = array_values( array_filter( (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) ) ) );
 		$author_place = (string) get_option( RNRD_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
@@ -1810,30 +1824,40 @@ class RNRD_Admin {
 				<a class="rnrd-dash-summary__open" href="<?php echo esc_url( $content_url ); ?>"><?php esc_html_e( 'View all →', 'rankready-ai-llm-seo' ); ?></a>
 			</div>
 			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'Content summary', 'rankready-ai-llm-seo' ); ?>">
-				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_summary_url ); ?>" aria-label="<?php esc_attr_e( 'AI Summaries — open AI Content', 'rankready-ai-llm-seo' ); ?>">
-					<div class="rnrd-kpi__title">
-						<div class="rnrd-kpi__label"><?php esc_html_e( 'AI Summaries', 'rankready-ai-llm-seo' ); ?></div>
-						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
-					</div>
+			<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_summary_url ); ?>" aria-label="<?php esc_attr_e( 'AI Summaries — open AI Content', 'rankready-ai-llm-seo' ); ?>">
+				<div class="rnrd-kpi__title">
+					<div class="rnrd-kpi__label"><?php esc_html_e( 'AI Summaries', 'rankready-ai-llm-seo' ); ?></div>
+					<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+				</div>
+				<?php if ( empty( $summary_types ) ) : ?>
+					<div class="rnrd-kpi__period"><?php esc_html_e( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__value"><?php esc_html_e( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+				<?php else : ?>
 					<div class="rnrd-kpi__period"><?php echo esc_html( self::dash_post_types_meta( $summary_types ) ); ?></div>
 					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $summary_count ) ); ?></div>
 					<div class="rnrd-kpi__foot rnrd-kpi__foot--stack">
-						<span class="rnrd-kpi__foot-line"><?php echo esc_html( $summary_on ? self::dash_html_placement_label( $summary_place ) : __( 'HTML: Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></span>
+						<span class="rnrd-kpi__foot-line"><?php echo esc_html( $summary_on ? self::dash_auto_placement_label( $summary_place ) : __( 'Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></span>
 						<span class="rnrd-kpi__foot-line"><?php echo esc_html( self::dash_md_okf_placement_label( 'summary' ) ); ?></span>
 					</div>
-				</a>
-				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_faq_url ); ?>" aria-label="<?php esc_attr_e( 'AI FAQ — open AI Content', 'rankready-ai-llm-seo' ); ?>">
-					<div class="rnrd-kpi__title">
-						<div class="rnrd-kpi__label"><?php esc_html_e( 'AI FAQ', 'rankready-ai-llm-seo' ); ?></div>
-						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
-					</div>
+				<?php endif; ?>
+			</a>
+			<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_faq_url ); ?>" aria-label="<?php esc_attr_e( 'AI FAQ — open AI Content', 'rankready-ai-llm-seo' ); ?>">
+				<div class="rnrd-kpi__title">
+					<div class="rnrd-kpi__label"><?php esc_html_e( 'AI FAQ', 'rankready-ai-llm-seo' ); ?></div>
+					<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+				</div>
+				<?php if ( empty( $faq_types ) ) : ?>
+					<div class="rnrd-kpi__period"><?php esc_html_e( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__value"><?php esc_html_e( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+				<?php else : ?>
 					<div class="rnrd-kpi__period"><?php echo esc_html( self::dash_post_types_meta( $faq_types ) ); ?></div>
 					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $faq_count ) ); ?></div>
 					<div class="rnrd-kpi__foot rnrd-kpi__foot--stack">
-						<span class="rnrd-kpi__foot-line"><?php echo esc_html( $faq_on ? self::dash_html_placement_label( $faq_place ) : __( 'HTML: Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></span>
+						<span class="rnrd-kpi__foot-line"><?php echo esc_html( $faq_on ? self::dash_auto_placement_label( $faq_place ) : __( 'Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></span>
 						<span class="rnrd-kpi__foot-line"><?php echo esc_html( self::dash_md_okf_placement_label( 'faq' ) ); ?></span>
 					</div>
-				</a>
+				<?php endif; ?>
+			</a>
 				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_author_url ); ?>" aria-label="<?php esc_attr_e( 'Author Box (E-E-A-T) — open AI Content', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">
 						<div class="rnrd-kpi__label"><?php esc_html_e( 'Author Box (E-E-A-T)', 'rankready-ai-llm-seo' ); ?></div>
@@ -2065,8 +2089,8 @@ class RNRD_Admin {
 	 */
 	private static function dash_md_okf_placement_label( string $kind ): string {
 		return 'faq' === $kind
-			? __( 'Markdown / OKF: always after the body', 'rankready-ai-llm-seo' )
-			: __( 'Markdown / OKF: always before the body', 'rankready-ai-llm-seo' );
+			? __( 'Markdown / OKF: after body', 'rankready-ai-llm-seo' )
+			: __( 'Markdown / OKF: before body', 'rankready-ai-llm-seo' );
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -3941,7 +3965,7 @@ class RNRD_Admin {
 				<?php
 				self::render_optional_post_types_section(
 					RNRD_OPT_POST_TYPES,
-					__( 'Uncheck all to hide the metabox and skip auto-display. Existing summaries are kept.', 'rankready-ai-llm-seo' )
+					__( 'Uncheck all to disable summaries feature. Existing summaries are kept.', 'rankready-ai-llm-seo' )
 				);
 				?>
 
@@ -4085,7 +4109,7 @@ class RNRD_Admin {
 				<?php
 				self::render_optional_post_types_section(
 					RNRD_OPT_AUTHOR_POST_TYPES,
-					__( 'Uncheck all to skip auto-display and the per-post Author Trust panel. Profile data is kept.', 'rankready-ai-llm-seo' )
+					__( 'Uncheck all to disable Author Box feature. Profile data is kept.', 'rankready-ai-llm-seo' )
 				);
 				?>
 
@@ -5429,7 +5453,7 @@ class RNRD_Admin {
 				<?php
 				self::render_optional_post_types_section(
 					RNRD_OPT_FAQ_POST_TYPES,
-					__( 'Uncheck all to hide the metabox and skip auto-display. Existing FAQs are kept.', 'rankready-ai-llm-seo' )
+					__( 'Uncheck all to disable FAQ feature. Existing FAQs are kept.', 'rankready-ai-llm-seo' )
 				);
 				?>
 
@@ -6373,31 +6397,53 @@ class RNRD_Admin {
 			return;
 		}
 
-		$summary   = get_post_meta( $post_id, RNRD_META_SUMMARY, true );
-		$faq       = get_post_meta( $post_id, RNRD_META_FAQ, true );
-		$disabled  = get_post_meta( $post_id, RNRD_META_DISABLE, true );
-		$faq_off   = get_post_meta( $post_id, RNRD_META_FAQ_DISABLE, true );
+		$post_type = get_post_type( $post_id );
 
-		$parts = array();
+		$summary_types = array_values( array_filter( (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ) ) );
+		$faq_types     = array_values( array_filter( (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ) ) );
 
-		if ( $disabled ) {
-			$parts[] = '<span style="color:#d63638;" title="' . esc_attr__( 'Summary disabled', 'rankready-ai-llm-seo' ) . '">S: off</span>';
-		} elseif ( ! empty( $summary ) ) {
-			$parts[] = '<span style="color:#00a32a;" title="' . esc_attr__( 'Summary generated', 'rankready-ai-llm-seo' ) . '">S: &#10003;</span>';
-		} else {
-			$parts[] = '<span style="color:#999;" title="' . esc_attr__( 'No summary', 'rankready-ai-llm-seo' ) . '">S: —</span>';
+		$show_summary = ! empty( $summary_types ) && in_array( $post_type, $summary_types, true );
+		$show_faq     = ! empty( $faq_types ) && in_array( $post_type, $faq_types, true );
+
+		if ( ! $show_summary && ! $show_faq ) {
+			echo '<span style="color:#999;">—</span>';
+			return;
 		}
 
-		if ( $faq_off ) {
-			$parts[] = '<span style="color:#d63638;" title="' . esc_attr__( 'FAQ disabled', 'rankready-ai-llm-seo' ) . '">F: off</span>';
-		} elseif ( ! empty( $faq ) ) {
-			$parts[] = '<span style="color:#00a32a;" title="' . esc_attr__( 'FAQ generated', 'rankready-ai-llm-seo' ) . '">F: &#10003;</span>';
-		} else {
-			$parts[] = '<span style="color:#999;" title="' . esc_attr__( 'No FAQ', 'rankready-ai-llm-seo' ) . '">F: —</span>';
+		$summary  = get_post_meta( $post_id, RNRD_META_SUMMARY, true );
+		$faq      = get_post_meta( $post_id, RNRD_META_FAQ, true );
+		$disabled = get_post_meta( $post_id, RNRD_META_DISABLE, true );
+		$faq_off  = get_post_meta( $post_id, RNRD_META_FAQ_DISABLE, true );
+
+		$lines = array();
+
+		if ( $show_summary ) {
+			if ( $disabled ) {
+				$lines[] = '<span style="color:#d63638;" title="' . esc_attr__( 'Disabled for this post', 'rankready-ai-llm-seo' ) . '">' . esc_html__( 'Summary: off', 'rankready-ai-llm-seo' ) . '</span>';
+			} elseif ( ! empty( $summary ) ) {
+				$lines[] = '<span style="color:#00a32a;" title="' . esc_attr__( 'Summary generated', 'rankready-ai-llm-seo' ) . '">' . esc_html__( 'Summary:', 'rankready-ai-llm-seo' ) . ' &#10003;</span>';
+			} else {
+				$lines[] = '<span style="color:#999;" title="' . esc_attr__( 'No summary yet', 'rankready-ai-llm-seo' ) . '">' . esc_html__( 'Summary: —', 'rankready-ai-llm-seo' ) . '</span>';
+			}
+		}
+
+		if ( $show_faq ) {
+			if ( $faq_off ) {
+				$lines[] = '<span style="color:#d63638;" title="' . esc_attr__( 'Disabled for this post', 'rankready-ai-llm-seo' ) . '">' . esc_html__( 'FAQ: off', 'rankready-ai-llm-seo' ) . '</span>';
+			} elseif ( ! empty( $faq ) ) {
+				$lines[] = '<span style="color:#00a32a;" title="' . esc_attr__( 'FAQ generated', 'rankready-ai-llm-seo' ) . '">' . esc_html__( 'FAQ:', 'rankready-ai-llm-seo' ) . ' &#10003;</span>';
+			} else {
+				$lines[] = '<span style="color:#999;" title="' . esc_attr__( 'No FAQ yet', 'rankready-ai-llm-seo' ) . '">' . esc_html__( 'FAQ: —', 'rankready-ai-llm-seo' ) . '</span>';
+			}
+		}
+
+		$post = get_post( $post_id );
+		if ( $post instanceof WP_Post && class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			$lines[] = '<span style="color:#dba617;" title="' . esc_attr__( 'Excluded from llms.txt, Markdown, OKF, and MCP', 'rankready-ai-llm-seo' ) . '">⚠ ' . esc_html__( 'Excluded from AI', 'rankready-ai-llm-seo' ) . '</span>';
 		}
 
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- all values escaped above
-		echo implode( ' &nbsp; ', $parts );
+		echo implode( '<br>', $lines );
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────

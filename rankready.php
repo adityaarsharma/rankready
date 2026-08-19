@@ -656,7 +656,7 @@ add_action( 'plugins_loaded', function (): void {
 			RNRD_MCP::add_rewrite_rules();
 			flush_rewrite_rules( false );
 		}, 99 );
-		RNRD_Llms_Txt::sync_physical_robots_txt();
+		RNRD_Robots::sync_physical_robots_txt();
 
 		// Migrate data from old AI Post Summary plugin (_aps_ meta) if present.
 		// Only run once — skip if already migrated.
@@ -861,6 +861,8 @@ add_action( 'plugins_loaded', function (): void {
 	RNRD_Schema::init();
 	RNRD_Block::init();
 	RNRD_Rest::init();
+	RNRD_Crawler_Access::init();
+	RNRD_Robots::init();
 	RNRD_Llms_Txt::init();
 	RNRD_Markdown::init();
 	RNRD_OKF::init();              // Open Knowledge Format (OKF) bundle at /okf/.
@@ -964,7 +966,7 @@ register_activation_hook( RNRD_FILE, function (): void {
 		update_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
 	}
 	if ( false === get_option( RNRD_OPT_ROBOTS_CRAWLERS ) ) {
-		update_option( RNRD_OPT_ROBOTS_CRAWLERS, array_keys( RNRD_Llms_Txt::get_llm_crawlers() ) );
+		update_option( RNRD_OPT_ROBOTS_CRAWLERS, array_keys( RNRD_Crawler_Access::get_llm_crawlers() ) );
 	}
 	if ( false === get_option( RNRD_OPT_FAQ_COUNT ) ) {
 		update_option( RNRD_OPT_FAQ_COUNT, 5 );
@@ -1018,7 +1020,7 @@ register_activation_hook( RNRD_FILE, function (): void {
 	flush_rewrite_rules();
 
 	// Sync to physical robots.txt if one exists.
-	RNRD_Llms_Txt::sync_physical_robots_txt();
+	RNRD_Robots::sync_physical_robots_txt();
 
 	// rc.16 audit fix C2 + M3 — persist exclusions to every cache plugin's
 	// saved option so LSWS / FastCGI / WPSC honour our bypass BEFORE PHP runs.
@@ -1051,7 +1053,7 @@ add_action( 'admin_init', function (): void {
 	$stored = get_option( 'rnrd_installed_version', '' );
 	if ( version_compare( $stored, RNRD_VERSION, '<' ) ) {
 		update_option( 'rnrd_installed_version', RNRD_VERSION );
-		RNRD_Llms_Txt::sync_physical_robots_txt();
+		RNRD_Robots::sync_physical_robots_txt();
 		// rc.16 — re-persist cache exclusions on silent update; new bypass
 		// rules (LSWS .htaccess option entries) won't exist on sites updated
 		// from earlier RCs until they save settings or hit this admin_init.
@@ -1101,7 +1103,7 @@ register_deactivation_hook( RNRD_FILE, function (): void {
 		if ( WP_Filesystem() && $wp_filesystem->exists( $robots_file ) && $wp_filesystem->is_writable( $robots_file ) ) {
 			$contents = $wp_filesystem->get_contents( $robots_file );
 			if ( false !== $contents && false !== strpos( $contents, 'RankReady' ) ) {
-				$contents = RNRD_Llms_Txt::strip_rankready_robots_block( $contents );
+				$contents = RNRD_Robots::strip_rankready_robots_block( $contents );
 				$contents = rtrim( $contents ) . "\n";
 				$wp_filesystem->put_contents( $robots_file, $contents, FS_CHMOD_FILE );
 			}

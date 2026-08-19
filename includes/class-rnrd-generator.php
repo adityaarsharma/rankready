@@ -225,7 +225,7 @@ class RNRD_Generator {
 		// installs that filled in the old field before rc.3.
 		$product_context = '';
 		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
-			$product_context = RNRD_Llms_Txt::get_brand_about();
+			$product_context = RNRD_Brand_Identity::get_brand_about();
 		}
 		if ( '' === $product_context ) {
 			$product_context = (string) get_option( RNRD_OPT_PRODUCT_CONTEXT, '' );
@@ -237,7 +237,7 @@ class RNRD_Generator {
 		// Inject canonical brand terms (v1.2.0) — single source from AI Crawlers tab.
 		// Wires same one input through every LLM call so brand naming stays consistent.
 		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
-			$brand_terms = RNRD_Llms_Txt::get_brand_terms_string();
+			$brand_terms = RNRD_Brand_Identity::get_brand_terms_string();
 			if ( '' !== $brand_terms ) {
 				$system_prompt .= "\n\nCANONICAL BRAND NAMES (use these exact spellings — never abbreviate, paraphrase, or use variants):\n" . $brand_terms;
 			}

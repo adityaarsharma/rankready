@@ -1355,9 +1355,7 @@ class RNRD_Admin {
 	 * @return array<string,string> user-agent => 'allow'|'block'|'default'
 	 */
 	public static function get_robots_mode(): array {
-		// Single source of truth lives in RNRD_Llms_Txt (always loaded) so the
-		// mode<->arrays mapping behaves identically for admin, WP-CLI and REST.
-		return RNRD_Llms_Txt::get_robots_mode();
+		return RNRD_Crawler_Access::get_robots_mode();
 	}
 
 	/**
@@ -1398,7 +1396,7 @@ class RNRD_Admin {
 	 * @param array $mode user-agent => 'allow'|'block'|'default'
 	 */
 	public static function apply_robots_mode( array $mode ): void {
-		RNRD_Llms_Txt::apply_robots_mode( $mode );
+		RNRD_Crawler_Access::apply_robots_mode( $mode );
 	}
 
 	/**
@@ -1407,10 +1405,7 @@ class RNRD_Admin {
 	 * @return array Associative array: user-agent => array( company, purpose ).
 	 */
 	public static function get_llm_crawlers(): array {
-		// Single source of truth lives in RNRD_Llms_Txt (a frontend-loaded class)
-		// so the public robots.txt / llms.txt fallback never autoloads this 288KB
-		// admin class. See RNRD_Llms_Txt::get_llm_crawlers().
-		return RNRD_Llms_Txt::get_llm_crawlers();
+		return RNRD_Crawler_Access::get_llm_crawlers();
 	}
 
 	// ── Main render ───────────────────────────────────────────────────────────
@@ -2108,7 +2103,7 @@ class RNRD_Admin {
 		$brand_display  = $brand_name_raw;
 		if ( '' === $brand_display ) {
 			if ( class_exists( 'RNRD_Llms_Txt' ) ) {
-				$identity      = RNRD_Llms_Txt::get_brand_identity();
+				$identity      = RNRD_Brand_Identity::get_brand_identity();
 				$brand_display = isset( $identity['name'] ) ? trim( (string) $identity['name'] ) : '';
 			}
 			if ( '' === $brand_display ) {
@@ -4584,7 +4579,7 @@ class RNRD_Admin {
 		?>
 		<!-- ── Brand Identity (v1.2.0-beta.4 — unified) ───────────────────── -->
 		<?php
-		$rnrd_brand           = RNRD_Llms_Txt::get_brand_identity();
+		$rnrd_brand           = RNRD_Brand_Identity::get_brand_identity();
 		$rnrd_brand_name      = (string) get_option( RNRD_OPT_LLMS_SITE_NAME, '' );  // raw value, not the fallback
 		$rnrd_brand_summary   = (string) get_option( RNRD_OPT_LLMS_SUMMARY, '' );
 		$rnrd_brand_about     = (string) get_option( RNRD_OPT_LLMS_ABOUT, '' );

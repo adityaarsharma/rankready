@@ -617,7 +617,7 @@ class RNRD_Faq {
 		// for backwards compatibility, then to the site title.
 		$brand_terms = '';
 		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
-			$brand_terms = RNRD_Llms_Txt::get_brand_terms_string();
+			$brand_terms = RNRD_Brand_Identity::get_brand_terms_string();
 		}
 		if ( '' === $brand_terms ) {
 			$brand_terms = (string) get_option( RNRD_OPT_FAQ_BRAND_TERMS, '' );
@@ -704,7 +704,7 @@ class RNRD_Faq {
 		// v1.2.0-rc.3 — Brand Identity About first, legacy product context fallback.
 		$product_context = '';
 		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
-			$product_context = RNRD_Llms_Txt::get_brand_about();
+			$product_context = RNRD_Brand_Identity::get_brand_about();
 		}
 		if ( '' === $product_context ) {
 			$product_context = (string) get_option( RNRD_OPT_PRODUCT_CONTEXT, '' );

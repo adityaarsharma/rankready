@@ -671,7 +671,7 @@ class RNRD_MCP {
 		// v1.2.0-beta.4 — return the unified Brand Identity so agents see
 		// the same canonical name + summary + about + terms that humans see.
 		$brand = class_exists( 'RNRD_Llms_Txt' )
-			? RNRD_Llms_Txt::get_brand_identity()
+			? RNRD_Brand_Identity::get_brand_identity()
 			: array(
 				'name'    => (string) get_bloginfo( 'name' ),
 				'summary' => (string) get_bloginfo( 'description' ),
@@ -692,7 +692,7 @@ class RNRD_MCP {
 	public static function ability_get_brand_terms(): array {
 		if ( $g = self::guard( 'get-brand-terms' ) ) { return $g; }
 		return array(
-			'brand_terms' => class_exists( 'RNRD_Llms_Txt' ) ? RNRD_Llms_Txt::get_brand_terms_list() : array(),
+			'brand_terms' => class_exists( 'RNRD_Brand_Identity' ) ? RNRD_Brand_Identity::get_brand_terms_list() : array(),
 		);
 	}
 

@@ -491,7 +491,7 @@ class RNRD_Diagnostics {
 			// custom rewrite (bypasses WP's robots_txt filter entirely).
 			$interceptor = '';
 			if ( class_exists( 'RNRD_Llms_Txt' ) && method_exists( 'RNRD_Llms_Txt', 'detect_robots_txt_interceptor' ) ) {
-				$interceptor = RNRD_Llms_Txt::detect_robots_txt_interceptor();
+				$interceptor = RNRD_Robots::detect_robots_txt_interceptor();
 			}
 			$has_physical = file_exists( ABSPATH . 'robots.txt' );
 

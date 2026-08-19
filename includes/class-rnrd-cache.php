@@ -630,6 +630,42 @@ class RNRD_Cache {
 		do_action( 'swift_performance_after_clear_all_cache' );
 	}
 
+	/**
+	 * Purge every RankReady-managed endpoint from CDN / page-cache layers.
+	 *
+	 * Covers /llms.txt, /llms-full.txt, /robots.txt, /mcp.json, /index.md,
+	 * and the blog-index .md URL when applicable. Fires purge_url() for each,
+	 * which dispatches to whichever cache plugin is active (LiteSpeed, Cloudflare,
+	 * WP Rocket, Nginx Helper, Hummingbird, NitroPack, etc.).
+	 *
+	 * @since 1.2.2
+	 */
+	public static function purge_all_endpoints(): void {
+		$urls = array(
+			home_url( '/llms.txt' ),
+			home_url( '/llms-full.txt' ),
+			home_url( '/robots.txt' ),
+			home_url( '/.well-known/mcp.json' ),
+			home_url( '/index.md' ),
+		);
+
+		if ( 'on' === get_option( RNRD_OPT_MD_HOME_ENABLE, 'on' ) && class_exists( 'RNRD_Markdown' ) && 'page' === get_option( 'show_on_front' ) ) {
+			$posts_page_id = (int) get_option( 'page_for_posts', 0 );
+			if ( $posts_page_id > 0 ) {
+				$posts_page = get_post( $posts_page_id );
+				if ( $posts_page instanceof WP_Post ) {
+					$urls[] = RNRD_Markdown::get_md_url( $posts_page );
+				}
+			}
+		}
+
+		$urls = (array) apply_filters( 'rankready_purge_urls', $urls );
+
+		foreach ( $urls as $url ) {
+			self::purge_url( $url );
+		}
+	}
+
 	// ── Detection ─────────────────────────────────────────────────────────────
 
 	/**

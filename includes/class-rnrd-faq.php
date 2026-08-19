@@ -210,8 +210,8 @@ class RNRD_Faq {
 			return;
 		}
 
-		// Check post type — all public CPTs.
-		if ( ! is_post_type_viewable( $post->post_type ) ) {
+		// Check post type — selected types only.
+		if ( ! is_post_type_viewable( $post->post_type ) || ! self::is_post_type_enabled( $post->post_type ) ) {
 			return;
 		}
 
@@ -1306,6 +1306,11 @@ class RNRD_Faq {
 	 * @return string Markdown FAQ section.
 	 */
 	public static function get_faq_markdown( int $post_id ): string {
+		$post = get_post( $post_id );
+		if ( ! $post instanceof WP_Post || ! self::is_post_type_enabled( $post->post_type ) ) {
+			return '';
+		}
+
 		$faq_data = self::get_faq_data( $post_id );
 		if ( empty( $faq_data ) ) {
 			return '';

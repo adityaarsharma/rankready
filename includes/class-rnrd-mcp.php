@@ -764,11 +764,13 @@ class RNRD_MCP {
 		}
 
 		$bullets = array();
-		$raw     = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
-		if ( '' !== $raw && class_exists( 'RNRD_Generator' ) ) {
-			$decoded = RNRD_Generator::decode_summary( $raw );
-			if ( 'bullets' === $decoded['type'] ) {
-				$bullets = array_values( (array) $decoded['data'] );
+		if ( class_exists( 'RNRD_Block' ) && RNRD_Block::is_summary_enabled() && RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+			$raw = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
+			if ( '' !== $raw && class_exists( 'RNRD_Generator' ) ) {
+				$decoded = RNRD_Generator::decode_summary( $raw );
+				if ( 'bullets' === $decoded['type'] ) {
+					$bullets = array_values( (array) $decoded['data'] );
+				}
 			}
 		}
 
@@ -788,7 +790,10 @@ class RNRD_MCP {
 			return array( 'title' => '', 'url' => '', 'faq' => array() );
 		}
 
-		$faq = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_faq_data( $post->ID ) : array();
+		$faq = array();
+		if ( class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled() && RNRD_Faq::is_post_type_enabled( $post->post_type ) ) {
+			$faq = RNRD_Faq::get_faq_data( $post->ID );
+		}
 
 		return array(
 			'title' => html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' ),
@@ -843,15 +848,20 @@ class RNRD_MCP {
 	private static function post_payload( WP_Post $post ): array {
 		$post_id   = (int) $post->ID;
 		$summary   = array();
-		$summary_raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
-		if ( '' !== $summary_raw && class_exists( 'RNRD_Generator' ) ) {
-			$decoded = RNRD_Generator::decode_summary( $summary_raw );
-			if ( 'bullets' === $decoded['type'] ) {
-				$summary = array_values( (array) $decoded['data'] );
+		if ( class_exists( 'RNRD_Block' ) && RNRD_Block::is_summary_enabled() && RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+			$summary_raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
+			if ( '' !== $summary_raw && class_exists( 'RNRD_Generator' ) ) {
+				$decoded = RNRD_Generator::decode_summary( $summary_raw );
+				if ( 'bullets' === $decoded['type'] ) {
+					$summary = array_values( (array) $decoded['data'] );
+				}
 			}
 		}
 
-		$faq = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_faq_data( $post_id ) : array();
+		$faq = array();
+		if ( class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled() && RNRD_Faq::is_post_type_enabled( $post->post_type ) ) {
+			$faq = RNRD_Faq::get_faq_data( $post_id );
+		}
 
 		$markdown = class_exists( 'RNRD_Markdown' ) ? RNRD_Markdown::post_to_markdown( $post ) : '';
 		$md_url   = class_exists( 'RNRD_Markdown' ) ? RNRD_Markdown::get_md_url( $post ) : '';

@@ -1396,6 +1396,11 @@ class RNRD_Author_Box {
 		$post_id = get_the_ID();
 		if ( ! $post_id ) return '';
 
+		$post = get_post( $post_id );
+		if ( ! $post || ! self::is_post_type_enabled( $post->post_type ) ) {
+			return '';
+		}
+
 		$source  = isset( $attrs['authorSource'] ) ? $attrs['authorSource'] : 'post';
 		$user_id = 'specific' === $source && ! empty( $attrs['authorId'] )
 			? (int) $attrs['authorId']

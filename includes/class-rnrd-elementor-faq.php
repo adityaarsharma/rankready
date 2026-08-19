@@ -207,6 +207,11 @@ class RNRD_Elementor_Faq_Widget extends \Elementor\Widget_Base {
 			return;
 		}
 
+		$post = get_post( $post_id );
+		if ( ! $post || ! RNRD_Faq::is_post_type_enabled( $post->post_type ) ) {
+			return;
+		}
+
 		$faq_data = RNRD_Faq::get_faq_data( $post_id );
 		if ( empty( $faq_data ) ) {
 			return;

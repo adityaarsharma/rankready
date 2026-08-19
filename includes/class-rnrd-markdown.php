@@ -1760,16 +1760,18 @@ class RNRD_Markdown {
 		$lines[] = '';
 
 		// ── AI Summary (if available) ────────────────────────────────────
-		$summary_raw = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
-		if ( ! empty( $summary_raw ) ) {
-			$summary = RNRD_Generator::decode_summary( $summary_raw );
-			if ( 'bullets' === $summary['type'] && ! empty( $summary['data'] ) ) {
-				$lines[] = '## ' . get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
-				$lines[] = '';
-				foreach ( $summary['data'] as $bullet ) {
-					$lines[] = '- ' . self::clean_text( $bullet );
+		if ( class_exists( 'RNRD_Block' ) && RNRD_Block::is_summary_enabled() && RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+			$summary_raw = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
+			if ( ! empty( $summary_raw ) ) {
+				$summary = RNRD_Generator::decode_summary( $summary_raw );
+				if ( 'bullets' === $summary['type'] && ! empty( $summary['data'] ) ) {
+					$lines[] = '## ' . get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
+					$lines[] = '';
+					foreach ( $summary['data'] as $bullet ) {
+						$lines[] = '- ' . self::clean_text( $bullet );
+					}
+					$lines[] = '';
 				}
-				$lines[] = '';
 			}
 		}
 

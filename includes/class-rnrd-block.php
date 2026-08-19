@@ -194,6 +194,10 @@ class RNRD_Block {
 		if ( ! $post_id ) {
 			return '';
 		}
+		$post = get_post( $post_id );
+		if ( ! $post || ! RNRD_Faq::is_post_type_enabled( $post->post_type ) ) {
+			return '';
+		}
 
 		$faq_data = RNRD_Faq::get_faq_data( $post_id );
 		if ( empty( $faq_data ) ) {
@@ -324,6 +328,10 @@ class RNRD_Block {
 		}
 		$post_id = get_the_ID();
 		if ( ! $post_id ) {
+			return '';
+		}
+		$post = get_post( $post_id );
+		if ( ! $post || ! self::is_summary_post_type( $post->post_type ) ) {
 			return '';
 		}
 
@@ -686,6 +694,9 @@ class RNRD_Block {
 		// non-published or password-protected posts — the head renders on the
 		// password-form page and would leak the summary in the page source.
 		if ( 'publish' !== $post->post_status || ! empty( $post->post_password ) ) return;
+		if ( ! self::is_summary_enabled() || ! self::is_summary_post_type( $post->post_type ) ) {
+			return;
+		}
 
 		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( empty( $raw ) ) return;
@@ -905,14 +916,21 @@ class RNRD_Block {
 	private static function build_ai_schema_properties( int $post_id, array $summary ): array {
 		$props = array();
 		$post  = get_post( $post_id );
+		$summary_type_ok = $post instanceof WP_Post
+			&& self::is_summary_enabled()
+			&& self::is_summary_post_type( $post->post_type );
+		$faq_type_ok = $post instanceof WP_Post
+			&& class_exists( 'RNRD_Faq' )
+			&& RNRD_Faq::is_enabled()
+			&& RNRD_Faq::is_post_type_enabled( $post->post_type );
 
 		// ── 1. Speakable — voice search / Google Assistant ─────────────
 		if ( 'on' === get_option( RNRD_OPT_SCHEMA_SPEAKABLE, 'on' ) ) {
 			$speakable_selectors = array( 'h1', '.entry-title' );
-			if ( self::is_summary_enabled() && ! empty( get_post_meta( $post_id, RNRD_META_SUMMARY, true ) ) ) {
+			if ( $summary_type_ok && ! empty( get_post_meta( $post_id, RNRD_META_SUMMARY, true ) ) ) {
 				$speakable_selectors[] = '.rnrd-summary';
 			}
-			if ( class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled() && ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) ) ) {
+			if ( $faq_type_ok && ! empty( get_post_meta( $post_id, RNRD_META_FAQ, true ) ) ) {
 				$speakable_selectors[] = '.rnrd-faq-wrapper';
 			}
 			$props['speakable'] = array(
@@ -927,7 +945,7 @@ class RNRD_Block {
 		// to the string "1" during serialization, which fails strict validation.
 		// Omitting the property defaults to "freely accessible" per schema.org,
 		// which is exactly what we want.
-		if ( self::is_summary_enabled() && 'bullets' === $summary['type'] && is_array( $summary['data'] ) && ! empty( $summary['data'] ) ) {
+		if ( $summary_type_ok && 'bullets' === $summary['type'] && is_array( $summary['data'] ) && ! empty( $summary['data'] ) ) {
 			$label = (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
 			$props['hasPart'] = array(
 				array(
@@ -940,7 +958,7 @@ class RNRD_Block {
 
 			// Also add FAQ section as a hasPart if it exists.
 			$faq_data = get_post_meta( $post_id, RNRD_META_FAQ, true );
-			if ( class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled() && ! empty( $faq_data ) ) {
+			if ( $faq_type_ok && ! empty( $faq_data ) ) {
 				$faq_items = json_decode( $faq_data, true );
 				if ( is_array( $faq_items ) && ! empty( $faq_items ) ) {
 					$faq_text = array();
@@ -962,9 +980,9 @@ class RNRD_Block {
 		}
 
 		// ── 3. abstract — machine-readable summary for AI citation ─────
-		if ( 'bullets' === $summary['type'] && is_array( $summary['data'] ) && ! empty( $summary['data'] ) ) {
+		if ( $summary_type_ok && 'bullets' === $summary['type'] && is_array( $summary['data'] ) && ! empty( $summary['data'] ) ) {
 			$props['abstract'] = implode( '. ', $summary['data'] ) . '.';
-		} elseif ( 'text' === $summary['type'] && ! empty( $summary['data'] ) ) {
+		} elseif ( $summary_type_ok && 'text' === $summary['type'] && ! empty( $summary['data'] ) ) {
 			$props['abstract'] = (string) $summary['data'];
 		}
 

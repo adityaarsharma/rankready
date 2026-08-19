@@ -297,6 +297,11 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 			return;
 		}
 
+		$post = get_post( $post_id );
+		if ( ! $post || ! RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+			return;
+		}
+
 		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( empty( $raw ) ) {
 			return;

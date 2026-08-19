@@ -27,6 +27,21 @@ class RNRD_Faq {
 		return 'on' === get_option( RNRD_OPT_FAQ_ENABLE, 'on' );
 	}
 
+	/**
+	 * Whether AI FAQ applies to this post type (metabox, generate, auto-display).
+	 */
+	public static function is_post_type_enabled( string $post_type ): bool {
+		$types = array_values( array_filter( (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ) ) );
+		return in_array( $post_type, $types, true );
+	}
+
+	/**
+	 * HTML auto-display: off | before | after.
+	 */
+	public static function get_auto_display(): string {
+		return rnrd_auto_display_mode( RNRD_OPT_FAQ_AUTO_DISPLAY, RNRD_OPT_FAQ_POSITION, 'after' );
+	}
+
 	public static function init(): void {
 		// Auto-display FAQ via the_content filter.
 		add_filter( 'the_content', array( self::class, 'auto_display_faq' ), 95 );
@@ -50,7 +65,8 @@ class RNRD_Faq {
 		if ( ! self::is_enabled() ) {
 			return $content;
 		}
-		if ( 'on' !== get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' ) ) {
+		$position = self::get_auto_display();
+		if ( 'off' === $position ) {
 			return $content;
 		}
 
@@ -63,8 +79,8 @@ class RNRD_Faq {
 			return $content;
 		}
 
-		// Check post type — all public CPTs.
-		if ( ! is_post_type_viewable( $post->post_type ) ) {
+		// Check post type — selected types only.
+		if ( ! is_post_type_viewable( $post->post_type ) || ! self::is_post_type_enabled( $post->post_type ) ) {
 			return $content;
 		}
 
@@ -89,8 +105,6 @@ class RNRD_Faq {
 		}
 
 		$faq_html = self::render_faq_html( $faq_data, $post->ID );
-
-		$position = get_option( RNRD_OPT_FAQ_POSITION, 'after' );
 		if ( 'before' === $position ) {
 			return $faq_html . $content;
 		}
@@ -530,6 +544,18 @@ class RNRD_Faq {
 		$post = get_post( $post_id );
 		if ( ! $post instanceof WP_Post ) {
 			return new \WP_Error( 'invalid_post', 'Post not found.' );
+		}
+		if ( ! self::is_post_type_enabled( $post->post_type ) ) {
+			$pt_obj   = get_post_type_object( $post->post_type );
+			$pt_label = $pt_obj && isset( $pt_obj->labels->singular_name ) ? $pt_obj->labels->singular_name : $post->post_type;
+			return new \WP_Error(
+				'type_disabled',
+				sprintf(
+					/* translators: %s: post type label, e.g. "Page". */
+					__( 'AI FAQ is not enabled for the “%s” type. Turn it on in AI Content → AI FAQ Generator → Post types.', 'rankready-ai-llm-seo' ),
+					$pt_label
+				)
+			);
 		}
 
 		// Free build: unlimited manual generation. No cap to check.

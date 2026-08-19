@@ -101,22 +101,40 @@ class RNRD_Metabox {
 	}
 
 	/**
-	 * One-line frontend placement for the generate meta boxes.
+	 * HTML-page placement for the generate meta boxes.
+	 *
+	 * @param string $mode off|before|after|both
 	 */
-	private static function placement_label( bool $enabled, bool $auto, string $position, string $shortcode ): string {
+	private static function placement_label( bool $enabled, string $mode, string $shortcode ): string {
 		if ( ! $enabled ) {
 			return __( 'Hidden on frontend', 'rankready-ai-llm-seo' );
 		}
-		if ( ! $auto ) {
-			return sprintf(
-				/* translators: %s: shortcode like [rankready_summary] */
-				__( 'Manual: block, Elementor widget, or %s shortcode', 'rankready-ai-llm-seo' ),
-				$shortcode
-			);
+		switch ( $mode ) {
+			case 'before':
+				return __( 'Auto-display: before content', 'rankready-ai-llm-seo' );
+			case 'after':
+				return __( 'Auto-display: after content', 'rankready-ai-llm-seo' );
+			case 'both':
+				return __( 'Auto-display: before and after content', 'rankready-ai-llm-seo' );
+			case 'off':
+			default:
+				return sprintf(
+					/* translators: %s: shortcode like [rankready_summary] */
+					__( 'Manual: block, Elementor widget, or %s shortcode', 'rankready-ai-llm-seo' ),
+					$shortcode
+				);
 		}
-		return 'after' === $position
-			? __( 'Auto-display: after content', 'rankready-ai-llm-seo' )
-			: __( 'Auto-display: before content', 'rankready-ai-llm-seo' );
+	}
+
+	/**
+	 * Fixed Markdown / OKF injection. Not tied to Auto Display.
+	 *
+	 * @param string $kind summary|faq
+	 */
+	private static function markdown_placement_label( string $kind ): string {
+		return 'faq' === $kind
+			? __( 'Always after the body', 'rankready-ai-llm-seo' )
+			: __( 'Always before the body', 'rankready-ai-llm-seo' );
 	}
 
 	/**
@@ -135,34 +153,42 @@ class RNRD_Metabox {
 	}
 
 	/**
-	 * Display + current model footer shared by the Summary and FAQ boxes.
+	 * Placement + model footer shared by the Summary and FAQ boxes.
+	 * Collapsed by default; open when AI setup is missing so the warning is visible.
 	 */
-	private static function render_footer( bool $has_key, string $placement, string $display_url ): void {
+	private static function render_footer( bool $has_key, string $html_placement, string $md_placement, string $display_url ): void {
 		$model_url = admin_url( 'admin.php?page=' . self::SETTINGS_SLUG . '&tab=settings' );
 		?>
-		<div class="rnrd-mb__meta">
-			<div class="rnrd-mb__meta-row">
-				<span class="rnrd-mb__field-label"><?php esc_html_e( 'Display', 'rankready-ai-llm-seo' ); ?></span>
-				<p class="rnrd-mb__meta-v">
-					<?php echo esc_html( $placement ); ?>
-					<a href="<?php echo esc_url( $display_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Change →', 'rankready-ai-llm-seo' ); ?></a>
-				</p>
-			</div>
-			<div class="rnrd-mb__meta-row<?php echo $has_key ? '' : ' rnrd-mb__meta-row--warn'; ?>">
-				<span class="rnrd-mb__field-label"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></span>
-				<?php if ( ! $has_key ) : ?>
+		<details class="rnrd-mb__meta<?php echo $has_key ? '' : ' rnrd-mb__meta--warn'; ?>"<?php echo $has_key ? '' : ' open'; ?>>
+			<summary><?php esc_html_e( 'Placement & model', 'rankready-ai-llm-seo' ); ?></summary>
+			<div class="rnrd-mb__meta-body">
+				<div class="rnrd-mb__meta-row">
+					<span class="rnrd-mb__field-label"><?php esc_html_e( 'HTML', 'rankready-ai-llm-seo' ); ?></span>
 					<p class="rnrd-mb__meta-v">
-						<?php esc_html_e( 'AI setup needed. Add a provider and API key to generate.', 'rankready-ai-llm-seo' ); ?>
-						<a href="<?php echo esc_url( $model_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Open Settings →', 'rankready-ai-llm-seo' ); ?></a>
+						<?php echo esc_html( $html_placement ); ?>
+						<a href="<?php echo esc_url( $display_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Change →', 'rankready-ai-llm-seo' ); ?></a>
 					</p>
-				<?php else : ?>
-					<p class="rnrd-mb__meta-v">
-						<?php echo esc_html( self::model_short_label() ); ?>
-						<a href="<?php echo esc_url( $model_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Change →', 'rankready-ai-llm-seo' ); ?></a>
-					</p>
-				<?php endif; ?>
+				</div>
+				<div class="rnrd-mb__meta-row">
+					<span class="rnrd-mb__field-label"><?php esc_html_e( 'Markdown / OKF', 'rankready-ai-llm-seo' ); ?></span>
+					<p class="rnrd-mb__meta-v"><?php echo esc_html( $md_placement ); ?></p>
+				</div>
+				<div class="rnrd-mb__meta-row<?php echo $has_key ? '' : ' rnrd-mb__meta-row--warn'; ?>">
+					<span class="rnrd-mb__field-label"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></span>
+					<?php if ( ! $has_key ) : ?>
+						<p class="rnrd-mb__meta-v">
+							<?php esc_html_e( 'AI setup needed. Add a provider and API key to generate.', 'rankready-ai-llm-seo' ); ?>
+							<a href="<?php echo esc_url( $model_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Open Settings →', 'rankready-ai-llm-seo' ); ?></a>
+						</p>
+					<?php else : ?>
+						<p class="rnrd-mb__meta-v">
+							<?php echo esc_html( self::model_short_label() ); ?>
+							<a href="<?php echo esc_url( $model_url ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Change →', 'rankready-ai-llm-seo' ); ?></a>
+						</p>
+					<?php endif; ?>
+				</div>
 			</div>
-		</div>
+		</details>
 		<?php
 	}
 
@@ -180,8 +206,7 @@ class RNRD_Metabox {
 		$has_summary  = ! empty( $summary_items );
 		$has_key      = class_exists( 'RNRD_LLM' ) && RNRD_LLM::active_provider_ready();
 		$can_generate = $has_key && (int) $post->ID > 0;
-		$summary_auto = 'on' === (string) get_option( RNRD_OPT_AUTO_DISPLAY, 'off' );
-		$summary_pos  = (string) get_option( RNRD_OPT_DISPLAY_POSITION, 'before' );
+		$summary_place = class_exists( 'RNRD_Block' ) ? RNRD_Block::get_auto_display() : 'off';
 		$gen_label    = $has_summary ? __( 'Regenerate Summary', 'rankready-ai-llm-seo' ) : __( 'Generate Summary', 'rankready-ai-llm-seo' );
 		$autogen_on   = self::is_summary_autogen_enabled();
 
@@ -256,10 +281,10 @@ class RNRD_Metabox {
 				$has_key,
 				self::placement_label(
 					class_exists( 'RNRD_Block' ) && RNRD_Block::is_summary_enabled(),
-					$summary_auto,
-					$summary_pos,
+					$summary_place,
 					RNRD_Shortcode::tag( RNRD_Shortcode::SUMMARY )
 				),
+				self::markdown_placement_label( 'summary' ),
 				admin_url( 'admin.php?page=' . self::SETTINGS_SLUG . '&tab=content&sub=summary' )
 			);
 			?>
@@ -274,8 +299,7 @@ class RNRD_Metabox {
 		$faq_generated = (int) get_post_meta( $post->ID, RNRD_META_FAQ_GENERATED, true );
 		$has_key       = class_exists( 'RNRD_LLM' ) && RNRD_LLM::active_provider_ready();
 		$can_generate  = $has_key && (int) $post->ID > 0;
-		$faq_auto      = 'on' === (string) get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' );
-		$faq_pos       = (string) get_option( RNRD_OPT_FAQ_POSITION, 'after' );
+		$faq_place     = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_auto_display() : 'off';
 		$gen_label     = $has_faq ? __( 'Regenerate FAQ', 'rankready-ai-llm-seo' ) : __( 'Generate FAQ', 'rankready-ai-llm-seo' );
 		?>
 		<div class="rnrd-mb">
@@ -344,10 +368,10 @@ class RNRD_Metabox {
 				$has_key,
 				self::placement_label(
 					class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled(),
-					$faq_auto,
-					$faq_pos,
+					$faq_place,
 					RNRD_Shortcode::tag( RNRD_Shortcode::FAQ )
 				),
+				self::markdown_placement_label( 'faq' ),
 				admin_url( 'admin.php?page=' . self::SETTINGS_SLUG . '&tab=content&sub=faq' )
 			);
 			?>

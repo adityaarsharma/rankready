@@ -311,8 +311,7 @@ class RNRD_Rest {
 		}
 
 		// 3. AI Summary enabled for this post type.
-		$enabled_types = (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) );
-		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+		if ( ! class_exists( 'RNRD_Block' ) || ! RNRD_Block::is_summary_post_type( $post->post_type ) ) {
 			$pt_obj   = get_post_type_object( $post->post_type );
 			$pt_label = $pt_obj && isset( $pt_obj->labels->singular_name ) ? $pt_obj->labels->singular_name : $post->post_type;
 			return new WP_Error(
@@ -1166,6 +1165,8 @@ class RNRD_Rest {
 				$message = sprintf( __( 'No %s API key yet. Add it under Settings → AI Provider, then generate.', 'rankready-ai-llm-seo' ), $rnrd_prov );
 			} elseif ( 'invalid_post' === $code ) {
 				$message = __( 'This post no longer exists. Save the page, then try again.', 'rankready-ai-llm-seo' );
+			} elseif ( 'type_disabled' === $code ) {
+				$message = (string) $result->get_error_message();
 			} else {
 				$message = self::friendly_generation_error( (string) $result->get_error_message() );
 			}

@@ -95,8 +95,8 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_HEADING_TAG',      'rnrd_default_heading_tag' );
 	define( 'RNRD_OPT_AUTO_GENERATE',    'rnrd_auto_generate' );
 	define( 'RNRD_OPT_SUMMARY_ENABLE',   'rnrd_summary_enable' ); // Frontend: block, widget, shortcode, auto-display.
-	define( 'RNRD_OPT_AUTO_DISPLAY',     'rnrd_auto_display' );
-	define( 'RNRD_OPT_DISPLAY_POSITION', 'rnrd_display_position' );
+	define( 'RNRD_OPT_AUTO_DISPLAY',     'rnrd_auto_display' );   // 'off' | 'before' | 'after' (legacy: 'on' + RNRD_OPT_DISPLAY_POSITION).
+	define( 'RNRD_OPT_DISPLAY_POSITION', 'rnrd_display_position' ); // Legacy; read fallback only.
 	define( 'RNRD_OPT_CUSTOM_PROMPT',    'rnrd_custom_prompt' );
 	define( 'RNRD_OPT_PRODUCT_CONTEXT',  'rnrd_product_context' );
 
@@ -174,8 +174,8 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_FAQ_COUNT',        'rnrd_faq_count' );
 	define( 'RNRD_OPT_FAQ_BRAND_TERMS',  'rnrd_faq_brand_terms' );
 	define( 'RNRD_OPT_FAQ_ENABLE',       'rnrd_faq_enable' ); // Frontend: block, widget, shortcode, auto-display.
-	define( 'RNRD_OPT_FAQ_AUTO_DISPLAY', 'rnrd_faq_auto_display' );
-	define( 'RNRD_OPT_FAQ_POSITION',     'rnrd_faq_position' );
+	define( 'RNRD_OPT_FAQ_AUTO_DISPLAY', 'rnrd_faq_auto_display' ); // 'off' | 'before' | 'after' (legacy: 'on' + RNRD_OPT_FAQ_POSITION).
+	define( 'RNRD_OPT_FAQ_POSITION',     'rnrd_faq_position' );     // Legacy; read fallback only.
 	define( 'RNRD_OPT_FAQ_HEADING_TAG',  'rnrd_faq_heading_tag' );
 	define( 'RNRD_OPT_FAQ_SHOW_REVIEWED','rnrd_faq_show_reviewed' );
 	define( 'RNRD_OPT_FAQ_AUTO_GENERATE','rnrd_faq_auto_generate' );
@@ -336,6 +336,46 @@ if ( ! function_exists( 'rnrd_is_pro' ) ) {
 	}
 }
 
+/**
+ * Resolve Auto-display to off|before|after.
+ * Legacy Summary/FAQ stored 'on' plus a separate position option.
+ * 'both' is Author Box only; maps to the feature's default position.
+ */
+function rnrd_auto_display_mode( string $option, string $legacy_position_option, string $legacy_position_default ): string {
+	$v = (string) get_option( $option, 'off' );
+	if ( in_array( $v, array( 'off', 'before', 'after' ), true ) ) {
+		return $v;
+	}
+	if ( 'both' === $v ) {
+		return $legacy_position_default;
+	}
+	if ( 'on' === $v ) {
+		$pos = (string) get_option( $legacy_position_option, $legacy_position_default );
+		return 'before' === $pos ? 'before' : 'after';
+	}
+	return 'off';
+}
+
+/**
+ * One-shot: rewrite legacy 'on' Auto-display rows to before/after.
+ */
+function rnrd_maybe_merge_auto_display_options(): void {
+	if ( get_option( 'rnrd_auto_display_merged' ) ) {
+		return;
+	}
+	$summary = (string) get_option( RNRD_OPT_AUTO_DISPLAY, 'off' );
+	if ( 'on' === $summary ) {
+		$pos = (string) get_option( RNRD_OPT_DISPLAY_POSITION, 'before' );
+		update_option( RNRD_OPT_AUTO_DISPLAY, 'before' === $pos ? 'before' : 'after', false );
+	}
+	$faq = (string) get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' );
+	if ( 'on' === $faq ) {
+		$pos = (string) get_option( RNRD_OPT_FAQ_POSITION, 'after' );
+		update_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'before' === $pos ? 'before' : 'after', false );
+	}
+	update_option( 'rnrd_auto_display_merged', '1', false );
+}
+
 // ── Autoloader ────────────────────────────────────────────────────────────────
 spl_autoload_register( function ( string $class ): void {
 	if ( 0 !== strpos( $class, 'RNRD_' ) ) {
@@ -472,6 +512,8 @@ add_action( 'plugins_loaded', function (): void {
 		} );
 		return;
 	}
+
+	rnrd_maybe_merge_auto_display_options();
 
 	// Auto-flush rewrite rules after plugin update (activation hook doesn't fire on updates).
 	$stored_version = get_option( 'rnrd_installed_version', '' );

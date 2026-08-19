@@ -24,6 +24,14 @@ class RNRD_Author_Box {
 		return 'on' === get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' );
 	}
 
+	/**
+	 * Whether Author Box auto-display and the Trust panel apply to this post type.
+	 */
+	public static function is_post_type_enabled( string $post_type ): bool {
+		$types = array_values( array_filter( (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) ) ) );
+		return in_array( $post_type, $types, true );
+	}
+
 	// ── All profile field meta keys (user meta) ──────────────────────────────
 	// Kept as a single map so register_meta(), render(), schema build, and
 	// uninstall all read from the same source of truth.
@@ -1360,8 +1368,7 @@ class RNRD_Author_Box {
 		if ( get_post_meta( $post_id, RNRD_META_AUTHOR_DISABLE, true ) ) return $content;
 
 		// Post type allowlist.
-		$allowed = (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
-		if ( ! in_array( $post->post_type, $allowed, true ) ) return $content;
+		if ( ! self::is_post_type_enabled( $post->post_type ) ) return $content;
 
 		// Skip if the Gutenberg block or shortcode already places the author box.
 		if ( RNRD_Shortcode::post_has_manual( $post, 'rankready/author-box', RNRD_Shortcode::AUTHOR ) ) {

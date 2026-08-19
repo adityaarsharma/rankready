@@ -17,6 +17,21 @@ class RNRD_Block {
 		return 'on' === get_option( RNRD_OPT_SUMMARY_ENABLE, 'on' );
 	}
 
+	/**
+	 * Whether AI Summary applies to this post type (metabox, generate, auto-display).
+	 */
+	public static function is_summary_post_type( string $post_type ): bool {
+		$types = array_values( array_filter( (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ) ) );
+		return in_array( $post_type, $types, true );
+	}
+
+	/**
+	 * HTML auto-display: off | before | after.
+	 */
+	public static function get_auto_display(): string {
+		return rnrd_auto_display_mode( RNRD_OPT_AUTO_DISPLAY, RNRD_OPT_DISPLAY_POSITION, 'before' );
+	}
+
 	public static function init(): void {
 		add_action( 'init',                        array( self::class, 'register_block' ) );
 		add_action( 'init',                        array( self::class, 'register_faq_block' ) );
@@ -473,7 +488,8 @@ class RNRD_Block {
 			return $content;
 		}
 
-		if ( 'on' !== get_option( RNRD_OPT_AUTO_DISPLAY, 'off' ) ) {
+		$position = self::get_auto_display();
+		if ( 'off' === $position ) {
 			return $content;
 		}
 
@@ -487,9 +503,11 @@ class RNRD_Block {
 			return $content;
 		}
 
-		// Check post type — all public CPTs.
 		$post = get_post( $post_id );
 		if ( ! $post || ! is_post_type_viewable( $post->post_type ) ) {
+			return $content;
+		}
+		if ( ! self::is_summary_post_type( $post->post_type ) ) {
 			return $content;
 		}
 
@@ -515,8 +533,6 @@ class RNRD_Block {
 		}
 
 		$summary_html = self::build_summary_html( $raw );
-		$position     = get_option( RNRD_OPT_DISPLAY_POSITION, 'before' );
-
 		if ( 'after' === $position ) {
 			return $content . $summary_html;
 		}

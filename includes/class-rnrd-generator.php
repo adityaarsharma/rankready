@@ -49,6 +49,9 @@ class RNRD_Generator {
 		if ( 'publish' !== $post->post_status ) {
 			return;
 		}
+		if ( class_exists( 'RNRD_Block' ) && ! RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+			return;
+		}
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
@@ -106,6 +109,10 @@ class RNRD_Generator {
 		$post_id = (int) $post_id;
 		$post    = get_post( $post_id );
 		if ( ! $post || 'publish' !== $post->post_status ) {
+			self::$generating = false;
+			return;
+		}
+		if ( class_exists( 'RNRD_Block' ) && ! RNRD_Block::is_summary_post_type( $post->post_type ) ) {
 			self::$generating = false;
 			return;
 		}

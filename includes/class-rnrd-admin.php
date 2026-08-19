@@ -541,7 +541,7 @@ class RNRD_Admin {
 		// Repointed to CONTENT_GROUP to match the form they're actually in.
 		register_setting( self::CONTENT_GROUP, RNRD_OPT_POST_TYPES, array(
 			'type'              => 'array',
-			'sanitize_callback' => array( self::class, 'sanitize_post_types' ),
+			'sanitize_callback' => array( self::class, 'sanitize_post_types_optional' ),
 			'default'           => array( 'post' ),
 		) );
 
@@ -588,12 +588,6 @@ class RNRD_Admin {
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_auto_display' ),
 			'default'           => 'off',
-		) );
-
-		register_setting( self::CONTENT_GROUP, RNRD_OPT_DISPLAY_POSITION, array(
-			'type'              => 'string',
-			'sanitize_callback' => array( self::class, 'sanitize_display_position' ),
-			'default'           => 'before',
 		) );
 
 		register_setting( self::CONTENT_GROUP, RNRD_OPT_LABEL, array(
@@ -869,7 +863,7 @@ class RNRD_Admin {
 
 		register_setting( self::FAQ_GROUP, RNRD_OPT_FAQ_POST_TYPES, array(
 			'type'              => 'array',
-			'sanitize_callback' => array( self::class, 'sanitize_post_types' ),
+			'sanitize_callback' => array( self::class, 'sanitize_post_types_optional' ),
 			'default'           => array( 'post' ),
 		) );
 
@@ -902,14 +896,8 @@ class RNRD_Admin {
 
 		register_setting( self::FAQ_GROUP, RNRD_OPT_FAQ_AUTO_DISPLAY, array(
 			'type'              => 'string',
-			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'sanitize_callback' => array( self::class, 'sanitize_auto_display' ),
 			'default'           => 'off',
-		) );
-
-		register_setting( self::FAQ_GROUP, RNRD_OPT_FAQ_POSITION, array(
-			'type'              => 'string',
-			'sanitize_callback' => array( self::class, 'sanitize_display_position' ),
-			'default'           => 'after',
 		) );
 
 		register_setting( self::FAQ_GROUP, RNRD_OPT_FAQ_HEADING_TAG, array(
@@ -1044,9 +1032,7 @@ class RNRD_Admin {
 		) );
 		register_setting( self::AUTHOR_GROUP, RNRD_OPT_AUTHOR_AUTO_DISPLAY, array(
 			'type'              => 'string',
-			'sanitize_callback' => function ( $v ) {
-				return in_array( $v, array( 'off', 'before', 'after', 'both' ), true ) ? $v : 'off';
-			},
+			'sanitize_callback' => array( self::class, 'sanitize_author_auto_display' ),
 			'default'           => 'off',
 		) );
 		register_setting( self::AUTHOR_GROUP, RNRD_OPT_AUTHOR_LAYOUT, array(
@@ -1085,10 +1071,7 @@ class RNRD_Admin {
 		) );
 		register_setting( self::AUTHOR_GROUP, RNRD_OPT_AUTHOR_POST_TYPES, array(
 			'type'              => 'array',
-			'sanitize_callback' => function ( $v ) {
-				if ( ! is_array( $v ) ) return array( 'post' );
-				return array_values( array_filter( array_map( 'sanitize_key', $v ) ) );
-			},
+			'sanitize_callback' => array( self::class, 'sanitize_post_types_optional' ),
 			'default'           => array( 'post' ),
 		) );
 		register_setting( self::AUTHOR_GROUP, RNRD_OPT_AUTHOR_TRUST_ENABLE, array(
@@ -1299,6 +1282,19 @@ class RNRD_Admin {
 			return array( 'post' );
 		}
 		$allowed = array_keys( self::get_allowed_post_types() );
+		$clean   = array_values( array_intersect( array_map( 'sanitize_key', $value ), $allowed ) );
+		return ! empty( $clean ) ? $clean : array( 'post' );
+	}
+
+	/**
+	 * Post types for Summary, FAQ, and Author Box. Empty is allowed (feature
+	 * applies to no types). llms.txt / Markdown keep sanitize_post_types().
+	 */
+	public static function sanitize_post_types_optional( $value ): array {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+		$allowed = array_keys( self::get_allowed_post_types() );
 		return array_values( array_intersect( array_map( 'sanitize_key', $value ), $allowed ) );
 	}
 
@@ -1320,7 +1316,11 @@ class RNRD_Admin {
 	}
 
 	public static function sanitize_auto_display( $value ): string {
-		return in_array( $value, array( 'on', 'off' ), true ) ? $value : 'off';
+		return in_array( $value, array( 'off', 'before', 'after' ), true ) ? $value : 'off';
+	}
+
+	public static function sanitize_author_auto_display( $value ): string {
+		return in_array( $value, array( 'off', 'before', 'after', 'both' ), true ) ? $value : 'off';
 	}
 
 	public static function sanitize_display_position( $value ): string {
@@ -1731,14 +1731,10 @@ class RNRD_Admin {
 
 		// AI Content tile status (cheap option reads — no extra DB counts).
 		$summary_types = array_values( array_filter( (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ) ) );
-		$summary_auto  = 'on' === (string) get_option( RNRD_OPT_AUTO_DISPLAY, 'off' );
-		$summary_pos   = (string) get_option( RNRD_OPT_DISPLAY_POSITION, 'before' );
-		$summary_place = $summary_auto ? $summary_pos : 'off';
+		$summary_place = class_exists( 'RNRD_Block' ) ? RNRD_Block::get_auto_display() : 'off';
 
 		$faq_types = array_values( array_filter( (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ) ) );
-		$faq_auto  = 'on' === (string) get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' );
-		$faq_pos   = (string) get_option( RNRD_OPT_FAQ_POSITION, 'after' );
-		$faq_place = $faq_auto ? $faq_pos : 'off';
+		$faq_place = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_auto_display() : 'off';
 
 		$author_types = array_values( array_filter( (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) ) ) );
 		$author_place = (string) get_option( RNRD_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
@@ -1759,7 +1755,6 @@ class RNRD_Admin {
 			}
 		}
 		$schema_on_count  = count( $schema_on_labels );
-		$schema_total     = count( $schema_flags );
 		$schema_seo       = '';
 		if ( defined( 'RANK_MATH_VERSION' ) ) {
 			$schema_seo = 'Rank Math';
@@ -1815,7 +1810,7 @@ class RNRD_Admin {
 			<div class="rnrd-dash-summary__head">
 				<div>
 					<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Content', 'rankready-ai-llm-seo' ); ?></h2>
-					<p class="rnrd-card-goal"><?php esc_html_e( 'AI Summaries, FAQ, Author Box, and Schema.', 'rankready-ai-llm-seo' ); ?></p>
+					<p class="rnrd-card-goal"><?php esc_html_e( 'AI Summaries, FAQ, Author Box, and Schema. Generated Summary and FAQ also appear in Markdown and OKF.', 'rankready-ai-llm-seo' ); ?></p>
 				</div>
 				<a class="rnrd-dash-summary__open" href="<?php echo esc_url( $content_url ); ?>"><?php esc_html_e( 'View all →', 'rankready-ai-llm-seo' ); ?></a>
 			</div>
@@ -1827,16 +1822,22 @@ class RNRD_Admin {
 					</div>
 					<div class="rnrd-kpi__period"><?php echo esc_html( self::dash_post_types_meta( $summary_types ) ); ?></div>
 					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $summary_count ) ); ?></div>
-					<div class="rnrd-kpi__foot"><?php echo esc_html( $summary_on ? self::dash_auto_placement_label( $summary_place ) : __( 'Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></div>
+					<div class="rnrd-kpi__foot rnrd-kpi__foot--stack">
+						<span class="rnrd-kpi__foot-line"><?php echo esc_html( $summary_on ? self::dash_html_placement_label( $summary_place ) : __( 'HTML: Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></span>
+						<span class="rnrd-kpi__foot-line"><?php echo esc_html( self::dash_md_okf_placement_label( 'summary' ) ); ?></span>
+					</div>
 				</a>
-				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_faq_url ); ?>" aria-label="<?php esc_attr_e( 'AI FAQ Generator — open AI Content', 'rankready-ai-llm-seo' ); ?>">
+				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_faq_url ); ?>" aria-label="<?php esc_attr_e( 'AI FAQ — open AI Content', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">
-						<div class="rnrd-kpi__label"><?php esc_html_e( 'AI FAQ Generator', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'AI FAQ', 'rankready-ai-llm-seo' ); ?></div>
 						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
 					</div>
 					<div class="rnrd-kpi__period"><?php echo esc_html( self::dash_post_types_meta( $faq_types ) ); ?></div>
 					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $faq_count ) ); ?></div>
-					<div class="rnrd-kpi__foot"><?php echo esc_html( $faq_on ? self::dash_auto_placement_label( $faq_place ) : __( 'Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></div>
+					<div class="rnrd-kpi__foot rnrd-kpi__foot--stack">
+						<span class="rnrd-kpi__foot-line"><?php echo esc_html( $faq_on ? self::dash_html_placement_label( $faq_place ) : __( 'HTML: Hidden on frontend', 'rankready-ai-llm-seo' ) ); ?></span>
+						<span class="rnrd-kpi__foot-line"><?php echo esc_html( self::dash_md_okf_placement_label( 'faq' ) ); ?></span>
+					</div>
 				</a>
 				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $content_author_url ); ?>" aria-label="<?php esc_attr_e( 'Author Box (E-E-A-T) — open AI Content', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">
@@ -1853,12 +1854,7 @@ class RNRD_Admin {
 						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
 					</div>
 					<div class="rnrd-kpi__period"><?php echo $schema_on_labels ? esc_html( implode( ' · ', $schema_on_labels ) ) : esc_html__( 'None enabled', 'rankready-ai-llm-seo' ); ?></div>
-					<div class="rnrd-kpi__value"><?php echo esc_html( sprintf(
-						/* translators: 1: enabled schema types, 2: total schema types */
-						__( '%1$d of %2$d', 'rankready-ai-llm-seo' ),
-						(int) $schema_on_count,
-						(int) $schema_total
-					) ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo $schema_on_count > 0 ? esc_html__( 'On', 'rankready-ai-llm-seo' ) : esc_html__( 'Off', 'rankready-ai-llm-seo' ); ?></div>
 					<div class="rnrd-kpi__foot"><?php
 						echo $schema_seo
 							? esc_html( sprintf(
@@ -2047,11 +2043,35 @@ class RNRD_Admin {
 			case 'after':
 				return __( 'Auto-display: after content', 'rankready-ai-llm-seo' );
 			case 'both':
-				return __( 'Auto-display: before&amp;after content', 'rankready-ai-llm-seo' );
+				return __( 'Auto-display: before and after content', 'rankready-ai-llm-seo' );
 			case 'off':
 			default:
 				return __( 'Manual placement', 'rankready-ai-llm-seo' );
 		}
+	}
+
+	/**
+	 * HTML-page placement for Summary / FAQ Dashboard tiles.
+	 *
+	 * @param string $mode off|before|after|both
+	 */
+	private static function dash_html_placement_label( string $mode ): string {
+		return sprintf(
+			/* translators: %s: auto-display placement like "Auto-display: before content" */
+			__( 'HTML: %s', 'rankready-ai-llm-seo' ),
+			self::dash_auto_placement_label( $mode )
+		);
+	}
+
+	/**
+	 * Fixed Markdown / OKF injection for Summary / FAQ Dashboard tiles.
+	 *
+	 * @param string $kind summary|faq
+	 */
+	private static function dash_md_okf_placement_label( string $kind ): string {
+		return 'faq' === $kind
+			? __( 'Markdown / OKF: always after the body', 'rankready-ai-llm-seo' )
+			: __( 'Markdown / OKF: always before the body', 'rankready-ai-llm-seo' );
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════════
@@ -2737,7 +2757,7 @@ class RNRD_Admin {
 		$sub = isset( $_GET['sub'] ) ? sanitize_key( wp_unslash( $_GET['sub'] ) ) : 'summary';
 		$sub_tabs = array(
 			'summary' => __( 'AI Summary', 'rankready-ai-llm-seo' ),
-			'faq'     => __( 'AI FAQ Generator', 'rankready-ai-llm-seo' ),
+			'faq'     => __( 'AI FAQ', 'rankready-ai-llm-seo' ),
 			'author'  => __( 'Author Box (E-E-A-T)', 'rankready-ai-llm-seo' ),
 			'schema'  => __( 'Schema', 'rankready-ai-llm-seo' ),
 		);
@@ -2990,7 +3010,11 @@ class RNRD_Admin {
 				esc_attr( (string) get_option( $opt, $default ) )
 			);
 		}
-		$author_types = (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
+		$author_types = array_values( array_filter( (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) ) ) );
+		printf(
+			'<input type="hidden" name="%s[]" value="" />' . "\n",
+			esc_attr( RNRD_OPT_AUTHOR_POST_TYPES )
+		);
 		foreach ( $author_types as $pt ) {
 			printf(
 				'<input type="hidden" name="%1$s[]" value="%2$s" />' . "\n",
@@ -3850,35 +3874,85 @@ class RNRD_Admin {
 	// TAB: AI Summary
 	// ═══════════════════════════════════════════════════════════════════════════
 
-	private static function render_tab_summary(): void {
+	/**
+	 * Post-type picker that allows an empty selection (Summary, FAQ, Author Box).
+	 */
+	private static function render_optional_post_types_section( string $option, string $help ): void {
+		$selected = array_values( array_filter( (array) get_option( $option, array( 'post' ) ) ) );
 		?>
-			<!-- Merged in rc.6: single "AI Summary" card containing two H3 subsections
-			     (Generation + Display). All form-field names preserved verbatim. -->
-			<div class="rnrd-card">
-				<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Summary', 'rankready-ai-llm-seo' ); ?></h2>
-				<p class="rnrd-card-goal"><?php esc_html_e( 'Key Takeaways — the lines ChatGPT and Perplexity quote directly.', 'rankready-ai-llm-seo' ); ?></p>
-
-				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'Generation', 'rankready-ai-llm-seo' ); ?></h3>
-
+				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></h3>
 				<table class="form-table rnrd-form-table">
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></th>
+						<th scope="row"><?php esc_html_e( 'Apply to', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
-							<?php $selected_types = (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ); ?>
-							<fieldset class="rnrd-checkboxes-inline" data-rnrd-min-one-checkboxes>
+							<fieldset class="rnrd-checkboxes-inline">
+								<input type="hidden" name="<?php echo esc_attr( $option ); ?>[]" value="" />
 								<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
 									<label>
-										<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_POST_TYPES ); ?>[]"
+										<input type="checkbox" name="<?php echo esc_attr( $option ); ?>[]"
 											   value="<?php echo esc_attr( $slug ); ?>"
-											   <?php checked( in_array( $slug, $selected_types, true ) ); ?> />
+											   <?php checked( in_array( $slug, $selected, true ) ); ?> />
 										<?php echo esc_html( $label ); ?>
 									</label>
 								<?php endforeach; ?>
 							</fieldset>
-								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
-							<p class="description"><?php esc_html_e( 'Summaries can be generated for selected post types. At least one post type is required.', 'rankready-ai-llm-seo' ); ?></p>
+							<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?>
+								<p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p>
+							<?php endif; ?>
+							<p class="description"><?php echo esc_html( $help ); ?></p>
 						</td>
 					</tr>
+				</table>
+		<?php
+	}
+
+	/**
+	 * Compact Auto-display radios. Author Box may include "both".
+	 */
+	private static function render_auto_display_radios( string $option, string $current, bool $allow_both = false ): void {
+		$allowed = $allow_both
+			? array( 'off', 'before', 'after', 'both' )
+			: array( 'off', 'before', 'after' );
+		if ( ! in_array( $current, $allowed, true ) ) {
+			$current = 'off';
+		}
+		$choices = array(
+			'off'    => __( 'Off — use Gutenberg block, Elementor widget, or shortcode', 'rankready-ai-llm-seo' ),
+			'before' => __( 'Before content', 'rankready-ai-llm-seo' ),
+			'after'  => __( 'After content', 'rankready-ai-llm-seo' ),
+		);
+		if ( $allow_both ) {
+			$choices['both'] = __( 'Before & after content (both)', 'rankready-ai-llm-seo' );
+		}
+		?>
+							<fieldset class="rnrd-radios-stack">
+								<?php foreach ( $choices as $value => $label ) : ?>
+									<label>
+										<input type="radio" name="<?php echo esc_attr( $option ); ?>" value="<?php echo esc_attr( $value ); ?>" <?php checked( $current, $value ); ?> />
+										<?php echo esc_html( $label ); ?>
+									</label>
+								<?php endforeach; ?>
+							</fieldset>
+		<?php
+	}
+
+	private static function render_tab_summary(): void {
+		?>
+			<!-- Post Types, AI Generation, Display. -->
+			<div class="rnrd-card">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Summary', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Key Takeaways — the lines ChatGPT and Perplexity quote directly.', 'rankready-ai-llm-seo' ); ?></p>
+
+				<?php
+				self::render_optional_post_types_section(
+					RNRD_OPT_POST_TYPES,
+					__( 'Uncheck all to hide the metabox and skip auto-display. Existing summaries are kept.', 'rankready-ai-llm-seo' )
+				);
+				?>
+
+				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'AI Generation', 'rankready-ai-llm-seo' ); ?></h3>
+
+				<table class="form-table rnrd-form-table">
 					<tr>
 						<th scope="row"><label for="rnrd_custom_prompt"><?php esc_html_e( 'Custom Prompt', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
@@ -3913,16 +3987,6 @@ class RNRD_Admin {
 				</table>
 
 				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'Display', 'rankready-ai-llm-seo' ); ?></h3>
-				<p class="rnrd-card-desc"><?php
-					printf(
-						wp_kses(
-							/* translators: %s: HTML code element containing the [rankready_summary] shortcode */
-							__( 'Control how AI Summaries appear on the frontend. Manual placement: Gutenberg block, Elementor widget, or %s.', 'rankready-ai-llm-seo' ),
-							array( 'code' => array() )
-						),
-						'<code>' . esc_html( RNRD_Shortcode::tag( RNRD_Shortcode::SUMMARY ) ) . '</code>'
-					);
-				?></p>
 
 				<table class="form-table rnrd-form-table">
 					<tr>
@@ -3931,41 +3995,22 @@ class RNRD_Admin {
 							<?php $summary_enable = (string) get_option( RNRD_OPT_SUMMARY_ENABLE, 'on' ); ?>
 							<label class="rnrd-toggle">
 								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_SUMMARY_ENABLE ); ?>" value="off" />
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_SUMMARY_ENABLE ); ?>" value="on" <?php checked( $summary_enable, 'on' ); ?> />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Show summaries on the frontend', 'rankready-ai-llm-seo' ); ?></span>
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_SUMMARY_ENABLE ); ?>" value="on" <?php checked( $summary_enable, 'on' ); ?> data-toggle-target="rnrd-summary-auto-display" />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Show summaries on the frontend (single post/page views)', 'rankready-ai-llm-seo' ); ?></span>
 							</label>
-							<p class="description"><?php esc_html_e( 'When off, summaries stay hidden (block, widget, shortcode, and auto-display). Generated text is still used in llms.txt, Markdown, and WebMCP.', 'rankready-ai-llm-seo' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Markdown and OKF always include generated summaries before the body.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Auto Display', 'rankready-ai-llm-seo' ); ?></th>
+					<tr id="rnrd-summary-auto-display" <?php echo 'on' !== $summary_enable ? 'style="display:none;"' : ''; ?>>
+						<th scope="row"><?php esc_html_e( 'Auto-display', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
-							<?php $auto_display = (string) get_option( RNRD_OPT_AUTO_DISPLAY, 'off' ); ?>
-							<label class="rnrd-toggle">
-								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AUTO_DISPLAY ); ?>" value="off" />
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_AUTO_DISPLAY ); ?>" value="on" <?php checked( $auto_display, 'on' ); ?> />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Automatically inject summary into post content', 'rankready-ai-llm-seo' ); ?></span>
-							</label>
-							<p class="description"><?php
-								printf(
-									wp_kses(
-										/* translators: %s: HTML code element containing the [rankready_summary] shortcode */
-										__( 'Off = show only via Gutenberg block, Elementor widget, or %s. Auto-display is skipped when a block or shortcode is already in the post.', 'rankready-ai-llm-seo' ),
-										array( 'code' => array() )
-									),
-									'<code>' . esc_html( RNRD_Shortcode::tag( RNRD_Shortcode::SUMMARY ) ) . '</code>'
-								);
-							?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label><?php esc_html_e( 'Position', 'rankready-ai-llm-seo' ); ?></label></th>
-						<td>
-							<?php $display_pos = (string) get_option( RNRD_OPT_DISPLAY_POSITION, 'before' ); ?>
-							<select name="<?php echo esc_attr( RNRD_OPT_DISPLAY_POSITION ); ?>">
-								<option value="before" <?php selected( $display_pos, 'before' ); ?>><?php esc_html_e( 'Before content', 'rankready-ai-llm-seo' ); ?></option>
-								<option value="after"  <?php selected( $display_pos, 'after' ); ?>><?php esc_html_e( 'After content', 'rankready-ai-llm-seo' ); ?></option>
-							</select>
+							<?php
+							self::render_auto_display_radios(
+								RNRD_OPT_AUTO_DISPLAY,
+								class_exists( 'RNRD_Block' ) ? RNRD_Block::get_auto_display() : 'off'
+							);
+							?>
+							<p class="description"><?php esc_html_e( 'Before/after content will be skipped if a Gutenberg block, Elementor widget, or [rankready_summary] shortcode is already in the post.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -4024,7 +4069,6 @@ class RNRD_Admin {
 		$schema_enable = (string) get_option( RNRD_OPT_AUTHOR_SCHEMA_ENABLE, 'on' );
 		$editorial     = (string) get_option( RNRD_OPT_AUTHOR_EDITORIAL_URL, '' );
 		$factcheck     = (string) get_option( RNRD_OPT_AUTHOR_FACTCHECK_URL, '' );
-		$post_types    = (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
 		$trust_enable  = (string) get_option( RNRD_OPT_AUTHOR_TRUST_ENABLE, 'off' );
 
 		$has_rankmath = defined( 'RANK_MATH_VERSION' );
@@ -4043,51 +4087,30 @@ class RNRD_Admin {
 					</div>
 				<?php endif; ?>
 
-				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'General', 'rankready-ai-llm-seo' ); ?></h3>
+				<?php
+				self::render_optional_post_types_section(
+					RNRD_OPT_AUTHOR_POST_TYPES,
+					__( 'Uncheck all to skip auto-display and the per-post Author Trust panel. Profile data is kept.', 'rankready-ai-llm-seo' )
+				);
+				?>
+
+				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'Display', 'rankready-ai-llm-seo' ); ?></h3>
 				<table class="form-table rnrd-form-table">
 					<tr>
 						<th><?php esc_html_e( 'Enable Author Box', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
 							<label class="rnrd-toggle">
 								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_ENABLE ); ?>" value="off" />
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_ENABLE ); ?>" value="on" <?php checked( $enable, 'on' ); ?> />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Show the author box on the frontend', 'rankready-ai-llm-seo' ); ?></span>
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_ENABLE ); ?>" value="on" <?php checked( $enable, 'on' ); ?> data-toggle-target="rnrd-author-auto-display" />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Show the author box on the frontend (single post/page views)', 'rankready-ai-llm-seo' ); ?></span>
 							</label>
-							<p class="description"><?php esc_html_e( 'When off, the author box is hidden (block, widget, shortcode, and auto-display). Profile data is kept.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
-					<tr>
-						<th><label for="rnrd_author_auto_display"><?php esc_html_e( 'Auto-display', 'rankready-ai-llm-seo' ); ?></label></th>
+					<tr id="rnrd-author-auto-display" <?php echo 'on' !== $enable ? 'style="display:none;"' : ''; ?>>
+						<th><?php esc_html_e( 'Auto-display', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
-							<select name="<?php echo esc_attr( RNRD_OPT_AUTHOR_AUTO_DISPLAY ); ?>" id="rnrd_author_auto_display">
-								<option value="off"    <?php selected( $auto_display, 'off' ); ?>><?php esc_html_e( 'Off — use block, widget, or shortcode', 'rankready-ai-llm-seo' ); ?></option>
-								<option value="before" <?php selected( $auto_display, 'before' ); ?>><?php esc_html_e( 'Before content', 'rankready-ai-llm-seo' ); ?></option>
-								<option value="after"  <?php selected( $auto_display, 'after' ); ?>><?php esc_html_e( 'After content', 'rankready-ai-llm-seo' ); ?></option>
-								<option value="both"   <?php selected( $auto_display, 'both' ); ?>><?php esc_html_e( 'Both (above and below)', 'rankready-ai-llm-seo' ); ?></option>
-							</select>
-							<p class="description"><?php
-								printf(
-									wp_kses(
-										/* translators: %s: HTML code element containing the [rankready_author] shortcode */
-										__( 'Append the author box automatically on singular pages. Skipped when the Author Box block, Elementor widget, or %s is already in the content.', 'rankready-ai-llm-seo' ),
-										array( 'code' => array() )
-									),
-									'<code>' . esc_html( RNRD_Shortcode::tag( RNRD_Shortcode::AUTHOR ) ) . '</code>'
-								);
-							?></p>
-						</td>
-					</tr>
-					<tr>
-						<th><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></th>
-						<td>
-							<?php foreach ( self::get_allowed_post_types() as $rnrd_pt_slug => $rnrd_pt_label ) : ?>
-								<label style="display:block;margin-bottom:4px;">
-									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_AUTHOR_POST_TYPES ); ?>[]" value="<?php echo esc_attr( $rnrd_pt_slug ); ?>" <?php checked( in_array( $rnrd_pt_slug, $post_types, true ) ); ?> />
-									<?php echo esc_html( $rnrd_pt_label ); ?>
-								</label>
-							<?php endforeach; ?>
-							<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
-							<p class="description"><?php esc_html_e( 'Post types where auto-display is allowed and the per-post "Author Trust" panel appears.', 'rankready-ai-llm-seo' ); ?></p>
+							<?php self::render_auto_display_radios( RNRD_OPT_AUTHOR_AUTO_DISPLAY, $auto_display, true ); ?>
+							<p class="description"><?php esc_html_e( 'Before/after content will be skipped if a Gutenberg block, Elementor widget, or [rankready_author] shortcode is already in the post.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -5403,33 +5426,21 @@ class RNRD_Admin {
 
 	private static function render_tab_faq(): void {
 		?>
-			<!-- Merged in rc.6: single "FAQ Generator" card containing two H3 subsections
-			     (Generation + Display). All form-field names preserved verbatim. -->
+			<!-- Post Types, AI Generation, Display. -->
 			<div class="rnrd-card">
-				<h2 class="rnrd-card-title"><?php esc_html_e( 'FAQ Generator', 'rankready-ai-llm-seo' ); ?></h2>
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'AI FAQ', 'rankready-ai-llm-seo' ); ?></h2>
 				<p class="rnrd-card-goal"><?php esc_html_e( 'Discover real user questions and answer them with AI — FAQPage schema that AI Overviews and Perplexity prefer to cite.', 'rankready-ai-llm-seo' ); ?></p>
 
-				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'Generation', 'rankready-ai-llm-seo' ); ?></h3>
+				<?php
+				self::render_optional_post_types_section(
+					RNRD_OPT_FAQ_POST_TYPES,
+					__( 'Uncheck all to hide the metabox and skip auto-display. Existing FAQs are kept.', 'rankready-ai-llm-seo' )
+				);
+				?>
+
+				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'AI Generation', 'rankready-ai-llm-seo' ); ?></h3>
 
 				<table class="form-table rnrd-form-table">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Post Types', 'rankready-ai-llm-seo' ); ?></th>
-						<td>
-							<?php $faq_types = (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ); ?>
-							<fieldset data-rnrd-min-one-checkboxes>
-							<?php foreach ( self::get_allowed_post_types() as $slug => $label ) : ?>
-								<label style="display:block;margin-bottom:4px;">
-									<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_FAQ_POST_TYPES ); ?>[]"
-									       value="<?php echo esc_attr( $slug ); ?>"
-									       <?php checked( in_array( $slug, $faq_types, true ) ); ?> />
-									<?php echo esc_html( $label ); ?>
-								</label>
-							<?php endforeach; ?>
-							</fieldset>
-								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
-							<p class="description"><?php esc_html_e( 'FAQ can be generated for these post types. At least one post type is required.', 'rankready-ai-llm-seo' ); ?></p>
-						</td>
-					</tr>
 					<tr>
 						<th scope="row"><label for="rnrd_faq_count"><?php esc_html_e( 'FAQ Count', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
@@ -5473,16 +5484,6 @@ class RNRD_Admin {
 				</table>
 
 				<h3 class="rnrd-subsection-title"><?php esc_html_e( 'Display', 'rankready-ai-llm-seo' ); ?></h3>
-				<p class="rnrd-card-desc"><?php
-					printf(
-						wp_kses(
-							/* translators: %s: HTML code element containing the [rankready_faq] shortcode */
-							__( 'Control how FAQs appear on the frontend. Manual placement: Gutenberg block, Elementor widget, or %s.', 'rankready-ai-llm-seo' ),
-							array( 'code' => array() )
-						),
-						'<code>' . esc_html( RNRD_Shortcode::tag( RNRD_Shortcode::FAQ ) ) . '</code>'
-					);
-				?></p>
 
 				<table class="form-table rnrd-form-table">
 					<tr>
@@ -5491,41 +5492,22 @@ class RNRD_Admin {
 							<?php $faq_enable = (string) get_option( RNRD_OPT_FAQ_ENABLE, 'on' ); ?>
 							<label class="rnrd-toggle">
 								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_FAQ_ENABLE ); ?>" value="off" />
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_FAQ_ENABLE ); ?>" value="on" <?php checked( $faq_enable, 'on' ); ?> />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Show FAQs on the frontend', 'rankready-ai-llm-seo' ); ?></span>
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_FAQ_ENABLE ); ?>" value="on" <?php checked( $faq_enable, 'on' ); ?> data-toggle-target="rnrd-faq-auto-display" />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Show FAQs on the frontend (single post/page views)', 'rankready-ai-llm-seo' ); ?></span>
 							</label>
-							<p class="description"><?php esc_html_e( 'When off, FAQs stay hidden (block, widget, shortcode, and auto-display). Generated Q&A is still used in Markdown and other AI surfaces.', 'rankready-ai-llm-seo' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Markdown and OKF always include generated FAQs after the body.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Auto Display', 'rankready-ai-llm-seo' ); ?></th>
+					<tr id="rnrd-faq-auto-display" <?php echo 'on' !== $faq_enable ? 'style="display:none;"' : ''; ?>>
+						<th scope="row"><?php esc_html_e( 'Auto-display', 'rankready-ai-llm-seo' ); ?></th>
 						<td>
-							<?php $faq_auto = (string) get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' ); ?>
-							<label class="rnrd-toggle">
-								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_FAQ_AUTO_DISPLAY ); ?>" value="off" />
-								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_FAQ_AUTO_DISPLAY ); ?>" value="on" <?php checked( $faq_auto, 'on' ); ?> />
-								<span class="rnrd-toggle-label"><?php esc_html_e( 'Automatically inject FAQ into post content', 'rankready-ai-llm-seo' ); ?></span>
-							</label>
-							<p class="description"><?php
-								printf(
-									wp_kses(
-										/* translators: %s: HTML code element containing the [rankready_faq] shortcode */
-										__( 'Off = show only via Gutenberg block, Elementor widget, or %s. Auto-display is skipped when a block or shortcode is already in the post.', 'rankready-ai-llm-seo' ),
-										array( 'code' => array() )
-									),
-									'<code>' . esc_html( RNRD_Shortcode::tag( RNRD_Shortcode::FAQ ) ) . '</code>'
-								);
-							?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label><?php esc_html_e( 'Position', 'rankready-ai-llm-seo' ); ?></label></th>
-						<td>
-							<?php $faq_pos = (string) get_option( RNRD_OPT_FAQ_POSITION, 'after' ); ?>
-							<select name="<?php echo esc_attr( RNRD_OPT_FAQ_POSITION ); ?>">
-								<option value="before" <?php selected( $faq_pos, 'before' ); ?>><?php esc_html_e( 'Before content', 'rankready-ai-llm-seo' ); ?></option>
-								<option value="after"  <?php selected( $faq_pos, 'after' ); ?>><?php esc_html_e( 'After content', 'rankready-ai-llm-seo' ); ?></option>
-							</select>
+							<?php
+							self::render_auto_display_radios(
+								RNRD_OPT_FAQ_AUTO_DISPLAY,
+								class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_auto_display() : 'off'
+							);
+							?>
+							<p class="description"><?php esc_html_e( 'Before/after content will be skipped if a Gutenberg block, Elementor widget, or [rankready_faq] shortcode is already in the post.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 					<tr>

@@ -179,6 +179,7 @@ $rnrd_options = array(
 	'rnrd_summary_enable',
 	'rnrd_auto_display',
 	'rnrd_display_position',
+	'rnrd_auto_display_merged',
 	'rnrd_custom_prompt',
 	'rnrd_product_context',
 	'rnrd_auto_generate',

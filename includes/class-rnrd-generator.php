@@ -49,7 +49,7 @@ class RNRD_Generator {
 		if ( 'publish' !== $post->post_status ) {
 			return;
 		}
-		if ( class_exists( 'RNRD_Block' ) && ! RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+		if ( class_exists( 'RNRD_Summary' ) && ! RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
 			return;
 		}
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
@@ -112,7 +112,7 @@ class RNRD_Generator {
 			self::$generating = false;
 			return;
 		}
-		if ( class_exists( 'RNRD_Block' ) && ! RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+		if ( class_exists( 'RNRD_Summary' ) && ! RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
 			self::$generating = false;
 			return;
 		}

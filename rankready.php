@@ -857,6 +857,8 @@ add_action( 'plugins_loaded', function (): void {
 	}
 
 	RNRD_Generator::init();
+	RNRD_Summary::init();
+	RNRD_Schema::init();
 	RNRD_Block::init();
 	RNRD_Rest::init();
 	RNRD_Llms_Txt::init();

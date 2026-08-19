@@ -284,7 +284,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 	}
 
 	protected function render(): void {
-		if ( class_exists( 'RNRD_Block' ) && ! RNRD_Block::is_summary_enabled() ) {
+		if ( class_exists( 'RNRD_Summary' ) && ! RNRD_Summary::is_enabled() ) {
 			return;
 		}
 		$settings = $this->get_settings_for_display();
@@ -298,7 +298,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 		}
 
 		$post = get_post( $post_id );
-		if ( ! $post || ! RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+		if ( ! $post || ! RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
 			return;
 		}
 
@@ -307,37 +307,14 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 			return;
 		}
 
-		$summary    = RNRD_Generator::decode_summary( $raw );
-		$show_label = 'yes' === ( isset( $settings['show_label'] ) ? $settings['show_label'] : ( get_option( RNRD_OPT_SHOW_LABEL, '1' ) ? 'yes' : '' ) );
-		$label_text = sanitize_text_field(
-			! empty( $settings['label_text'] )
-				? $settings['label_text']
-				: (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) )
-		);
-		$tag = RNRD_Block::validate_heading_tag(
-			! empty( $settings['heading_tag'] )
+		echo RNRD_Summary::render_html( $raw, array(
+			'showLabel'  => 'yes' === ( isset( $settings['show_label'] ) ? $settings['show_label'] : ( get_option( RNRD_OPT_SHOW_LABEL, '1' ) ? 'yes' : '' ) ),
+			'label'      => ! empty( $settings['label_text'] )
+				? sanitize_text_field( $settings['label_text'] )
+				: (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) ),
+			'headingTag' => ! empty( $settings['heading_tag'] )
 				? $settings['heading_tag']
-				: (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' )
-		);
-
-		echo '<div class="rnrd-summary">';
-
-		if ( $show_label && ! empty( $label_text ) ) {
-			echo '<' . esc_attr( $tag ) . ' class="rnrd-label">'
-				. esc_html( $label_text )
-				. '</' . esc_attr( $tag ) . '>';
-		}
-
-		if ( 'bullets' === $summary['type'] ) {
-			echo '<ul class="rnrd-bullets">';
-			foreach ( (array) $summary['data'] as $bullet ) {
-				echo '<li class="rnrd-bullet">' . esc_html( $bullet ) . '</li>';
-			}
-			echo '</ul>';
-		} else {
-			echo '<p class="rnrd-text">' . esc_html( $summary['data'] ) . '</p>';
-		}
-
-		echo '</div>';
+				: (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' ),
+		) );
 	}
 }

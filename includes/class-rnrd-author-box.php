@@ -3,11 +3,9 @@
  * Author Box — profile fields, Person schema, renderers.
  *
  * Every profile field mapped here emits Schema.org Person data for EEAT.
- * When a major SEO plugin is active, the Person data is merged into its
- * existing schema graph via the filters in class-rnrd-block.php (rank_math/json_ld,
- * wpseo_schema_graph, aioseo_schema_output, …). When no SEO plugin is active,
- * this class emits a standalone Person node inline in Article.author on singular
- * views, plus an additional node on is_author() archive pages via wp_head.
+ * When a major SEO plugin is active, Person data is merged into its schema graph
+ * via this class's filters (rank_math/json_ld, wpseo_schema_graph, …). Article
+ * enrichment (speakable, abstract, reviewedBy, …) is handled by RNRD_Schema.
  *
  * @package RankReady
  */
@@ -103,7 +101,7 @@ class RNRD_Author_Box {
 		add_filter( 'sq_json_ld_data',                     array( self::class, 'merge_into_squirrly' ), 100 );
 
 		// reviewedBy + lastReviewed into Article schema (all SEO plugins).
-		// Piggybacks on the existing RNRD_Block merge_into_article_node helper by providing data through filter.
+		// Piggybacks on RNRD_Schema's Article merge path by providing data through filter.
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -1331,7 +1329,7 @@ class RNRD_Author_Box {
 			// leaves `;` intact, so a post editor could set a colour to
 			// "red;background-image:url(https://attacker.example)" and inject a
 			// second declaration — an outbound request on render, or a UI-redress
-			// overlay. Validate by value kind, matching RNRD_Block::sanitize_color().
+			// overlay. Validate by value kind, matching RNRD_Util::sanitize_color().
 			$clean = self::sanitize_style_value( $attr, (string) $value );
 			if ( '' === $clean ) {
 				continue;

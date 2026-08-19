@@ -206,7 +206,7 @@ class RNRD_Metabox {
 		$has_summary  = ! empty( $summary_items );
 		$has_key      = class_exists( 'RNRD_LLM' ) && RNRD_LLM::active_provider_ready();
 		$can_generate = $has_key && (int) $post->ID > 0;
-		$summary_place = class_exists( 'RNRD_Block' ) ? RNRD_Block::get_auto_display() : 'off';
+		$summary_place = class_exists( 'RNRD_Summary' ) ? RNRD_Summary::get_auto_display() : 'off';
 		$gen_label    = $has_summary ? __( 'Regenerate Summary', 'rankready-ai-llm-seo' ) : __( 'Generate Summary', 'rankready-ai-llm-seo' );
 		$autogen_on   = self::is_summary_autogen_enabled();
 
@@ -280,7 +280,7 @@ class RNRD_Metabox {
 			self::render_footer(
 				$has_key,
 				self::placement_label(
-					class_exists( 'RNRD_Block' ) && RNRD_Block::is_summary_enabled(),
+					class_exists( 'RNRD_Summary' ) && RNRD_Summary::is_enabled(),
 					$summary_place,
 					RNRD_Shortcode::tag( RNRD_Shortcode::SUMMARY )
 				),

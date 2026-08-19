@@ -764,7 +764,7 @@ class RNRD_MCP {
 		}
 
 		$bullets = array();
-		if ( class_exists( 'RNRD_Block' ) && RNRD_Block::is_summary_enabled() && RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+		if ( class_exists( 'RNRD_Summary' ) && RNRD_Summary::is_enabled() && RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
 			$raw = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
 			if ( '' !== $raw && class_exists( 'RNRD_Generator' ) ) {
 				$decoded = RNRD_Generator::decode_summary( $raw );
@@ -848,7 +848,7 @@ class RNRD_MCP {
 	private static function post_payload( WP_Post $post ): array {
 		$post_id   = (int) $post->ID;
 		$summary   = array();
-		if ( class_exists( 'RNRD_Block' ) && RNRD_Block::is_summary_enabled() && RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+		if ( class_exists( 'RNRD_Summary' ) && RNRD_Summary::is_enabled() && RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
 			$summary_raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 			if ( '' !== $summary_raw && class_exists( 'RNRD_Generator' ) ) {
 				$decoded = RNRD_Generator::decode_summary( $summary_raw );

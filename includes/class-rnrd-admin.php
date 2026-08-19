@@ -1731,7 +1731,7 @@ class RNRD_Admin {
 
 		// AI Content tile status (cheap option reads — no extra DB counts).
 		$summary_types = array_values( array_filter( (array) get_option( RNRD_OPT_POST_TYPES, array( 'post' ) ) ) );
-		$summary_place = class_exists( 'RNRD_Block' ) ? RNRD_Block::get_auto_display() : 'off';
+		$summary_place = class_exists( 'RNRD_Summary' ) ? RNRD_Summary::get_auto_display() : 'off';
 
 		$faq_types = array_values( array_filter( (array) get_option( RNRD_OPT_FAQ_POST_TYPES, array( 'post' ) ) ) );
 		$faq_place = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_auto_display() : 'off';
@@ -4007,7 +4007,7 @@ class RNRD_Admin {
 							<?php
 							self::render_auto_display_radios(
 								RNRD_OPT_AUTO_DISPLAY,
-								class_exists( 'RNRD_Block' ) ? RNRD_Block::get_auto_display() : 'off'
+								class_exists( 'RNRD_Summary' ) ? RNRD_Summary::get_auto_display() : 'off'
 							);
 							?>
 							<p class="description"><?php esc_html_e( 'Before/after content will be skipped if a Gutenberg block, Elementor widget, or [rankready_summary] shortcode is already in the post.', 'rankready-ai-llm-seo' ); ?></p>

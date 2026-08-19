@@ -217,47 +217,11 @@ class RNRD_Elementor_Faq_Widget extends \Elementor\Widget_Base {
 			return;
 		}
 
-		$show_title = 'yes' === ( $settings['show_title'] ?? 'yes' );
-		$title_text = ! empty( $settings['title_text'] ) ? sanitize_text_field( $settings['title_text'] ) : __( 'Frequently Asked Questions', 'rankready-ai-llm-seo' );
-		$tag        = RNRD_Block::validate_heading_tag( ! empty( $settings['heading_tag'] ) ? $settings['heading_tag'] : 'h3' );
-		$show_reviewed = 'yes' === ( $settings['show_reviewed'] ?? 'yes' );
-
-		echo '<div class="rnrd-faq-wrapper">';
-
-		if ( $show_title ) {
-			echo '<' . esc_attr( $tag ) . ' class="rnrd-faq-title">'
-				. esc_html( $title_text )
-				. '</' . esc_attr( $tag ) . '>';
-		}
-
-		echo '<div class="rnrd-faq-list">';
-
-		foreach ( $faq_data as $item ) {
-			$q = isset( $item['question'] ) ? $item['question'] : '';
-			$a = isset( $item['answer'] ) ? $item['answer'] : '';
-			if ( empty( $q ) || empty( $a ) ) {
-				continue;
-			}
-
-			echo '<div class="rnrd-faq-item">';
-			echo '<h4 class="rnrd-faq-question">' . esc_html( $q ) . '</h4>';
-			echo '<p class="rnrd-faq-answer">' . wp_kses_post( RNRD_Faq::convert_markdown_links( $a ) ) . '</p>';
-			echo '</div>';
-		}
-
-		echo '</div>';
-
-		if ( $show_reviewed ) {
-			$modified_ts = get_the_modified_time( 'U', $post_id );
-			if ( ! empty( $modified_ts ) ) {
-				$date = wp_date( get_option( 'date_format' ), (int) $modified_ts );
-				echo '<p class="rnrd-faq-reviewed">'
-					/* translators: %s: human-readable date the post was last reviewed */
-					. esc_html( sprintf( __( 'Last reviewed: %s', 'rankready-ai-llm-seo' ), $date ) )
-					. '</p>';
-			}
-		}
-
-		echo '</div>';
+		echo RNRD_Faq::render_html( $faq_data, array(
+			'showTitle'    => 'yes' === ( $settings['show_title'] ?? 'yes' ),
+			'titleText'    => ! empty( $settings['title_text'] ) ? sanitize_text_field( $settings['title_text'] ) : __( 'Frequently Asked Questions', 'rankready-ai-llm-seo' ),
+			'headingTag'   => ! empty( $settings['heading_tag'] ) ? $settings['heading_tag'] : 'h3',
+			'showReviewed' => 'yes' === ( $settings['show_reviewed'] ?? 'yes' ),
+		), $post_id );
 	}
 }

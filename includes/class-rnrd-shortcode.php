@@ -57,7 +57,7 @@ class RNRD_Shortcode {
 	 * @param array<string,mixed>|string $atts
 	 */
 	public static function render_summary( $atts = array() ): string {
-		if ( ! class_exists( 'RNRD_Block' ) || ! RNRD_Block::is_summary_enabled() ) {
+		if ( ! class_exists( 'RNRD_Summary' ) || ! RNRD_Summary::is_enabled() ) {
 			return '';
 		}
 		$post_id = get_the_ID();
@@ -65,14 +65,14 @@ class RNRD_Shortcode {
 			return '';
 		}
 		$post = get_post( $post_id );
-		if ( ! $post || ! RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+		if ( ! $post || ! RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
 			return '';
 		}
 		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( '' === $raw ) {
 			return '';
 		}
-		return RNRD_Block::build_summary_html( $raw );
+		return RNRD_Summary::render_html( $raw );
 	}
 
 	/**
@@ -94,7 +94,7 @@ class RNRD_Shortcode {
 		if ( empty( $faq_data ) || ! is_array( $faq_data ) ) {
 			return '';
 		}
-		return RNRD_Faq::render_faq_html( $faq_data, (int) $post_id );
+		return RNRD_Faq::render_html( $faq_data, array(), (int) $post_id );
 	}
 
 	/**

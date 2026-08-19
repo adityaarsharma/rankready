@@ -311,7 +311,7 @@ class RNRD_Rest {
 		}
 
 		// 3. AI Summary enabled for this post type.
-		if ( ! class_exists( 'RNRD_Block' ) || ! RNRD_Block::is_summary_post_type( $post->post_type ) ) {
+		if ( ! class_exists( 'RNRD_Summary' ) || ! RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
 			$pt_obj   = get_post_type_object( $post->post_type );
 			$pt_label = $pt_obj && isset( $pt_obj->labels->singular_name ) ? $pt_obj->labels->singular_name : $post->post_type;
 			return new WP_Error(

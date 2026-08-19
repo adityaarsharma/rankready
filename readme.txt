@@ -4,7 +4,7 @@ Tags: seo, ai, schema, llms.txt, aeo
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.3.1-beta
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -349,6 +349,25 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 
 == Changelog ==
 
+= 1.3.1-beta, 2026-08-19 =
+
+* Improved: Settings are reorganized into focused tabs, Dashboard, AI Visibility, AI Content, Insights, and Settings, with subtabs so Brand Identity, robots.txt, llms.txt, Markdown, WebMCP, OKF, Summary, FAQ, Author Box, and Schema are easier to find.
+* Improved: The post-edit RankReady UI is three metaboxes (AI Summary, AI FAQ, AI Visibility) instead of one combined box. Each box only appears on post types that use that feature, and saves are isolated so hiding a box cannot clear another feature's settings.
+* New: Generate Summary and Generate FAQ right in the post editor, no block or widget required. Same REST endpoint and 60-second cooldown as the block.
+* New: Classic Editor shortcodes [rankready_summary], [rankready_faq], and [rankready_author]. If a matching block or shortcode is already in the post, auto-display stays out of the way.
+* New: Enable toggles for HTML summaries and FAQs, plus a single auto-display placement control (before / after / both / off). Turn the on-page box off and the generated text still feeds Markdown, OKF, and WebMCP.
+* New: Homepage and blog-index Markdown as their own surfaces (/index.md and your Posts page .md), on by default and independent of the Pages post type.
+* New: Site-wide AI Snippet default (max-snippet:-1) on AI Visibility → robots.txt, with the same control on the dashboard. Each post can still override it.
+* Improved: Summaries, FAQs, and the Author Box only output on the post types you selected, including schema, Markdown, and WebMCP.
+* Improved: Dashboard AI Content tiles show Disabled/Off when no post types are set, and counts only published posts of those types. The posts-list RankReady column spells out Summary/FAQ and flags posts excluded from AI.
+* Improved: In the block editor, RankReady metaboxes start collapsed and follow the document sidebar. Classic Editor is unchanged.
+* Improved: Physical robots.txt stays in sync on the first save of crawler, llms/Markdown, and Content Signals settings, not only later updates. RankReady no longer writes an empty managed block when crawler rules and Content Signals are both off, and deactivation strips the same block formats as a re-sync.
+* Fixed: Turning off llms.txt, Markdown, or OKF no longer leaves a raw 404 Not Found on those URLs. Stale rewrite rules are cleared so WordPress handles the request again (llms-full.txt follows the master llms.txt toggle).
+* Fixed: Exclude from AI applies to Markdown and WebMCP as well as llms.txt and OKF.
+* Fixed: WebMCP is off until you turn it on (including skip-onboarding). Sites that already saved it on are unchanged.
+* Fixed: The setup wizard will not show Congratulations until setup is actually finished.
+* Several bug fixes and stability improvements.
+
 = 1.2.1, 2026-07-20 =
 
 * New: Block AI crawlers, a "Block Crawlers" list on the AI Crawlers tab adds Disallow rules to robots.txt for the bots you choose. Off by default, so your robots.txt is unchanged until you use it.
@@ -412,6 +431,9 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 First public release. The AI-search layer for WordPress: unlimited manual AI Summaries and FAQ schema, llms.txt + llms-full.txt, Markdown endpoints, 29 AI-crawler controls with robots.txt sync, E-E-A-T + Article/Speakable schema (coexists with Rank Math / Yoast / AIOSEO without duplicate output), content freshness, Insights, broad cache-plugin compatibility, multilingual llms.txt, and a Diagnostics suite.
 
 == Upgrade Notice ==
+
+= 1.3.1-beta =
+Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.
 
 = 1.2.1 =
 

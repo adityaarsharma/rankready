@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – AI SEO, llms.txt & Markdown for ChatGPT, Gemini & Claude
  * Plugin URI:        https://hostmy.blog
  * Description:       Make your WordPress content readable by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, Markdown endpoints, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.2.1
+ * Version:           1.3.1-beta
  * Requires at least: 6.9
  * Requires PHP:      7.4
  * Author:            HostMyBlog
@@ -51,7 +51,7 @@ if ( defined( 'RNRD_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RNRD_VERSION' ) ) {
-	define( 'RNRD_VERSION',  '1.2.1' );
+	define( 'RNRD_VERSION',  '1.3.1-beta' );
 	define( 'RNRD_FILE',     __FILE__ );
 	define( 'RNRD_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RNRD_URL',      plugin_dir_url( __FILE__ ) );

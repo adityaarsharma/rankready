@@ -4094,6 +4094,7 @@ a.rnrd-kpi--link:focus .rnrd-kpi__go {
     flex-direction: column;
     gap: 8px;
 }
+.rnrd-tips-form__input,
 .rnrd-tips-form__email {
     width: 100%;
     height: 38px;
@@ -4109,6 +4110,8 @@ a.rnrd-kpi--link:focus .rnrd-kpi__go {
             appearance: none;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+.rnrd-tips-form__input:focus,
+.rnrd-tips-form__input:focus-visible,
 .rnrd-tips-form__email:focus,
 .rnrd-tips-form__email:focus-visible {
     border-color: var(--rnrd-text-primary, #0F1411) !important;

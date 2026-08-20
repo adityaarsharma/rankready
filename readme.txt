@@ -216,7 +216,7 @@ No telemetry. No analytics. Nothing is sent anywhere on its own. Your keys stay 
 
 * **DataForSEO.** [Terms](https://dataforseo.com/terms-of-service) · [Privacy](https://dataforseo.com/privacy-policy). Sends your focus keyword when you run the FAQ Generator. Never your article text.
 * **Cloudflare.** [Terms](https://www.cloudflare.com/terms/) · [Privacy](https://www.cloudflare.com/privacypolicy/). Only if you connect it. Sends your zone ID and API credentials so RankReady can add or remove one cache rule and clear changed pages. No post content is ever sent.
-* **HostMyBlog tips email.** [Terms](https://hostmy.blog/terms/) · [Privacy](https://hostmy.blog/privacy/). Only if you tick "Email me AI SEO tips" during setup. Sends your email address once. Leave it unticked and nothing is sent, ever.
+* **HostMyBlog tips email.** [Terms](https://hostmy.blog/terms/) · [Privacy](https://hostmy.blog/privacy/). Only if you opt in from the setup wizard or the dashboard. Sends your first name and email address once for that admin account. Leave it unticked / don't submit and nothing is sent.
 
 The plugin dashboard also embeds one YouTube walkthrough using Google's no-cookie player. It appears inside wp-admin only, never on your public site.
 

@@ -23,14 +23,17 @@ class RNRD_Welcome {
 	private const REDIRECT_KEY  = 'rnrd_welcome_redirect';
 
 	/**
-	 * HostMyBlog CRM incoming-webhook for the RankReady tips list. Contacted ONLY
-	 * when the user ticks the opt-in box — see subscribe_email(). Empty by default:
-	 * wire the HostMyBlog CRM endpoint here (or via the `rnrd_tips_webhook_url`
-	 * filter). While empty, the opt-in is inert and NOTHING is sent anywhere, which
-	 * keeps the readme disclosure accurate. Disclosed in readme.txt "External services".
+	 * HostMyBlog subscribe endpoint for the RankReady tips list. Contacted ONLY
+	 * when the admin opts in — see subscribe_email(). Overridable via the
+	 * `rnrd_tips_webhook_url` filter. Disclosed in readme.txt "External services".
 	 */
-	private const TIPS_WEBHOOK_URL  = '';
-	private const TIPS_FLAG_OPTION  = 'rnrd_tips_optin_sent';
+	private const TIPS_WEBHOOK_URL = 'https://webhook.hostmy.blog/subscribe.php';
+
+	/**
+	 * Per-admin "already subscribed" flag (user_meta). Replaces the old site-wide
+	 * option `rnrd_tips_optin_sent` so each admin can opt in independently.
+	 */
+	private const TIPS_FLAG_META = 'rnrd_tips_optin_sent';
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -38,6 +41,18 @@ class RNRD_Welcome {
 		add_action( 'admin_menu',  array( self::class, 'register_page' ) );
 		add_action( 'admin_init',  array( self::class, 'maybe_redirect' ) );
 		add_action( 'admin_init',  array( self::class, 'maybe_handle_submit' ) );
+		add_action( 'admin_init',  array( self::class, 'maybe_migrate_tips_flag' ) );
+	}
+
+	/**
+	 * One-shot: drop the legacy site-wide tips flag so other admins can still
+	 * see the opt-in. Tracking is now per logged-in admin via user_meta.
+	 */
+	public static function maybe_migrate_tips_flag(): void {
+		if ( false === get_option( 'rnrd_tips_optin_sent', false ) ) {
+			return;
+		}
+		delete_option( 'rnrd_tips_optin_sent' );
 	}
 
 	/**
@@ -463,11 +478,10 @@ class RNRD_Welcome {
 	}
 
 	/**
-	 * Subscribe the user to the RankReady AI-SEO-tips list — ONLY when they ticked
-	 * the onboarding opt-in box and supplied a valid email. Non-blocking so it never
-	 * delays the redirect; guarded by a flag so re-running the wizard never
-	 * re-subscribes. This is the single point where the plugin transmits data to an
-	 * external service, and only on explicit opt-in. See readme.txt "External services".
+	 * Subscribe the current admin to the RankReady AI-SEO-tips list — ONLY when they
+	 * ticked the onboarding opt-in box and supplied a valid email. Guarded by
+	 * per-user meta so re-running the wizard never re-subscribes that admin.
+	 * See readme.txt "External services".
 	 */
 	private static function maybe_subscribe_tips(): void {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verified in maybe_handle_submit() before dispatch.
@@ -475,61 +489,74 @@ class RNRD_Welcome {
 			return;
 		}
 		$email = sanitize_email( wp_unslash( $_POST['rnrd_onboard_email'] ?? '' ) );
+		$fname = sanitize_text_field( wp_unslash( $_POST['rnrd_onboard_first_name'] ?? '' ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
-		self::subscribe_email( $email, 'RankReady Plugin Onboarding' );
+		self::subscribe_email( $email, $fname, 'RankReady Plugin Onboarding' );
 	}
 
 	/**
-	 * Has the site already subscribed to the tips list? Once true, EVERY opt-in
-	 * surface (onboarding + dashboard) hides itself — the user is never asked again.
-	 * Single source of truth for the "never ask twice" rule.
-	 */
-	public static function tips_optin_done(): bool {
-		return (bool) get_option( self::TIPS_FLAG_OPTION, false );
-	}
-
-	/**
-	 * Subscribe one email to the RankReady tips list via the HostMyBlog FluentCRM
-	 * incoming webhook. The single place the plugin transmits data to an external
-	 * service. Non-blocking (never delays the page); one-shot (sets a flag so the
-	 * opt-in box disappears everywhere and no email is ever re-POSTed). Returns
-	 * false on an invalid email or when already subscribed.
+	 * Has this admin already subscribed to the tips list? Once true for the
+	 * current user, every opt-in surface (onboarding + dashboard) hides for them.
+	 * Other admins on the same site are unaffected.
 	 *
-	 * @param string $email  The address to subscribe (sanitised here).
-	 * @param string $source Attribution stored on the FluentCRM contact.
+	 * @param int|null $user_id User ID; defaults to the current user.
 	 */
-	public static function subscribe_email( string $email, string $source = 'RankReady' ): bool {
+	public static function tips_optin_done( ?int $user_id = null ): bool {
+		$user_id = $user_id ?? get_current_user_id();
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		return (bool) get_user_meta( $user_id, self::TIPS_FLAG_META, true );
+	}
+
+	/**
+	 * Subscribe one admin to the RankReady tips list via the HostMyBlog webhook.
+	 * The single place the plugin transmits opt-in data externally. One-shot per
+	 * admin (user_meta) so the form disappears for that user after a confirmed
+	 * {"ok":true} response. Does not send `site`. Returns false on invalid input,
+	 * when already subscribed, or when the endpoint does not confirm success.
+	 *
+	 * @param string $email      Address to subscribe (sanitised here).
+	 * @param string $first_name Optional first name (FIRSTNAME, max 60 chars).
+	 * @param string $source     Attribution stored as SOURCE (defaults to RankReady).
+	 */
+	public static function subscribe_email( string $email, string $first_name = '', string $source = 'RankReady' ): bool {
 		$email = sanitize_email( $email );
 		if ( ! is_email( $email ) || self::tips_optin_done() ) {
 			return false;
 		}
 
-		// No CRM endpoint wired → feature is inert; send nothing, claim nothing.
 		$webhook = (string) apply_filters( 'rnrd_tips_webhook_url', self::TIPS_WEBHOOK_URL );
 		if ( '' === $webhook ) {
 			return false;
 		}
 
-		$user  = wp_get_current_user();
-		$fname = ( $user && ! empty( $user->first_name ) ) ? $user->first_name : '';
+		$first_name = sanitize_text_field( $first_name );
+		if ( function_exists( 'mb_substr' ) ) {
+			$first_name = mb_substr( $first_name, 0, 60 );
+		} else {
+			$first_name = substr( $first_name, 0, 60 );
+		}
 
-		// Blocking, so we can tell whether the subscription actually happened.
-		// This previously ran with 'blocking' => false and then set the permanent
-		// one-shot flag regardless — a down webhook, DNS failure or firewalled
-		// egress meant the user was told they were subscribed, nothing was sent,
-		// and the flag guaranteed it was never retried. 5s on a deliberate opt-in
-		// click is an acceptable trade for not silently losing the signup.
+		$body = array(
+			'email'  => $email,
+			'source' => $source !== '' ? $source : 'RankReady',
+		);
+		if ( '' !== $first_name ) {
+			$body['first_name'] = $first_name;
+		}
+
+		// Blocking so we only set the per-admin flag after a confirmed send.
 		$response = wp_remote_post(
 			$webhook,
 			array(
 				'timeout'     => 5,
 				'blocking'    => true,
 				'redirection' => 0,
-				'body'        => array(
-					'email'      => $email,
-					'first_name' => $fname,
-					'source'     => $source,
+				'headers'     => array(
+					'Content-Type' => 'application/x-www-form-urlencoded',
 				),
+				'body'        => $body,
 			)
 		);
 
@@ -544,8 +571,16 @@ class RNRD_Welcome {
 			return false;
 		}
 
-		// One-shot flag — set only on a CONFIRMED send, so a failure can be retried.
-		update_option( self::TIPS_FLAG_OPTION, time() );
+		$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $decoded ) || empty( $decoded['ok'] ) ) {
+			RNRD_Generator::log_error( 'TipsOptIn', 'Subscription endpoint did not return {"ok":true}.' );
+			return false;
+		}
+
+		$user_id = get_current_user_id();
+		if ( $user_id > 0 ) {
+			update_user_meta( $user_id, self::TIPS_FLAG_META, time() );
+		}
 		return true;
 	}
 
@@ -720,7 +755,10 @@ class RNRD_Welcome {
 				$rnrd_prefill_em = ( $rnrd_user && ! empty( $rnrd_user->user_email ) )
 					? $rnrd_user->user_email
 					: get_bloginfo( 'admin_email' );
-				$rnrd_tips_done  = (bool) get_option( self::TIPS_FLAG_OPTION, false );
+				$rnrd_prefill_fn = ( $rnrd_user && ! empty( $rnrd_user->first_name ) )
+					? $rnrd_user->first_name
+					: '';
+				$rnrd_tips_done  = self::tips_optin_done();
 				?>
 				<?php if ( ! $rnrd_tips_done ) : ?>
 				<div class="rnrd-onboard__field rnrd-onboard__optin-field">
@@ -730,16 +768,29 @@ class RNRD_Welcome {
 							<?php esc_html_e( 'Email me free AI SEO tips and RankReady updates', 'rankready-ai-llm-seo' ); ?>
 						</span>
 					</label>
-					<input
-						type="email"
-						name="rnrd_onboard_email"
-						value="<?php echo esc_attr( $rnrd_prefill_em ); ?>"
-						class="rnrd-onboard__input rnrd-onboard__optin-email"
-						placeholder="<?php esc_attr_e( 'you@example.com', 'rankready-ai-llm-seo' ); ?>"
-						autocomplete="off"
-						data-1p-ignore="true"
-						data-lpignore="true"
-					/>
+					<div class="rnrd-onboard__optin-fields">
+						<input
+							type="text"
+							name="rnrd_onboard_first_name"
+							value="<?php echo esc_attr( $rnrd_prefill_fn ); ?>"
+							class="rnrd-onboard__input rnrd-onboard__optin-input"
+							placeholder="<?php esc_attr_e( 'First name', 'rankready-ai-llm-seo' ); ?>"
+							maxlength="60"
+							autocomplete="off"
+							data-1p-ignore="true"
+							data-lpignore="true"
+						/>
+						<input
+							type="email"
+							name="rnrd_onboard_email"
+							value="<?php echo esc_attr( $rnrd_prefill_em ); ?>"
+							class="rnrd-onboard__input rnrd-onboard__optin-input"
+							placeholder="<?php esc_attr_e( 'you@example.com', 'rankready-ai-llm-seo' ); ?>"
+							autocomplete="off"
+							data-1p-ignore="true"
+							data-lpignore="true"
+						/>
+					</div>
 					<p class="rnrd-onboard__hint rnrd-onboard__optin-hint">
 						<?php esc_html_e( 'Practical AI SEO tips and tricks, plus RankReady product updates — straight to your inbox. No spam, unsubscribe anytime.', 'rankready-ai-llm-seo' ); ?>
 					</p>
@@ -1092,6 +1143,7 @@ class RNRD_Welcome {
 			box-sizing: border-box;
 		}
 		.rnrd-onboard input[type="text"],
+		.rnrd-onboard input[type="email"],
 		.rnrd-onboard textarea {
 			-webkit-appearance: none !important;
 			        appearance: none !important;
@@ -1798,8 +1850,13 @@ class RNRD_Welcome {
 			outline: none !important;
 			box-shadow: 0 0 0 3px rgba(89, 247, 194, 0.30) !important;
 		}
-		.rnrd-onboard__optin-email {
+		.rnrd-onboard__optin-fields {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
 			margin-top: 14px;
+		}
+		.rnrd-onboard__optin-input {
 			background: var(--rnrd-bg-surface, #fff);
 		}
 		.rnrd-onboard__optin-hint {

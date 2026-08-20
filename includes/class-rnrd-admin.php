@@ -232,7 +232,7 @@ class RNRD_Admin {
 	/**
 	 * Dashboard "Free AI SEO tips by email" opt-in. POSTs from the sidebar card;
 	 * on success it subscribes via the shared RNRD_Welcome webhook path and sets
-	 * the one-shot flag, so the card (and the onboarding box) never appear again.
+	 * the per-admin user_meta flag so the card hides for this user only.
 	 */
 	public static function handle_dash_tips_optin(): void {
 		if ( empty( $_POST['rnrd_dash_tips'] ) ) {
@@ -249,8 +249,9 @@ class RNRD_Admin {
 		}
 
 		$email = sanitize_email( wp_unslash( $_POST['rnrd_tips_email'] ?? '' ) );
+		$fname = sanitize_text_field( wp_unslash( $_POST['rnrd_tips_first_name'] ?? '' ) );
 		if ( class_exists( 'RNRD_Welcome' ) ) {
-			RNRD_Welcome::subscribe_email( $email, 'RankReady Dashboard' );
+			RNRD_Welcome::subscribe_email( $email, $fname, 'RankReady Dashboard' );
 		}
 
 		wp_safe_redirect( add_query_arg( 'rnrd_tips', 'ok', admin_url( 'admin.php?page=' . self::MENU_SLUG ) ) );
@@ -1546,13 +1547,16 @@ class RNRD_Admin {
 		<aside class="rnrd-dash-aside">
 
 			<?php
-			// Tips opt-in first — primary growth CTA. Shown ONLY until the site
-			// subscribes; then this card (plus the onboarding box) never appears again.
+			// Tips opt-in first — primary growth CTA. Shown until THIS admin
+			// subscribes; other admins on the same site still see the card.
 			if ( class_exists( 'RNRD_Welcome' ) && ! RNRD_Welcome::tips_optin_done() ) :
 				$rnrd_dash_user  = wp_get_current_user();
 				$rnrd_dash_email = ( $rnrd_dash_user && ! empty( $rnrd_dash_user->user_email ) )
 					? $rnrd_dash_user->user_email
 					: get_bloginfo( 'admin_email' );
+				$rnrd_dash_fname = ( $rnrd_dash_user && ! empty( $rnrd_dash_user->first_name ) )
+					? $rnrd_dash_user->first_name
+					: '';
 			?>
 			<div class="rnrd-aside-card rnrd-aside-card--tips">
 				<h3 class="rnrd-aside-card__title"><?php esc_html_e( 'Free AI SEO tips by email', 'rankready-ai-llm-seo' ); ?></h3>
@@ -1561,10 +1565,21 @@ class RNRD_Admin {
 					<?php wp_nonce_field( 'rnrd_dash_tips', '_rnrd_tips_nonce' ); ?>
 					<input type="hidden" name="rnrd_dash_tips" value="1" />
 					<input
+						type="text"
+						name="rnrd_tips_first_name"
+						value="<?php echo esc_attr( $rnrd_dash_fname ); ?>"
+						class="rnrd-tips-form__input"
+						placeholder="<?php esc_attr_e( 'First name', 'rankready-ai-llm-seo' ); ?>"
+						maxlength="60"
+						autocomplete="off"
+						data-1p-ignore="true"
+						data-lpignore="true"
+					/>
+					<input
 						type="email"
 						name="rnrd_tips_email"
 						value="<?php echo esc_attr( $rnrd_dash_email ); ?>"
-						class="rnrd-tips-form__email"
+						class="rnrd-tips-form__input"
 						placeholder="<?php esc_attr_e( 'you@example.com', 'rankready-ai-llm-seo' ); ?>"
 						autocomplete="off"
 						data-1p-ignore="true"

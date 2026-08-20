@@ -148,7 +148,7 @@ $rnrd_options = array(
 	'rnrd_md_hint_div',
 	'rnrd_md_bot_auto_serve',
 	'rnrd_welcome_completed',
-	'rnrd_tips_optin_sent',   // v1.2.0 — email-tips opt-in flag (no raw email stored locally; it lives only in FluentCRM).
+	'rnrd_tips_optin_sent',   // legacy site-wide flag (pre per-admin user_meta); kept for cleanup.
 
 	// v1.1.x — Content Signals.
 	'rnrd_content_signals_enable',
@@ -351,6 +351,7 @@ $rnrd_user_meta_keys = array(
 // what's-new banner and three admin notices — the user could never get them back.
 $rnrd_user_meta_keys[] = 'rnrd_tutorial_dismissed';
 $rnrd_user_meta_keys[] = 'rnrd_whatsnew_dismissed_version';
+$rnrd_user_meta_keys[] = 'rnrd_tips_optin_sent'; // per-admin tips email opt-in (no raw email stored locally).
 $rnrd_user_meta_keys[] = '_rnrd_nginx_wk_dismissed';
 $rnrd_user_meta_keys[] = '_rnrd_swis_notice_dismissed';
 $rnrd_user_meta_keys[] = '_rnrd_apo_notice_dismissed';

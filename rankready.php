@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       RankReady – AI SEO, Schema, llms.txt, AEO and GEO for ChatGPT, Gemini and Perplexity
- * Plugin URI:        https://hostmy.blog
+ * Plugin URI:        https://hostmy.blog/plugins/rankready/
  * Description:       Make your WordPress content readable by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, Markdown endpoints, agent discovery headers, WebMCP, and crawler controls — in one plugin.
  * Version:           1.3.0
  * Requires at least: 6.9

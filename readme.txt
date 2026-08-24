@@ -14,7 +14,7 @@ AI SEO plugin for WordPress: llms.txt, FAQ schema, Markdown, AEO and GEO signals
 
 RankReady is a WordPress plugin built for the AI search layer, the answers ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews show before anyone reaches a blue link. Drop it in alongside your existing SEO plugin (Rank Math, Yoast, AIOSEO, any of them) and give those engines a clean, readable copy of everything you publish. **No conflicts. No replacement. Zero frontend bloat.**
 
-[Visit the official RankReady page →](https://hostmy.blog/)
+[Visit the official RankReady page →](https://hostmy.blog/plugins/rankready/)
 
 Traditional SEO plugins optimize for Google's classic results. RankReady adds the layer above them. Google's Open Knowledge Format (OKF), llms.txt, FAQ schema, Markdown endpoints, WebMCP and AI crawler controls all decide how easily AI engines can find, read and understand your content. This is LLM SEO and AI search optimization for WordPress, covering generative engine optimization (GEO) and answer engine optimization (AEO), built to work with the WordPress SEO plugin you already use.
 
@@ -336,7 +336,7 @@ By default, RankReady **preserves your data on uninstall**, your settings, API k
 
 = Is the source code available? =
 
-Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships in the plugin zip on WordPress.org, and product info lives at [hostmy.blog](https://hostmy.blog/).
+Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships in the plugin zip on WordPress.org, and product info lives at [hostmy.blog](https://hostmy.blog/plugins/rankready/).
 
 == Screenshots ==
 

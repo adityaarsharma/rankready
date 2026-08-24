@@ -1489,7 +1489,7 @@ class RNRD_Admin {
 					<h1 class="rnrd-title">
 						<?php esc_html_e( 'RankReady', 'rankready-ai-llm-seo' ); ?>
 						<span class="rnrd-version">v<?php echo esc_html( RNRD_VERSION ); ?></span>
-						<a class="rnrd-header__home-link" href="https://hostmy.blog/" target="_blank" rel="noopener noreferrer">
+						<a class="rnrd-header__home-link" href="https://hostmy.blog/plugins/rankready/" target="_blank" rel="noopener noreferrer">
 							<?php esc_html_e( 'Official Website', 'rankready-ai-llm-seo' ); ?>
 							<span aria-hidden="true">↗</span>
 						</a>
@@ -1624,7 +1624,7 @@ class RNRD_Admin {
 
 			<div class="rnrd-aside-card">
 				<h3 class="rnrd-aside-card__title"><?php esc_html_e( 'Connect with us', 'rankready-ai-llm-seo' ); ?></h3>
-				<a href="https://hostmy.blog/" target="_blank" rel="noopener" class="rnrd-aside-link">
+				<a href="https://hostmy.blog/plugins/rankready/" target="_blank" rel="noopener" class="rnrd-aside-link">
 					<span class="dashicons dashicons-groups" aria-hidden="true"></span>
 					<span><?php esc_html_e( 'Join community', 'rankready-ai-llm-seo' ); ?></span>
 					<span class="rnrd-aside-link__arrow" aria-hidden="true">→</span>

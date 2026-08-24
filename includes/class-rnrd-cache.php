@@ -269,7 +269,8 @@ class RNRD_Cache {
 	 * the persisted option BEFORE PHP runs — so cold cache hits would bypass
 	 * our runtime filter entirely.
 	 *
-	 * Call this on activation, on plugin update, and on settings save.
+	 * Call this on activation and on plugin upgrade (version-mismatch path in
+	 * plugins_loaded). Safe to re-enter: short-circuits when nothing changed.
 	 *
 	 * @since 1.2.0-rc.16
 	 * @param string[] $patterns Path fragments to persist.

@@ -130,7 +130,6 @@
 .rnrd-info-callout {
 	/* v1.1.13 — RankReady mint palette, not WP-core blue. */
 	background: var(--rnrd-mint-50, #ECFDF6);
-	border-left: 3px solid var(--rnrd-mint-500, #59F7C2);
 	padding: 10px 14px;
 	margin: 0 0 16px;
 	font-size: 13px;
@@ -507,7 +506,6 @@ fieldset[data-rnrd-min-one-checkboxes] {
 .rnrd-section-header {
 	margin: 4px 0 16px;
 	padding-left: 12px;
-	border-left: 3px solid #1d2327;
 }
 
 /* Section icons retired in v1.0.0 — kept hidden for backward compat */
@@ -1611,7 +1609,6 @@ fieldset[data-rnrd-min-one-checkboxes] {
 .rnrd-notice {
 	background: var(--rnrd-bg-surface);
 	border: 1px solid var(--rnrd-border-subtle);
-	border-left: 3px solid var(--rnrd-border-default);
 	border-radius: var(--rnrd-radius-md);
 	padding: 14px 18px;
 	margin: 0 0 16px;
@@ -1621,13 +1618,11 @@ fieldset[data-rnrd-min-one-checkboxes] {
 }
 
 .rnrd-notice--warn {
-	border-left-color: var(--rnrd-warning);
 	background: var(--rnrd-warning-bg);
 	color: var(--rnrd-color-warning-text);
 }
 
 .rnrd-notice--ok {
-	border-left-color: var(--rnrd-success);
 	background: var(--rnrd-success-bg);
 	color: var(--rnrd-mint-800);
 }
@@ -1756,7 +1751,6 @@ code {
 	margin: 0 0 16px;
 	background: var(--rnrd-mint-50, #ECFDF6);
 	border: 1px solid var(--rnrd-mint-200, #BFF3DD);
-	border-left: 3px solid var(--rnrd-mint-500, #10B981);
 	border-radius: var(--rnrd-radius-md);
 	font-size: 12px;
 	line-height: 1.5;
@@ -2064,7 +2058,6 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 /* ── 23g. Tab intro card (sits on top of every tab) ────────────────────── */
 .rnrd-tab-intro {
 	padding: 20px 24px;
-	border-left: 3px solid var(--rnrd-mint-500);
 }
 
 .rnrd-tab-intro .rnrd-card-title {
@@ -4693,7 +4686,6 @@ a.rnrd-kpi--link:focus .rnrd-kpi__go {
 
 .rnrd-author-card__next {
 	background: linear-gradient(0deg, var(--rnrd-mint-50, #ECFDF6), var(--rnrd-mint-50, #ECFDF6));
-	border-left: 3px solid var(--rnrd-mint-500, #59F7C2);
 	border-radius: 8px;
 	padding: 20px 24px !important;
 }
@@ -5108,7 +5100,6 @@ a.rnrd-kpi--link:focus .rnrd-kpi__go {
  * informational strips inside cards. Mint accent left bar, soft surface fill. */
 .rnrd-callout {
 	background: var(--rnrd-bg-surface-2, #F4F5F0);
-	border-left: 3px solid var(--rnrd-border-default, #D9DAD5);
 	padding: 14px 18px;
 	margin: 0 0 16px;
 	border-radius: 8px;
@@ -5118,7 +5109,6 @@ a.rnrd-kpi--link:focus .rnrd-kpi__go {
 }
 .rnrd-callout--info {
 	background: var(--rnrd-mint-50, #ECFDF6);
-	border-left-color: var(--rnrd-mint-500, #59F7C2);
 }
 .rnrd-callout--info strong {
 	color: var(--rnrd-mint-800, #064E3B);
@@ -5142,11 +5132,11 @@ a.rnrd-kpi--link:focus .rnrd-kpi__go {
 }
 
 .rnrd-dash-alert--warn {
-	border-left: 3px solid var(--rnrd-warning, #F59E0B);
+	background: var(--rnrd-warning-bg, #FFFBEB);
 }
 
 .rnrd-dash-alert--info {
-	border-left: 3px solid var(--rnrd-mint-500, #2DE3A8);
+	background: var(--rnrd-mint-50, #ECFDF6);
 }
 
 .rnrd-dash-alert__text {

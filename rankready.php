@@ -42,6 +42,7 @@ if ( ! function_exists( 'rnrd_fs' ) ) {
                     'slug'           => 'rankready-ai-llm-seo',
                     'first-path'     => 'admin.php?page=rankready-welcome',
                     'account'        => false,
+                    'contact'        => false,
                     'support'        => false,
                 ),
             ) );
@@ -682,6 +683,27 @@ add_action( 'plugins_loaded', function (): void {
 			}
 		}
 
+		// Re-persist cache exclusions on upgrade. Activation does not fire on
+		// WordPress.org auto-updates, and this must run BEFORE the version
+		// marker is bumped — an older admin_init silent-update path was
+		// unreachable because plugins_loaded already wrote the new version.
+		if ( class_exists( 'RNRD_Cache' ) ) {
+			RNRD_Cache::persist_exclusions( array(
+				'/llms.txt',
+				'/llms-full.txt',
+				'/.well-known/mcp.json',
+				'.md',
+			) );
+		}
+
+		// v1.1.2 — One-shot FAQ Count repair. Pre-1.1.0 Settings API cross-nulling
+		// stored 0 on some installs when adjacent options saved. Repair stored 0
+		// (or any out-of-range value) to the documented default of 5.
+		$faq_count = (int) get_option( RNRD_OPT_FAQ_COUNT, 5 );
+		if ( $faq_count < 3 || $faq_count > 10 ) {
+			update_option( RNRD_OPT_FAQ_COUNT, 5 );
+		}
+
 		update_option( 'rnrd_installed_version', RNRD_VERSION );
 		// Defer rewrite rule registration + flush to 'init' — $wp_rewrite is not
 		// ready at plugins_loaded and calling add_rewrite_rule() before init causes
@@ -1082,32 +1104,6 @@ register_activation_hook( RNRD_FILE, function (): void {
 	// PRO engine. The Pro add-on (RNRD_Pro_Schema) schedules it on its own init.
 	// The Free build no longer schedules it — the constant stays defined so the
 	// deactivation cleanup below can still clear any leftover event.
-} );
-
-// Re-sync robots.txt and rewrite rules when the plugin is updated (activation hook
-// doesn't fire on silent updates — version mismatch triggers it instead).
-add_action( 'admin_init', function (): void {
-	$stored = get_option( 'rnrd_installed_version', '' );
-	if ( version_compare( $stored, RNRD_VERSION, '<' ) ) {
-		update_option( 'rnrd_installed_version', RNRD_VERSION );
-		RNRD_Robots::sync_physical_robots_txt();
-		// rc.16 — re-persist cache exclusions on silent update; new bypass
-		// rules (LSWS .htaccess option entries) won't exist on sites updated
-		// from earlier RCs until they save settings or hit this admin_init.
-		if ( class_exists( 'RNRD_Cache' ) ) {
-			RNRD_Cache::persist_exclusions( array(
-				'/llms.txt', '/llms-full.txt', '/.well-known/mcp.json', '.md',
-			) );
-		}
-
-		// v1.1.2 — One-shot FAQ Count repair. Pre-1.1.0 Settings API cross-nulling
-		// stored 0 on some installs when adjacent options saved. Repair stored 0
-		// (or any out-of-range value) to the documented default of 5.
-		$faq_count = (int) get_option( RNRD_OPT_FAQ_COUNT, 5 );
-		if ( $faq_count < 3 || $faq_count > 10 ) {
-			update_option( RNRD_OPT_FAQ_COUNT, 5 );
-		}
-	}
 } );
 
 register_deactivation_hook( RNRD_FILE, function (): void {

@@ -401,7 +401,6 @@ body.block-editor-page .rnrd-mb__desc {
 
 .rnrd-author-card__next {
 	background: linear-gradient(0deg, var(--rnrd-mint-50, #ECFDF6), var(--rnrd-mint-50, #ECFDF6));
-	border-left: 3px solid var(--rnrd-mint-500, #59F7C2);
 	border-radius: 8px;
 	padding: 20px 24px !important;
 }

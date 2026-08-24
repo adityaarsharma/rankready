@@ -16,6 +16,42 @@
 
 defined( 'ABSPATH' ) || exit;
 
+if ( ! function_exists( 'rnrd_fs' ) ) {
+    // Create a helper function for easy SDK access.
+    function rnrd_fs() {
+        global $rnrd_fs;
+
+        if ( ! isset( $rnrd_fs ) ) {
+            // Include Freemius SDK.
+            require_once dirname( __FILE__ ) . '/vendor/freemius/start.php';
+
+            $rnrd_fs = fs_dynamic_init( array(
+                'id'                  => '37729',
+                'slug'                => 'rankready-ai-llm-seo',
+                'type'                => 'plugin',
+                'public_key'          => 'pk_4a3356e64068eb259388059c5c167',
+                'is_premium'          => false,
+                'has_addons'          => false,
+                'has_paid_plans'      => false,
+                'is_org_compliant'    => true,
+                'menu'                => array(
+                    'slug'           => 'rankready-ai-llm-seo',
+                    'first-path'     => 'admin.php?page=rankready-welcome',
+                    'account'        => false,
+                    'support'        => false,
+                ),
+            ) );
+        }
+
+        return $rnrd_fs;
+    }
+
+    // Init Freemius.
+    rnrd_fs();
+    // Signal that SDK was initiated.
+    do_action( 'rnrd_fs_loaded' );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Duplicate-install guard — prevent fatals when two copies are active.
 // ─────────────────────────────────────────────────────────────────────────────

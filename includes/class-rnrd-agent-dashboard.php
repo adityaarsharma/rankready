@@ -1,20 +1,9 @@
 <?php
 /**
- * RankReady — Unified "Agent Visibility" dashboard widget.
+ * RankReady — WP dashboard widget.
  *
- * One WP dashboard widget that combines:
- *   - AI Referral Traffic (last 30 days, 5 sources)
- *   - Content Freshness (3-tab bucket counts)
- *
- * Replaces the two separate widgets shipped in v1.2.0-beta.1.
- *
- * Why one widget: WP admin dashboards are already crowded. Two RankReady
- * widgets fight for screen real estate and split the user's attention. One
- * widget = one mental model: "Agent Visibility — is my site reaching AI?".
- *
- * The widget delegates rendering to the per-feature classes (RNRD_AI_Referral,
- * RNRD_Freshness) so the data, REST endpoints, and copy stay in those classes
- * — this orchestrator only owns the layout shell.
+ * Compact Insights KPIs (same structure as the RankReady Dashboard Insights
+ * card) plus one-line links into Insights, AI Visibility, and AI Content.
  *
  * @package RankReady
  * @since   1.2.0-beta.2
@@ -26,6 +15,7 @@ class RNRD_Agent_Dashboard {
 
 	public static function init(): void {
 		add_action( 'wp_dashboard_setup', array( self::class, 'register_widget' ) );
+		add_action( 'admin_enqueue_scripts', array( self::class, 'enqueue_assets' ) );
 	}
 
 	public static function register_widget(): void {
@@ -34,15 +24,32 @@ class RNRD_Agent_Dashboard {
 		}
 		wp_add_dashboard_widget(
 			'rnrd_agent_dashboard',
-			__( 'RankReady — Agent Visibility', 'rankready-ai-llm-seo' ),
+			__( 'RankReady', 'rankready-ai-llm-seo' ),
 			array( self::class, 'render' )
 		);
 	}
 
 	/**
-	 * Compact Insights summary — one key number per Insights sub-tab, each
-	 * linking to its full breakdown. Deliberately a SUMMARY (single headline
-	 * figure each), not the detailed tables — those live on the Insights tab.
+	 * Lean KPI stylesheet on the main WP dashboard only.
+	 *
+	 * @param string $hook Current admin page hook.
+	 */
+	public static function enqueue_assets( string $hook ): void {
+		if ( 'index.php' !== $hook || ! current_user_can( 'edit_others_posts' ) ) {
+			return;
+		}
+		$path = RNRD_DIR . 'assets/dashboard-widget.css';
+		$ver  = file_exists( $path ) ? RNRD_VERSION . '.' . (string) filemtime( $path ) : RNRD_VERSION;
+		wp_enqueue_style(
+			'rnrd-dashboard-widget',
+			RNRD_URL . 'assets/dashboard-widget.css',
+			array(),
+			$ver
+		);
+	}
+
+	/**
+	 * Compact Insights summary — same KPI anatomy as Dashboard → Insights.
 	 */
 	public static function render(): void {
 		$stale = 0;
@@ -51,83 +58,83 @@ class RNRD_Agent_Dashboard {
 			$stale   = (int) ( $buckets['stale'] ?? 0 );
 		}
 
-		$base = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=insights' );
+		$insights_url   = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=insights' );
+		$visibility_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers' );
+		$content_url    = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content' );
 
-		$stats = array(
-			array(
-				'label' => __( 'Training bots', 'rankready-ai-llm-seo' ),
-				'value' => self::sum_bot_intent( 'training' ),
-				'sub'   => __( 'crawling you for AI training (30d)', 'rankready-ai-llm-seo' ),
-				'url'   => $base . '&sub=bot-activity',
-			),
-			array(
-				'label' => __( 'Citation bots', 'rankready-ai-llm-seo' ),
-				'value' => self::sum_bot_intent( 'citation' ),
-				'sub'   => __( 'reading you live to answer questions (30d)', 'rankready-ai-llm-seo' ),
-				'url'   => $base . '&sub=citation',
-			),
-			array(
-				'label' => __( 'Real AI referrals', 'rankready-ai-llm-seo' ),
-				'value' => class_exists( 'RNRD_AI_Referral' ) ? RNRD_AI_Referral::total_last_n_days( 30 ) : 0,
-				'sub'   => __( 'visitors from ChatGPT, Perplexity, Claude (30d)', 'rankready-ai-llm-seo' ),
-				'url'   => $base . '&sub=referral',
-			),
-			array(
-				'label' => __( 'Content going stale', 'rankready-ai-llm-seo' ),
-				'value' => $stale,
-				'sub'   => __( 'posts 60+ days old, losing AI citations', 'rankready-ai-llm-seo' ),
-				'url'   => $base . '&sub=freshness',
-			),
-		);
-
-		// Real Agent Visibility coverage — the SAME 10 signals as the Agent
-		// Visibility card on the Dashboard tab, so the two always match. Never a
-		// hardcoded 100%. RNRD_Admin is already loaded in admin context.
-		$score   = ( class_exists( 'RNRD_Admin' ) && method_exists( 'RNRD_Admin', 'agent_visibility_score' ) )
-			? RNRD_Admin::agent_visibility_score()
-			: array( 'active' => 0, 'total' => 0, 'pct' => 0 );
-		$pct     = (int) $score['pct'];
-		$is_full = ( $pct >= 100 );
-		// "View details" leads to the AI Crawlers tab — that's where the 10 agent
-		// visibility signals (llms.txt, .md routes, robots AI rules, WebMCP, etc.)
-		// are actually toggled, so the user lands where they can act on the score.
-		$dash    = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=crawlers' );
+		$training_on     = 'on' === get_option( RNRD_OPT_AI_TRAINING_ENABLE, 'on' );
+		$citation_on     = 'on' === get_option( RNRD_OPT_AI_CITATION_ENABLE, 'on' );
+		$surfaces_on     = class_exists( 'RNRD_Crawler_Log' ) && RNRD_Crawler_Log::has_loggable_endpoints();
+		$training_active = $training_on && $surfaces_on;
+		$citation_active = $citation_on && $surfaces_on;
+		$training        = $training_active ? self::sum_bot_intent( 'training' ) : 0;
+		$citation        = $citation_active ? self::sum_bot_intent( 'citation' ) : 0;
+		$referral_on = 'on' === get_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' );
+		$referrals = ( $referral_on && class_exists( 'RNRD_AI_Referral' ) ) ? (int) RNRD_AI_Referral::total_last_n_days( 30 ) : 0;
 		?>
 		<div class="rnrd-agent-dashboard">
-			<a href="<?php echo esc_url( $dash ); ?>" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;padding:12px 14px;border-radius:8px;margin:0 0 12px;background:<?php echo $is_full ? '#e6f8f0' : '#f0f6fc'; ?>;border:1px solid <?php echo $is_full ? '#9be3c6' : '#c8def5'; ?>;">
-				<span style="flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;background:<?php echo $is_full ? '#0F9C70' : '#2271b1'; ?>;color:#fff;font-weight:700;font-size:<?php echo $is_full ? '22px' : '13px'; ?>;line-height:1;">
-					<?php echo $is_full ? '&#10003;' : esc_html( $pct . '%' ); ?>
-				</span>
-				<span style="min-width:0;">
-					<span style="display:block;font-size:14px;font-weight:600;color:#1d2327;line-height:1.3;">
-						<?php
-						/* translators: %d: agent-optimisation percentage */
-						echo esc_html( sprintf( __( 'Your site is %d%% agent-optimised', 'rankready-ai-llm-seo' ), $pct ) );
-						?>
-					</span>
-					<span style="display:block;font-size:12px;color:#646970;line-height:1.4;">
-						<?php
-						echo esc_html( sprintf(
-							/* translators: 1: active signal count, 2: total signal count */
-							__( '%1$d of %2$d agent signals active — view details →', 'rankready-ai-llm-seo' ),
-							(int) $score['active'],
-							(int) $score['total']
-						) );
-						?>
-					</span>
-				</span>
-			</a>
-			<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-				<?php foreach ( $stats as $s ) : ?>
-					<a href="<?php echo esc_url( $s['url'] ); ?>" style="display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e2e4e7;border-radius:8px;padding:12px 14px;">
-						<span style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#646970;"><?php echo esc_html( $s['label'] ); ?></span>
-						<span style="display:block;font-size:26px;font-weight:700;line-height:1.15;color:#1d2327;margin:3px 0 2px;"><?php echo esc_html( number_format_i18n( (int) $s['value'] ) ); ?></span>
-						<span style="display:block;font-size:11px;color:#787c82;line-height:1.4;"><?php echo esc_html( $s['sub'] ); ?></span>
-					</a>
-				<?php endforeach; ?>
+			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'Insights summary', 'rankready-ai-llm-seo' ); ?>">
+				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $insights_url . '&sub=bot-activity' ); ?>" aria-label="<?php esc_attr_e( 'Training Bots — open Insights', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Training Bots', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<?php if ( $training_active ) : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $training ) ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'AI crawler hits', 'rankready-ai-llm-seo' ); ?></div>
+					<?php else : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php esc_html_e( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__foot"><?php echo esc_html( $training_on ? __( 'llms.txt and Markdown are off', 'rankready-ai-llm-seo' ) : __( 'Training bot logging paused', 'rankready-ai-llm-seo' ) ); ?></div>
+					<?php endif; ?>
+				</a>
+				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $insights_url . '&sub=citation' ); ?>" aria-label="<?php esc_attr_e( 'Citation Bots — open Insights', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Citation Bots', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<?php if ( $citation_active ) : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $citation ) ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'live answer bots', 'rankready-ai-llm-seo' ); ?></div>
+					<?php else : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php esc_html_e( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__foot"><?php echo esc_html( $citation_on ? __( 'llms.txt and Markdown are off', 'rankready-ai-llm-seo' ) : __( 'Citation bot logging paused', 'rankready-ai-llm-seo' ) ); ?></div>
+					<?php endif; ?>
+				</a>
+				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $insights_url . '&sub=referral' ); ?>" aria-label="<?php esc_attr_e( 'Real AI Referrals — open Insights', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Real AI Referrals', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<?php if ( $referral_on ) : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $referrals ) ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'visitors from AI apps', 'rankready-ai-llm-seo' ); ?></div>
+					<?php else : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php esc_html_e( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'Referer tracking paused', 'rankready-ai-llm-seo' ); ?></div>
+					<?php endif; ?>
+				</a>
+				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $insights_url . '&sub=freshness' ); ?>" aria-label="<?php esc_attr_e( 'Content Fresh — open Insights', 'rankready-ai-llm-seo' ); ?>">
+					<div class="rnrd-kpi__title">
+						<div class="rnrd-kpi__label"><?php esc_html_e( 'Content Fresh', 'rankready-ai-llm-seo' ); ?></div>
+						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
+					</div>
+					<div class="rnrd-kpi__period"><?php esc_html_e( '60+ days old', 'rankready-ai-llm-seo' ); ?></div>
+					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $stale ) ); ?></div>
+					<div class="rnrd-kpi__foot"><?php esc_html_e( 'posts going stale', 'rankready-ai-llm-seo' ); ?></div>
+				</a>
 			</div>
-			<p style="margin:12px 0 0;font-size:13px;">
-				<a href="<?php echo esc_url( $base ); ?>"><?php esc_html_e( 'View full Insights →', 'rankready-ai-llm-seo' ); ?></a>
+			<p class="rnrd-agent-dashboard__links">
+				<a class="rnrd-agent-dashboard__links-primary" href="<?php echo esc_url( $insights_url ); ?>"><?php esc_html_e( 'View Full Insights', 'rankready-ai-llm-seo' ); ?></a>
+				<span class="rnrd-agent-dashboard__links-sep" aria-hidden="true">·</span>
+				<a href="<?php echo esc_url( $visibility_url ); ?>"><?php esc_html_e( 'AI Visibility Settings', 'rankready-ai-llm-seo' ); ?></a>
+				<span class="rnrd-agent-dashboard__links-sep" aria-hidden="true">·</span>
+				<a href="<?php echo esc_url( $content_url ); ?>"><?php esc_html_e( 'AI Content Settings', 'rankready-ai-llm-seo' ); ?></a>
 			</p>
 		</div>
 		<?php

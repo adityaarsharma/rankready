@@ -89,7 +89,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 		return self::regen_control_html(
 			'summary',
 			esc_html__( 'Generate Summary', 'rankready-ai-llm-seo' ),
-			esc_html__( 'Summaries auto-generate on publish. Use this to refresh manually after editing the post body.', 'rankready-ai-llm-seo' )
+			esc_html__( 'Use this to refresh manually after editing the post body.', 'rankready-ai-llm-seo' )
 		);
 	}
 
@@ -120,7 +120,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 
 	protected function register_controls(): void {
 
-		$global_label = (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' );
+		$global_label = (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
 		$global_show  = (bool) get_option( RNRD_OPT_SHOW_LABEL, '1' );
 		$global_tag   = (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' );
 
@@ -149,7 +149,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 				. '<strong style="display:block;margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;">' . esc_html__( 'How this widget works', 'rankready-ai-llm-seo' ) . '</strong>'
 				. esc_html__( 'On a single post or page, this widget shows that post\'s AI summary. On a Theme Builder Archive or Single template, every post in the loop renders its own summary — no separate archive-level summary is generated.', 'rankready-ai-llm-seo' )
 				. '<br><br>'
-				. esc_html__( 'Summaries auto-generate on publish. Use the button above to refresh one manually — you do not need it for the summary to appear.', 'rankready-ai-llm-seo' )
+				. esc_html__( 'Use the button above to refresh one manually — you do not need it for the summary to appear.', 'rankready-ai-llm-seo' )
 				. '</div>',
 			'content_classes' => 'rnrd-el-info',
 		) );
@@ -284,6 +284,9 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 	}
 
 	protected function render(): void {
+		if ( class_exists( 'RNRD_Summary' ) && ! RNRD_Summary::is_enabled() ) {
+			return;
+		}
 		$settings = $this->get_settings_for_display();
 		$post_id  = get_the_ID();
 
@@ -294,42 +297,26 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 			return;
 		}
 
+		$post = get_post( $post_id );
+		if ( ! $post || ! RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
+			return;
+		}
+
 		$raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
 		if ( empty( $raw ) ) {
 			return;
 		}
 
-		$summary    = RNRD_Generator::decode_summary( $raw );
-		$show_label = 'yes' === ( isset( $settings['show_label'] ) ? $settings['show_label'] : ( get_option( RNRD_OPT_SHOW_LABEL, '1' ) ? 'yes' : '' ) );
-		$label_text = sanitize_text_field(
-			! empty( $settings['label_text'] )
-				? $settings['label_text']
-				: (string) get_option( RNRD_OPT_LABEL, 'Key Takeaways' )
-		);
-		$tag = RNRD_Block::validate_heading_tag(
-			! empty( $settings['heading_tag'] )
+		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- render_html() escapes every value it interpolates.
+		echo RNRD_Summary::render_html( $raw, array(
+			'showLabel'  => 'yes' === ( isset( $settings['show_label'] ) ? $settings['show_label'] : ( get_option( RNRD_OPT_SHOW_LABEL, '1' ) ? 'yes' : '' ) ),
+			'label'      => ! empty( $settings['label_text'] )
+				? sanitize_text_field( $settings['label_text'] )
+				: (string) get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) ),
+			'headingTag' => ! empty( $settings['heading_tag'] )
 				? $settings['heading_tag']
-				: (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' )
-		);
-
-		echo '<div class="rnrd-summary">';
-
-		if ( $show_label && ! empty( $label_text ) ) {
-			echo '<' . esc_attr( $tag ) . ' class="rnrd-label">'
-				. esc_html( $label_text )
-				. '</' . esc_attr( $tag ) . '>';
-		}
-
-		if ( 'bullets' === $summary['type'] ) {
-			echo '<ul class="rnrd-bullets">';
-			foreach ( (array) $summary['data'] as $bullet ) {
-				echo '<li class="rnrd-bullet">' . esc_html( $bullet ) . '</li>';
-			}
-			echo '</ul>';
-		} else {
-			echo '<p class="rnrd-text">' . esc_html( $summary['data'] ) . '</p>';
-		}
-
-		echo '</div>';
+				: (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' ),
+		) );
+		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 }

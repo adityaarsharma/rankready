@@ -103,7 +103,7 @@
 			} ),
 			el( SelectControl, {
 				label: 'Font Family',
-				help: 'Pulls from your theme.json fonts (Nexter Theme, Nexter Blocks, Kadence, any block theme). Leave blank to inherit.',
+				help: 'Pulls from your theme.json fonts (Kadence, or any block theme). Leave blank to inherit.',
 				value: attrs[ prefix + 'FontFamily' ] || '',
 				options: fontOptions,
 				onChange: function ( v ) { var p = {}; p[ prefix + 'FontFamily' ] = v; setAttrs( p ); },

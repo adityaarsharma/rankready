@@ -367,7 +367,7 @@
 
 						el( SelectControl, {
 							label: 'Font Family',
-							help: 'Pulls from your theme.json fonts (Nexter Theme, Nexter Blocks, Kadence, any block theme). Leave blank to inherit from theme.',
+							help: 'Pulls from your theme.json fonts (Kadence, or any block theme). Leave blank to inherit from theme.',
 							value: attrs.labelFontFamily || '',
 							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { labelFontFamily: v } ); },

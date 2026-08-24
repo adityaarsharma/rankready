@@ -282,10 +282,19 @@ class RNRD_Elementor_Author_Box_Widget extends \Elementor\Widget_Base {
 	}
 
 	protected function render(): void {
+		if ( class_exists( 'RNRD_Author_Box' ) && ! RNRD_Author_Box::is_enabled() ) {
+			return;
+		}
 		$settings = $this->get_settings_for_display();
 
 		$source  = isset( $settings['author_source'] ) ? $settings['author_source'] : 'post';
 		$post_id = (int) get_the_ID();
+		if ( $post_id ) {
+			$post = get_post( $post_id );
+			if ( ! $post || ! RNRD_Author_Box::is_post_type_enabled( $post->post_type ) ) {
+				return;
+			}
+		}
 		$user_id = 'specific' === $source && ! empty( $settings['author_id'] )
 			? (int) $settings['author_id']
 			: (int) get_post_field( 'post_author', $post_id );

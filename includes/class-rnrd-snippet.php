@@ -27,13 +27,16 @@ defined( 'ABSPATH' ) || exit;
 class RNRD_Snippet {
 
 	public static function init(): void {
-		// v1.2.0-rc.1 — register at priority 999 so any SEO plugin's robots
-		// meta lands first. We then filter and merge our directives into it
-		// rather than emit a duplicate tag. (Audit beta.3 #4.)
-		add_action( 'wp_head', array( self::class, 'emit_meta_robots' ), 999 );
+		// v1.2.0 — Merge our snippet directives into WordPress core's SINGLE
+		// robots meta via the wp_robots filter (WP 5.7+), the required practice.
+		// Previously we echoed our own <meta name="robots"> on wp_head, which
+		// duplicated core's wp_robots tag on core-only sites (two robots metas).
+		// The filter only runs when core actually renders the robots meta — i.e.
+		// when NO SEO plugin has taken it over — so there is never a duplicate.
+		add_filter( 'wp_robots', array( self::class, 'add_robots_directives' ) );
 
-		// When Yoast / RankMath / AIOSEO have their own robots meta filter,
-		// merge into it instead of double-emitting.
+		// When Yoast / RankMath / AIOSEO manage their own robots meta (and
+		// disable core's wp_robots), merge into their tag instead.
 		add_filter( 'wpseo_robots_array',  array( self::class, 'merge_into_yoast' ), 20 );
 		add_filter( 'rank_math/frontend/robots', array( self::class, 'merge_into_rankmath' ), 20 );
 		add_filter( 'aioseo_robots_meta', array( self::class, 'merge_into_aioseo' ), 20 );
@@ -73,7 +76,20 @@ class RNRD_Snippet {
 
 	public static function merge_into_aioseo( $robots ) {
 		self::$seo_plugin_handled = true;
-		if ( is_string( $robots ) && self::should_emit_for_current_post() ) {
+		if ( ! self::should_emit_for_current_post() ) {
+			return $robots;
+		}
+		// v1.2.0 — AIOSEO 4.x passes an ASSOCIATIVE array ( key => directive
+		// string ) and imploads the VALUES; the pre-1.2.0 guard only handled a
+		// string, so on AIOSEO 4.x our directives were silently dropped. Handle
+		// the array form (and keep the legacy string form for older builds).
+		if ( is_array( $robots ) ) {
+			$robots['max-snippet']       = 'max-snippet:-1';
+			$robots['max-image-preview'] = 'max-image-preview:large';
+			$robots['max-video-preview'] = 'max-video-preview:-1';
+			return $robots;
+		}
+		if ( is_string( $robots ) ) {
 			$additions = array( 'max-snippet:-1', 'max-image-preview:large', 'max-video-preview:-1' );
 			foreach ( $additions as $directive ) {
 				if ( false === stripos( $robots, $directive ) ) {
@@ -107,25 +123,25 @@ class RNRD_Snippet {
 	}
 
 	/**
-	 * Decide and emit the robots meta tag for the current request.
+	 * Merge RankReady's snippet directives into WordPress core's single robots
+	 * meta (the wp_robots filter, WP 5.7+). This replaces the old standalone
+	 * <meta name="robots"> echo, which duplicated core's tag on core-only sites.
 	 *
-	 * Runs at priority 1 on wp_head so it appears near the top of <head>
-	 * — important because some crawlers stop reading <head> after a fixed
-	 * byte budget.
+	 * Core renders each entry as "key:value", so the values below are the value
+	 * ONLY ('-1', 'large') — core outputs "max-snippet:-1" etc. The filter only
+	 * fires when core actually renders the robots meta (i.e. no SEO plugin took
+	 * it over), so there is never a duplicate tag.
+	 *
+	 * @param array $robots Directive array from core.
+	 * @return array
 	 */
-	public static function emit_meta_robots(): void {
-		// v1.2.0-rc.1 — if an SEO plugin's robots filter already ran (which
-		// means they emitted a robots meta), we've already merged via the
-		// merge_into_* filters. Don't double-emit.
-		if ( self::$seo_plugin_handled ) {
-			return;
+	public static function add_robots_directives( array $robots ): array {
+		if ( self::should_emit_for_current_post() ) {
+			$robots['max-snippet']       = '-1';
+			$robots['max-image-preview'] = 'large';
+			$robots['max-video-preview'] = '-1';
 		}
-
-		if ( ! self::should_emit_for_current_post() ) {
-			return;
-		}
-
-		echo '<meta name="robots" content="max-snippet:-1, max-image-preview:large, max-video-preview:-1" />' . "\n";
+		return $robots;
 	}
 
 	/**

@@ -49,6 +49,9 @@ class RNRD_Generator {
 		if ( 'publish' !== $post->post_status ) {
 			return;
 		}
+		if ( class_exists( 'RNRD_Summary' ) && ! RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
+			return;
+		}
 		if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
 			return;
 		}
@@ -106,6 +109,10 @@ class RNRD_Generator {
 		$post_id = (int) $post_id;
 		$post    = get_post( $post_id );
 		if ( ! $post || 'publish' !== $post->post_status ) {
+			self::$generating = false;
+			return;
+		}
+		if ( class_exists( 'RNRD_Summary' ) && ! RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
 			self::$generating = false;
 			return;
 		}
@@ -203,7 +210,8 @@ class RNRD_Generator {
 
 		$content = mb_substr( $content, 0, 12000 );
 
-		$system_prompt  = "You extract key takeaways from blog posts. You produce factual, entity-rich bullet points.\n\n";
+		$system_prompt  = RNRD_LLM::language_directive( is_object( $post ) ? $post->ID : (int) $post );
+		$system_prompt .= "You extract key takeaways from blog posts. You produce factual, entity-rich bullet points.\n\n";
 		$system_prompt .= "ABSOLUTE RULES:\n";
 		$system_prompt .= "- You may ONLY state facts that appear word-for-word or are directly implied by the blog post text below.\n";
 		$system_prompt .= "- NEVER add features, tools, integrations, platforms, pricing, or claims the post does not mention.\n";
@@ -217,7 +225,7 @@ class RNRD_Generator {
 		// installs that filled in the old field before rc.3.
 		$product_context = '';
 		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
-			$product_context = RNRD_Llms_Txt::get_brand_about();
+			$product_context = RNRD_Brand_Identity::get_brand_about();
 		}
 		if ( '' === $product_context ) {
 			$product_context = (string) get_option( RNRD_OPT_PRODUCT_CONTEXT, '' );
@@ -229,7 +237,7 @@ class RNRD_Generator {
 		// Inject canonical brand terms (v1.2.0) — single source from AI Crawlers tab.
 		// Wires same one input through every LLM call so brand naming stays consistent.
 		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
-			$brand_terms = RNRD_Llms_Txt::get_brand_terms_string();
+			$brand_terms = RNRD_Brand_Identity::get_brand_terms_string();
 			if ( '' !== $brand_terms ) {
 				$system_prompt .= "\n\nCANONICAL BRAND NAMES (use these exact spellings — never abbreviate, paraphrase, or use variants):\n" . $brand_terms;
 			}

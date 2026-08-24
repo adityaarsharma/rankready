@@ -33,6 +33,83 @@ if ( ! $rnrd_should_delete_all ) {
 	return;
 }
 
+// ── Remove the Cloudflare Cache Rule we created (v1.2.1) ─────────────────────
+// The rule lives on the user's Cloudflare zone, not in WordPress. Wiping the
+// rnrd_cf_* options below without deleting it first would strand the rule
+// permanently: the token needed to remove it is deleted in the same pass, so
+// the user would have to hunt it down in the Cloudflare dashboard by hand.
+// Delete remote first, local second.
+//
+// Uninstall runs with the plugin NOT loaded, so RNRD_Crypto's option filters
+// are not registered and get_option() returns ciphertext — decrypt explicitly.
+// Every step is guarded; a Cloudflare outage must never block the uninstall.
+$rnrd_cf_rule_id = (string) get_option( 'rnrd_cf_rule_id', '' );
+$rnrd_cf_zone_id = (string) get_option( 'rnrd_cf_zone_id', '' );
+
+if ( '' !== $rnrd_cf_rule_id && '' !== $rnrd_cf_zone_id ) {
+	$rnrd_crypto_file = __DIR__ . '/includes/class-rnrd-crypto.php';
+	if ( file_exists( $rnrd_crypto_file ) ) {
+		require_once $rnrd_crypto_file;
+	}
+
+	$rnrd_cf_decrypt = static function ( string $raw ): string {
+		if ( '' === $raw || ! class_exists( 'RNRD_Crypto' ) ) {
+			return $raw;
+		}
+		return RNRD_Crypto::decrypt( $raw );
+	};
+
+	$rnrd_cf_token  = $rnrd_cf_decrypt( (string) get_option( 'rnrd_cf_api_token', '' ) );
+	$rnrd_cf_gkey   = $rnrd_cf_decrypt( (string) get_option( 'rnrd_cf_global_key', '' ) );
+	$rnrd_cf_email  = (string) get_option( 'rnrd_cf_email', '' );
+	$rnrd_cf_hdrs   = array();
+
+	if ( '' !== $rnrd_cf_gkey && '' !== $rnrd_cf_email ) {
+		$rnrd_cf_hdrs = array(
+			'X-Auth-Email' => $rnrd_cf_email,
+			'X-Auth-Key'   => $rnrd_cf_gkey,
+			'Content-Type' => 'application/json',
+		);
+	} elseif ( '' !== $rnrd_cf_token ) {
+		$rnrd_cf_hdrs = array(
+			'Authorization' => 'Bearer ' . $rnrd_cf_token,
+			'Content-Type'  => 'application/json',
+		);
+	}
+
+	if ( ! empty( $rnrd_cf_hdrs ) ) {
+		// Single-rule deletion needs the ruleset ID, not the phase entrypoint —
+		// a DELETE on the entrypoint path silently no-ops. Same reason
+		// RNRD_Cloudflare::delete_rule() resolves the entrypoint first.
+		$rnrd_cf_base  = 'https://api.cloudflare.com/client/v4/zones/' . rawurlencode( $rnrd_cf_zone_id );
+		$rnrd_cf_entry = wp_remote_get(
+			$rnrd_cf_base . '/rulesets/phases/http_request_cache_settings/entrypoint',
+			array(
+				'headers' => $rnrd_cf_hdrs,
+				'timeout' => 10,
+			)
+		);
+
+		if ( ! is_wp_error( $rnrd_cf_entry ) ) {
+			$rnrd_cf_body = json_decode( (string) wp_remote_retrieve_body( $rnrd_cf_entry ), true );
+			$rnrd_cf_rsid = isset( $rnrd_cf_body['result']['id'] ) ? (string) $rnrd_cf_body['result']['id'] : '';
+
+			if ( '' !== $rnrd_cf_rsid ) {
+				wp_remote_request(
+					$rnrd_cf_base . '/rulesets/' . rawurlencode( $rnrd_cf_rsid ) . '/rules/' . rawurlencode( $rnrd_cf_rule_id ),
+					array(
+						'method'  => 'DELETE',
+						'headers' => $rnrd_cf_hdrs,
+						'timeout' => 10,
+					)
+				);
+			}
+		}
+	}
+
+	unset( $rnrd_cf_token, $rnrd_cf_gkey, $rnrd_cf_hdrs );
+}
+
 // ── Delete options ────────────────────────────────────────────────────────────
 $rnrd_options = array(
 	// Multi-LLM provider keys + models (v1.1.0+). MUST be in this list — opting
@@ -49,6 +126,8 @@ $rnrd_options = array(
 	// v1.2.0 — Agent Ready options.
 	'rnrd_brand_terms',
 	'rnrd_max_snippet_default',
+	'rnrd_ai_training_enable',
+	'rnrd_ai_citation_enable',
 	'rnrd_ai_referral_stats',
 	'rnrd_ai_referral_enable',
 	'rnrd_mcp_enable',
@@ -71,6 +150,7 @@ $rnrd_options = array(
 	'rnrd_md_hint_div',
 	'rnrd_md_bot_auto_serve',
 	'rnrd_welcome_completed',
+	'rnrd_tips_optin_sent',   // legacy site-wide flag (pre per-admin user_meta); kept for cleanup.
 
 	// v1.1.x — Content Signals.
 	'rnrd_content_signals_enable',
@@ -98,8 +178,10 @@ $rnrd_options = array(
 	'rnrd_default_label',
 	'rnrd_default_show_label',
 	'rnrd_default_heading_tag',
+	'rnrd_summary_enable',
 	'rnrd_auto_display',
 	'rnrd_display_position',
+	'rnrd_auto_display_merged',
 	'rnrd_custom_prompt',
 	'rnrd_product_context',
 	'rnrd_auto_generate',
@@ -119,6 +201,7 @@ $rnrd_options = array(
 	'rnrd_llms_full_enable',
 	// Markdown.
 	'rnrd_md_enable',
+	'rnrd_md_home_enable',
 	'rnrd_md_post_types',
 	'rnrd_md_include_meta',
 	'rnrd_okf_enable',
@@ -142,6 +225,7 @@ $rnrd_options = array(
 	'rnrd_faq_post_types',
 	'rnrd_faq_count',
 	'rnrd_faq_brand_terms',
+	'rnrd_faq_enable',
 	'rnrd_faq_auto_display',
 	'rnrd_faq_position',
 	'rnrd_faq_heading_tag',
@@ -218,7 +302,7 @@ $rnrd_meta_keys = array(
 	'_rnrd_faq_generated',
 	'_rnrd_faq_disable',
 	'_rnrd_faq_keyword',
-	'_rnrd_faq_last_failure',  // v1.1.3 circuit breaker timestamp
+	'_rnrd_faq_last_failure',  // v1.2.0 circuit breaker timestamp
 	'_rnrd_max_snippet',       // v1.2.0 per-post max-snippet override
 	'_rnrd_llms_exclude',      // v1.2.0 per-post llms.txt exclusion
 	'_rnrd_tokens_used',
@@ -263,6 +347,17 @@ $rnrd_user_meta_keys = array(
 	'rnrd_author_contact_url',
 );
 
+// Per-user admin-notice + tutorial dismissal flags. These are not author-profile
+// fields so they were missing from the list above, which meant a full "delete all
+// data" uninstall followed by a reinstall silently suppressed the tutorial, the
+// what's-new banner and three admin notices — the user could never get them back.
+$rnrd_user_meta_keys[] = 'rnrd_tutorial_dismissed';
+$rnrd_user_meta_keys[] = 'rnrd_whatsnew_dismissed_version';
+$rnrd_user_meta_keys[] = 'rnrd_tips_optin_sent'; // per-admin tips email opt-in (no raw email stored locally).
+$rnrd_user_meta_keys[] = '_rnrd_nginx_wk_dismissed';
+$rnrd_user_meta_keys[] = '_rnrd_swis_notice_dismissed';
+$rnrd_user_meta_keys[] = '_rnrd_apo_notice_dismissed';
+
 foreach ( $rnrd_user_meta_keys as $rnrd_key ) {
 	$wpdb->delete( $wpdb->usermeta, array( 'meta_key' => $rnrd_key ) ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 }
@@ -282,3 +377,9 @@ delete_option( 'rnrd_crawler_log_db_version' );
 
 // ── Flush rewrite rules to clean up llms.txt and .md endpoints ───────────────
 flush_rewrite_rules( false );
+
+// TC-UNI-04: catch-all sweep for any rnrd_* option (and rnrd_* transients) not in
+// the static lists above — migration/version flags added across releases
+// (rnrd_installed_version, rnrd_model_migrations, rnrd_*_corrected_*, etc.).
+// Runs only in the full-wipe path (guarded by the early return above).
+$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE 'rnrd\\_%' OR option_name LIKE '\\_transient\\_rnrd\\_%' OR option_name LIKE '\\_transient\\_timeout\\_rnrd\\_%'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared

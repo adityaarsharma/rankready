@@ -45,7 +45,10 @@ class RNRD_Markdown {
 		add_action( 'template_redirect', array( self::class, 'handle_accept_header' ), 2 );
 
 		// Emit Vary: Accept on all HTML pages so caches store markdown and HTML separately.
-		add_action( 'send_headers', array( self::class, 'add_vary_header' ) );
+		// v1.2.1 — PHP_INT_MAX so we merge Vary LAST. add_vary_header() collapses
+		// every Vary line already sent into one field line; running at the default
+		// priority let a later plugin append a second line and re-split it.
+		add_action( 'send_headers', array( self::class, 'add_vary_header' ), PHP_INT_MAX );
 
 		// Add Link header on HTML pages pointing to .md version.
 		add_action( 'wp_head',           array( self::class, 'add_md_link_tag' ) );
@@ -60,8 +63,7 @@ class RNRD_Markdown {
 		// Prevent WordPress from adding trailing slash to .md URLs.
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_md_trailing_slash' ), 10, 2 );
 
-		// Flush rewrite rules when the setting changes.
-		add_action( 'update_option_' . RNRD_OPT_MD_ENABLE, array( self::class, 'flush_rules' ) );
+		// Rewrite flush: pre_update_option_* busts rnrd_rewrite_ok; admin_init self-heal flushes.
 
 		// Register query vars via named method (not anonymous closure).
 		add_filter( 'query_vars', array( self::class, 'register_query_vars' ) );
@@ -92,6 +94,20 @@ class RNRD_Markdown {
 	 * The notice is only shown on RankReady's own admin pages so it doesn't
 	 * pollute every wp-admin screen.
 	 */
+	/**
+	 * Is Cloudflare APO active? APO caches HTML at the edge and ignores both
+	 * Vary: Accept and origin Cache-Control, so same-URL Accept negotiation is
+	 * unsafe there. Cheap to call per-request — RNRD_Cache::detect_active() is
+	 * all defined()/class_exists() checks, no HTTP or DB.
+	 */
+	private static function is_apo_active(): bool {
+		if ( ! class_exists( 'RNRD_Cache' ) || ! method_exists( 'RNRD_Cache', 'detect_active' ) ) {
+			return false;
+		}
+		$active = RNRD_Cache::detect_active();
+		return isset( $active['cloudflare-apo'] );
+	}
+
 	public static function maybe_cloudflare_apo_notice(): void {
 		// Only on RankReady screens — never spam other plugin pages.
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
@@ -104,11 +120,10 @@ class RNRD_Markdown {
 			return;
 		}
 
-		// v1.1.2 — This notice only matters when same-URL Accept negotiation is
-		// enabled. With it off (the default), markdown is served only at distinct
-		// `.md` URLs, which work through Cloudflare APO automatically (separate
-		// cache key per URL). No Cache Rule needed, so don't nag the user.
-		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' ) ) {
+		// v1.2 — Same-URL Accept negotiation is ON by default. On APO we auto-
+		// fall back to the distinct `.md` URLs (safe), and this notice tells the
+		// user how to add a Cache Rule if they want canonical-URL negotiation.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' ) ) {
 			return;
 		}
 
@@ -142,6 +157,7 @@ class RNRD_Markdown {
 				printf(
 					/* translators: %s: link to Cloudflare Purge Cache */
 					wp_kses_post( __( 'In Cloudflare, open %s. This clears any stale HTML APO cached before RankReady was installed. Going forward, RankReady auto-purges every relevant URL when you change settings or save a post.', 'rankready-ai-llm-seo' ) ),
+					// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- Instructional link to the user's own Cloudflare dashboard, not an offloaded asset.
 					'<a href="https://dash.cloudflare.com/?to=/:account/:zone/caching/configuration" target="_blank" rel="noopener"><strong>Caching → Configuration → Purge Everything</strong></a>'
 				);
 				?>
@@ -160,6 +176,7 @@ class RNRD_Markdown {
 					printf(
 						/* translators: %s: link to Cloudflare AI Crawl Control */
 						wp_kses_post( __( 'In your Cloudflare dashboard (Pro/Business plan), open %s. Cloudflare\'s edge converts HTML to Markdown automatically on Accept: text/markdown requests — happens before APO caching kicks in.', 'rankready-ai-llm-seo' ) ),
+						// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- Instructional link to the user's own Cloudflare dashboard, not an offloaded asset.
 						'<a href="https://dash.cloudflare.com/?to=/:account/:zone/ai-crawl-control" target="_blank" rel="noopener"><strong>AI Crawl Control → Markdown for Agents</strong></a>'
 					);
 					?>
@@ -170,6 +187,7 @@ class RNRD_Markdown {
 					printf(
 						/* translators: %s: link to Cloudflare Cache Rules */
 						wp_kses_post( __( 'In %s create a rule. Match: <code>(http.request.headers["accept"][0] contains "text/markdown")</code>. Then: <strong>Cache eligibility → Bypass cache</strong>.', 'rankready-ai-llm-seo' ) ),
+						// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- Instructional link to the user's own Cloudflare dashboard, not an offloaded asset.
 						'<a href="https://dash.cloudflare.com/?to=/:account/:zone/caching/cache-rules" target="_blank" rel="noopener"><strong>Caching → Cache Rules → Create rule</strong></a>'
 					);
 					?>
@@ -233,12 +251,11 @@ class RNRD_Markdown {
 			return;
 		}
 
-		// v1.1.5 (#6) — the homepage /index.md transient key depends only on
-		// permalink_structure (no modified-timestamp), so it was never invalidated and
-		// "Recent Posts" on /index.md could lag up to an hour behind a publish/edit/delete.
-		// Drop it on every post change (cheap; regenerates on next request) regardless of
-		// the post's type, since the front-page list can include any post type.
+		// v1.1.5 (#6) — listing transients (homepage /index.md and Posts-page .md)
+		// depend only on permalink_structure, so they were never invalidated and
+		// "Recent Posts" could lag up to an hour behind a publish/edit/delete.
 		delete_transient( 'rnrd_md_homepage_' . md5( (string) get_option( 'permalink_structure', '' ) ) );
+		delete_transient( self::posts_page_listing_transient_key() );
 
 		$post = get_post( $post_id );
 		if ( ! $post instanceof WP_Post ) {
@@ -282,6 +299,19 @@ class RNRD_Markdown {
 		$urls = array( $md_url );
 		if ( ! empty( $canonical ) ) {
 			$urls[] = $canonical;
+		}
+
+		// Recent-posts listings on the dedicated Posts page also changed.
+		$posts_page_id = self::posts_page_id();
+		if ( $posts_page_id > 0 && (int) $post->ID !== $posts_page_id ) {
+			$posts_page = get_post( $posts_page_id );
+			if ( $posts_page instanceof WP_Post ) {
+				$urls[] = self::get_md_url( $posts_page );
+				$permalink = get_permalink( $posts_page );
+				if ( ! empty( $permalink ) ) {
+					$urls[] = $permalink;
+				}
+			}
 		}
 
 		// Allow the Pro addon / third parties to extend the per-post purge list
@@ -346,14 +376,34 @@ class RNRD_Markdown {
 		);
 	}
 
-	public static function flush_rules(): void {
-		flush_rewrite_rules( false );
-	}
-
 	// ── Handle .md URL request ───────────────────────────────────────────────
+
+	/** Normalised current request path (no query string / surrounding slashes, subdirectory-aware). */
+	private static function request_path(): string {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		$req = trim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
+		$home = trim( (string) wp_parse_url( home_url(), PHP_URL_PATH ), '/' );
+		if ( '' !== $home ) {
+			if ( 0 === strpos( $req, $home . '/' ) ) {
+				$req = trim( substr( $req, strlen( $home ) ), '/' );
+			} elseif ( $req === $home ) {
+				$req = '';
+			}
+		}
+		return $req;
+	}
 
 	public static function handle_request(): void {
 		$md_path = get_query_var( 'rnrd_md_path', '' );
+
+		// Fallback: if WP didn't surface the query var (SEO-plugin early router,
+		// rewrite ordering, or a query_vars strip), match the raw ".md" request path.
+		if ( '' === (string) $md_path && 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			$rnrd_path = self::request_path();
+			if ( preg_match( '#^(?!wp-admin|wp-content|wp-includes|wp-json)(.+)\\.md$#', $rnrd_path, $rnrd_m ) ) {
+				$md_path = $rnrd_m[1];
+			}
+		}
 
 		if ( empty( $md_path ) ) {
 			return;
@@ -366,21 +416,21 @@ class RNRD_Markdown {
 			exit;
 		}
 
-		// Resolve the path to a post first so we can pass it to the logger.
-		$post = self::resolve_post_from_path( $md_path );
-
-		// v1.1.2 — Homepage overview at the distinct `/index.md` URL.
-		// resolve_post_from_path('index') only returns a post when a STATIC page
-		// is set as the front page. On a blog-index front page (Reading Settings
-		// → "Your latest posts") there is no such post, so `/index.md` would 404
-		// and the site would have no cache-safe homepage markdown — its only
-		// homepage markdown used to come from the now-default-off Accept path.
-		// Serve the site overview here instead (cacheable: distinct URL, always
-		// markdown). serve_homepage_markdown() exits.
-		if ( ! $post instanceof WP_Post && 'index' === trim( $md_path, '/' ) ) {
-			RNRD_Crawler_Log::log( 'home_md' );
+		// 1) Front page surface at `/index.md`. serve_homepage_markdown() exits.
+		if ( self::home_surfaces_enabled() && 'index' === trim( (string) $md_path, '/' ) ) {
 			self::serve_homepage_markdown( false );
 		}
+
+		// 2) Posts page listing (is_home), e.g. /blog.md — match by page URI,
+		// not url_to_postid() (returns 0 for the blog index) and not Markdown
+		// post types. serve_posts_page_markdown() exits.
+		$posts_md_path = self::posts_page_md_path();
+		if ( self::home_surfaces_enabled() && '' !== $posts_md_path && $posts_md_path === trim( (string) $md_path, '/' ) ) {
+			self::serve_posts_page_markdown( false );
+		}
+
+		// 3) Singular post/page.
+		$post = self::resolve_post_from_path( $md_path );
 
 		// Password-protected posts must not leak via .md — get_the_content()
 		// hides the body on the HTML side, but post_to_markdown() reads raw
@@ -392,9 +442,29 @@ class RNRD_Markdown {
 			exit;
 		}
 
+		// When homepage/blog-index markdown is disabled, front/posts-page routes
+		// must not fall through and reappear via the singular resolver.
+		if ( ! self::home_surfaces_enabled() ) {
+			$front_id      = (int) get_option( 'page_on_front', 0 );
+			$posts_page_id = self::posts_page_id();
+			if ( ( $front_id > 0 && (int) $post->ID === $front_id ) || ( $posts_page_id > 0 && (int) $post->ID === $posts_page_id ) ) {
+				status_header( 404 );
+				header( 'Content-Type: text/plain; charset=utf-8' );
+				echo '# 404 Not Found';
+				exit;
+			}
+		}
+
 		// Check post type is enabled.
 		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+			status_header( 404 );
+			header( 'Content-Type: text/plain; charset=utf-8' );
+			echo '# 404 Not Found';
+			exit;
+		}
+
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
 			status_header( 404 );
 			header( 'Content-Type: text/plain; charset=utf-8' );
 			echo '# 404 Not Found';
@@ -436,7 +506,7 @@ class RNRD_Markdown {
 		// (only `rnrd_md_path` query var is set), so is_home() returns true
 		// and we'd incorrectly serve the homepage index instead of the page.
 		// handle_request() at priority 10 serves the correct page markdown.
-		// Reported in issue #1 by @rohitposimyth-seo.
+		// Reported by a user in early testing.
 		if ( '' !== (string) get_query_var( 'rnrd_md_path', '' ) ) {
 			return;
 		}
@@ -445,17 +515,22 @@ class RNRD_Markdown {
 			return;
 		}
 
-		// v1.1.2 — Same-URL Accept negotiation is OFF by default and must stay so
-		// on any cache that ignores `Vary: Accept` (Cloudflare APO, Varnish,
-		// Fastly, most shared hosts). Serving markdown on the canonical URL there
-		// poisons the edge cache: the markdown body gets stored under `/` and
-		// served to every later browser request, blanking the page. Cloudflare
-		// ignores Vary AND APO ignores origin Cache-Control at the edge, so no
-		// response header can make this safe. Markdown stays available at the
-		// distinct `.md` URLs (handle_request at priority 1) — a separate cache
-		// key that cannot be poisoned — and is advertised via the Link header +
-		// llms.txt. This is the llms.txt-spec / Vercel / Mintlify pattern.
-		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' ) ) {
+		// v1.2 — Same-URL Accept negotiation is ON by default. This is what the
+		// ecosystem and validators (acceptmarkdown.com, Lighthouse Agentic
+		// Browsing) expect, and what Joost de Valk / Roots ship in production
+		// (Vary: Accept + a revalidating Cache-Control). Users can turn it off.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' ) ) {
+			return;
+		}
+
+		// …EXCEPT on Cloudflare APO, which caches HTML at the edge and ignores
+		// both Vary: Accept and origin Cache-Control. Serving markdown on the
+		// canonical URL there would poison the page cache and blank it for real
+		// browsers. On APO we auto-fall-back to the distinct `.md` URLs (a
+		// separate, poison-proof cache key) and the admin notice tells the user
+		// how to enable negotiation via an APO Cache Rule. APO users who HAVE
+		// added that Cache Rule can force negotiation back on with the filter.
+		if ( self::is_apo_active() && ! apply_filters( 'rankready_force_accept_negotiation', false ) ) {
 			return;
 		}
 
@@ -504,10 +579,17 @@ class RNRD_Markdown {
 
 		// text/markdown is preferred (or tied, or forced by AI bot UA). Serve it.
 
-		// Homepage (static front page OR blog posts index): generate a site overview.
-		if ( is_front_page() || is_home() ) {
-			RNRD_Crawler_Log::log( 'home_md' );
+		// is_front_page() → is_home() → is_singular(). Front must win on a
+		// latest-posts home where both front and home are true.
+		if ( self::home_surfaces_enabled() && is_front_page() ) {
 			self::serve_homepage_markdown();
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_home() ) {
+			if ( self::get_posts_page_post() instanceof WP_Post ) {
+				self::serve_posts_page_markdown();
+			}
 			return;
 		}
 
@@ -523,6 +605,10 @@ class RNRD_Markdown {
 
 		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+			return;
+		}
+
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
 			return;
 		}
 
@@ -578,13 +664,45 @@ class RNRD_Markdown {
 		return isset( $types[ $type ] ) ? (float) $types[ $type ] : 0.0;
 	}
 
+	private static function home_surfaces_enabled(): bool {
+		return 'on' === get_option( RNRD_OPT_MD_HOME_ENABLE, 'on' );
+	}
+
 	/**
-	 * Serve a markdown overview of the site for homepage requests with Accept: text/markdown.
-	 *
-	 * Generates a clean markdown document describing the site and listing recent posts.
-	 * Cached for 1 hour and bust on post publish/update.
+	 * Distinct homepage markdown URL. Always /index.md — never example.com.md.
 	 */
-	private static function serve_homepage_markdown( bool $shared_url = true ): void {
+	public static function homepage_md_url(): string {
+		return untrailingslashit( home_url( '/' ) ) . '/index.md';
+	}
+
+	/**
+	 * Static front page when it can be served as homepage markdown.
+	 *
+	 * Homepage is first-class: does not require `page` in Markdown post types.
+	 * Password-protected or AI-excluded front pages fall through to the overview.
+	 */
+	private static function get_front_page_post(): ?WP_Post {
+		if ( 'page' !== get_option( 'show_on_front' ) ) {
+			return null;
+		}
+		$page_on_front = (int) get_option( 'page_on_front', 0 );
+		if ( $page_on_front <= 0 ) {
+			return null;
+		}
+		$post = get_post( $page_on_front );
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+			return null;
+		}
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			return null;
+		}
+		return $post;
+	}
+
+	/**
+	 * Site-overview markdown for latest-posts homes (and excluded/password fronts).
+	 */
+	private static function build_homepage_overview_markdown(): string {
 		// v1.2.0-rc.2 — hash the permalink structure so the transient name
 		// stays under WordPress's 172-char limit on exotic configurations
 		// (multilingual prefixes, custom CPT date paths, etc.).
@@ -592,59 +710,198 @@ class RNRD_Markdown {
 		$cache_key = 'rnrd_md_homepage_' . md5( (string) get_option( 'permalink_structure', '' ) );
 		$markdown  = get_transient( $cache_key );
 
-		if ( false === $markdown ) {
-			$site_name = get_bloginfo( 'name' );
-			$tagline   = get_bloginfo( 'description' );
-			$home_url  = home_url( '/' );
-
-			$lines   = array();
-			$lines[] = '# ' . $site_name;
-			if ( ! empty( $tagline ) ) {
-				$lines[] = '';
-				$lines[] = '> ' . $tagline;
-			}
-			$lines[] = '';
-			$lines[] = 'Source: ' . $home_url;
-			$lines[] = '';
-
-			// Link to llms.txt if enabled.
-			if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
-				$lines[] = 'Full site index: [llms.txt](' . home_url( '/llms.txt' ) . ')';
-				$lines[] = '';
-			}
-
-			// Recent posts.
-			$posts = get_posts( array(
-				'numberposts'      => 10,
-				'post_status'      => 'publish',
-				'has_password'     => false,
-				'suppress_filters' => false,
-			) );
-
-			if ( ! empty( $posts ) ) {
-				$lines[] = '## Recent Posts';
-				$lines[] = '';
-				foreach ( $posts as $post ) {
-					$title   = html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' );
-					$lines[] = '- [' . $title . '](' . get_permalink( $post ) . ')';
-				}
-				$lines[] = '';
-			}
-
-			$markdown = implode( "\n", $lines );
-			set_transient( $cache_key, $markdown, HOUR_IN_SECONDS );
+		if ( false !== $markdown ) {
+			return (string) $markdown;
 		}
 
-		// v1.1.2 — Cache policy depends on the URL this overview is served at:
-		//   - $shared_url = true  → served on the canonical `/` via Accept
-		//     negotiation (opt-in path). `/` is shared with the HTML homepage and
-		//     Cloudflare APO ignores Vary: Accept, so force no-store (bug seen on
-		//     nexterwp.com, 2026-06-02).
-		//   - $shared_url = false → served at the distinct `/index.md` URL
-		//     (default discovery path for blog-index front pages). A distinct URL
-		//     is its own cache key and always returns markdown, so it is safe to
-		//     cache publicly.
-		$canonical = $shared_url ? home_url( '/' ) : home_url( '/index.md' );
+		$site_name = get_bloginfo( 'name' );
+		$tagline   = get_bloginfo( 'description' );
+		$home_url  = home_url( '/' );
+
+		$lines   = array();
+		$lines[] = '# ' . $site_name;
+		if ( ! empty( $tagline ) ) {
+			$lines[] = '';
+			$lines[] = '> ' . $tagline;
+		}
+		$lines[] = '';
+		$lines[] = 'Source: ' . $home_url;
+		$lines[] = '';
+
+		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
+			$lines[] = 'Full site index: [llms.txt](' . home_url( '/llms.txt' ) . ')';
+			$lines[] = '';
+		}
+
+		$posts = get_posts( array(
+			'numberposts'      => 10,
+			'post_status'      => 'publish',
+			'has_password'     => false,
+			'suppress_filters' => false,
+		) );
+
+		if ( ! empty( $posts ) ) {
+			$lines[] = '## ' . __( 'Recent Posts', 'rankready-ai-llm-seo' );
+			$lines[] = '';
+			foreach ( $posts as $post ) {
+				$title   = html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' );
+				$lines[] = '- [' . $title . '](' . get_permalink( $post ) . ')';
+			}
+			$lines[] = '';
+		}
+
+		$markdown = implode( "\n", $lines );
+		set_transient( $cache_key, $markdown, HOUR_IN_SECONDS );
+
+		return $markdown;
+	}
+
+	/**
+	 * Reading Settings → Posts page ID, or 0 when latest posts are the front.
+	 */
+	private static function posts_page_id(): int {
+		if ( 'page' !== get_option( 'show_on_front' ) ) {
+			return 0;
+		}
+		return (int) get_option( 'page_for_posts', 0 );
+	}
+
+	/**
+	 * Path of the Posts page without leading/trailing slashes (e.g. "blog").
+	 * Used to map /blog.md → the listing surface. Empty when there is no Posts page.
+	 */
+	private static function posts_page_md_path(): string {
+		$id = self::posts_page_id();
+		if ( $id <= 0 ) {
+			return '';
+		}
+		return trim( (string) get_page_uri( $id ), '/' );
+	}
+
+	private static function posts_page_listing_transient_key(): string {
+		return 'rnrd_md_posts_page_' . self::posts_page_id() . '_' . md5( (string) get_option( 'permalink_structure', '' ) );
+	}
+
+	/**
+	 * Dedicated Posts page when it can be served as a listing surface.
+	 *
+	 * First-class: does not require `page` in Markdown post types.
+	 * Password-protected or AI-excluded Posts pages are not advertised or served.
+	 */
+	private static function get_posts_page_post(): ?WP_Post {
+		$id = self::posts_page_id();
+		if ( $id <= 0 ) {
+			return null;
+		}
+		$post = get_post( $id );
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+			return null;
+		}
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			return null;
+		}
+		return $post;
+	}
+
+	/**
+	 * Recent-posts listing for the dedicated Posts page (e.g. /blog.md).
+	 */
+	private static function build_posts_page_markdown( WP_Post $page ): string {
+		$cache_key = self::posts_page_listing_transient_key();
+		$markdown  = get_transient( $cache_key );
+		if ( false !== $markdown ) {
+			return (string) $markdown;
+		}
+
+		$title = html_entity_decode( get_the_title( $page ), ENT_QUOTES, 'UTF-8' );
+		if ( '' === $title ) {
+			$title = __( 'Blog', 'rankready-ai-llm-seo' );
+		}
+		$source = get_permalink( $page );
+
+		$lines   = array();
+		$lines[] = '# ' . $title;
+		$lines[] = '';
+		$lines[] = 'Source: ' . $source;
+		$lines[] = '';
+
+		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) ) {
+			$lines[] = 'Full site index: [llms.txt](' . home_url( '/llms.txt' ) . ')';
+			$lines[] = '';
+		}
+
+		$posts = get_posts( array(
+			'numberposts'      => 10,
+			'post_status'      => 'publish',
+			'has_password'     => false,
+			'suppress_filters' => false,
+		) );
+
+		if ( ! empty( $posts ) ) {
+			$lines[] = '## ' . __( 'Recent Posts', 'rankready-ai-llm-seo' );
+			$lines[] = '';
+			foreach ( $posts as $post ) {
+				$post_title = html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' );
+				$lines[]    = '- [' . $post_title . '](' . get_permalink( $post ) . ')';
+			}
+			$lines[] = '';
+		}
+
+		$markdown = implode( "\n", $lines );
+		set_transient( $cache_key, $markdown, HOUR_IN_SECONDS );
+
+		return $markdown;
+	}
+
+	/**
+	 * Serve Posts-page listing markdown at `{posts-page}.md` or on the HTML
+	 * blog URL via Accept / AI-bot UA. Exits.
+	 */
+	private static function serve_posts_page_markdown( bool $shared_url = true ): void {
+		$page = self::get_posts_page_post();
+		if ( ! $page instanceof WP_Post ) {
+			status_header( 404 );
+			header( 'Content-Type: text/plain; charset=utf-8' );
+			echo '# 404 Not Found';
+			exit;
+		}
+
+		RNRD_Crawler_Log::log( 'home_md' );
+		$markdown  = self::build_posts_page_markdown( $page );
+		$canonical = $shared_url ? get_permalink( $page ) : self::get_md_url( $page );
+		self::serve_markdown( $markdown, $canonical, $shared_url );
+	}
+
+	/**
+	 * Serve homepage markdown at `/index.md` or on `/` via Accept / AI-bot UA.
+	 *
+	 * Static front page → that page's markdown (even if Pages is unchecked).
+	 * Latest-posts home → site overview. Both URLs share the same body.
+	 *
+	 * Cache policy depends on the URL:
+	 *   - $shared_url = true  → canonical `/` (Accept). Force no-store so APO
+	 *     cannot poison the HTML homepage (bug seen on nexterwp.com, 2026-06-02).
+	 *   - $shared_url = false → distinct `/index.md`. Safe to cache publicly.
+	 */
+	private static function serve_homepage_markdown( bool $shared_url = true ): void {
+		$post = self::get_front_page_post();
+		if ( $post instanceof WP_Post ) {
+			$post   = self::translate_post( $post );
+			$locale = self::resolved_locale( $post );
+			RNRD_Crawler_Log::log( 'markdown', $post );
+
+			$cache_key = 'rnrd_md_' . $post->ID . '_' . $locale . '_' . strtotime( $post->post_modified );
+			$markdown  = get_transient( $cache_key );
+			if ( false === $markdown ) {
+				$markdown = self::post_to_markdown( $post );
+				set_transient( $cache_key, $markdown, 5 * MINUTE_IN_SECONDS );
+			}
+		} else {
+			RNRD_Crawler_Log::log( 'home_md' );
+			$markdown = self::build_homepage_overview_markdown();
+		}
+
+		$canonical = $shared_url ? home_url( '/' ) : self::homepage_md_url();
 		self::serve_markdown( $markdown, $canonical, $shared_url );
 	}
 
@@ -660,18 +917,50 @@ class RNRD_Markdown {
 			return;
 		}
 
-		// v1.1.2 — Only relevant when same-URL Accept negotiation is enabled.
-		// With it OFF (the default), the canonical URL returns identical HTML
-		// for every Accept value, so emitting `Vary: Accept` would be incorrect
-		// (it fragments caches that DO honour Vary for no benefit) and the
-		// markdown no-cache branch below must not fire. Markdown discovery still
-		// works via the Link header + llms.txt pointing at the distinct `.md`
-		// URLs, which are cache-safe by construction.
-		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' ) ) {
+		// v1.2 — Only relevant when same-URL Accept negotiation is enabled
+		// (ON by default). On Cloudflare APO we don't negotiate on the canonical
+		// URL (see handle_accept_header), so we skip Vary: Accept there too —
+		// markdown is served from the distinct `.md` URLs instead.
+		if ( 'on' !== get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' ) ) {
+			return;
+		}
+		if ( self::is_apo_active() && ! apply_filters( 'rankready_force_accept_negotiation', false ) ) {
 			return;
 		}
 
-		header( 'Vary: Accept', false );
+		// v1.2.1 — Emit ONE merged Vary field line instead of appending a second.
+		//
+		// `header( 'Vary: Accept', false )` used to append, so a response that
+		// already carried `Vary: Accept-Encoding` went out as two separate field
+		// lines. RFC 9110 §5.3 says repeated field lines are equivalent to one
+		// comma-joined line, so that was legal — but plenty of intermediaries and
+		// validators read only the FIRST line. dualmark.dev's md.vary check
+		// reported "got Accept-Encoding" on a production site for exactly this
+		// reason. serve_markdown() already emits a single combined line; this
+		// makes the HTML response consistent with it.
+		$rnrd_vary = array();
+		foreach ( headers_list() as $rnrd_sent ) {
+			if ( 0 !== stripos( $rnrd_sent, 'Vary:' ) ) {
+				continue;
+			}
+			foreach ( explode( ',', substr( $rnrd_sent, 5 ) ) as $rnrd_token ) {
+				$rnrd_token = trim( $rnrd_token );
+				if ( '' === $rnrd_token ) {
+					continue;
+				}
+				// `Vary: *` means "uncacheable, never reuse" — adding tokens to it
+				// would be meaningless and could confuse caches. Leave it alone.
+				if ( '*' === $rnrd_token ) {
+					return;
+				}
+				$rnrd_vary[ strtolower( $rnrd_token ) ] = $rnrd_token;
+			}
+		}
+		$rnrd_vary['accept'] = 'Accept';
+
+		// replace=true (the default) collapses every Vary line already sent into
+		// this single one, preserving the original token order.
+		header( 'Vary: ' . implode( ', ', $rnrd_vary ) );
 
 		// NOTE — Why we DON'T try to defeat Cloudflare APO's cache key from PHP.
 		//
@@ -710,7 +999,10 @@ class RNRD_Markdown {
 		// representations.
 		$accept = isset( $_SERVER['HTTP_ACCEPT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT'] ) ) : '';
 		$wants_md = '' !== $accept && false !== stripos( $accept, 'text/markdown' );
-		if ( ( is_front_page() || is_home() ) && $wants_md ) {
+		if ( self::home_surfaces_enabled() && is_front_page() && $wants_md ) {
+			RNRD_Cache::no_cache_headers();
+		}
+		if ( self::home_surfaces_enabled() && is_home() && $wants_md ) {
 			RNRD_Cache::no_cache_headers();
 		}
 
@@ -737,7 +1029,22 @@ class RNRD_Markdown {
 	// Helps crawlers discover the markdown version from the HTML page.
 
 	public static function add_md_link_tag(): void {
-		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			return;
+		}
+
+		// Front page: always advertise /index.md (not gated on Pages post type).
+		if ( self::home_surfaces_enabled() && is_front_page() ) {
+			self::echo_homepage_md_link_tags();
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_home() ) {
+			self::echo_posts_page_md_link_tags();
+			return;
+		}
+
+		if ( ! is_singular() ) {
 			return;
 		}
 
@@ -748,6 +1055,10 @@ class RNRD_Markdown {
 
 		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+			return;
+		}
+
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
 			return;
 		}
 
@@ -769,13 +1080,12 @@ class RNRD_Markdown {
 	 * it never reaches a screen reader or affects layout, but raw-HTML
 	 * scrapers (which most AI agents are) see the text and the URL.
 	 *
-	 * Per the Evil Martians technique (April 2026) that got their docs site
-	 * cited by Claude — combined with content negotiation, this gives AI
-	 * scrapers a no-ambiguity "the canonical machine-readable copy is here"
-	 * signal.
+	 * Per the Evil Martians technique (April 2026) — combined with content
+	 * negotiation, this gives AI scrapers a no-ambiguity "the canonical
+	 * machine-readable copy is here" signal.
 	 */
 	public static function add_ai_hint_div(): void {
-		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
 			return;
 		}
 		// v1.2.0-beta.3 — sub-toggle, default on. Users who prefer no hidden
@@ -784,6 +1094,23 @@ class RNRD_Markdown {
 			return;
 		}
 
+		if ( self::home_surfaces_enabled() && is_front_page() ) {
+			self::echo_ai_hint_div( self::homepage_md_url() );
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_home() ) {
+			$page = self::get_posts_page_post();
+			if ( $page instanceof WP_Post ) {
+				self::echo_ai_hint_div( self::get_md_url( $page ) );
+			}
+			return;
+		}
+
+		if ( ! is_singular() ) {
+			return;
+		}
+
 		$post = get_queried_object();
 		if ( ! $post instanceof WP_Post ) {
 			return;
@@ -794,19 +1121,106 @@ class RNRD_Markdown {
 			return;
 		}
 
-		$md_url = esc_url( self::get_md_url( $post ) );
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			return;
+		}
 
+		self::echo_ai_hint_div( self::get_md_url( $post ) );
+	}
+
+	/**
+	 * Hidden body hint pointing scrapers at a .md URL.
+	 */
+	private static function echo_ai_hint_div( string $md_url ): void {
 		// `aria-hidden` + clip-path drop the div from assistive tech and visual
 		// layout entirely. Keeping it in the DOM (not display:none) means raw
 		// HTML scrapers still see it — display:none can be ignored by some
 		// rendering-aware crawlers as "hidden = irrelevant".
 		echo '<div aria-hidden="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;">';
-		echo 'AI agents: a clean Markdown version of this page is available at <a href="' . esc_url( $md_url ) . '">' . esc_html( $md_url ) . '</a>. Send Accept: text/markdown to any URL for the same content.';
+		// `tabindex="-1"` keeps the link out of the keyboard tab order. Without it,
+		// an `aria-hidden` container holding a focusable <a> trips axe-core's
+		// `aria-hidden-focus` rule (WCAG 4.1.2) — a keyboard/agent user can land on
+		// an invisible link. Scrapers still read the href + text regardless.
+		echo 'AI agents: a clean Markdown version of this page is available at <a href="' . esc_url( $md_url ) . '" tabindex="-1">' . esc_html( $md_url ) . '</a>. Send Accept: text/markdown to any URL for the same content.';
 		echo '</div>' . "\n";
 	}
 
+	/**
+	 * <link rel="alternate"> tags for the homepage /index.md surface.
+	 */
+	private static function echo_homepage_md_link_tags(): void {
+		$md_url = self::homepage_md_url();
+		echo '<link rel="alternate" type="text/markdown" href="' . esc_url( $md_url ) . '" />' . "\n";
+
+		$front = self::get_front_page_post();
+		if ( ! $front instanceof WP_Post ) {
+			return;
+		}
+		foreach ( self::get_translation_md_urls( $front ) as $code => $translated_md_url ) {
+			echo '<link rel="alternate" type="text/markdown" hreflang="' . esc_attr( $code ) . '" href="' . esc_url( $translated_md_url ) . '" />' . "\n";
+		}
+	}
+
+	/**
+	 * HTTP Link headers for the homepage /index.md surface.
+	 */
+	private static function send_homepage_md_link_headers(): void {
+		header( 'Link: <' . esc_url( self::homepage_md_url() ) . '>; rel="alternate"; type="text/markdown"', false );
+
+		$front = self::get_front_page_post();
+		if ( ! $front instanceof WP_Post ) {
+			return;
+		}
+		foreach ( self::get_translation_md_urls( $front ) as $code => $translated_md_url ) {
+			header( 'Link: <' . esc_url( $translated_md_url ) . '>; rel="alternate"; type="text/markdown"; hreflang="' . $code . '"', false );
+		}
+	}
+
+	/**
+	 * <link rel="alternate"> tags for the dedicated Posts page listing.
+	 */
+	private static function echo_posts_page_md_link_tags(): void {
+		$page = self::get_posts_page_post();
+		if ( ! $page instanceof WP_Post ) {
+			return;
+		}
+		$md_url = self::get_md_url( $page );
+		echo '<link rel="alternate" type="text/markdown" href="' . esc_url( $md_url ) . '" />' . "\n";
+		foreach ( self::get_translation_md_urls( $page ) as $code => $translated_md_url ) {
+			echo '<link rel="alternate" type="text/markdown" hreflang="' . esc_attr( $code ) . '" href="' . esc_url( $translated_md_url ) . '" />' . "\n";
+		}
+	}
+
+	/**
+	 * HTTP Link headers for the dedicated Posts page listing.
+	 */
+	private static function send_posts_page_md_link_headers(): void {
+		$page = self::get_posts_page_post();
+		if ( ! $page instanceof WP_Post ) {
+			return;
+		}
+		header( 'Link: <' . esc_url( self::get_md_url( $page ) ) . '>; rel="alternate"; type="text/markdown"', false );
+		foreach ( self::get_translation_md_urls( $page ) as $code => $translated_md_url ) {
+			header( 'Link: <' . esc_url( $translated_md_url ) . '>; rel="alternate"; type="text/markdown"; hreflang="' . $code . '"', false );
+		}
+	}
+
 	public static function add_md_link_header(): void {
-		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) || ! is_singular() ) {
+		if ( 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_front_page() ) {
+			self::send_homepage_md_link_headers();
+			return;
+		}
+
+		if ( self::home_surfaces_enabled() && is_home() ) {
+			self::send_posts_page_md_link_headers();
+			return;
+		}
+
+		if ( ! is_singular() ) {
 			return;
 		}
 
@@ -817,6 +1231,10 @@ class RNRD_Markdown {
 
 		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
 		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+			return;
+		}
+
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
 			return;
 		}
 
@@ -1073,10 +1491,25 @@ class RNRD_Markdown {
 			$rnrd_md_ttl = (int) apply_filters( 'rankready_md_cache_max_age', HOUR_IN_SECONDS );
 			if ( $rnrd_md_ttl > 0 ) {
 				header( 'Cache-Control: public, max-age=' . $rnrd_md_ttl . ', s-maxage=' . $rnrd_md_ttl );
+				// v1.2.0 — Keep the .md CDN/browser-cacheable (above), but tell PHP-level
+				// page-cache PLUGINS (WP Rocket, LiteSpeed, W3TC, WP Super Cache…) to
+				// bypass it. They serve a stored copy BEFORE this handler runs, which
+				// drops the `X-Robots-Tag: noindex` + canonical Link set below — that is
+				// how `.md` pages leak into Google's index as duplicate content. This
+				// only defines DONOTCACHEPAGE/LSCWP_NO_CACHE (+ LSWS bypass headers); the
+				// public Cache-Control stays, so CDNs (which preserve headers) still cache.
+				if ( class_exists( 'RNRD_Cache' ) ) {
+					RNRD_Cache::bypass_page_cache_plugins_only();
+				}
 			} else {
 				RNRD_Cache::no_cache_headers();
 			}
 		}
+
+		// Assert 200 explicitly — see the note in RNRD_Llms_Txt::serve_llms_txt().
+		// template_redirect runs after the main query, so an intercepted rewrite
+		// leaves WP's 404 status attached to an otherwise correct response.
+		status_header( 200 );
 
 		// Security / typing
 		header( 'X-Content-Type-Options: nosniff' );
@@ -1088,6 +1521,24 @@ class RNRD_Markdown {
 		// Cloudflare APO won't honour it, but well-behaved caches (Varnish, Fastly,
 		// Akamai, browser caches) will — combined with no-store above this still
 		// gives the strongest possible defence against cache poisoning.
+		// Distinct `.md` URLs: the URL itself selects markdown, so Accept has no
+		// influence on the response — verified live, `/index.md` returns
+		// text/markdown for `text/markdown`, `*/*`, `text/html`, `image/png` and
+		// `application/json` alike. Declaring `Vary: Accept` here would therefore
+		// be FALSE: it advertises a variance that does not exist and splits the
+		// cache entry per Accept string for zero benefit.
+		//
+		// AEO Spec v1.0 §4 asks for `Vary: Accept` on every markdown response,
+		// and dualmark's `md.vary` check fails us for this. We decline on
+		// purpose. The spec's own §8 rationale for the rule is "caches that key
+		// on URL alone MAY serve the wrong representation" — a risk that exists
+		// only on the SHARED canonical URL, where we do set it (below). On a
+		// distinct URL there is no wrong representation to serve. Correct cache
+		// behaviour on real user sites outranks a conformance point.
+		//
+		// Shared canonical URL is the opposite case: there the representation
+		// genuinely depends on Accept, so Vary: Accept is required for
+		// correctness, not decoration.
 		if ( $shared_url ) {
 			header( 'Vary: Accept-Encoding, Accept' );
 		} else {
@@ -1108,7 +1559,25 @@ class RNRD_Markdown {
 		// Diagnostic / observability (Title-Case standardised, drops the stray
 		// lowercase x-markdown-source from pre-v1.0.1).
 		header( 'X-RankReady-Source: markdown-accept' );
-		header( 'X-AEO-Version: 1.0' );
+		// v1.2.1 — `X-AEO-Version: 1.0` removed.
+		//
+		// It advertised conformance to the AEO Spec (dualmark.dev), which is a
+		// vendor-authored proposed convention — its own overview states it "has
+		// not been reviewed or adopted by the IETF, W3C, WHATWG, or any other
+		// recognized standards body". Nothing read the header: not RankReady, not
+		// any agent we could find, only that vendor's own scanner.
+		//
+		// It was also becoming a false claim. We deliberately do NOT implement
+		// that spec's `Vary: Accept`-on-every-markdown-response rule, because on
+		// a distinct `.md` URL the response does not vary by Accept (verified) and
+		// declaring otherwise splits the cache for nothing. Advertising a spec
+		// version while knowingly diverging from it is the kind of unprovable
+		// claim we strip from copy — it does not belong in headers either.
+		//
+		// Everything else on this response stays because it is standards-based
+		// and load-bearing: Vary (RFC 9110), Link rel=canonical (RFC 8288),
+		// X-Robots-Tag noindex (de-facto since 2007, stops `.md` duplicates
+		// indexing), CORS (W3C), nosniff.
 		header( 'X-Markdown-Tokens: ' . max( 1, (int) ceil( mb_strlen( $markdown, 'UTF-8' ) / 4 ) ) );
 
 		echo $markdown; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -1148,6 +1617,16 @@ class RNRD_Markdown {
 				if ( $post instanceof WP_Post && 'publish' === $post->post_status ) {
 					return $post;
 				}
+			}
+		}
+
+		// Posts page listing (is_home). url_to_postid() returns 0 because the
+		// URL is the blog index, not a singular page. Map by page URI instead.
+		$posts_md_path = self::posts_page_md_path();
+		if ( '' !== $posts_md_path && $path === $posts_md_path ) {
+			$post = get_post( self::posts_page_id() );
+			if ( $post instanceof WP_Post && 'publish' === $post->post_status ) {
+				return $post;
 			}
 		}
 
@@ -1235,6 +1714,7 @@ class RNRD_Markdown {
 			$lines[] = 'url: ' . get_permalink( $post );
 			$lines[] = 'date: ' . get_post_time( 'Y-m-d', false, $post );
 			$lines[] = 'modified: ' . get_post_modified_time( 'Y-m-d', false, $post );
+			$lines[] = 'lang: ' . RNRD_LLM::detect_content_language( (int) $post->ID )['code'];
 			$lines[] = 'author: "' . self::yaml_escape( get_the_author_meta( 'display_name', $post->post_author ) ) . '"';
 
 			// Excerpt.
@@ -1283,16 +1763,18 @@ class RNRD_Markdown {
 		$lines[] = '';
 
 		// ── AI Summary (if available) ────────────────────────────────────
-		$summary_raw = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
-		if ( ! empty( $summary_raw ) ) {
-			$summary = RNRD_Generator::decode_summary( $summary_raw );
-			if ( 'bullets' === $summary['type'] && ! empty( $summary['data'] ) ) {
-				$lines[] = '## Key Takeaways';
-				$lines[] = '';
-				foreach ( $summary['data'] as $bullet ) {
-					$lines[] = '- ' . self::clean_text( $bullet );
+		if ( class_exists( 'RNRD_Summary' ) && RNRD_Summary::is_enabled() && RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
+			$summary_raw = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
+			if ( ! empty( $summary_raw ) ) {
+				$summary = RNRD_Generator::decode_summary( $summary_raw );
+				if ( 'bullets' === $summary['type'] && ! empty( $summary['data'] ) ) {
+					$lines[] = '## ' . get_option( RNRD_OPT_LABEL, __( 'Key Takeaways', 'rankready-ai-llm-seo' ) );
+					$lines[] = '';
+					foreach ( $summary['data'] as $bullet ) {
+						$lines[] = '- ' . self::clean_text( $bullet );
+					}
+					$lines[] = '';
 				}
-				$lines[] = '';
 			}
 		}
 

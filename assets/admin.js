@@ -664,21 +664,25 @@
 	 * CRAWLER SELECT ALL
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
-	var selectAll = document.getElementById( 'rnrd-crawlers-select-all' );
-	if ( selectAll ) {
-		var crawlerBoxes = document.querySelectorAll( '.rnrd-crawler-checkbox' );
-
-		selectAll.addEventListener( 'change', function () {
-			crawlerBoxes.forEach( function ( cb ) {
-				cb.checked = selectAll.checked;
-			} );
-		} );
-
-		// Update select-all state when individual boxes change.
-		crawlerBoxes.forEach( function ( cb ) {
-			cb.addEventListener( 'change', function () {
-				var allChecked = Array.from( crawlerBoxes ).every( function ( c ) { return c.checked; } );
-				selectAll.checked = allChecked;
+	/* v1.2.1 — The Allow / Block checkbox pair became one Allow / Default / Block
+	 * radio per crawler, so the old "select all" checkbox and .rnrd-crawler-checkbox
+	 * are gone. These buttons set every row to one state at once.
+	 *
+	 * Progressive enhancement only: without JS the radios still work one by one,
+	 * and every row always submits exactly one value. */
+	var setAllButtons = document.querySelectorAll( '.rnrd-crawler-setall' );
+	if ( setAllButtons.length ) {
+		setAllButtons.forEach( function ( btn ) {
+			btn.addEventListener( 'click', function () {
+				var state = btn.getAttribute( 'data-rnrd-state' );
+				if ( ! state ) {
+					return;
+				}
+				document.querySelectorAll( '.rnrd-crawler-state' ).forEach( function ( radio ) {
+					if ( radio.value === state ) {
+						radio.checked = true;
+					}
+				} );
 			} );
 		} );
 	}
@@ -1202,12 +1206,14 @@
 						if ( ! response.ok ) {
 							throw new Error( 'HTTP ' + response.status );
 						}
-						setBtn( 'Saved ✓', 'rnrd-saved' );
+						// v1.2 — verify the save actually persisted (options.php adds settings-updated=true only on success; a stale nonce / admin_init fatal returns 200 without it). Fixes 'Saved but reverts to disabled' (Keith, 1/5).
+							if ( response.url && response.url.indexOf( 'settings-updated=true' ) === -1 ) { throw new Error( 'not-saved' ); }
+							setBtn( 'Saved ✓', 'rnrd-saved' );
 						setTimeout( restoreBtn, 2000 );
 					} )
-					.catch( function () {
-						setBtn( 'Save failed', 'rnrd-save-error' );
-						setTimeout( restoreBtn, 3000 );
+					.catch( function ( err ) {
+						setBtn( ( err && err.message === 'not-saved' ) ? 'Not saved — reload page' : 'Save failed', 'rnrd-save-error' );
+						setTimeout( restoreBtn, 4500 );
 					} );
 			} );
 		} );
@@ -1405,5 +1411,49 @@
 		} );
 	}
 	initFreshnessWidget();
+
+	/* ═══════════════════════════════════════════════════════════════════════
+	 * MIN-ONE POST TYPE CHECKBOX GROUPS
+	 * Unchecking the last box is blocked immediately so Settings API
+	 * sanitizers cannot silently re-check "Post" after save.
+	 * ═══════════════════════════════════════════════════════════════════════ */
+
+	function bindMinOneCheckboxGroups() {
+		var fallback = ( window.rnrdAdmin && rnrdAdmin.minOnePostType )
+			? rnrdAdmin.minOnePostType
+			: 'Select at least one post type.';
+
+		document.querySelectorAll( '[data-rnrd-min-one-checkboxes]' ).forEach( function ( group ) {
+			var boxes = group.querySelectorAll( 'input[type="checkbox"][value]' );
+			if ( ! boxes.length ) {
+				return;
+			}
+			var hint = group.parentNode
+				? group.parentNode.querySelector( '.rnrd-min-one-hint' )
+				: null;
+			if ( ! hint ) {
+				hint = document.createElement( 'p' );
+				hint.className = 'description rnrd-min-one-hint';
+				hint.hidden = true;
+				group.insertAdjacentElement( 'afterend', hint );
+			}
+			var msg = group.getAttribute( 'data-rnrd-min-one-hint' ) || fallback;
+
+			boxes.forEach( function ( cb ) {
+				cb.addEventListener( 'change', function () {
+					var checked = group.querySelectorAll( 'input[type="checkbox"][value]:checked' );
+					if ( checked.length ) {
+						hint.hidden = true;
+						hint.textContent = '';
+						return;
+					}
+					cb.checked = true;
+					hint.textContent = msg;
+					hint.hidden = false;
+				} );
+			} );
+		} );
+	}
+	bindMinOneCheckboxGroups();
 
 } )();

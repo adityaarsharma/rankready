@@ -204,7 +204,7 @@ class RNRD_Diagnostics {
 	private static function probe_llms_txt(): array {
 		if ( 'on' !== get_option( 'rnrd_llms_enable', 'off' ) ) {
 			return self::result( 'llms_txt', '/llms.txt loads', 'info',
-				'Toggle is OFF in AI Crawlers → LLMs.txt.',
+				'Toggle is OFF in AI Visibility → LLMs.txt.',
 				'Enable LLMs.txt to expose your site index to AI engines.'
 			);
 		}
@@ -262,7 +262,7 @@ class RNRD_Diagnostics {
 		if ( false === strpos( substr( $body, 0, 200 ), '# ' ) ) {
 			return self::result( 'llms_txt', '/llms.txt loads', 'warn',
 				'HTTP 200 but missing H1 marker (# ). Format may be corrupted.',
-				'Toggle AI Crawlers → LLMs.txt OFF then ON to regenerate.',
+				'Toggle AI Visibility → LLMs.txt OFF then ON to regenerate.',
 				array( 'url' => $url )
 			);
 		}
@@ -278,7 +278,7 @@ class RNRD_Diagnostics {
 		if ( 'on' !== get_option( 'rnrd_llms_enable', 'off' ) ) {
 			return self::result( 'llms_full_txt', '/llms-full.txt loads', 'info',
 				'Requires LLMs.txt to be enabled (it\'s OFF).',
-				'Enable AI Crawlers → LLMs.txt first.'
+				'Enable AI Visibility → LLMs.txt first.'
 			);
 		}
 
@@ -330,7 +330,7 @@ class RNRD_Diagnostics {
 	private static function probe_homepage_md(): array {
 		if ( 'on' !== get_option( 'rnrd_md_enable', 'off' ) ) {
 			return self::result( 'homepage_md', 'Homepage .md route', 'info',
-				'Toggle is OFF in AI Crawlers → Markdown Endpoints.',
+				'Toggle is OFF in AI Visibility → Markdown Endpoints.',
 				'Enable Markdown Endpoints to serve .md versions of pages.'
 			);
 		}
@@ -384,7 +384,7 @@ class RNRD_Diagnostics {
 		if ( 'on' !== get_option( 'rnrd_md_enable', 'off' ) ) {
 			return self::result( 'post_md', 'Post .md route', 'info',
 				'Markdown Endpoints disabled.',
-				'Enable AI Crawlers → Markdown Endpoints.'
+				'Enable AI Visibility → Markdown Endpoints.'
 			);
 		}
 
@@ -448,7 +448,7 @@ class RNRD_Diagnostics {
 		$response = self::fetch( $url );
 
 		if ( is_wp_error( $response ) ) {
-			$robots_enabled = (bool) get_option( 'rnrd_robots_enable', false );
+			$robots_enabled = 'on' === get_option( 'rnrd_robots_enable', 'on' );
 			return self::loopback_aware_result( 'robots_txt', '/robots.txt has RankReady block', $response, $url,
 				'Server can\'t reach itself.',
 				array(),
@@ -474,12 +474,12 @@ class RNRD_Diagnostics {
 			);
 		}
 
-		$robots_enabled = (bool) get_option( 'rnrd_robots_enable', false );
+		$robots_enabled = 'on' === get_option( 'rnrd_robots_enable', 'on' );
 
 		if ( ! $robots_enabled ) {
 			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'info',
 				'AI Crawler robots.txt toggle is OFF.',
-				'Enable AI Crawlers → LLM Crawler Access to inject the bot block.'
+				'Enable AI Visibility → LLM Crawler Access to inject the bot block.'
 			);
 		}
 
@@ -491,21 +491,21 @@ class RNRD_Diagnostics {
 			// custom rewrite (bypasses WP's robots_txt filter entirely).
 			$interceptor = '';
 			if ( class_exists( 'RNRD_Llms_Txt' ) && method_exists( 'RNRD_Llms_Txt', 'detect_robots_txt_interceptor' ) ) {
-				$interceptor = RNRD_Llms_Txt::detect_robots_txt_interceptor();
+				$interceptor = RNRD_Robots::detect_robots_txt_interceptor();
 			}
 			$has_physical = file_exists( ABSPATH . 'robots.txt' );
 
 			$detail = 'RankReady block missing from /robots.txt response.';
-			$fix    = 'Re-save AI Crawlers → LLM Crawler Access to trigger a physical robots.txt write.';
+			$fix    = 'Re-save AI Visibility → LLM Crawler Access to trigger a physical robots.txt write.';
 
 			if ( $interceptor ) {
 				$detail = "RankReady block missing — {$interceptor} is intercepting /robots.txt via custom rewrite, so the robots_txt filter never fires.";
 				$fix    = $has_physical
 					? "Disable {$interceptor}'s robots.txt feature, OR delete the physical robots.txt at /robots.txt — RankReady's filter (priority PHP_INT_MAX) will then win."
-					: "Disable {$interceptor}'s robots.txt feature in its settings — RankReady will then take over via filter, OR re-save AI Crawlers → LLM Crawler Access to write a physical robots.txt that wins at the webserver level.";
+					: "Disable {$interceptor}'s robots.txt feature in its settings — RankReady will then take over via filter, OR re-save AI Visibility → LLM Crawler Access to write a physical robots.txt that wins at the webserver level.";
 			} elseif ( $has_physical ) {
 				$detail = 'RankReady block missing from physical robots.txt at ' . ABSPATH . 'robots.txt.';
-				$fix    = 'Re-save AI Crawlers → LLM Crawler Access — sync_physical_robots_txt() will rewrite the file with the RankReady block appended.';
+				$fix    = 'Re-save AI Visibility → LLM Crawler Access — sync_physical_robots_txt() will rewrite the file with the RankReady block appended.';
 			}
 
 			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'fail',
@@ -517,7 +517,7 @@ class RNRD_Diagnostics {
 		if ( ! $has_agent ) {
 			return self::result( 'robots_txt', '/robots.txt has RankReady block', 'warn',
 				'RankReady block present but no User-agent directives.',
-				'Re-save AI Crawlers → LLM Crawler Access to regenerate.',
+				'Re-save AI Visibility → LLM Crawler Access to regenerate.',
 				array( 'url' => $url )
 			);
 		}
@@ -530,10 +530,10 @@ class RNRD_Diagnostics {
 	}
 
 	private static function probe_mcp_manifest(): array {
-		if ( 'on' !== get_option( 'rnrd_mcp_enable', 'off' ) ) {
+		if ( 'on' !== get_option( RNRD_OPT_MCP_ENABLE, 'off' ) ) {
 			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'info',
 				'WebMCP toggle is OFF.',
-				'Enable AI Crawlers → WebMCP Manifest to expose 16 abilities to Claude/Cursor/VS Code.'
+				'Enable AI Visibility → WebMCP Manifest to expose 16 abilities to Claude/Cursor/VS Code.'
 			);
 		}
 
@@ -552,8 +552,32 @@ class RNRD_Diagnostics {
 		if ( 503 === $code ) {
 			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'warn',
 				'HTTP 503 (Service Unavailable) — MCP toggle is OFF at request time.',
-				'Confirm AI Crawlers → WebMCP toggle is actually saved as ON.',
+				'Confirm AI Visibility → WebMCP toggle is actually saved as ON.',
 				array( 'url' => $url, 'http_code' => 503 )
+			);
+		}
+
+		// 403 = the webserver blocks the path BEFORE WordPress runs. Almost always
+		// Nginx (or a control panel like RunCloud) denying dotfile paths — /.well-known/
+		// begins with a dot and gets caught by a "location ~ /\." deny rule. Re-flushing
+		// rewrite rules cannot fix this; it needs a one-line server-block change. Apache
+		// and LiteSpeed serve /.well-known/ fine, so this only bites Nginx.
+		if ( 403 === $code ) {
+			$sw       = isset( $_SERVER['SERVER_SOFTWARE'] )
+				? strtolower( sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) )
+				: '';
+			$is_nginx = ( false !== strpos( $sw, 'nginx' ) );
+			$snippet  = 'location ^~ /.well-known/ { allow all; try_files $uri $uri/ /index.php?$args; }';
+			return self::result( 'mcp_manifest', '/.well-known/mcp.json loads', 'fail',
+				$is_nginx
+					? 'HTTP 403 — Nginx is denying /.well-known/ (a dotfile-deny rule) before WordPress runs.'
+					: 'HTTP 403 — the webserver is denying /.well-known/ before WordPress runs.',
+				sprintf(
+					/* translators: %s: an nginx location config snippet. */
+					__( 'Add this ABOVE any "location ~ /\\." deny rule, then reload the server (RunCloud: Web App → NGINX Config): %s — Apache and LiteSpeed need no change.', 'rankready-ai-llm-seo' ),
+					$snippet
+				),
+				array( 'url' => $url, 'http_code' => 403, 'server_family' => $is_nginx ? 'nginx' : 'other' )
 			);
 		}
 
@@ -693,7 +717,7 @@ class RNRD_Diagnostics {
 			$url,
 			array(
 				'timeout'   => 8,
-				'sslverify' => false, // staging sites often have self-signed certs
+				'sslverify' => (bool) apply_filters( 'rnrd_sslverify', true ), // staging sites often have self-signed certs
 				'headers'   => array( 'X-WP-Nonce' => wp_create_nonce( 'wp_rest' ) ),
 			)
 		);
@@ -909,7 +933,11 @@ class RNRD_Diagnostics {
 		// URL, which is cache-safe. So when negotiation is off we probe `/index.md`
 		// (the real agent path) and pass when it returns text/markdown. We only
 		// probe the homepage Accept-header path when the user has opted in.
-		$negotiation_on = 'on' === get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'off' );
+		// v1.2.1 — default MUST match register_setting() and every read site in
+		// RNRD_Markdown, all of which default to 'on'. Defaulting to 'off' here
+		// made Diagnostics report the feature disabled on any site that had never
+		// explicitly saved the option, while it was actually serving Markdown.
+		$negotiation_on = 'on' === get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' );
 
 		if ( ! $negotiation_on ) {
 			$md_url   = home_url( '/index.md' );
@@ -1265,8 +1293,14 @@ class RNRD_Diagnostics {
 	}
 
 	private static function probe_dataforseo(): array {
-		$login    = trim( (string) get_option( 'rnrd_dataforseo_login', '' ) );
-		$password = trim( (string) get_option( 'rnrd_dataforseo_password', '' ) );
+		// v1.2.1 — these read the CANONICAL constants. They previously read a
+		// pair of hardcoded option names that nothing ever writes, so a user
+		// with working DataForSEO credentials was always told "No credentials
+		// configured" while FAQ generation succeeded. Never hardcode an option
+		// name here — use the constant, so a rename cannot silently desync
+		// this probe again.
+		$login    = trim( (string) get_option( RNRD_OPT_DFS_LOGIN, '' ) );
+		$password = trim( (string) get_option( RNRD_OPT_DFS_PASSWORD, '' ) );
 
 		if ( '' === $login || '' === $password ) {
 			return self::result( 'provider_dataforseo', 'Provider: DataForSEO', 'info',
@@ -1318,7 +1352,7 @@ class RNRD_Diagnostics {
 	private static function fetch( string $url, array $headers = array() ) {
 		return wp_remote_get( $url, array(
 			'timeout'     => self::TIMEOUT,
-			'sslverify'   => false, // Loopback often hits self-signed certs in dev
+			'sslverify'   => (bool) apply_filters( 'rnrd_sslverify', true ), // Loopback often hits self-signed certs in dev
 			'redirection' => 2,
 			'headers'     => array_merge( array(
 				'User-Agent' => 'RankReady-Diagnostics/' . ( defined( 'RNRD_VERSION' ) ? RNRD_VERSION : '1.0' ),
@@ -1383,7 +1417,7 @@ class RNRD_Diagnostics {
 		$internal_url = 'http://localhost' . $path;
 		$internal     = wp_remote_get( $internal_url, array(
 			'timeout'     => self::TIMEOUT,
-			'sslverify'   => false,
+			'sslverify'   => (bool) apply_filters( 'rnrd_sslverify', true ),
 			'redirection' => 0,
 			'headers'     => array_merge( array(
 				'User-Agent' => 'RankReady-Diagnostics-Internal/' . ( defined( 'RNRD_VERSION' ) ? RNRD_VERSION : '1.0' ),

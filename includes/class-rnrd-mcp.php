@@ -69,8 +69,24 @@ class RNRD_MCP {
 	}
 
 	/** Serve the manifest JSON at /.well-known/mcp.json. */
+	/** Normalised current request path (no query string / surrounding slashes, subdirectory-aware). */
+	private static function request_path(): string {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		$req = trim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
+		$home = trim( (string) wp_parse_url( home_url(), PHP_URL_PATH ), '/' );
+		if ( '' !== $home ) {
+			if ( 0 === strpos( $req, $home . '/' ) ) {
+				$req = trim( substr( $req, strlen( $home ) ), '/' );
+			} elseif ( $req === $home ) {
+				$req = '';
+			}
+		}
+		return $req;
+	}
+
 	public static function handle_request(): void {
-		if ( '' === (string) get_query_var( 'rnrd_mcp', '' ) ) {
+		if ( '' === (string) get_query_var( 'rnrd_mcp', '' )
+			&& '.well-known/mcp.json' !== self::request_path() ) {
 			return;
 		}
 
@@ -147,11 +163,11 @@ class RNRD_MCP {
 	}
 
 	/**
-	 * Master toggle check. Defaults to enabled — agent visibility is the
-	 * core value RankReady ships, opt-out rather than opt-in.
+	 * Master toggle check. Defaults to off — WebMCP is opt-in, matching
+	 * the onboarding wizard. Sites that already saved 'on' stay on.
 	 */
 	public static function is_enabled(): bool {
-		return 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'on' );
+		return 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'off' );
 	}
 
 	// ── Abilities API registration ────────────────────────────────────────
@@ -177,16 +193,15 @@ class RNRD_MCP {
 	}
 
 	/**
-	 * v1.2.0-beta.6 — Per-resource toggle check. Returns true when the
-	 * resource is opted in (defaults defined in admin.php registration).
+	 * v1.2.0-beta.6 — Per-resource toggle check for safe public resources.
+	 * Missing option rows default ON, matching register_setting() and the
+	 * settings UI. Saved 'off' stays off. Do not use this helper for PII /
+	 * unwired resources (those default off and are not in exposure_state).
 	 *
 	 * @param string $resource_option One of the RNRD_OPT_MCP_EXPOSE_* constants.
 	 */
 	public static function resource_enabled( string $resource_option ): bool {
-		// Defer to register_setting() defaults: WP returns the registered
-		// default when no row exists. We just check 'on' as the canonical
-		// enabled value.
-		return 'on' === (string) get_option( $resource_option, 'off' );
+		return 'on' === (string) get_option( $resource_option, 'on' );
 	}
 
 	/**
@@ -196,29 +211,24 @@ class RNRD_MCP {
 	 */
 	public static function exposure_state(): array {
 		return array(
-			'posts'      => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_POSTS )
-				|| ( null === get_option( RNRD_OPT_MCP_EXPOSE_POSTS, null )
-					? true : false ), // default ON
-			'pages'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_PAGES, 'on' ),
-			'authors'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_AUTHORS, 'on' ),
-			'taxonomies' => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_TAXONOMIES, 'on' ),
-			'sitemap'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_SITEMAP, 'on' ),
-			'menus'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_MENUS, 'on' ),
-			'llms_txt'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_LLMS_TXT, 'on' ),
-			'rnrd_ai'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_RR_AI, 'on' ),
-			'freshness'  => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_FRESHNESS, 'on' ),
+			'posts'      => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_POSTS ),
+			'pages'      => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_PAGES ),
+			'authors'    => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_AUTHORS ),
+			'taxonomies' => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_TAXONOMIES ),
+			'sitemap'    => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_SITEMAP ),
+			// TC-MCP-07: only resources with a wired, gated ability (see ability_gates())
+			// are advertised. 'menus' + comments/media/users/plugins/themes/settings had no
+			// ability, so advertising them was misleading and a latent footgun. Re-add each
+			// here only when a real gated ability ships for it.
+			'llms_txt'   => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_LLMS_TXT ),
+			'rnrd_ai'    => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_RR_AI ),
+			'freshness'  => self::resource_enabled( RNRD_OPT_MCP_EXPOSE_FRESHNESS ),
 			// CPT exposure is a Pro feature — never expose custom post types on a
 			// Free install even if the option somehow holds slugs (matches the UI,
 			// where the per-CPT toggles only render when rnrd_is_pro() is true).
 			'cpts'       => ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() )
 				? (array) get_option( RNRD_OPT_MCP_EXPOSE_CPTS, array() )
 				: array(),
-			'comments'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_COMMENTS, 'off' ),
-			'media'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_MEDIA, 'off' ),
-			'users'      => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_USERS, 'off' ),
-			'plugins'    => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_PLUGINS, 'off' ),
-			'themes'     => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_THEMES, 'off' ),
-			'settings'   => 'on' === get_option( RNRD_OPT_MCP_EXPOSE_SETTINGS, 'off' ),
 		);
 	}
 
@@ -311,7 +321,7 @@ class RNRD_MCP {
 		}
 		return array(
 			'error'   => 'resource_disabled',
-			'message' => 'This ability is not exposed on this site. Enable the matching resource in RankReady → AI Crawlers → WebMCP to use it.',
+			'message' => 'This ability is not exposed on this site. Enable the matching resource in RankReady → AI Visibility → WebMCP to use it.',
 		);
 	}
 
@@ -661,7 +671,7 @@ class RNRD_MCP {
 		// v1.2.0-beta.4 — return the unified Brand Identity so agents see
 		// the same canonical name + summary + about + terms that humans see.
 		$brand = class_exists( 'RNRD_Llms_Txt' )
-			? RNRD_Llms_Txt::get_brand_identity()
+			? RNRD_Brand_Identity::get_brand_identity()
 			: array(
 				'name'    => (string) get_bloginfo( 'name' ),
 				'summary' => (string) get_bloginfo( 'description' ),
@@ -682,8 +692,31 @@ class RNRD_MCP {
 	public static function ability_get_brand_terms(): array {
 		if ( $g = self::guard( 'get-brand-terms' ) ) { return $g; }
 		return array(
-			'brand_terms' => class_exists( 'RNRD_Llms_Txt' ) ? RNRD_Llms_Txt::get_brand_terms_list() : array(),
+			'brand_terms' => class_exists( 'RNRD_Brand_Identity' ) ? RNRD_Brand_Identity::get_brand_terms_list() : array(),
 		);
+	}
+
+	/**
+	 * Whether a post may appear on WebMCP surfaces.
+	 *
+	 * Same gate as llms.txt / Markdown / OKF: published, not password-protected,
+	 * and not excluded via RankReady's per-post opt-out or SEO-plugin noindex.
+	 */
+	private static function is_post_exposable( $post ): bool {
+		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+			return false;
+		}
+		return ! ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) );
+	}
+
+	/**
+	 * Drop excluded posts from list/search/sitemap results.
+	 *
+	 * @param WP_Post[] $posts
+	 * @return WP_Post[]
+	 */
+	private static function filter_exposable_posts( array $posts ): array {
+		return array_values( array_filter( $posts, array( self::class, 'is_post_exposable' ) ) );
 	}
 
 	public static function ability_search_posts( array $input ): array {
@@ -705,6 +738,7 @@ class RNRD_MCP {
 			'posts_per_page' => $limit,
 			'orderby'        => 'relevance',
 		) );
+		$posts = self::filter_exposable_posts( $posts );
 
 		$results = array();
 		foreach ( $posts as $p ) {
@@ -725,16 +759,18 @@ class RNRD_MCP {
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+		if ( ! self::is_post_exposable( $post ) ) {
 			return array( 'title' => '', 'url' => '', 'bullets' => array() );
 		}
 
 		$bullets = array();
-		$raw     = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
-		if ( '' !== $raw && class_exists( 'RNRD_Generator' ) ) {
-			$decoded = RNRD_Generator::decode_summary( $raw );
-			if ( 'bullets' === $decoded['type'] ) {
-				$bullets = array_values( (array) $decoded['data'] );
+		if ( class_exists( 'RNRD_Summary' ) && RNRD_Summary::is_enabled() && RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
+			$raw = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
+			if ( '' !== $raw && class_exists( 'RNRD_Generator' ) ) {
+				$decoded = RNRD_Generator::decode_summary( $raw );
+				if ( 'bullets' === $decoded['type'] ) {
+					$bullets = array_values( (array) $decoded['data'] );
+				}
 			}
 		}
 
@@ -750,11 +786,14 @@ class RNRD_MCP {
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+		if ( ! self::is_post_exposable( $post ) ) {
 			return array( 'title' => '', 'url' => '', 'faq' => array() );
 		}
 
-		$faq = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_faq_data( $post->ID ) : array();
+		$faq = array();
+		if ( class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled() && RNRD_Faq::is_post_type_enabled( $post->post_type ) ) {
+			$faq = RNRD_Faq::get_faq_data( $post->ID );
+		}
 
 		return array(
 			'title' => html_entity_decode( get_the_title( $post ), ENT_QUOTES, 'UTF-8' ),
@@ -784,6 +823,7 @@ class RNRD_MCP {
 			'orderby'        => 'modified',
 			'order'          => 'DESC',
 		) );
+		$posts = self::filter_exposable_posts( $posts );
 
 		$out = array();
 		foreach ( $posts as $p ) {
@@ -808,15 +848,20 @@ class RNRD_MCP {
 	private static function post_payload( WP_Post $post ): array {
 		$post_id   = (int) $post->ID;
 		$summary   = array();
-		$summary_raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
-		if ( '' !== $summary_raw && class_exists( 'RNRD_Generator' ) ) {
-			$decoded = RNRD_Generator::decode_summary( $summary_raw );
-			if ( 'bullets' === $decoded['type'] ) {
-				$summary = array_values( (array) $decoded['data'] );
+		if ( class_exists( 'RNRD_Summary' ) && RNRD_Summary::is_enabled() && RNRD_Summary::is_post_type_enabled( $post->post_type ) ) {
+			$summary_raw = (string) get_post_meta( $post_id, RNRD_META_SUMMARY, true );
+			if ( '' !== $summary_raw && class_exists( 'RNRD_Generator' ) ) {
+				$decoded = RNRD_Generator::decode_summary( $summary_raw );
+				if ( 'bullets' === $decoded['type'] ) {
+					$summary = array_values( (array) $decoded['data'] );
+				}
 			}
 		}
 
-		$faq = class_exists( 'RNRD_Faq' ) ? RNRD_Faq::get_faq_data( $post_id ) : array();
+		$faq = array();
+		if ( class_exists( 'RNRD_Faq' ) && RNRD_Faq::is_enabled() && RNRD_Faq::is_post_type_enabled( $post->post_type ) ) {
+			$faq = RNRD_Faq::get_faq_data( $post_id );
+		}
 
 		$markdown = class_exists( 'RNRD_Markdown' ) ? RNRD_Markdown::post_to_markdown( $post ) : '';
 		$md_url   = class_exists( 'RNRD_Markdown' ) ? RNRD_Markdown::get_md_url( $post ) : '';
@@ -849,7 +894,7 @@ class RNRD_MCP {
 		$post_id = isset( $input['post_id'] ) ? (int) $input['post_id'] : 0;
 		$post    = $post_id ? get_post( $post_id ) : null;
 
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+		if ( ! self::is_post_exposable( $post ) ) {
 			return array( 'id' => 0, 'title' => '', 'markdown' => '' );
 		}
 		return self::post_payload( $post );
@@ -894,7 +939,7 @@ class RNRD_MCP {
 		}
 
 		$post = get_post( $post_id );
-		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+		if ( ! self::is_post_exposable( $post ) ) {
 			return array( 'id' => 0 );
 		}
 		return self::post_payload( $post );
@@ -916,6 +961,7 @@ class RNRD_MCP {
 			'orderby'        => 'menu_order title',
 			'order'          => 'ASC',
 		) );
+		$pages = self::filter_exposable_posts( $pages );
 
 		$out = array();
 		foreach ( $pages as $p ) {
@@ -1037,6 +1083,14 @@ class RNRD_MCP {
 			return array( 'id' => 0 );
 		}
 
+		// TC-SEC-02: only expose authors who have PUBLISHED public content — mirrors WP
+		// core /wp/v2/users (which hides no-post users) and blocks anonymous user
+		// enumeration (subscribers, 0-post admins, etc.). Their byline/EEAT is public anyway.
+		$rnrd_public_types = array_values( get_post_types( array( 'public' => true ) ) );
+		if ( (int) count_user_posts( $user->ID, $rnrd_public_types, true ) < 1 ) {
+			return array( 'id' => 0 );
+		}
+
 		// Return the standard set of EEAT fields RankReady's Author Box records.
 		$fields = array(
 			'job_title', 'employer', 'employer_url', 'bio', 'headshot', 'headshot_alt',
@@ -1080,7 +1134,7 @@ class RNRD_MCP {
 		) );
 
 		$urls = array();
-		foreach ( $entries as $p ) {
+		foreach ( self::filter_exposable_posts( $entries ) as $p ) {
 			$urls[] = array(
 				'url'       => get_permalink( $p ),
 				'lastmod'   => mysql2date( 'c', $p->post_modified_gmt ),
@@ -1121,7 +1175,7 @@ class RNRD_MCP {
 		) );
 
 		$out = array();
-		foreach ( $posts as $p ) {
+		foreach ( self::filter_exposable_posts( $posts ) as $p ) {
 			$out[] = array(
 				'id'        => (int) $p->ID,
 				'title'     => html_entity_decode( get_the_title( $p ), ENT_QUOTES, 'UTF-8' ),

@@ -1,2412 +1,4483 @@
-# Copyright (C) 2026 POSIMYTH Innovations
+# Copyright (C) 2026 HostMyBlog
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: RankReady AI & LLM SEO – AI & LLM SEO for ChatGPT, Perplexity & Google AI 1.0.0\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rankready\n"
+"Project-Id-Version: RankReady – AI SEO, llms.txt & Markdown for ChatGPT, Gemini & Claude 1.2.1\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/rankready-ai-llm-seo\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-04-15T05:25:43+00:00\n"
+"POT-Creation-Date: 2026-08-04T10:07:29+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: rankready-ai-llm-seo\n"
 
 #. Plugin Name of the plugin
 #: rankready.php
-msgid "RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI"
+msgid "RankReady – AI SEO, llms.txt & Markdown for ChatGPT, Gemini & Claude"
 msgstr ""
 
 #. Plugin URI of the plugin
+#. Author URI of the plugin
 #: rankready.php
-msgid "https://posimyth.com"
+msgid "https://hostmy.blog"
 msgstr ""
 
 #. Description of the plugin
 #: rankready.php
-msgid "Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin."
+msgid "Make your WordPress content readable by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, Markdown endpoints, agent discovery headers, WebMCP, and crawler controls — in one plugin."
 msgstr ""
 
 #. Author of the plugin
 #: rankready.php
-msgid "POSIMYTH Innovations"
+msgid "HostMyBlog"
 msgstr ""
 
-#. Author URI of the plugin
-#: rankready.php
-msgid "https://posimyth.com"
+#: includes/class-rnrd-admin.php:150
+msgid "RankReady — AI model updated"
 msgstr ""
 
-#: includes/class-rr-admin.php:54
-#: includes/class-rr-admin.php:55
-#: includes/class-rr-admin.php:679
-#: includes/class-rr-admin.php:2805
+#: includes/class-rnrd-admin.php:151
+msgid "A model you had selected was retired by its provider. RankReady switched it to the current same-tier model so generation keeps working:"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:159
+msgid "Choose a different model in Settings"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:161
+#: includes/class-rnrd-admin.php:1505
+msgid "Dismiss"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:281
+#: includes/class-rnrd-admin.php:284
+#: includes/class-rnrd-admin.php:1421
+#: includes/class-rnrd-admin.php:5643
+#: includes/class-rnrd-author-box.php:245
+#: includes/class-rnrd-block.php:72
+#: rankready.php:814
 msgid "RankReady"
 msgstr ""
 
-#: includes/class-rr-admin.php:511
-msgid "The API key format looks incorrect. It should start with sk-"
+#: includes/class-rnrd-admin.php:1110
+msgid "Saved. That doesn't look like a typical OpenAI key (sk-…) — use “Verify key” to confirm it works."
 msgstr ""
 
-#: includes/class-rr-admin.php:650
+#: includes/class-rnrd-admin.php:1133
+msgid "Saved. That doesn't look like a typical Anthropic key (sk-ant-…) — use “Verify key” to confirm it works."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1156
+msgid "Saved. That doesn't look like a typical Gemini key (AIza…) — use “Verify key” to confirm it works."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1180
+msgid "Saved. That doesn't look like a typical DeepSeek key (sk-…) — use “Verify key” to confirm it works."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1370
 msgid "You do not have permission to access this page."
 msgstr ""
 
-#: includes/class-rr-admin.php:655
-msgid "API Keys"
+#: includes/class-rnrd-admin.php:1394
+#: includes/class-rnrd-admin.php:1702
+msgid "Dashboard"
 msgstr ""
 
-#: includes/class-rr-admin.php:656
-#: includes/class-rr-admin.php:2615
-#: includes/class-rr-elementor.php:13
+#: includes/class-rnrd-admin.php:1395
+#: includes/class-rnrd-admin.php:1758
+#: includes/class-rnrd-admin.php:1963
+#: includes/class-rnrd-admin.php:1969
+#: includes/class-rnrd-admin.php:1975
+#: includes/class-rnrd-admin.php:1981
+#: includes/class-rnrd-admin.php:2169
+msgid "Content AI"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1396
+#: includes/class-rnrd-admin.php:1767
+#: includes/class-rnrd-admin.php:2268
+msgid "E-E-A-T"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1397
+#: includes/class-rnrd-admin.php:1773
+#: includes/class-rnrd-admin.php:3594
+#: includes/class-rnrd-admin.php:4296
+msgid "AI Crawlers"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1398
+#: includes/class-rnrd-admin.php:1785
+#: includes/class-rnrd-admin.php:2357
+msgid "Insights"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1399
+#: includes/class-rnrd-admin.php:1791
+#: includes/class-rnrd-admin.php:2853
+#: includes/class-rnrd-admin.php:5634
+msgid "Settings"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1400
+#: includes/class-rnrd-admin.php:1807
+#: includes/class-rnrd-admin.php:2826
+msgid "Advanced"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1424
+msgid "Official Website"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1428
+msgid "LLM SEO, EEAT &amp; AI Optimization for WordPress"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1502
+msgid "NEW"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1503
+msgid "What's new"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1511
+msgid "Free AI SEO tips by email."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1511
+msgid "Opt in from setup or the dashboard to get practical tips for making your content readable by ChatGPT, Claude and Google AI."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1512
+msgid "More reliable saves."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1512
+msgid "API keys always save, settings changes are verified, and Nginx sites get exact server-config guidance for the WebMCP endpoint."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1518
+msgid "Connect with us"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1521
+msgid "Join community"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1526
+msgid "Need help? Raise a ticket"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1541
+msgid "Free AI SEO tips by email"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1542
+#: includes/class-rnrd-welcome.php:571
+msgid "Practical AI SEO tips and tricks, plus RankReady product updates — straight to your inbox. No spam, unsubscribe anytime."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1551
+#: includes/class-rnrd-welcome.php:565
+msgid "you@example.com"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1557
+msgid "Send me tips"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1563
+msgid "Loving RankReady so far?"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1564
+msgid "A short review on WordPress.org keeps the team motivated to ship the next update."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1565
+msgid "Rate RankReady"
+msgstr ""
+
+#. translators: %d is star count
+#: includes/class-rnrd-admin.php:1569
+#, php-format
+msgid "Rate %d out of 5"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1593
+#: includes/class-rnrd-admin.php:1643
+#: includes/class-rnrd-admin.php:3171
+#: includes/class-rnrd-admin.php:3200
+#: includes/class-rnrd-admin.php:3341
+#: includes/class-rnrd-admin.php:3891
+#: includes/class-rnrd-admin.php:4039
+#: includes/class-rnrd-admin.php:4164
+#: includes/class-rnrd-admin.php:4214
+#: includes/class-rnrd-admin.php:4455
+#: includes/class-rnrd-admin.php:4493
+#: includes/class-rnrd-admin.php:4602
+#: includes/class-rnrd-admin.php:4619
+#: includes/class-rnrd-admin.php:4691
+#: includes/class-rnrd-admin.php:5121
+#: includes/class-rnrd-author-box.php:399
+msgid "COMING SOON"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1650
+msgid "ACTIVE"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1703
+msgid "See what ChatGPT, Claude, Perplexity, and Gemini can read on your site."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1704
+msgid "Start here. Fill in Brand Identity once — every other tab reads from it. The coverage tile below shows which AI signals are live."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1722
+msgid "New to RankReady? Watch the video"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1724
+msgid "Aditya walks through every RankReady setting — AI Summary, FAQ Generator, Author Box, llms.txt, AI Crawler controls — so you can ship a 100/100 AI-ready site."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1729
+msgid "RankReady walkthrough"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1744
+msgid "Need to start over?"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1745
+msgid "Re-run the setup wizard →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1759
+msgid "AI Summaries and FAQ schema for any post."
+msgstr ""
+
+#. translators: 1: summary count, 2: FAQ-set count
+#: includes/class-rnrd-admin.php:1762
+#, php-format
+msgid "%1$d summaries · %2$d FAQ sets"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1764
+#: includes/class-rnrd-admin.php:1770
+#: includes/class-rnrd-admin.php:1782
+#: includes/class-rnrd-admin.php:1788
+#: includes/class-rnrd-admin.php:1804
+#: includes/class-rnrd-admin.php:1810
+msgid "Open"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1768
+msgid "Author bio, EEAT schema, and Article JSON-LD."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1769
+msgid "Trust signals for ChatGPT, Claude, Perplexity"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1774
+msgid "Control how 29 named AI crawlers see your site."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1777
+msgid "LLMs.txt on"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1778
+msgid "Markdown on"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1779
+msgid "Robots on"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1780
+msgid "LLMs.txt, Markdown, robots — all off"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1786
+msgid "Who reads your site, what they cite, what brings them back."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1787
+msgid "Training, Citation, Referrals, Freshness"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1792
+msgid "API keys and provider configuration."
+msgstr ""
+
+#. translators: %s: provider label like "OpenAI" or "Claude (Anthropic)"
+#: includes/class-rnrd-admin.php:1797
+#, php-format
+msgid "%s key configured"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1801
+msgid "AI provider key required"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1808
+msgid "Diagnostics, error log, API usage, data retention."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1809
+msgid "by HostMyBlog"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1847
+#: includes/class-rnrd-admin.php:1932
+msgid "llms.txt"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1848
+#: includes/class-rnrd-admin.php:1938
+msgid "llms-full.txt"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1849
+#: includes/class-rnrd-admin.php:1944
+msgid ".md routes"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1850
+#: includes/class-rnrd-admin.php:4228
+msgid "AI hint in body"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1851
+msgid "AI bot auto-serve"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1852
+msgid "robots.txt AI rules"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1853
+#: includes/class-rnrd-admin.php:1976
+#: includes/class-rnrd-admin.php:4363
+#: includes/class-rnrd-admin.php:5914
+msgid "Content Signals"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1854
+#: includes/class-rnrd-admin.php:2031
+msgid "AI Referral tracking"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1855
+#: includes/class-rnrd-admin.php:1956
+msgid "WebMCP manifest"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1856
+msgid "Brand Terms set"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1931
+#: includes/class-rnrd-admin.php:1937
+#: includes/class-rnrd-admin.php:1943
+#: includes/class-rnrd-admin.php:1949
+#: includes/class-rnrd-admin.php:1955
+msgid "Discovery"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1950
+msgid "robots.txt rules"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1964
+#: includes/class-rnrd-admin.php:3150
 msgid "AI Summary"
 msgstr ""
 
-#: includes/class-rr-admin.php:657
-msgid "FAQ Generator"
+#: includes/class-rnrd-admin.php:1970
+msgid "FAQ Generation"
 msgstr ""
 
-#: includes/class-rr-admin.php:658
+#: includes/class-rnrd-admin.php:1982
+#: includes/class-rnrd-admin.php:5924
+msgid "max-snippet:-1 default"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1989
+#: includes/class-rnrd-admin.php:1995
+#: includes/class-rnrd-admin.php:2001
+#: includes/class-rnrd-admin.php:2007
+msgid "Brand Authority"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1990
+msgid "Site name set"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:1996
+msgid "Summary set"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2002
+msgid "About set"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2008
+msgid "Brand terms set"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2015
+#: includes/class-rnrd-admin.php:2021
+msgid "Provider"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2016
+msgid "Active AI provider key"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2022
+msgid "DataForSEO credentials"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2030
+#: includes/class-rnrd-admin.php:2038
+#: includes/class-rnrd-admin.php:2044
+msgid "Engagement"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2039
 msgid "Author Box"
 msgstr ""
 
-#: includes/class-rr-admin.php:659
-msgid "Schema Automation"
+#: includes/class-rnrd-admin.php:2045
+#: includes/class-rnrd-admin.php:5918
+msgid "Article schema"
 msgstr ""
 
-#: includes/class-rr-admin.php:660
-msgid "LLM Optimization"
+#: includes/class-rnrd-admin.php:2052
+#: includes/class-rnrd-admin.php:2059
+#: includes/class-rnrd-admin.php:2066
+#: includes/class-rnrd-admin.php:2073
+msgid "Tracking"
 msgstr ""
 
-#: includes/class-rr-admin.php:661
-msgid "Headless"
+#: includes/class-rnrd-admin.php:2053
+msgid "Citation hits > 0"
 msgstr ""
 
-#: includes/class-rr-admin.php:662
-msgid "Tools"
+#: includes/class-rnrd-admin.php:2060
+msgid "Training hits > 0"
 msgstr ""
 
-#: includes/class-rr-admin.php:663
-msgid "Info"
+#: includes/class-rnrd-admin.php:2067
+msgid "Crawler log live"
 msgstr ""
 
-#: includes/class-rr-admin.php:682
-msgid "LLM SEO, EEAT & AI Optimization for WordPress"
+#: includes/class-rnrd-admin.php:2074
+msgid "Freshness scanned"
 msgstr ""
 
-#: includes/class-rr-admin.php:746
-#: includes/class-rr-admin.php:2353
-msgid "OpenAI"
+#: includes/class-rnrd-admin.php:2103
+msgid "Agentic Ready Scorecard"
 msgstr ""
 
-#: includes/class-rr-admin.php:747
-msgid "Powers AI Summary generation and FAQ answer writing."
+#: includes/class-rnrd-admin.php:2104
+msgid "22 signals across 6 groups — your site's AI-readiness at a glance."
 msgstr ""
 
-#: includes/class-rr-admin.php:751
-#: includes/class-rr-admin.php:2653
-msgid "API Key"
+#: includes/class-rnrd-admin.php:2106
+msgid "Every signal RankReady ships, at a glance. Tick = active. Click any row to jump straight to the setting."
 msgstr ""
 
-#: includes/class-rr-admin.php:758
+#. translators: 1: active count, 2: total count, 3: percentage
+#: includes/class-rnrd-admin.php:2116
+#, php-format
+msgid "%1$d of %2$d signals active — %3$d%%"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2135
+#: includes/class-rnrd-admin.php:2137
+msgid "View →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2137
+msgid "Scan →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2139
+msgid "Configure →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2139
+msgid "Enable →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2170
+msgid "Write AI Summaries and FAQ schema for any post."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2171
+msgid "Choose how summaries and FAQs appear on the front end. Manual, auto-generate on publish, and bulk generation are all available."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2188
+msgid "Active AI Provider"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2189
+msgid "The LLM that powers Summary and FAQ generation."
+msgstr ""
+
+#. translators: 1: provider name, 2: model id
+#: includes/class-rnrd-admin.php:2194
+#, php-format
+msgid "%1$s — %2$s"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2198
+msgid "No API key — Summary and FAQ will not run"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2203
+msgid "Add API key →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2233
+msgid "Bulk Regenerate — AI Summaries"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2234
+msgid "Run AI summaries across every published post in one resumable job. Manual single-post generation stays unlimited."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2252
+msgid "Bulk Regenerate — FAQ"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2253
+msgid "Generate FAQ Q&A pairs for every published post in one resumable job. Manual single-post FAQ generation stays unlimited."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2269
+msgid "Prove who wrote it — so ChatGPT, Claude, and Perplexity trust the citation."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2270
+msgid "Author bio, EEAT schema, and Article JSON-LD. Works alongside Rank Math, Yoast, and AIOSEO — RankReady merges into their schema graph instead of duplicating it."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2346
+msgid "Training Bots"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2347
+msgid "Citation Bots"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2348
+msgid "Real AI Referrals"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2349
+msgid "Content Fresh"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2358
+msgid "Who reads your site, what they cite, and what brings users back."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2359
+msgid "Training bots (GPTBot, ClaudeBot, Google-Extended) index you for tomorrow. Citation bots (ChatGPT-User, PerplexityBot, OAI-SearchBot) read you live to answer questions right now. Real AI Referrals track users clicking through from chatgpt.com, perplexity.ai, and claude.ai. Counts start at zero on a fresh install."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2409
+msgid "Pagination"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2413
+msgid "← Prev"
+msgstr ""
+
+#. translators: 1: current page, 2: total pages
+#: includes/class-rnrd-admin.php:2418
+#, php-format
+msgid "Page %1$d of %2$d"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2424
+msgid "Next →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2466
+msgid "AI Training Activity"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2467
+msgid "Who reads your site — and what they do with it."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2469
+msgid "Training hits = an AI crawler ingested your content for future model training. Pages read = how much of your library training bots have seen. The per-bot breakdown below shows which bots are reading you and how often. (Citation bots and Real AI Referrals are on their own sub-tabs.)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2472
+msgid "Training bot activity"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2475
+msgid "Training hits"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2476
+#: includes/class-rnrd-admin.php:2491
+#: includes/class-rnrd-admin.php:2506
+#: includes/class-rnrd-admin.php:2604
+#: includes/class-rnrd-admin.php:2614
+#: includes/class-rnrd-admin.php:2620
+#: includes/class-rnrd-admin.php:2732
+#: includes/class-rnrd-admin.php:2742
+#: includes/class-rnrd-admin.php:2757
+msgid "Last 30 days"
+msgstr ""
+
+#. translators: 1: bots seen, 2: total training bots tracked
+#: includes/class-rnrd-admin.php:2481
+#, php-format
+msgid "ingested by %1$d of %2$d training bots"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2483
+msgid "No AI crawler hits recorded yet — this fills in as bots discover and fetch your pages"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2490
+msgid "Pages read"
+msgstr ""
+
+#. translators: %s: total posts + pages count
+#: includes/class-rnrd-admin.php:2496
+#, php-format
+msgid "of %s posts + pages published"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2498
+msgid "How much of your library training bots have seen"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2505
+msgid "Training bots seen"
+msgstr ""
+
+#. translators: %d: total training bots tracked
+#: includes/class-rnrd-admin.php:2512
+#, php-format
+msgid "of %d training bots tracked (GPTBot, ClaudeBot, Google-Extended, CCBot, …)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2516
+msgid "20+ training bots tracked across all endpoints"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2524
+msgid "No AI bot visits recorded yet. Counts populate automatically once any tracked AI crawler hits your llms.txt, /*.md, or homepage endpoints — no setup required."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2546
+msgid "Per-bot breakdown"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2548
+msgid "No training bot activity yet. Hits from crawlers such as GPTBot, ClaudeBot and Google-Extended will be listed here once they fetch your pages."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2553
+msgid "Bot"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2554
+#: includes/class-rnrd-admin.php:2649
+msgid "Share of hits"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2555
+#: includes/class-rnrd-admin.php:2650
+msgid "Hits"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2595
+msgid "AI Citation Candidates"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2596
+msgid "Pages AI is already citing — the ones already winning."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2598
+msgid "Pages most fetched by citation-intent bots (ChatGPT-User, OAI-SearchBot, PerplexityBot, Claude-Web, DuckAssistBot) in the last 30 days. Each hit is a live AI answer that retrieved the page as a source. Refresh these first — they are already winning."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2601
+msgid "Citation candidates summary"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2603
+msgid "Pages cited"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2608
+msgid "unique URLs fetched by citation bots"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2609
+msgid "No citations recorded yet — this fills in as AI engines fetch and reference your pages"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2613
+msgid "Total citation hits"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2616
+msgid "each hit = one AI answer using your content"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2619
+msgid "Top page hits"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2624
+msgid "on your single best-cited URL"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2625
+msgid "How concentrated your AI traffic is"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2632
+msgid "No citation bot hits yet. ChatGPT-User, OAI-SearchBot, PerplexityBot, Claude-Web, and DuckAssistBot only fetch your pages when a real user asks the AI something your content might answer. Speed it up by adding FAQs to your top 10 posts and keeping content fresh."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2644
+msgid "Top cited pages"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2648
+msgid "Page"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2651
+msgid "Bots"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2652
+msgid "Last fetched"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2683
+msgid "ago"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2686
+msgid "Edit"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2723
+#: includes/class-rnrd-admin.php:2802
+msgid "AI Referral Traffic"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2724
+msgid "Real humans who clicked from an AI answer to your site."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2726
+msgid "Different from bot activity. This counts visits from chatgpt.com, perplexity.ai, claude.ai, gemini.google.com, and copilot.microsoft.com via the HTTP Referer header — 100% server-side, no third-party scripts, no UTM tagging required."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2729
+msgid "AI referral summary"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2731
+msgid "AI-sourced visits"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2736
+msgid "across ChatGPT, Perplexity, Claude, Gemini, Copilot"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2737
+msgid "No AI referrals recorded yet — this fills in when someone clicks through from an AI engine"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2741
+msgid "Top source"
+msgstr ""
+
+#. translators: 1: top-source visit count, 2: total visit count
+#: includes/class-rnrd-admin.php:2749
+#, php-format
+msgid "%1$s of %2$s referrals"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2751
+msgid "Which AI sends the most readers"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2756
+msgid "Sources reached"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2759
+msgid "of 5 tracked AI engines"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2764
+msgid "Per-source breakdown"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2768
+msgid "AI engine"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2769
+msgid "Share of referrals"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2770
+msgid "Visits"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2792
+msgid "No AI-sourced visits yet. Tracking is already live — counters fill in as ChatGPT, Perplexity, Claude, Gemini, or Copilot send their first visitor through to your site."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2797
+msgid "How is this different from Bot Activity?"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2799
+msgid "Bot Activity"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2799
+msgid "measures AI crawlers reading your site (no human involved) — it answers \"is RankReady in the AI retrieval pool?\""
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2802
+msgid "measures real humans who read an AI answer and clicked through — it answers \"is AI sending users to my site?\""
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2827
+msgid "Verify everything works — and see what it cost."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2828
+msgid "Live probes confirm llms.txt, robots.txt, .md routes, and the WebMCP manifest are reachable from the open web. Detects cache, page-builder, and SEO-plugin conflicts. Tracks token spend per provider."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2854
+msgid "Pick your AI provider and drop in the API key."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2855
+msgid "Choose ChatGPT, Claude, Gemini, or DeepSeek to power Summary and FAQ generation. Only the active provider needs a key. Add DataForSEO credentials too if you want the FAQ Generator to discover real user questions."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2864
+msgid "AI Provider"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2868
+msgid "Active provider"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2873
+msgid "GPT-4o, GPT-4o mini"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2874
+msgid "Haiku 4.5, Sonnet 4.6, Opus 4.7"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2875
+msgid "Gemini 2.5 Flash, 2.5 Pro"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2876
+msgid "V4 Flash, V4 Pro"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2901
 msgid "Verify Key"
 msgstr ""
 
-#: includes/class-rr-admin.php:762
-msgid "Your OpenAI secret key (sk-...). Stored server-side only."
+#: includes/class-rnrd-admin.php:2911
+#: includes/class-rnrd-llm.php:201
+msgid "OpenAI"
 msgstr ""
 
-#: includes/class-rr-admin.php:766
+#: includes/class-rnrd-admin.php:2912
+msgid "Powers AI Summary generation and FAQ answer writing."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2916
+#: includes/class-rnrd-admin.php:2956
+#: includes/class-rnrd-admin.php:2996
+#: includes/class-rnrd-admin.php:3036
+msgid "API Key"
+msgstr ""
+
+#. translators: %s: link to the OpenAI API keys page
+#: includes/class-rnrd-admin.php:2926
+#, php-format
+msgid "Your OpenAI secret key (sk-...). Stored server-side only. Get one at %s."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:2933
+#: includes/class-rnrd-admin.php:2973
+#: includes/class-rnrd-admin.php:3013
+#: includes/class-rnrd-admin.php:3053
 msgid "Model"
 msgstr ""
 
-#: includes/class-rr-admin.php:776
-msgid "gpt-4o-mini recommended for both summaries and FAQ."
+#: includes/class-rnrd-admin.php:2943
+msgid "gpt-4o-mini is the cheapest and recommended for most sites."
 msgstr ""
 
-#: includes/class-rr-admin.php:784
-msgid "Product Context"
+#: includes/class-rnrd-admin.php:2951
+#: includes/class-rnrd-llm.php:197
+msgid "Claude (Anthropic)"
 msgstr ""
 
-#: includes/class-rr-admin.php:785
-msgid "Describe your product/brand so the AI knows what it is writing about. This is injected into both Key Takeaways and FAQ prompts to prevent hallucination."
+#: includes/class-rnrd-admin.php:2952
+msgid "Claude is exceptional at following content rules and producing factual, citation-quality output for AI summaries and FAQs."
 msgstr ""
 
-#: includes/class-rr-admin.php:789
-msgid "Product / Brand Info"
+#. translators: %s: link to the Anthropic Console API keys page
+#: includes/class-rnrd-admin.php:2966
+#, php-format
+msgid "Your Anthropic API key (sk-ant-...). Get one at %s."
 msgstr ""
 
-#: includes/class-rr-admin.php:793
-msgid "Example: The Plus Addons for Elementor is a WordPress plugin that adds 120+ widgets to the Elementor page builder. It does NOT work with Gutenberg, Beaver Builder, or any other builder. Our brand name is POSIMYTH. Website: theplusaddons.com"
+#: includes/class-rnrd-admin.php:2983
+msgid "Haiku 4.5 is the cheapest and fastest. Sonnet 4.6 is the balanced pick. Opus 4.7 is highest quality (most expensive)."
 msgstr ""
 
-#: includes/class-rr-admin.php:795
-msgid "Tell the AI what your product is, what it does, what it does NOT do, brand names, and any facts it must get right. Used in both Summary and FAQ generation."
+#: includes/class-rnrd-admin.php:2991
+#: includes/class-rnrd-llm.php:198
+msgid "Gemini (Google)"
 msgstr ""
 
-#: includes/class-rr-admin.php:802
-msgid "Save API Settings"
+#: includes/class-rnrd-admin.php:2992
+msgid "Gemini is the cheapest of the major providers and ships native JSON output. Great default for high-volume sites."
 msgstr ""
 
-#: includes/class-rr-admin.php:810
-#: includes/class-rr-admin.php:856
-#: includes/class-rr-admin.php:2373
+#. translators: %s: link to the Google AI Studio API key page
+#: includes/class-rnrd-admin.php:3006
+#, php-format
+msgid "Your Google AI Studio API key (AIza...). Get one at %s."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3023
+msgid "Gemini 2.5 Flash is recommended for both summaries and FAQ."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3031
+#: includes/class-rnrd-llm.php:199
+msgid "DeepSeek"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3032
+msgid "Cost-efficient open-source models. V4 Flash for everyday generation, V4 Pro when you need higher quality. (The legacy `deepseek-chat` and `deepseek-reasoner` aliases are being retired by DeepSeek — switch to V4 IDs.)"
+msgstr ""
+
+#. translators: %s: link to the DeepSeek API keys page
+#: includes/class-rnrd-admin.php:3046
+#, php-format
+msgid "Your DeepSeek API key (sk-...). Get one at %s."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3067
+msgid "Save AI"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3079
 msgid "DataForSEO"
 msgstr ""
 
-#: includes/class-rr-admin.php:811
+#: includes/class-rnrd-admin.php:3080
+msgid "Question discovery for FAQ generation. Optional — only needed if FAQ is on."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3081
 msgid "Powers FAQ question discovery via keyword suggestions and related keywords. Sign up at dataforseo.com."
 msgstr ""
 
-#: includes/class-rr-admin.php:815
+#: includes/class-rnrd-admin.php:3085
 msgid "API Login"
 msgstr ""
 
-#: includes/class-rr-admin.php:820
+#: includes/class-rnrd-admin.php:3090
 msgid "Your DataForSEO API login email."
 msgstr ""
 
-#: includes/class-rr-admin.php:824
+#: includes/class-rnrd-admin.php:3094
 msgid "API Password"
 msgstr ""
 
-#: includes/class-rr-admin.php:831
+#: includes/class-rnrd-admin.php:3101
 msgid "Your DataForSEO API password. Enter a new value to change."
 msgstr ""
 
-#: includes/class-rr-admin.php:834
+#: includes/class-rnrd-admin.php:3104
 msgid "Verify DataForSEO"
 msgstr ""
 
-#: includes/class-rr-admin.php:843
-msgid "Save DataForSEO Settings"
+#: includes/class-rnrd-admin.php:3111
+msgid "Save DataForSEO"
 msgstr ""
 
-#: includes/class-rr-admin.php:848
-msgid "Status"
+#: includes/class-rnrd-admin.php:3151
+msgid "Auto-generate Key Takeaways for every post — the lines ChatGPT and Perplexity quote directly."
 msgstr ""
 
-#: includes/class-rr-admin.php:852
-msgid "OpenAI Key"
+#: includes/class-rnrd-admin.php:3152
+msgid "Configure which posts get AI summaries, how they are generated, and how they appear on the frontend."
 msgstr ""
 
-#: includes/class-rr-admin.php:860
-msgid "Active Model"
+#: includes/class-rnrd-admin.php:3154
+#: includes/class-rnrd-admin.php:4440
+msgid "Generation"
 msgstr ""
 
-#: includes/class-rr-admin.php:885
-msgid "Summary Generation"
-msgstr ""
-
-#: includes/class-rr-admin.php:886
-msgid "Configure which posts get AI summaries and how they are generated."
-msgstr ""
-
-#: includes/class-rr-admin.php:890
-#: includes/class-rr-admin.php:1079
-#: includes/class-rr-admin.php:1674
-#: includes/class-rr-admin.php:1807
-#: includes/class-rr-admin.php:2146
-#: includes/class-rr-admin.php:2184
-#: includes/class-rr-admin.php:2223
-#: includes/class-rr-admin.php:2413
+#: includes/class-rnrd-admin.php:3158
+#: includes/class-rnrd-admin.php:3333
+#: includes/class-rnrd-admin.php:4203
+#: includes/class-rnrd-admin.php:4444
+#: includes/class-rnrd-admin.php:4679
 msgid "Post Types"
 msgstr ""
 
-#: includes/class-rr-admin.php:903
+#: includes/class-rnrd-admin.php:3171
+#: includes/class-rnrd-admin.php:3341
+#: includes/class-rnrd-admin.php:4039
+#: includes/class-rnrd-admin.php:4214
+#: includes/class-rnrd-admin.php:4455
+#: includes/class-rnrd-admin.php:4691
+#: includes/class-rnrd-admin.php:5121
+msgid "Want to include Custom Post Types?"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3172
 msgid "Summaries will only auto-generate for selected post types."
 msgstr ""
 
-#: includes/class-rr-admin.php:907
+#: includes/class-rnrd-admin.php:3176
 msgid "Custom Prompt"
 msgstr ""
 
-#: includes/class-rr-admin.php:911
+#: includes/class-rnrd-admin.php:3180
 msgid "Leave empty to use the default optimized prompt."
 msgstr ""
 
-#: includes/class-rr-admin.php:913
+#: includes/class-rnrd-admin.php:3182
 msgid "Optional. Extra instructions appended to the AI prompt."
 msgstr ""
 
-#: includes/class-rr-admin.php:917
-#: includes/class-rr-admin.php:1841
+#: includes/class-rnrd-admin.php:3187
+#: includes/class-rnrd-admin.php:4480
 msgid "Auto-Generate on Publish"
 msgstr ""
 
-#: includes/class-rr-admin.php:923
+#: includes/class-rnrd-admin.php:3193
+#: includes/class-rnrd-admin.php:3199
 msgid "Automatically generate Key Takeaways when a post is published or updated"
 msgstr ""
 
-#: includes/class-rr-admin.php:925
-msgid "Off by default. When off, summaries are only generated via the Regenerate button, Gutenberg block, or Bulk Generate. Existing summaries are always kept."
+#: includes/class-rnrd-admin.php:3203
+msgid "Off by default. When off, summaries are only generated via the Regenerate button, Gutenberg block, or Bulk Generate."
 msgstr ""
 
-#: includes/class-rr-admin.php:933
-#: includes/class-rr-admin.php:938
-#: includes/class-rr-admin.php:1862
+#: includes/class-rnrd-admin.php:3208
+#: includes/class-rnrd-admin.php:4501
+msgid "Display"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3209
+msgid "Control how AI Summaries appear on the frontend. Can also use the Gutenberg block or Elementor widget instead."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3213
+#: includes/class-rnrd-admin.php:4506
 msgid "Auto Display"
 msgstr ""
 
-#: includes/class-rr-admin.php:934
-msgid "Automatically show the AI summary on posts without placing a block or widget."
+#: includes/class-rnrd-admin.php:3219
+msgid "Automatically inject summary into post content"
 msgstr ""
 
-#: includes/class-rr-admin.php:943
-msgid "On — Automatically inject summary into post content"
+#: includes/class-rnrd-admin.php:3221
+#: includes/class-rnrd-admin.php:4514
+msgid "Off = show only via Gutenberg block, Elementor widget, or shortcode."
 msgstr ""
 
-#: includes/class-rr-admin.php:947
-msgid "Off — Only show via Gutenberg block or Elementor widget"
-msgstr ""
-
-#: includes/class-rr-admin.php:952
-#: includes/class-rr-admin.php:1876
+#: includes/class-rnrd-admin.php:3225
+#: includes/class-rnrd-admin.php:4518
 msgid "Position"
 msgstr ""
 
-#: includes/class-rr-admin.php:956
-#: includes/class-rr-admin.php:1071
-#: includes/class-rr-admin.php:1880
+#: includes/class-rnrd-admin.php:3229
+#: includes/class-rnrd-admin.php:3325
+#: includes/class-rnrd-admin.php:4522
 msgid "Before content"
 msgstr ""
 
-#: includes/class-rr-admin.php:957
-#: includes/class-rr-admin.php:1072
-#: includes/class-rr-admin.php:1881
+#: includes/class-rnrd-admin.php:3230
+#: includes/class-rnrd-admin.php:3326
+#: includes/class-rnrd-admin.php:4523
 msgid "After content"
 msgstr ""
 
-#: includes/class-rr-admin.php:966
-msgid "Block & Widget Defaults"
+#: includes/class-rnrd-admin.php:3235
+#: includes/class-rnrd-admin.php:4528
+msgid "Heading Tag"
 msgstr ""
 
-#: includes/class-rr-admin.php:967
-msgid "Defaults for Gutenberg blocks, Elementor widgets, and auto-displayed summaries."
-msgstr ""
-
-#: includes/class-rr-admin.php:971
-#: includes/class-rr-elementor.php:31
+#: includes/class-rnrd-admin.php:3248
+#: includes/class-rnrd-elementor.php:158
 msgid "Show Label"
 msgstr ""
 
-#: includes/class-rr-admin.php:976
+#: includes/class-rnrd-admin.php:3253
 msgid "Show the label heading above the summary bullets"
 msgstr ""
 
-#: includes/class-rr-admin.php:981
-#: includes/class-rr-elementor.php:40
+#: includes/class-rnrd-admin.php:3258
+#: includes/class-rnrd-elementor.php:167
 msgid "Label Text"
 msgstr ""
 
-#: includes/class-rr-admin.php:986
+#: includes/class-rnrd-admin.php:3261
+#: includes/class-rnrd-block.php:321
+#: includes/class-rnrd-block.php:555
+#: includes/class-rnrd-block.php:898
+#: includes/class-rnrd-elementor.php:123
+#: includes/class-rnrd-elementor.php:307
+#: includes/class-rnrd-markdown.php:1422
+msgid "Key Takeaways"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3263
 msgid "e.g. \"Key Takeaways\", \"Article Summary\", \"TL;DR\""
 msgstr ""
 
-#: includes/class-rr-admin.php:990
-#: includes/class-rr-elementor.php:48
-msgid "Label HTML Tag"
+#: includes/class-rnrd-admin.php:3267
+msgid "Save AI Summary Settings"
 msgstr ""
 
-#: includes/class-rr-admin.php:1005
-msgid "Save Summary Settings"
+#: includes/class-rnrd-admin.php:3301
+#: includes/class-rnrd-admin.php:5925
+msgid "Author Box (E-E-A-T)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1043
-msgid "Author Box — EEAT Signals for AI Citation"
+#: includes/class-rnrd-admin.php:3302
+msgid "Show the real people behind your content — the trust check ChatGPT, Claude, and Perplexity run before citing you."
 msgstr ""
 
-#: includes/class-rr-admin.php:1045
-msgid "RankReady adds a full EEAT author profile section to every WordPress user. Every field maps to Schema.org Person data (sameAs, knowsAbout, hasCredential, memberOf, award, worksFor) so AI systems can verify authorship and cite your content. Fill author data in Users → Profile → \"RankReady Author Box\"."
-msgstr ""
-
-#: includes/class-rr-admin.php:1049
+#: includes/class-rnrd-admin.php:3305
 msgid "is active. RankReady will not emit a duplicate Person node. Instead, it enhances the existing Person schema in"
 msgstr ""
 
-#: includes/class-rr-admin.php:1049
+#: includes/class-rnrd-admin.php:3305
 msgid "with RankReady data via the plugin's filter hooks. Zero conflict."
 msgstr ""
 
-#: includes/class-rr-admin.php:1055
+#: includes/class-rnrd-admin.php:3309
 msgid "General"
 msgstr ""
 
-#: includes/class-rr-admin.php:1058
+#: includes/class-rnrd-admin.php:3312
 msgid "Enable Author Box"
 msgstr ""
 
-#: includes/class-rr-admin.php:1062
+#: includes/class-rnrd-admin.php:3316
 msgid "Master toggle for the Author Box feature (block, Elementor widget, schema, auto-display)."
 msgstr ""
 
-#: includes/class-rr-admin.php:1067
+#: includes/class-rnrd-admin.php:3321
 msgid "Auto-display"
 msgstr ""
 
-#: includes/class-rr-admin.php:1070
+#: includes/class-rnrd-admin.php:3324
 msgid "Off — use block/widget only"
 msgstr ""
 
-#: includes/class-rr-admin.php:1073
+#: includes/class-rnrd-admin.php:3327
 msgid "Both (above and below)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1075
+#: includes/class-rnrd-admin.php:3329
 msgid "Append the author box automatically on singular pages. Skipped when the Author Box block/Elementor widget is already in the content."
 msgstr ""
 
-#: includes/class-rr-admin.php:1087
+#: includes/class-rnrd-admin.php:3342
 msgid "Post types where auto-display is allowed and the per-post \"Author Trust\" panel appears."
 msgstr ""
 
-#: includes/class-rr-admin.php:1091
+#: includes/class-rnrd-admin.php:3346
 msgid "Default Layout"
 msgstr ""
 
-#: includes/class-rr-admin.php:1094
+#: includes/class-rnrd-admin.php:3349
 msgid "Card (full end-of-article box)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1095
+#: includes/class-rnrd-admin.php:3350
 msgid "Compact (small, sidebar-friendly)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1096
+#: includes/class-rnrd-admin.php:3351
 msgid "Inline byline (headline-style)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1098
+#: includes/class-rnrd-admin.php:3353
 msgid "Default layout for auto-display and new blocks/widgets. Individual blocks/widgets can override this."
 msgstr ""
 
-#: includes/class-rr-admin.php:1102
+#: includes/class-rnrd-admin.php:3357
 msgid "Default Heading"
 msgstr ""
 
-#: includes/class-rr-admin.php:1110
+#: includes/class-rnrd-admin.php:3365
 msgid "Heading text shown above the box in Card and Compact layouts. Individual blocks/widgets can override."
 msgstr ""
 
-#: includes/class-rr-admin.php:1117
-msgid "Schema"
+#: includes/class-rnrd-admin.php:3382
+msgid "Person Schema (EEAT)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1120
-msgid "Emit Person Schema"
+#: includes/class-rnrd-admin.php:3383
+msgid "Emit Person JSON-LD with sameAs, knowsAbout, credentials, memberOf, and awards — the schema fields AI systems use to verify authorship and increase citation probability."
 msgstr ""
 
-#: includes/class-rr-admin.php:1124
-msgid "Include RankReady Person data (sameAs, knowsAbout, credentials, memberOf, awards) in schema output."
+#: includes/class-rnrd-admin.php:3386
+msgid "Editorial & Fact-Check Policy URLs"
 msgstr ""
 
-#: includes/class-rr-admin.php:1127
-msgid "When no SEO plugin is active, RankReady emits a standalone Person node on author archives (via wp_head — no visible page changes) and inline in Article.author on posts. When an SEO plugin is active, RankReady merges its Person fields into the plugin's existing schema graph."
+#: includes/class-rnrd-admin.php:3387
+msgid "Link your editorial standards and fact-check policy pages into the schema graph. The Healthline / WebMD EEAT pattern — signals editorial integrity to Google and LLMs."
 msgstr ""
 
-#: includes/class-rr-admin.php:1132
-msgid "Editorial Policy URL"
+#: includes/class-rnrd-admin.php:3390
+msgid "Author Trust Panel (Reviewed By)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1135
-msgid "Site-wide editorial standards page. Emits as Person.publishingPrinciples on every author. Also shown as a footer link in the Card layout."
+#: includes/class-rnrd-admin.php:3391
+msgid "Add \"Fact-checked by\" and \"Reviewed by\" fields to every post editor. Emits as Article.reviewedBy[] and Article.lastReviewed — the full medical/legal EEAT pattern."
 msgstr ""
 
-#: includes/class-rr-admin.php:1139
-msgid "Fact-Check Policy URL"
+#: includes/class-rnrd-admin.php:3397
+msgid "How to use"
 msgstr ""
 
-#: includes/class-rr-admin.php:1142
-msgid "Optional \"How we fact-check\" page URL. Shown as a footer link in the Card layout. Purely UI — not in schema."
+#: includes/class-rnrd-admin.php:3399
+msgid "Go to Users → your profile and fill in the \"RankReady Author Box\" section — Bio, headshot, job title, and year started are free."
 msgstr ""
 
-#: includes/class-rr-admin.php:1149
-msgid "Author Trust Panel (optional)"
-msgstr ""
-
-#: includes/class-rr-admin.php:1152
-msgid "Enable Trust Panel"
-msgstr ""
-
-#: includes/class-rr-admin.php:1156
-msgid "Add per-post \"Fact-checked by\", \"Reviewed by\", and \"Last reviewed\" fields to the post editor."
-msgstr ""
-
-#: includes/class-rr-admin.php:1159
-msgid "Off by default. Only enable if you have a formal editorial process where a second person fact-checks or medically/legally reviews posts. When on, these fields emit as Article.reviewedBy[] and Article.lastReviewed — the Healthline / WebMD EEAT pattern. When off, the fields are not registered, do not appear in the block editor, and RankReady emits zero reviewer schema. Leave it off for regular blogs and documentation sites that do not need a separate reviewer."
-msgstr ""
-
-#: includes/class-rr-admin.php:1167
-msgid "How to Use"
-msgstr ""
-
-#: includes/class-rr-admin.php:1169
-msgid "Go to Users → your profile and fill in the \"RankReady Author Box\" section — every field is mapped to schema."
-msgstr ""
-
-#: includes/class-rr-admin.php:1170
+#: includes/class-rnrd-admin.php:3400
 msgid "Add the \"RankReady Author Box\" Gutenberg block to posts, or use the Elementor widget, or enable auto-display above."
 msgstr ""
 
-#: includes/class-rr-admin.php:1171
-msgid "Optional: enable the \"Author Trust Panel\" above if you have a formal fact-checker / reviewer workflow."
+#: includes/class-rnrd-admin.php:3402
+msgid "Save Author Box Settings"
 msgstr ""
 
-#: includes/class-rr-admin.php:1172
-msgid "Verify schema output with Google's Rich Results Test — Person node appears in the graph."
-msgstr ""
-
-#: includes/class-rr-admin.php:1204
+#: includes/class-rnrd-admin.php:3431
 msgid "SEO Plugin Compatibility"
 msgstr ""
 
-#: includes/class-rr-admin.php:1207
+#: includes/class-rnrd-admin.php:3432
+msgid "RankReady detects your active SEO plugin and merges schema — never duplicate tags."
+msgstr ""
+
+#. translators: %s: detected SEO plugin name
+#: includes/class-rnrd-admin.php:3443
+#, php-format
+msgid "%s detected — RankReady merges schema into its graph. No duplicate tags."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3449
+msgid "No SEO plugin detected — RankReady emits standalone Article + Speakable schema."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3455
 msgid "is active."
 msgstr ""
 
-#: includes/class-rr-admin.php:1208
+#: includes/class-rnrd-admin.php:3456
 msgid "RankReady automatically adjusts schema output to avoid duplicates:"
 msgstr ""
 
-#: includes/class-rr-admin.php:1210
+#: includes/class-rnrd-admin.php:3458
 msgid "Article schema — Handled by"
 msgstr ""
 
-#: includes/class-rr-admin.php:1210
+#: includes/class-rnrd-admin.php:3458
 msgid "RankReady skips it automatically."
 msgstr ""
 
-#: includes/class-rr-admin.php:1211
+#: includes/class-rnrd-admin.php:3459
 msgid "FAQPage schema — RankReady injects only when no"
 msgstr ""
 
-#: includes/class-rr-admin.php:1211
+#: includes/class-rnrd-admin.php:3459
 msgid "FAQ block exists in the post."
 msgstr ""
 
-#: includes/class-rr-admin.php:1212
+#: includes/class-rnrd-admin.php:3460
 msgid "HowTo schema — RankReady injects only when no"
 msgstr ""
 
-#: includes/class-rr-admin.php:1212
+#: includes/class-rnrd-admin.php:3460
 msgid "HowTo block exists in the post."
 msgstr ""
 
-#: includes/class-rr-admin.php:1213
+#: includes/class-rnrd-admin.php:3461
 msgid "ItemList schema — Always handled by RankReady (no SEO plugin does this)."
 msgstr ""
 
-#: includes/class-rr-admin.php:1218
-msgid "No SEO plugin detected. RankReady will handle all schema types (Article, FAQ, HowTo, ItemList)."
+#: includes/class-rnrd-admin.php:3466
+msgid "No SEO plugin detected. RankReady handles all schema types (Article, FAQ, HowTo, ItemList)."
 msgstr ""
 
-#: includes/class-rr-admin.php:1225
+#: includes/class-rnrd-admin.php:3484
 msgid "Schema Types"
 msgstr ""
 
-#: includes/class-rr-admin.php:1226
-msgid "Enable or disable individual schema types. All schema is auto-detected from your existing content — no manual setup required."
+#: includes/class-rnrd-admin.php:3485
+msgid "Auto-emit Article + Speakable + HowTo + ItemList JSON-LD. No manual schema work."
 msgstr ""
 
-#: includes/class-rr-admin.php:1232
+#: includes/class-rnrd-admin.php:3491
 msgid "Article Schema"
 msgstr ""
 
-#: includes/class-rr-admin.php:1238
+#: includes/class-rnrd-admin.php:3497
 msgid "Article/BlogPosting JSON-LD with author, publisher, dateModified"
 msgstr ""
 
-#: includes/class-rr-admin.php:1242
+#. translators: %s: detected SEO plugin name
+#: includes/class-rnrd-admin.php:3503
 #, php-format
 msgid "Disabled — %s handles Article schema."
 msgstr ""
 
-#: includes/class-rr-admin.php:1247
+#: includes/class-rnrd-admin.php:3509
 msgid "Injects Article JSON-LD on all published posts/pages. Includes headline, author, publisher, image, description, about (categories), mentions (tags)."
 msgstr ""
 
-#: includes/class-rr-admin.php:1255
+#: includes/class-rnrd-admin.php:3517
 msgid "Speakable"
 msgstr ""
 
-#: includes/class-rr-admin.php:1260
+#: includes/class-rnrd-admin.php:3522
 msgid "Add speakable markup for voice search and AI assistants"
 msgstr ""
 
-#: includes/class-rr-admin.php:1263
+#: includes/class-rnrd-admin.php:3525
 msgid "Marks the title and excerpt as speakable content. Helps Google Assistant, Alexa, and AI voice queries read your content aloud. Works with both RankReady and SEO plugin Article schema."
 msgstr ""
 
-#: includes/class-rr-admin.php:1270
+#: includes/class-rnrd-admin.php:3532
 msgid "FAQPage Schema"
 msgstr ""
 
-#: includes/class-rr-admin.php:1275
+#: includes/class-rnrd-admin.php:3537
 msgid "Inject FAQPage JSON-LD when FAQ data exists"
 msgstr ""
 
-#: includes/class-rr-admin.php:1278
+#: includes/class-rnrd-admin.php:3540
 msgid "When RankReady FAQ data exists for a post, FAQPage schema is injected automatically. Pages with FAQPage schema are 3.2x more likely to appear in AI Overviews."
 msgstr ""
 
-#: includes/class-rr-admin.php:1282
+#. translators: %s: detected SEO plugin name
+#: includes/class-rnrd-admin.php:3546
 #, php-format
 msgid "Auto-skips when a %s FAQ block is present in the post content to prevent duplicates."
 msgstr ""
 
-#: includes/class-rr-admin.php:1290
+#: includes/class-rnrd-admin.php:3565
 msgid "HowTo Schema"
 msgstr ""
 
-#: includes/class-rr-admin.php:1295
-msgid "Auto-detect step-by-step content and inject HowTo JSON-LD"
+#: includes/class-rnrd-admin.php:3566
+msgid "Auto-detect step-by-step posts and inject HowTo JSON-LD. Triggered by \"How to\", \"Tutorial\", \"Step by Step\", or \"Guide to\" in the title — steps extracted from your existing headings."
 msgstr ""
 
-#: includes/class-rr-admin.php:1298
-msgid "Scans posts with \"How to\", \"Tutorial\", \"Step by Step\", or \"Guide to\" in the title. Extracts steps from your existing headings (Step 1, Step 2...) or ordered lists. No content changes needed."
-msgstr ""
-
-#: includes/class-rr-admin.php:1301
-#: includes/class-rr-admin.php:1334
-msgid "How detection works"
-msgstr ""
-
-#: includes/class-rr-admin.php:1303
-msgid "Title must contain one of:"
-msgstr ""
-
-#: includes/class-rr-admin.php:1304
-msgid "Steps detected from (in priority order):"
-msgstr ""
-
-#: includes/class-rr-admin.php:1306
-msgid "Headings with \"Step N\" — e.g., <h2>Step 1: Install the Plugin</h2>"
-msgstr ""
-
-#: includes/class-rr-admin.php:1307
-msgid "Numbered headings — e.g., <h2>1. Install the Plugin</h2>"
-msgstr ""
-
-#: includes/class-rr-admin.php:1308
-msgid "Ordered lists — <ol><li>Install the Plugin</li></ol>"
-msgstr ""
-
-#: includes/class-rr-admin.php:1310
-msgid "Minimum:"
-msgstr ""
-
-#: includes/class-rr-admin.php:1310
-msgid "2 steps required. Extracts step name, description, and images automatically."
-msgstr ""
-
-#: includes/class-rr-admin.php:1315
-#, php-format
-msgid "Auto-skips when a %s HowTo block is present in the post content."
-msgstr ""
-
-#: includes/class-rr-admin.php:1323
+#: includes/class-rnrd-admin.php:3569
 msgid "ItemList Schema"
 msgstr ""
 
-#: includes/class-rr-admin.php:1328
-msgid "Auto-detect listicle posts and inject ItemList JSON-LD"
+#: includes/class-rnrd-admin.php:3570
+msgid "Auto-detect \"Best N / Top N\" listicle posts and inject ItemList JSON-LD. No SEO plugin does this automatically — it's what makes your recommendation posts AI-readable."
 msgstr ""
 
-#: includes/class-rr-admin.php:1331
-msgid "Scans posts with \"Best N\", \"Top N\", \"N Best Plugins\", etc. in the title. Extracts list items from numbered headings. Perfect for \"best of\" and comparison posts that AI models use for recommendations."
+#: includes/class-rnrd-admin.php:3575
+msgid "Save Schema Settings"
 msgstr ""
 
-#: includes/class-rr-admin.php:1336
-msgid "Title must match one of these patterns:"
+#: includes/class-rnrd-admin.php:3595
+msgid "Decide what 29 named AI crawlers can see — and what they cannot."
 msgstr ""
 
-#: includes/class-rr-admin.php:1338
-msgid "Number + qualifier: \"10 Best WordPress Plugins\", \"Top 5 Elementor Addons\""
+#: includes/class-rnrd-admin.php:3596
+msgid "Brand Identity, llms.txt, llms-full.txt, Markdown endpoints, robots.txt AI rules, Content Signals, and the WebMCP manifest — every surface ChatGPT, Claude, Perplexity, and Gemini read. The card below shows which signals are live."
 msgstr ""
 
-#: includes/class-rr-admin.php:1339
-msgid "Qualifier + number: \"Best 10 Tools for SEO\""
+#: includes/class-rnrd-admin.php:3612
+msgid "Agent Visibility"
 msgstr ""
 
-#: includes/class-rr-admin.php:1340
-msgid "Number + noun: \"7 Plugins Every Developer Needs\", \"15 Tips for Speed\""
+#: includes/class-rnrd-admin.php:3613
+msgid "What's exposed to AI — every signal ChatGPT, Claude, Perplexity, and Gemini can read."
 msgstr ""
 
-#: includes/class-rr-admin.php:1341
-msgid "Qualifier without number: \"Best Elementor Addons\", \"Top WordPress Themes\""
-msgstr ""
-
-#: includes/class-rr-admin.php:1343
-msgid "Items extracted from:"
-msgstr ""
-
-#: includes/class-rr-admin.php:1345
-msgid "Numbered headings — e.g., <h2>1. Essential Addons</h2>"
-msgstr ""
-
-#: includes/class-rr-admin.php:1346
-msgid "Consecutive headings — 3+ h2/h3 headings in sequence"
-msgstr ""
-
-#: includes/class-rr-admin.php:1348
-msgid "Per item:"
-msgstr ""
-
-#: includes/class-rr-admin.php:1348
-msgid "Extracts name, URL (from links), description (first paragraph), and image. Minimum 3 items required."
-msgstr ""
-
-#: includes/class-rr-admin.php:1352
-msgid "Mutually exclusive with HowTo — if the title matches both, HowTo takes priority. No SEO plugin provides automatic ItemList detection."
-msgstr ""
-
-#: includes/class-rr-admin.php:1361
-msgid "How Schema Detection Works"
-msgstr ""
-
-#: includes/class-rr-admin.php:1362
-msgid "RankReady reads each post and automatically decides which schema to inject. No manual setup needed."
-msgstr ""
-
-#: includes/class-rr-admin.php:1364
-msgid "Post loads on frontend"
-msgstr ""
-
-#: includes/class-rr-admin.php:1366
-msgid "Article schema?"
-msgstr ""
-
-#: includes/class-rr-admin.php:1368
+#. translators: 1: signals on, 2: signals total
+#: includes/class-rnrd-admin.php:3618
 #, php-format
-msgid "Skipped (%s active)"
+msgid "%1$d of %2$d agent signals active. The more enabled, the more visible your site is to ChatGPT, Perplexity, Claude, Gemini, and Google AI."
 msgstr ""
 
-#: includes/class-rr-admin.php:1370
-msgid "YES — injected on all posts/pages"
+#: includes/class-rnrd-admin.php:3627
+msgid "Coverage"
 msgstr ""
 
-#: includes/class-rr-admin.php:1373
-msgid "FAQPage schema?"
+#: includes/class-rnrd-admin.php:3664
+msgid "Brand Identity"
 msgstr ""
 
-#: includes/class-rr-admin.php:1374
-msgid "Only if RankReady FAQ data exists AND no SEO plugin FAQ block in content"
+#: includes/class-rnrd-admin.php:3665
+msgid "Single source of truth"
 msgstr ""
 
-#: includes/class-rr-admin.php:1376
-msgid "HowTo schema?"
+#: includes/class-rnrd-admin.php:3667
+msgid "Complete"
 msgstr ""
 
-#: includes/class-rr-admin.php:1377
-msgid "Only if title has \"how to/tutorial/step by step\" AND 2+ steps detected"
+#: includes/class-rnrd-admin.php:3669
+msgid "Incomplete"
 msgstr ""
 
-#: includes/class-rr-admin.php:1379
-msgid "ItemList schema?"
+#: includes/class-rnrd-admin.php:3672
+msgid "Tell ChatGPT, Claude, Perplexity, and Gemini who you are — once. Powers llms.txt, robots.txt comment, FAQ prompt, AI summary prompt, MCP abilities, homepage markdown."
 msgstr ""
 
-#: includes/class-rr-admin.php:1380
-msgid "Only if title has \"Best N/Top N/N Plugins\" AND 3+ items AND NOT a HowTo post"
+#: includes/class-rnrd-admin.php:3674
+msgid "How AI engines see your brand. Four fields, one place. Every consumer below reads the same values — fill these once and every llms.txt, robots.txt comment, FAQ prompt, AI summary prompt, MCP ability, and homepage Markdown stays consistent."
 msgstr ""
 
-#: includes/class-rr-admin.php:1386
-msgid "Background Schema Scanner"
+#: includes/class-rnrd-admin.php:3679
+#: includes/class-rnrd-welcome.php:478
+msgid "Site / brand name"
 msgstr ""
 
-#: includes/class-rr-admin.php:1387
-msgid "HowTo and ItemList schema are detected via WP-Cron in the background. Zero performance impact on page loads. The scanner runs every 5 minutes and processes a batch of posts."
+#: includes/class-rnrd-admin.php:3684
+msgid "Your Brand Name"
 msgstr ""
 
-#: includes/class-rr-admin.php:1394
-msgid "Posts Scanned"
+#: includes/class-rnrd-admin.php:3685
+msgid "Canonical name. Used as the H1 in llms.txt and in the Brand line everywhere. Falls back to your WordPress site title when empty."
 msgstr ""
 
-#: includes/class-rr-admin.php:1398
-msgid "Pending Scan"
+#: includes/class-rnrd-admin.php:3690
+#: includes/class-rnrd-welcome.php:496
+msgid "One-line summary"
 msgstr ""
 
-#: includes/class-rr-admin.php:1402
-msgid "Next Cron Run"
+#: includes/class-rnrd-admin.php:3695
+msgid "The elevator pitch an AI engine quotes in 1 sentence. Max 160 chars."
 msgstr ""
 
-#: includes/class-rr-admin.php:1406
-msgid "min"
+#: includes/class-rnrd-admin.php:3697
+msgid "Renders as the blockquote under the H1 in llms.txt + llms-full.txt. Keep it tight — this is the line AI engines repeat."
 msgstr ""
 
-#: includes/class-rr-admin.php:1407
-msgid "Est. Time Left"
+#: includes/class-rnrd-admin.php:3702
+msgid "About"
 msgstr ""
 
-#: includes/class-rr-admin.php:1414
-msgid "Batch Size (per cron run)"
+#: includes/class-rnrd-admin.php:3707
+msgid "Longer description (≤ 500 chars). What is this site about? Who is it for? Markdown supported."
 msgstr ""
 
-#: includes/class-rr-admin.php:1421
+#: includes/class-rnrd-admin.php:3709
+msgid "Detailed context. Appears below the summary in llms.txt and llms-full.txt. Used by AI engines for deeper site comprehension."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3714
+#: includes/class-rnrd-welcome.php:530
+msgid "Canonical brand terms"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3720
+msgid ""
+"One name per line. Examples:\n"
+"Your Brand Name\n"
+"Your Product Name\n"
+"A Common Misspelling To Catch"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3722
+msgid "Use the exact capitalisation and spacing you want AI engines to use. One canonical name per line — any variants you list get unified into a single recognised entity."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3729
+msgid "Where these 4 fields are used"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3732
+msgid "H1 (name), blockquote (summary), about paragraph, Brand line (terms)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3733
+msgid "same header block + every page below"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3734
+msgid "Brand comment inside RankReady AI block"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3735
+msgid "AI Summary system prompt"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3735
+msgid "canonical naming forced into every summary"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3736
+#: includes/class-rnrd-welcome.php:611
+msgid "FAQ generation prompt"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3736
+msgid "brand context, deduped against per-FAQ legacy field"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3737
+msgid "WebMCP ability returns name + brand_terms to Claude Desktop / Cursor / VS Code"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3738
+msgid "WebMCP ability returns terms array directly"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3739
+msgid "Homepage Markdown (Accept: text/markdown)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3739
+msgid "site overview uses name + summary"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3743
+msgid "Save Brand Identity"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3774
+msgid "WebMCP — Agent Tooling"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3777
+msgid "Expose 16 read-only abilities at /.well-known/mcp.json — Claude Desktop, Cursor, VS Code read your site."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3781
+msgid "Enable WebMCP"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3785
+msgid "Serve /.well-known/mcp.json + register WordPress Abilities"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3791
+msgid "Status"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3795
+msgid "Manifest live"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3799
+msgid "WordPress Abilities API detected — 16 abilities registered"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3801
+msgid "Abilities API plugin not active — manifest still works for raw MCP discovery"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3806
+msgid "Disabled"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3842
+msgid "MCP manifest URL"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3846
+msgid "Paste this URL into Claude Desktop / Cursor / VS Code MCP settings."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3847
+msgid "Open manifest →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3854
+msgid "Resources exposed"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3855
+msgid "Per-resource toggle"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3859
+msgid "Choose what AI agents can see. Public content (posts, pages, authors, taxonomies) is safe to expose. PII / stack-revealing resources are OFF by default — opt in only if your use case requires it."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3865
+msgid "Public content (safe defaults)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3868
+msgid "Posts"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3868
+msgid "list-recent-posts, search-posts, get-post, get-post-by-url — full Markdown content + AI summary + FAQ."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3869
+msgid "Pages"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3869
+msgid "list-pages — static pages with parent hierarchy."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3870
+msgid "Authors (EEAT)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3870
+msgid "get-author — Person schema fields (bio, credentials, awards, socials). No emails or login info."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3871
+msgid "Categories & tags"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3871
+msgid "list-categories, list-tags — topical graph for agent navigation."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3872
+msgid "Sitemap"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3872
+msgid "get-sitemap — parsed URL + lastmod for cold crawls."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3873
+msgid "llms.txt inline"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3873
+msgid "get-llms-txt — rendered llms.txt content without HTTP round-trip."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3874
+msgid "Freshness signal"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3874
+msgid "get-fresh-content — posts/pages modified in last N days."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3875
+msgid "RankReady AI data"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3875
+msgid "get-post-summary, get-post-faq, get-brand-terms — the AI-citation surface RankReady generates."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3889
+msgid "Custom post types"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3896
+msgid "Expose specific custom post types to AI agents over MCP. Off by default — enable only the types you want agents to read. Each uses the same safe content rules as Posts (published, non-password-protected only)."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3911
+msgid "Adds list + get abilities for this post type to the MCP manifest."
+msgstr ""
+
+#. translators: %d: number of custom post types detected
+#: includes/class-rnrd-admin.php:3922
 #, php-format
-msgid "Recommended: %d"
+msgid "%d custom post type detected on this site. Exposing custom post types to AI agents is coming soon — Posts and Pages are supported today."
+msgid_plural "%d custom post types detected on this site. Exposing custom post types to AI agents is coming soon — Posts and Pages are supported today."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-rnrd-admin.php:3938
+msgid "Write abilities"
 msgstr ""
 
-#: includes/class-rr-admin.php:1424
-msgid "Number of posts scanned per WP-Cron tick (every 5 minutes). Higher = faster scan, more memory per tick."
+#: includes/class-rnrd-admin.php:3938
+msgid "create / update / delete operations are not yet exposed. v1.4 will add governed write abilities (draft-faq, refresh-post) with capability checks, nonce verification, audit log, and rate limiting per action."
 msgstr ""
 
-#: includes/class-rr-admin.php:1432
-msgid "Your Server Resources"
+#: includes/class-rnrd-admin.php:3944
+msgid "Active abilities"
 msgstr ""
 
-#: includes/class-rr-admin.php:1435
-msgid "PHP Version"
+#: includes/class-rnrd-admin.php:3945
+msgid "live in manifest"
 msgstr ""
 
-#: includes/class-rr-admin.php:1436
-msgid "Memory Limit"
+#: includes/class-rnrd-admin.php:3949
+msgid "Site & metadata (3)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1437
-msgid "Max Execution Time"
+#: includes/class-rnrd-admin.php:3951
+msgid "site name, description, about, brand terms, language"
 msgstr ""
 
-#: includes/class-rr-admin.php:1438
-msgid "Server Tier"
+#: includes/class-rnrd-admin.php:3952
+msgid "canonical brand names array"
 msgstr ""
 
-#: includes/class-rr-admin.php:1444
-msgid "Shared hosting (< 128 MB): batch 5 | Mid-range (256 MB): batch 15 | VPS (512 MB+): batch 25"
+#: includes/class-rnrd-admin.php:3953
+msgid "every public post type + published count + archive URL"
 msgstr ""
 
-#: includes/class-rr-admin.php:1467
+#: includes/class-rnrd-admin.php:3958
+msgid "Content retrieval (4)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3960
+msgid "full Markdown content"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3960
+msgid "title, URL, author, summary, FAQ, schema in one call"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3961
+msgid "resolve any permalink (incl. .md / /category/ / /tag/) to content"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3962
+msgid "AI summary bullets only"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3963
+msgid "FAQ Q&amp;A pairs only"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3968
+msgid "Discovery & navigation (5)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3970
+msgid "keyword search across published posts"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3971
+msgid "static pages + parent_id hierarchy"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3972
+msgid "paginated recent-posts feed"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3973
+msgid "topical hierarchy: name, slug, parent, count, URL"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3974
+msgid "tags ordered by post count"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3979
+msgid "AI-native (4)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3981
+msgid "rendered llms.txt or llms-full.txt content inline"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3982
+msgid "parsed sitemap (URL + lastmod) for cold crawls"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3983
+msgid "posts/pages modified in last N days"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3984
+msgid "EEAT Person schema fields for an author (credentials, awards, socials)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3988
+msgid "All abilities are read-only. No write access exposed."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3989
+msgid "View manifest JSON →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:3995
+msgid "Save WebMCP Settings"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4002
 msgid "LLMs.txt Generator"
 msgstr ""
 
-#: includes/class-rr-admin.php:1468
-msgid "Generate a /llms.txt file following the llmstxt.org specification. Helps AI models understand your site."
+#: includes/class-rnrd-admin.php:4003
+msgid "Serve the llmstxt.org site index at /llms.txt and /llms-full.txt for AI engines."
 msgstr ""
 
-#: includes/class-rr-admin.php:1472
+#: includes/class-rnrd-admin.php:4007
 msgid "Enable LLMs.txt"
 msgstr ""
 
-#: includes/class-rr-admin.php:1479
+#: includes/class-rnrd-admin.php:4013
 msgid "Serve /llms.txt on your site"
 msgstr ""
 
-#: includes/class-rr-admin.php:1483
+#: includes/class-rnrd-admin.php:4017
 msgid "Live at:"
 msgstr ""
 
-#: includes/class-rr-admin.php:1494
-msgid "Site Name (H1)"
-msgstr ""
-
-#: includes/class-rr-admin.php:1500
-msgid "The H1 heading in your llms.txt. Defaults to your site name."
-msgstr ""
-
-#: includes/class-rr-admin.php:1504
-msgid "Site Summary"
-msgstr ""
-
-#: includes/class-rr-admin.php:1508
-msgid "Brief one-line summary of your site (appears as blockquote)"
-msgstr ""
-
-#: includes/class-rr-admin.php:1510
-msgid "Rendered as a blockquote below the H1. Keep it concise."
-msgstr ""
-
-#: includes/class-rr-admin.php:1514
-msgid "About Section"
-msgstr ""
-
-#: includes/class-rr-admin.php:1518
-msgid "Detailed description of your site, products, services. Markdown supported."
-msgstr ""
-
-#: includes/class-rr-admin.php:1520
-msgid "Detailed info about your site. Supports markdown. Appears after the summary."
-msgstr ""
-
-#: includes/class-rr-admin.php:1524
+#: includes/class-rnrd-admin.php:4028
 msgid "Include Post Types"
 msgstr ""
 
-#: includes/class-rr-admin.php:1535
+#: includes/class-rnrd-admin.php:4040
 msgid "Which post types to list in llms.txt as file lists."
 msgstr ""
 
-#: includes/class-rr-admin.php:1539
+#: includes/class-rnrd-admin.php:4044
 msgid "Max Posts per Type"
 msgstr ""
 
-#: includes/class-rr-admin.php:1544
+#: includes/class-rnrd-admin.php:4049
 msgid "Maximum number of posts per post type to include."
 msgstr ""
 
-#: includes/class-rr-admin.php:1548
+#: includes/class-rnrd-admin.php:4053
 msgid "Exclude Categories"
 msgstr ""
 
-#: includes/class-rr-admin.php:1566
+#: includes/class-rnrd-admin.php:4071
 msgid "No categories found."
 msgstr ""
 
-#: includes/class-rr-admin.php:1568
+#: includes/class-rnrd-admin.php:4073
 msgid "Posts in checked categories will be excluded from llms.txt. Useful for filtering out demo, test, or irrelevant content."
 msgstr ""
 
-#: includes/class-rr-admin.php:1572
+#: includes/class-rnrd-admin.php:4077
 msgid "Exclude Tags"
 msgstr ""
 
-#: includes/class-rr-admin.php:1590
+#: includes/class-rnrd-admin.php:4095
 msgid "No tags found."
 msgstr ""
 
-#: includes/class-rr-admin.php:1592
+#: includes/class-rnrd-admin.php:4097
 msgid "Posts with checked tags will be excluded from llms.txt."
 msgstr ""
 
-#: includes/class-rr-admin.php:1596
+#: includes/class-rnrd-admin.php:4101
 msgid "Show Categories Section"
 msgstr ""
 
-#: includes/class-rr-admin.php:1602
+#: includes/class-rnrd-admin.php:4107
 msgid "Show \"Optional\" categories section at the bottom of llms.txt"
 msgstr ""
 
-#: includes/class-rr-admin.php:1607
+#: includes/class-rnrd-admin.php:4112
 msgid "Cache Duration"
 msgstr ""
 
-#: includes/class-rr-admin.php:1612
+#: includes/class-rnrd-admin.php:4117
 msgid "15 minutes"
 msgstr ""
 
-#: includes/class-rr-admin.php:1613
+#: includes/class-rnrd-admin.php:4118
 msgid "1 hour"
 msgstr ""
 
-#: includes/class-rr-admin.php:1614
+#: includes/class-rnrd-admin.php:4119
 msgid "6 hours"
 msgstr ""
 
-#: includes/class-rr-admin.php:1615
+#: includes/class-rnrd-admin.php:4120
 msgid "24 hours"
 msgstr ""
 
-#: includes/class-rr-admin.php:1622
+#: includes/class-rnrd-admin.php:4127
 msgid "How long to cache the generated llms.txt output."
 msgstr ""
 
-#: includes/class-rr-admin.php:1626
+#: includes/class-rnrd-admin.php:4131
 msgid "Full Version"
 msgstr ""
 
-#: includes/class-rr-admin.php:1632
+#: includes/class-rnrd-admin.php:4137
 msgid "Also serve /llms-full.txt with full post content inlined"
 msgstr ""
 
-#: includes/class-rr-admin.php:1647
-#: includes/class-rr-admin.php:2630
-#: includes/class-rr-admin.php:2649
+#: includes/class-rnrd-admin.php:4151
+#: includes/class-rnrd-admin.php:4631
+msgid "Hide RankReady credit"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4157
+#: includes/class-rnrd-admin.php:4163
+msgid "Remove \"Generated from RankReady\" line from /llms.txt and /llms-full.txt"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4171
+msgid "Save LLMs.txt Settings"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4177
+#: includes/class-rnrd-admin.php:5912
 msgid "Markdown Endpoints"
 msgstr ""
 
-#: includes/class-rr-admin.php:1648
-msgid "Serve every post as clean Markdown at its URL + .md suffix. LLM crawlers get structured content."
+#: includes/class-rnrd-admin.php:4178
+msgid "Every post as clean Markdown for AI bots — via .md URL or Accept: text/markdown."
 msgstr ""
 
-#: includes/class-rr-admin.php:1652
+#: includes/class-rnrd-admin.php:4182
 msgid "Enable .md Endpoints"
 msgstr ""
 
-#: includes/class-rr-admin.php:1659
+#: includes/class-rnrd-admin.php:4188
 msgid "Add .md endpoint to each post URL"
 msgstr ""
 
-#: includes/class-rr-admin.php:1663
+#: includes/class-rnrd-admin.php:4192
 msgid "Example:"
 msgstr ""
 
-#: includes/class-rr-admin.php:1688
+#: includes/class-rnrd-admin.php:4218
 msgid "Include Metadata"
 msgstr ""
 
-#: includes/class-rr-admin.php:1693
+#: includes/class-rnrd-admin.php:4223
 msgid "Add YAML frontmatter (title, date, author, excerpt, tags)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1703
+#: includes/class-rnrd-admin.php:4233
+msgid "Inject a hidden div pointing AI agents at the .md version"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4236
+msgid "Visually invisible (clip-path + aria-hidden). Raw-HTML scrapers see \"AI agents: a clean Markdown version is at URL.md\". A documented technique for pointing agents at the Markdown version."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4241
+msgid "Same-URL content negotiation"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4246
+msgid "Serve Markdown on the normal page URL when a request sends Accept: text/markdown (or is a known AI bot)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4249
+msgid "Leave OFF unless you control your CDN cache key."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4250
+msgid "Caches that ignore Vary: Accept (Cloudflare APO, Varnish, Fastly, most shared hosts) will store the Markdown response under your normal page URL and then serve it to every visitor — blanking your page. Your Markdown is always available at the distinct .md URL (e.g. /page.md) regardless of this setting; AI agents discover it via the Link header and llms.txt. This same-URL path is OFF by default and only safe behind a cache that keys on the Accept header."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4255
+msgid "Auto-serve to AI bots"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4260
+msgid "Serve Markdown to GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot, Google-Extended (12 bots total)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4263
+msgid "Detected via User-Agent header. Only applies when \"Same-URL content negotiation\" above is ON — it shares that same cache-poisoning risk on the normal page URL. The cache-safe .md URLs do not need this."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4269
+msgid "Save Markdown Settings"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4275
+#: includes/class-rnrd-admin.php:5913
 msgid "LLM Crawler Access (robots.txt)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1705
-msgid "Control which AI crawlers can access your content via robots.txt. Enabled crawlers get explicit Allow rules appended — never modifies existing rules from Rank Math, Yoast, or any other plugin."
+#: includes/class-rnrd-admin.php:4276
+msgid "Allow or block 29 named AI crawlers. Auto-syncs to your physical /robots.txt."
 msgstr ""
 
-#: includes/class-rr-admin.php:1710
+#: includes/class-rnrd-admin.php:4280
 msgid "Enable Crawler Rules"
 msgstr ""
 
-#: includes/class-rr-admin.php:1717
+#: includes/class-rnrd-admin.php:4286
 msgid "Append LLM crawler rules to robots.txt"
 msgstr ""
 
-#: includes/class-rr-admin.php:1719
-msgid "Adds per-crawler User-agent blocks with Allow directives. Safe — appends only, never touches existing rules."
+#: includes/class-rnrd-admin.php:4288
+msgid "Adds per-crawler User-agent blocks with Allow or Disallow directives. Safe — appends only, never touches existing rules."
 msgstr ""
 
-#: includes/class-rr-admin.php:1727
-msgid "Allow Crawlers"
+#: includes/class-rnrd-admin.php:4303
+#: includes/class-rnrd-admin.php:4349
+msgid "Allow"
 msgstr ""
 
-#: includes/class-rr-admin.php:1736
-msgid "Select / Deselect All"
+#: includes/class-rnrd-admin.php:4304
+#: includes/class-rnrd-admin.php:4350
+msgid "Default"
 msgstr ""
 
-#: includes/class-rr-admin.php:1758
-msgid "Checked crawlers get \"User-agent: X / Allow: /\" appended to robots.txt. Helps AI search engines, AI Overviews, and answer engines discover and cite your content."
+#: includes/class-rnrd-admin.php:4305
+#: includes/class-rnrd-admin.php:4351
+msgid "Block"
 msgstr ""
 
-#: includes/class-rr-admin.php:1766
-msgid "Save LLM Settings"
+#: includes/class-rnrd-admin.php:4314
+msgid "Set every crawler to:"
 msgstr ""
 
-#: includes/class-rr-admin.php:1771
-msgid "Cache Management"
+#. translators: 1: state name, 2: crawler user-agent
+#: includes/class-rnrd-admin.php:4339
+#, php-format
+msgid "%1$s %2$s"
 msgstr ""
 
-#: includes/class-rr-admin.php:1772
-msgid "Clear cached LLMs.txt output to regenerate with latest content."
+#: includes/class-rnrd-admin.php:4349
+msgid "writes \"User-agent: X\" with \"Allow: /\", inviting that crawler explicitly."
 msgstr ""
 
-#: includes/class-rr-admin.php:1775
-msgid "Flush LLMs.txt Cache"
+#: includes/class-rnrd-admin.php:4350
+msgid "RankReady writes nothing for that crawler, so it follows the rules your site already has. This is not a block."
 msgstr ""
 
-#: includes/class-rr-admin.php:1778
-#: includes/class-rr-rest.php:973
-msgid "Cache cleared."
+#: includes/class-rnrd-admin.php:4351
+msgid "writes \"Disallow: /\", telling it to stop crawling. Use it for bots overwhelming your server."
 msgstr ""
 
-#: includes/class-rr-admin.php:1802
-msgid "FAQ Settings"
+#: includes/class-rnrd-admin.php:4357
+msgid "Save Robots Settings"
 msgstr ""
 
-#: includes/class-rr-admin.php:1803
-msgid "Configure how FAQs are generated and displayed. Uses DataForSEO for question discovery and OpenAI for answers with brand entity injection."
+#: includes/class-rnrd-admin.php:4364
+msgid "Tell AI engines what your content may be used for (ai-train / search / ai-input)."
 msgstr ""
 
-#: includes/class-rr-admin.php:1818
+#: includes/class-rnrd-admin.php:4368
+msgid "Enable Content Signals"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4374
+msgid "Add Content Signals directives to robots.txt"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4385
+msgid "ai-train"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4386
+msgid "May AI systems use this content to train models?"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4389
+msgid "search"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4390
+msgid "May AI systems use this content in search results?"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4393
+msgid "ai-input"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4394
+msgid "May AI systems use this content as RAG/context input?"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4404
+msgid "allow"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4405
+msgid "deny"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4413
+msgid "Save Content Signals"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4436
+msgid "FAQ Generator"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4437
+msgid "Discover real user questions and answer them with AI. Outputs FAQPage schema that Google AI Overviews and Perplexity preferentially cite."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4438
+msgid "Configure how FAQs are generated and displayed. Uses DataForSEO for question discovery and your active AI provider for answers with brand entity injection."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4456
 msgid "FAQ will be generated for these post types."
 msgstr ""
 
-#: includes/class-rr-admin.php:1822
+#: includes/class-rnrd-admin.php:4460
 msgid "FAQ Count"
 msgstr ""
 
-#: includes/class-rr-admin.php:1827
+#: includes/class-rnrd-admin.php:4465
 msgid "Number of FAQ items to generate per post (3-10). More FAQs = more API calls."
 msgstr ""
 
-#: includes/class-rr-admin.php:1831
+#: includes/class-rnrd-admin.php:4469
 msgid "Brand Terms"
 msgstr ""
 
-#: includes/class-rr-admin.php:1835
-msgid "e.g. The Plus Addons, Elementor, NexterWP, UiChemy (one per line or comma-separated)"
+#: includes/class-rnrd-admin.php:4473
+msgid "Your Brand Name, Your Product Name (one per line or comma-separated)"
 msgstr ""
 
-#: includes/class-rr-admin.php:1837
+#: includes/class-rnrd-admin.php:4475
 msgid "Brand/product names to inject as semantic triples in FAQ answers. This builds brand-entity association for LLMs (+642% AI citation lift)."
 msgstr ""
 
-#: includes/class-rr-admin.php:1847
+#: includes/class-rnrd-admin.php:4486
+#: includes/class-rnrd-admin.php:4492
 msgid "Automatically generate FAQs when a post is published or updated"
 msgstr ""
 
-#: includes/class-rr-admin.php:1849
-msgid "Off by default. When off, FAQs are only generated via the Gutenberg block, Elementor widget, or Bulk Generate. Existing FAQs are always kept. Each generation uses DataForSEO + OpenAI credits."
+#: includes/class-rnrd-admin.php:4496
+msgid "Off by default. When off, FAQs are only generated via the Gutenberg block, Elementor widget, or Bulk Generate."
 msgstr ""
 
-#: includes/class-rr-admin.php:1857
-msgid "FAQ Display"
-msgstr ""
-
-#: includes/class-rr-admin.php:1858
+#: includes/class-rnrd-admin.php:4502
 msgid "Control how FAQs appear on the frontend. Can also use the Gutenberg block or Elementor widget instead."
 msgstr ""
 
-#: includes/class-rr-admin.php:1867
-msgid "On — Automatically inject FAQ into post content"
+#: includes/class-rnrd-admin.php:4512
+msgid "Automatically inject FAQ into post content"
 msgstr ""
 
-#: includes/class-rr-admin.php:1871
-msgid "Off — Only show via block, widget, or shortcode"
-msgstr ""
-
-#: includes/class-rr-admin.php:1886
-msgid "Heading Tag"
-msgstr ""
-
-#: includes/class-rr-admin.php:1899
+#: includes/class-rnrd-admin.php:4541
 msgid "Show \"Reviewed\" Date"
 msgstr ""
 
-#: includes/class-rr-admin.php:1905
+#: includes/class-rnrd-admin.php:4547
 msgid "Show \"Last reviewed: [date]\" below the FAQ section"
 msgstr ""
 
-#: includes/class-rr-admin.php:1907
+#: includes/class-rnrd-admin.php:4549
 msgid "Signals content freshness to LLMs and users."
 msgstr ""
 
-#: includes/class-rr-admin.php:1913
+#: includes/class-rnrd-admin.php:4553
 msgid "Save FAQ Settings"
 msgstr ""
 
-#: includes/class-rr-admin.php:1918
-msgid "Posts with FAQ"
+#: includes/class-rnrd-admin.php:4617
+msgid "Branding"
 msgstr ""
 
-#: includes/class-rr-admin.php:1919
-msgid "All posts that have FAQ content generated. Click to load the list."
+#: includes/class-rnrd-admin.php:4623
+msgid "Hide the \"Generated from RankReady\" credit line on /llms.txt and /llms-full.txt."
 msgstr ""
 
-#: includes/class-rr-admin.php:1922
-msgid "Load FAQ Posts"
+#: includes/class-rnrd-admin.php:4626
+msgid "The credit line is a single unbranded sentence — no URL, no version, no marketing. It appears at the bottom of /llms.txt and /llms-full.txt only (robots.txt has technical BEGIN/END markers that stay regardless, similar to \"# BEGIN WordPress\")."
 msgstr ""
 
-#: includes/class-rr-admin.php:1930
-msgid "Post Title"
+#: includes/class-rnrd-admin.php:4639
+msgid "Remove \"Generated from RankReady\" line from llms.txt + llms-full.txt"
 msgstr ""
 
-#: includes/class-rr-admin.php:1931
-#: includes/class-rr-admin.php:2394
-#: includes/class-rr-admin.php:2477
-msgid "Type"
+#: includes/class-rnrd-admin.php:4642
+msgid "This toggle is planned for a future release. Today the credit line always shows."
 msgstr ""
 
-#: includes/class-rr-admin.php:1932
-msgid "FAQ Generated"
+#: includes/class-rnrd-admin.php:4649
+msgid "Note:"
 msgstr ""
 
-#: includes/class-rr-admin.php:1933
-#: includes/class-rr-admin.php:2396
-#: includes/class-rr-admin.php:2482
-msgid "Actions"
+#: includes/class-rnrd-admin.php:4650
+msgid "The credit line (\"Generated from RankReady\") contains no URL, version number, or marketing."
 msgstr ""
 
-#: includes/class-rr-admin.php:1965
-msgid "Headless WordPress Public API"
-msgstr ""
-
-#: includes/class-rr-admin.php:1967
-msgid "Expose FAQ, summaries, and JSON-LD schema via a read-only REST API for Next.js, Nuxt, Astro, SvelteKit, Gatsby, and other headless frontends."
-msgstr ""
-
-#: includes/class-rr-admin.php:1973
-msgid "Enable Public API"
-msgstr ""
-
-#: includes/class-rr-admin.php:1980
-msgid "Turn on the public REST endpoints. Off by default for security."
-msgstr ""
-
-#: includes/class-rr-admin.php:1986
-msgid "Expose in Core REST"
-msgstr ""
-
-#: includes/class-rr-admin.php:1990
-msgid "Add rankready_faq, rankready_summary, rankready_schema to /wp/v2/posts/{id}"
-msgstr ""
-
-#: includes/class-rr-admin.php:1993
-msgid "Recommended for Faust.js, headless themes, and anything that already consumes core WP REST."
-msgstr ""
-
-#: includes/class-rr-admin.php:1999
-msgid "CORS Allowed Origins"
-msgstr ""
-
-#: includes/class-rr-admin.php:2003
-msgid "Comma-separated list of allowed frontend origins. Leave empty to allow all origins (wildcard). Use specific origins in production."
-msgstr ""
-
-#: includes/class-rr-admin.php:2009
-msgid "CDN Cache TTL (seconds)"
-msgstr ""
-
-#: includes/class-rr-admin.php:2013
-msgid "Cache-Control: public, s-maxage=N, stale-while-revalidate=86400. Default 300 (5 min). Set higher for stable content."
-msgstr ""
-
-#: includes/class-rr-admin.php:2019
-msgid "Rate Limit (req/min per IP)"
-msgstr ""
-
-#: includes/class-rr-admin.php:2023
-msgid "0 disables rate limiting. Authenticated editors are always exempt. IP is detected from Cloudflare / X-Forwarded-For / X-Real-IP."
-msgstr ""
-
-#: includes/class-rr-admin.php:2032
-msgid "On-Demand Revalidation (Next.js / Nuxt)"
-msgstr ""
-
-#: includes/class-rr-admin.php:2034
-msgid "When FAQ or summary data changes, RankReady pings your frontend to revalidate the affected page. Fire-and-forget, never blocks the editor."
-msgstr ""
-
-#: includes/class-rr-admin.php:2040
-msgid "Webhook URL"
-msgstr ""
-
-#: includes/class-rr-admin.php:2044
-msgid "Your Next.js / Nuxt revalidation endpoint. POST receives JSON { post_id, slug, reason, ts, site } and header X-RR-Secret."
-msgstr ""
-
-#: includes/class-rr-admin.php:2050
-msgid "Shared Secret"
-msgstr ""
-
-#: includes/class-rr-admin.php:2054
-msgid "Shared secret sent as X-RR-Secret header. Use hash_equals() to verify on the frontend. Leave blank to clear."
-msgstr ""
-
-#: includes/class-rr-admin.php:2063
-msgid "WPGraphQL Integration"
-msgstr ""
-
-#: includes/class-rr-admin.php:2065
-msgid "Register rankReadyFaq, rankReadySummary, rankReadySchema as GraphQL fields on every public post type."
-msgstr ""
-
-#: includes/class-rr-admin.php:2071
-msgid "Register GraphQL Fields"
-msgstr ""
-
-#: includes/class-rr-admin.php:2079
-msgid "WPGraphQL plugin is not active. Install and activate it to enable this option."
-msgstr ""
-
-#: includes/class-rr-admin.php:2083
-msgid "WPGraphQL detected. Fields will be available on all GraphQL post types."
-msgstr ""
-
-#: includes/class-rr-admin.php:2094
-msgid "Endpoint Reference"
-msgstr ""
-
-#: includes/class-rr-admin.php:2099
-msgid "Base URL"
-msgstr ""
-
-#: includes/class-rr-admin.php:2103
-msgid "Available Routes"
-msgstr ""
-
-#: includes/class-rr-admin.php:2106
-msgid "FAQ items for a post"
-msgstr ""
-
-#: includes/class-rr-admin.php:2107
-msgid "AI summary for a post"
-msgstr ""
-
-#: includes/class-rr-admin.php:2108
-msgid "Ready-to-inject JSON-LD"
-msgstr ""
-
-#: includes/class-rr-admin.php:2109
-msgid "Combined (FAQ + summary + schema)"
-msgstr ""
-
-#: includes/class-rr-admin.php:2112
-msgid "Manual revalidation trigger (requires secret)"
-msgstr ""
-
-#: includes/class-rr-admin.php:2115
-msgid "All responses include ETag, Last-Modified, Cache-Control s-maxage + stale-while-revalidate, and X-RR-Request-Id headers. 304 Not Modified is returned on matching If-None-Match / If-Modified-Since."
-msgstr ""
-
-#: includes/class-rr-admin.php:2123
-msgid "Save Headless Settings"
-msgstr ""
-
-#: includes/class-rr-admin.php:2139
-msgid "Bulk Regenerate Summaries"
-msgstr ""
-
-#: includes/class-rr-admin.php:2141
-msgid "Generate AI summaries for all existing published posts. Processes 5 posts at a time."
-msgstr ""
-
-#: includes/class-rr-admin.php:2159
-msgid "Start Bulk Generate"
-msgstr ""
-
-#: includes/class-rr-admin.php:2160
-#: includes/class-rr-admin.php:2198
-#: includes/class-rr-admin.php:2427
-msgid "Resume"
-msgstr ""
-
-#: includes/class-rr-admin.php:2161
-#: includes/class-rr-admin.php:2199
-#: includes/class-rr-admin.php:2291
-#: includes/class-rr-admin.php:2428
-msgid "Stop"
-msgstr ""
-
-#: includes/class-rr-admin.php:2162
-#: includes/class-rr-admin.php:2429
-msgid "Skips posts with unchanged content. Resume picks up from where you stopped."
-msgstr ""
-
-#: includes/class-rr-admin.php:2171
-#: includes/class-rr-admin.php:2209
-#: includes/class-rr-admin.php:2438
-msgid "Preparing..."
-msgstr ""
-
-#: includes/class-rr-admin.php:2177
-msgid "Start Over — Clear & Regenerate All"
-msgstr ""
-
-#: includes/class-rr-admin.php:2179
-msgid "Clears ALL existing Key Takeaways and FAQ data, then regenerates both from scratch using current prompts. Ignores auto-generate setting."
-msgstr ""
-
-#: includes/class-rr-admin.php:2197
-msgid "Start Over — Bulk Regenerate"
-msgstr ""
-
-#: includes/class-rr-admin.php:2200
-msgid "Deletes old data first, then generates fresh. Processes 1 post at a time. Resume picks up where you stopped."
-msgstr ""
-
-#: includes/class-rr-admin.php:2215
+#: includes/class-rnrd-admin.php:4670
 msgid "Bulk Author Changer"
 msgstr ""
 
-#: includes/class-rr-admin.php:2217
+#: includes/class-rnrd-admin.php:4671
+msgid "Reassign authors across any post type — preview count before executing."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4673
 msgid "Reassign authors across any post type. Preview the affected count before executing."
 msgstr ""
 
-#: includes/class-rr-admin.php:2233
+#: includes/class-rnrd-admin.php:4689
 msgid "Select one or more post types to affect."
 msgstr ""
 
-#: includes/class-rr-admin.php:2238
+#: includes/class-rnrd-admin.php:4697
 msgid "Current Author (From)"
 msgstr ""
 
-#: includes/class-rr-admin.php:2241
+#: includes/class-rnrd-admin.php:4700
 msgid "-- All authors --"
 msgstr ""
 
-#: includes/class-rr-admin.php:2248
+#: includes/class-rnrd-admin.php:4707
 msgid "Leave blank to reassign posts regardless of current author."
 msgstr ""
 
-#: includes/class-rr-admin.php:2254
+#: includes/class-rnrd-admin.php:4713
 msgid "New Author (To)"
 msgstr ""
 
-#: includes/class-rr-admin.php:2258
+#: includes/class-rnrd-admin.php:4717
 msgid "-- Select new author --"
 msgstr ""
 
-#: includes/class-rr-admin.php:2269
+#: includes/class-rnrd-admin.php:4728
 msgid "Date Range"
 msgstr ""
 
-#: includes/class-rr-admin.php:2273
+#: includes/class-rnrd-admin.php:4732
 msgid "After"
 msgstr ""
 
-#: includes/class-rr-admin.php:2277
+#: includes/class-rnrd-admin.php:4736
 msgid "Before"
 msgstr ""
 
-#: includes/class-rr-admin.php:2281
+#: includes/class-rnrd-admin.php:4740
 msgid "Optional — leave blank to include all dates."
 msgstr ""
 
-#: includes/class-rr-admin.php:2289
+#: includes/class-rnrd-admin.php:4748
 msgid "Preview Count"
 msgstr ""
 
-#: includes/class-rr-admin.php:2290
+#: includes/class-rnrd-admin.php:4749
 msgid "Execute"
 msgstr ""
 
-#: includes/class-rr-admin.php:2337
+#: includes/class-rnrd-admin.php:4750
+msgid "Stop"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4801
 msgid "API Usage"
 msgstr ""
 
-#: includes/class-rr-admin.php:2338
-msgid "Cumulative API usage tracked since this feature was enabled."
+#: includes/class-rnrd-admin.php:4802
+msgid "Cumulative tokens, calls, and estimated cost since tracking began."
 msgstr ""
 
-#: includes/class-rr-admin.php:2343
-msgid "Estimated Cost (GPT-4o-mini)"
+#: includes/class-rnrd-admin.php:4811
+msgid "Total cost"
 msgstr ""
 
-#: includes/class-rr-admin.php:2348
-msgid "DataForSEO Cost"
+#: includes/class-rnrd-admin.php:4812
+msgid "AI + DataForSEO"
 msgstr ""
 
-#: includes/class-rr-admin.php:2357
-msgid "Summary Tokens"
+#: includes/class-rnrd-admin.php:4814
+msgid "Blended estimate"
 msgstr ""
 
-#: includes/class-rr-admin.php:2361
-msgid "FAQ Tokens"
+#: includes/class-rnrd-admin.php:4817
+msgid "Total tokens"
 msgstr ""
 
-#: includes/class-rr-admin.php:2365
-msgid "Total Tokens"
+#. translators: 1: summary token count, 2: FAQ token count
+#: includes/class-rnrd-admin.php:4823
+#, php-format
+msgid "%1$s summary · %2$s FAQ"
 msgstr ""
 
-#: includes/class-rr-admin.php:2369
-#: includes/class-rr-admin.php:2377
-msgid "API Calls"
+#: includes/class-rnrd-admin.php:4830
+msgid "AI API calls"
 msgstr ""
 
-#: includes/class-rr-admin.php:2381
-msgid "Total Cost"
+#: includes/class-rnrd-admin.php:4833
+msgid "Cumulative"
 msgstr ""
 
-#: includes/class-rr-admin.php:2386
+#: includes/class-rnrd-admin.php:4836
+msgid "DataForSEO calls"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4837
+msgid "FAQ question discovery"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4839
+msgid "spent"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4844
 msgid "Load Per-Post Details"
 msgstr ""
 
-#: includes/class-rr-admin.php:2393
-#: includes/class-rr-admin.php:2476
-#: includes/class-rr-admin.php:2528
+#: includes/class-rnrd-admin.php:4851
+#: includes/class-rnrd-admin.php:4898
+#: includes/class-rnrd-admin.php:5077
 msgid "Post"
 msgstr ""
 
-#: includes/class-rr-admin.php:2395
+#: includes/class-rnrd-admin.php:4852
+#: includes/class-rnrd-admin.php:4899
+msgid "Type"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4853
 msgid "Tokens Used"
 msgstr ""
 
-#: includes/class-rr-admin.php:2406
-msgid "Bulk Generate FAQs"
+#: includes/class-rnrd-admin.php:4854
+#: includes/class-rnrd-admin.php:4904
+msgid "Actions"
 msgstr ""
 
-#: includes/class-rr-admin.php:2408
-msgid "Generate FAQ Q&A pairs for all existing published posts using DataForSEO + OpenAI. Requires both API keys to be configured."
+#: includes/class-rnrd-admin.php:4870
+msgid "Content Freshness"
 msgstr ""
 
-#: includes/class-rr-admin.php:2426
-msgid "Start Bulk FAQ Generate"
+#: includes/class-rnrd-admin.php:4871
+msgid "Pages refreshed within 60 days are prioritised by ChatGPT, Perplexity, and Gemini."
 msgstr ""
 
-#: includes/class-rr-admin.php:2444
-msgid "Content Freshness Alerts"
+#: includes/class-rnrd-admin.php:4873
+msgid "A stale dateModified tells crawlers a page has not changed, so it gets recrawled less often. Use the scan tool below to surface posts you have not touched in a while, then work through the buckets in priority order."
 msgstr ""
 
-#: includes/class-rr-admin.php:2446
-msgid "AI search engines strongly prefer fresh content. 65% of AI citations target content updated within the past year. Find stale posts that may be losing AI visibility."
-msgstr ""
-
-#: includes/class-rr-admin.php:2451
+#: includes/class-rnrd-admin.php:4879
 msgid "Stale Threshold"
 msgstr ""
 
-#: includes/class-rr-admin.php:2455
+#: includes/class-rnrd-admin.php:4881
 msgid "60 days"
 msgstr ""
 
-#: includes/class-rr-admin.php:2456
+#: includes/class-rnrd-admin.php:4882
 msgid "90 days (recommended)"
 msgstr ""
 
-#: includes/class-rr-admin.php:2457
+#: includes/class-rnrd-admin.php:4883
 msgid "180 days"
 msgstr ""
 
-#: includes/class-rr-admin.php:2458
+#: includes/class-rnrd-admin.php:4884
 msgid "1 year"
 msgstr ""
 
-#: includes/class-rr-admin.php:2465
+#: includes/class-rnrd-admin.php:4889
 msgid "Scan Content Freshness"
 msgstr ""
 
-#: includes/class-rr-admin.php:2475
+#: includes/class-rnrd-admin.php:4897
 msgid "Urgency"
 msgstr ""
 
-#: includes/class-rr-admin.php:2478
+#: includes/class-rnrd-admin.php:4900
 msgid "Last Updated"
 msgstr ""
 
-#: includes/class-rr-admin.php:2479
+#: includes/class-rnrd-admin.php:4901
 msgid "Days Stale"
 msgstr ""
 
-#: includes/class-rr-admin.php:2480
+#: includes/class-rnrd-admin.php:4902
 msgid "Summary"
 msgstr ""
 
-#: includes/class-rr-admin.php:2481
+#: includes/class-rnrd-admin.php:4903
 msgid "FAQ"
 msgstr ""
 
-#: includes/class-rr-admin.php:2492
-msgid "Health Check"
+#: includes/class-rnrd-admin.php:4938
+msgid "Cloudflare detected"
 msgstr ""
 
-#: includes/class-rr-admin.php:2493
-msgid "Run a diagnostic scan to verify all RankReady features are configured and working correctly."
+#: includes/class-rnrd-admin.php:4939
+msgid "No action needed"
 msgstr ""
 
-#: includes/class-rr-admin.php:2495
-msgid "Run Health Check"
+#: includes/class-rnrd-admin.php:4942
+msgid "Your site is served through Cloudflare. Here is what that means for RankReady, in plain language:"
 msgstr ""
 
-#: includes/class-rr-admin.php:2503
+#: includes/class-rnrd-admin.php:4945
+msgid "RankReady sends Markdown with proper cache headers."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4945
+msgid "Every /post.md is served as public, cacheable content, so browsers and standard CDNs can store it. RankReady changes none of your Cloudflare settings — it only sets the right response headers."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4946
+msgid "Cloudflare will not cache .md on its own — and that is fine."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4946
+msgid "Cloudflare caches your HTML pages automatically, but it does not cache non-HTML files like .md unless you add a \"Cache Everything\" Cache Rule for /*.md. Without one, .md is served fresh from your origin: still fast, and always current (no stale Markdown). Adding that rule is optional."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4947
+msgid "If you use APO, one harmless quirk:"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4947
+msgid "An AI tool that asks for Markdown via the \"Accept: text/markdown\" header on a normal page URL may receive the cached HTML page instead, because Cloudflare APO ignores that header. This does not matter — AI tools fetch the /post.md URL, which always returns clean Markdown."
+msgstr ""
+
+#. translators: %s: Cloudflare ray id
+#: includes/class-rnrd-admin.php:4952
+#, php-format
+msgid "In short: point AI tools at your /post.md URLs (RankReady already advertises them on every page) — they work whether or not Cloudflare caches them. Detected via Cloudflare ray %s."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4962
+msgid "Diagnostics"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4963
+msgid "Live probes that actually fetch your endpoints + detect plugin conflicts. Every failure ships with a fix."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4965
+msgid "Live probes that actually fetch /llms.txt, /robots.txt, /.well-known/mcp.json and every Markdown route — then detect cache/builder/SEO plugin conflicts. Every failure ships with a one-line fix."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4970
+msgid "Run Diagnostics"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4974
+msgid "Also test LLM provider keys (uses 1 API call per provider)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:4988
 msgid "Check"
 msgstr ""
 
-#: includes/class-rr-admin.php:2504
-msgid "Result"
+#: includes/class-rnrd-admin.php:4989
+msgid "Result + Fix"
 msgstr ""
 
-#: includes/class-rr-admin.php:2514
+#: includes/class-rnrd-admin.php:5010
+msgid "Server / CDN cache bypass snippets (advanced)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5013
+msgid "Apply these only when a cache layer is serving stale or wrong-type responses to AI crawlers (e.g. Cloudflare returning HTML to Accept: text/markdown requests, or LSWS caching /llms.txt before PHP runs)."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5016
+msgid "Cloudflare — paste into Cache Rules → Custom filter expression"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5020
+msgid "Apache / LiteSpeed — paste at top of .htaccess"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5024
+msgid "nginx — add inside your server { } block"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5028
+msgid "nginx — if /.well-known/mcp.json returns 403 (this ALLOWS access; it is not a cache setting)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5037
+msgid "Need help?"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5038
+msgid "Click below to copy a full diagnostic report with active plugins, versions, and conflict details — paste into any support channel or include with a bug report."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5042
+msgid "Copy Diagnostic Report"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5047
+msgid "Preview report (plaintext)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5049
+msgid "Run diagnostics, then click Copy to see report here."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5062
 msgid "Error Log"
 msgstr ""
 
-#: includes/class-rr-admin.php:2515
+#: includes/class-rnrd-admin.php:5063
+msgid "Recent API errors from OpenAI, Anthropic, Gemini, DeepSeek, DataForSEO. Last 50 entries."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5064
 msgid "Recent API errors from OpenAI and DataForSEO. Shows the last 50 entries."
 msgstr ""
 
-#: includes/class-rr-admin.php:2517
+#: includes/class-rnrd-admin.php:5066
 msgid "Load Error Log"
 msgstr ""
 
-#: includes/class-rr-admin.php:2518
+#: includes/class-rnrd-admin.php:5067
 msgid "Clear Log"
 msgstr ""
 
-#: includes/class-rr-admin.php:2525
+#: includes/class-rnrd-admin.php:5074
 msgid "When"
 msgstr ""
 
-#: includes/class-rr-admin.php:2526
+#: includes/class-rnrd-admin.php:5075
 msgid "Source"
 msgstr ""
 
-#: includes/class-rr-admin.php:2527
-#: includes/class-rr-headless.php:737
+#: includes/class-rnrd-admin.php:5076
 msgid "Error"
 msgstr ""
 
-#: includes/class-rr-admin.php:2538
+#: includes/class-rnrd-admin.php:5095
+msgid "Open Knowledge Format (OKF)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5096
+msgid "Publish a clean, machine-readable bundle of your content in Google's Open Knowledge Format so AI agents can ingest it without scraping."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5098
+msgid "When enabled, RankReady serves an OKF v0.1 bundle: a manifest plus one Markdown concept file per published item, each tagged with type, description, canonical URL and tags. Generated entirely on your server — no data is sent anywhere."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5102
+msgid "Enable OKF bundle"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5107
+msgid "Serve the bundle at /okf/ and refresh it automatically on publish or edit."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5112
+msgid "Include post types"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5125
+msgid "Save OKF Settings"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5129
+msgid "Your OKF bundle"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5132
+msgid "Bundle URL"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5136
+msgid "Download"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5138
+msgid "Download .zip bundle"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5139
+msgid "A ZIP of the full bundle (index.md, log.md and every concept file) for upload to Google Cloud Knowledge Catalog or a Git repo."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5158
 msgid "Data Retention"
 msgstr ""
 
-#: includes/class-rr-admin.php:2540
-msgid "Control what happens to your RankReady data when the plugin is deactivated or deleted."
+#: includes/class-rnrd-admin.php:5159
+msgid "Choose what happens to RankReady data when the plugin is uninstalled. Default keeps everything."
 msgstr ""
 
-#: includes/class-rr-admin.php:2548
+#: includes/class-rnrd-admin.php:5161
+msgid "Control what happens to your RankReady data when the plugin is deleted."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5165
 msgid "On Deactivate"
 msgstr ""
 
-#: includes/class-rr-admin.php:2552
+#: includes/class-rnrd-admin.php:5169
 msgid "Nothing is deleted on deactivation."
 msgstr ""
 
-#: includes/class-rr-admin.php:2555
+#: includes/class-rnrd-admin.php:5172
 msgid "Deactivating RankReady only pauses its hooks and clears scheduled cron jobs. All settings, API keys, AI summaries, FAQ data, Author Box profiles, freshness history, and post meta stay exactly where they are. You can reactivate any time and pick up where you left off."
 msgstr ""
 
-#: includes/class-rr-admin.php:2561
-msgid "On Uninstall"
+#: includes/class-rnrd-admin.php:5177
+msgid "On Uninstall (Delete)"
 msgstr ""
 
-#: includes/class-rr-admin.php:2567
+#: includes/class-rnrd-admin.php:5183
 msgid "Delete all RankReady data when the plugin is uninstalled"
 msgstr ""
 
-#: includes/class-rr-admin.php:2570
-msgid "OFF by default. Uninstalling (Plugins → Delete) preserves all your data — API keys, settings, every AI Summary, every FAQ, every Author Box profile, all post meta. If you ever reinstall RankReady, everything comes back automatically."
+#: includes/class-rnrd-admin.php:5186
+msgid "OFF by default. Uninstalling preserves all your data — API keys, settings, every AI Summary, every FAQ, every Author Box profile, all post meta. Reinstalling RankReady brings everything back automatically."
 msgstr ""
 
-#: includes/class-rr-admin.php:2573
+#: includes/class-rnrd-admin.php:5189
 msgid "Warning:"
 msgstr ""
 
-#: includes/class-rr-admin.php:2574
-msgid "When ON, uninstall will permanently remove every RankReady option, post meta key, user meta key (including the full Author Box profile on every user), and transient. This cannot be undone and is not what most sites want. Leave OFF unless you specifically need a clean slate."
+#: includes/class-rnrd-admin.php:5190
+msgid "When ON, uninstall permanently removes every RankReady option, post meta, and user meta. Cannot be undone. Leave OFF unless you need a completely clean slate."
 msgstr ""
 
-#: includes/class-rr-admin.php:2580
-msgid "Save Data Retention Settings"
+#: includes/class-rnrd-admin.php:5195
+msgid "Save Data Retention"
 msgstr ""
 
-#: includes/class-rr-admin.php:2610
-msgid "How It Works"
+#: includes/class-rnrd-admin.php:5240
+#: includes/class-rnrd-agent-dashboard.php:37
+msgid "RankReady — Agent Visibility"
 msgstr ""
 
-#: includes/class-rr-admin.php:2616
-msgid "On publish/update, the plugin generates an AI summary in the background. The API is only called when content changes (verified via content hash)."
+#: includes/class-rnrd-admin.php:5293
+msgid "Advanced options"
 msgstr ""
 
-#: includes/class-rr-admin.php:2620
-msgid "Schema Markup"
+#: includes/class-rnrd-admin.php:5297
+msgid "AI snippet"
 msgstr ""
 
-#: includes/class-rr-admin.php:2621
-msgid "Article JSON-LD schema with speakable markup is injected automatically. Skips if Yoast, Rank Math, or AIOSEO is active."
-msgstr ""
-
-#: includes/class-rr-admin.php:2625
-#: includes/class-rr-admin.php:2645
-msgid "LLMs.txt"
-msgstr ""
-
-#: includes/class-rr-admin.php:2626
-msgid "Generates a /llms.txt file following the llmstxt.org spec. Lists your content for AI models to understand your site structure."
-msgstr ""
-
-#: includes/class-rr-admin.php:2631
-msgid "Appending .md to any post URL serves clean Markdown with YAML frontmatter. Ideal for LLM crawlers and AI agents."
-msgstr ""
-
-#: includes/class-rr-admin.php:2637
-msgid "Quick Stats"
-msgstr ""
-
-#: includes/class-rr-admin.php:2641
-msgid "AI Summaries Generated"
-msgstr ""
-
-#: includes/class-rr-admin.php:2657
-msgid "FAQs Generated"
-msgstr ""
-
-#. translators: %s: POSIMYTH link
-#: includes/class-rr-admin.php:2667
+#. translators: %s: name of the default summary mode
+#: includes/class-rnrd-admin.php:5303
 #, php-format
-msgid "RankReady v%1$s by %2$s"
+msgid "Use default (%s)"
 msgstr ""
 
-#: includes/class-rr-admin.php:2684
-msgid "RankReady -- AI Summary"
+#: includes/class-rnrd-admin.php:5304
+msgid "Allow full snippet"
 msgstr ""
 
-#: includes/class-rr-admin.php:2703
-msgid "Disable AI summary for this post"
+#: includes/class-rnrd-admin.php:5304
+msgid "Standard snippet"
 msgstr ""
 
-#: includes/class-rr-admin.php:2710
+#: includes/class-rnrd-admin.php:5309
+msgid "Allow full snippet (max-snippet:-1)"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5312
+msgid "Standard snippet only"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5315
+msgid "How much of this page AI engines may quote."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5321
+msgid "Exclude this post from llms.txt"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5328
+msgid "Disable AI summary on publish"
+msgstr ""
+
+#. translators: %s: human-readable age like "3 days"
+#: includes/class-rnrd-admin.php:5337
 #, php-format
-msgid "Last generated: %s ago"
+msgid "Summary generated %s ago"
 msgstr ""
 
-#: includes/class-rr-admin.php:2729
-msgid "No summary yet. It will generate on publish/update."
+#: includes/class-rnrd-admin.php:5366
+msgid "AI summary disabled"
 msgstr ""
 
-#: includes/class-rr-admin.php:2774
+#: includes/class-rnrd-admin.php:5367
+msgid "excluded from llms.txt"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5371
+msgid "AI visibility reduced"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5380
+msgid "Optimised for AI"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5381
+msgid "Summary + FAQ ready. ChatGPT, Perplexity & Claude can cite this page."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5389
+msgid "AI summary ready"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5390
+msgid "Add an FAQ to boost citation rate."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5398
+msgid "Generation runs on publish"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5399
+msgid "RankReady generates summary + FAQ after this post goes live."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5406
+msgid "Not yet optimised"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5407
+msgid "Open the AI tab to generate summary + FAQ."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5549
+msgid "We detected nginx and /.well-known/mcp.json is blocked (HTTP 403)."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5550
+msgid "Your server is blocking /.well-known/mcp.json (HTTP 403)."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5560
+msgid "The WebMCP manifest cannot be reached because the server denies /.well-known/ before WordPress runs. Add this one block to your nginx server config (above any dotfile deny rule), then reload nginx. On RunCloud: open Web App, then NGINX Config. Apache and LiteSpeed need no change."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5562
+msgid "Dismiss this notice"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5593
+msgid "RankReady: Pretty Permalinks required"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5594
+msgid "Your site is using plain permalinks (?p=123). RankReady's LLM endpoints (llms.txt, llms-full.txt, and per-post .md files) will return 404 until you enable pretty permalinks."
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5596
+msgid "Fix it in Settings → Permalinks →"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5612
 msgid "Security check failed."
 msgstr ""
 
-#: includes/class-rr-admin.php:2777
+#: includes/class-rnrd-admin.php:5615
 msgid "Permission denied."
 msgstr ""
 
-#: includes/class-rr-admin.php:2782
-msgid "Connection successful! Your OpenAI API key is valid."
+#: includes/class-rnrd-admin.php:5620
+msgid "Connection successful. The OpenAI API key is valid."
 msgstr ""
 
-#: includes/class-rr-admin.php:2786
+#: includes/class-rnrd-admin.php:5624
 msgid "Connection failed: "
 msgstr ""
 
-#: includes/class-rr-admin.php:2796
-msgid "Settings"
-msgstr ""
-
-#: includes/class-rr-admin.php:2822
+#: includes/class-rnrd-admin.php:5660
 msgid "Summary disabled"
 msgstr ""
 
-#: includes/class-rr-admin.php:2824
+#: includes/class-rnrd-admin.php:5662
 msgid "Summary generated"
 msgstr ""
 
-#: includes/class-rr-admin.php:2826
+#: includes/class-rnrd-admin.php:5664
 msgid "No summary"
 msgstr ""
 
-#: includes/class-rr-admin.php:2830
+#: includes/class-rnrd-admin.php:5668
 msgid "FAQ disabled"
 msgstr ""
 
-#: includes/class-rr-admin.php:2832
+#: includes/class-rnrd-admin.php:5670
 msgid "FAQ generated"
 msgstr ""
 
-#: includes/class-rr-admin.php:2834
+#: includes/class-rnrd-admin.php:5672
 msgid "No FAQ"
 msgstr ""
 
-#: includes/class-rr-author-box.php:235
-#: includes/class-rr-elementor-author-box.php:16
-msgid "RankReady Author Box"
+#: includes/class-rnrd-admin.php:5911
+msgid "LLMs.txt"
 msgstr ""
 
-#: includes/class-rr-author-box.php:237
-msgid "Every field below emits Schema.org Person data for Google EEAT and AI citation (ChatGPT, Perplexity, Google AI Overviews). Fill in only what applies. RankReady uses this data in the Author Box block, Elementor widget, and JSON-LD schema — and merges into Rank Math / Yoast / AIOSEO / SEOPress Person schema automatically when those plugins are active."
+#: includes/class-rnrd-admin.php:5915
+msgid "WebMCP Manifest"
 msgstr ""
 
-#: includes/class-rr-author-box.php:243
+#: includes/class-rnrd-admin.php:5916
+msgid "AI Summary auto-generation"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5917
+msgid "FAQ auto-generation"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5919
+msgid "FAQPage schema"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5920
+msgid "HowTo schema"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5921
+msgid "ItemList schema"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5922
+msgid "Speakable schema"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5923
+msgid "AI Referral Tracking"
+msgstr ""
+
+#: includes/class-rnrd-admin.php:5948
+msgid "enabled. Scroll down to configure."
+msgstr ""
+
+#: includes/class-rnrd-agent-dashboard.php:58
+msgid "Training bots"
+msgstr ""
+
+#: includes/class-rnrd-agent-dashboard.php:60
+msgid "crawling you for AI training (30d)"
+msgstr ""
+
+#: includes/class-rnrd-agent-dashboard.php:64
+msgid "Citation bots"
+msgstr ""
+
+#: includes/class-rnrd-agent-dashboard.php:66
+msgid "reading you live to answer questions (30d)"
+msgstr ""
+
+#: includes/class-rnrd-agent-dashboard.php:70
+msgid "Real AI referrals"
+msgstr ""
+
+#: includes/class-rnrd-agent-dashboard.php:72
+msgid "visitors from ChatGPT, Perplexity, Claude (30d)"
+msgstr ""
+
+#: includes/class-rnrd-agent-dashboard.php:76
+msgid "Content going stale"
+msgstr ""
+
+#: includes/class-rnrd-agent-dashboard.php:78
+msgid "posts 60+ days old, losing AI citations"
+msgstr ""
+
+#. translators: %d: agent-optimisation percentage
+#: includes/class-rnrd-agent-dashboard.php:105
+#, php-format
+msgid "Your site is %d%% agent-optimised"
+msgstr ""
+
+#. translators: 1: active signal count, 2: total signal count
+#: includes/class-rnrd-agent-dashboard.php:112
+#, php-format
+msgid "%1$d of %2$d agent signals active — view details →"
+msgstr ""
+
+#: includes/class-rnrd-agent-dashboard.php:130
+msgid "View full Insights →"
+msgstr ""
+
+#: includes/class-rnrd-ai-referral.php:66
+msgid "Tracking is live. Counters fill in as ChatGPT, Perplexity, Gemini, Claude, or Copilot send their first visitor."
+msgstr ""
+
+#: includes/class-rnrd-ai-referral.php:69
+msgid "Referrals appear here only once someone clicks through from an AI engine, so this stays empty until that happens. How long that takes depends on your content and how often engines recrawl it."
+msgstr ""
+
+#: includes/class-rnrd-ai-referral.php:78
+msgid "total AI-sourced visits"
+msgstr ""
+
+#: includes/class-rnrd-ai-referral.php:101
+msgid "Each visit here is a real person who clicked through from an AI engine to your site, identified by the HTTP referer. These are counted locally and never sent anywhere."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:247
+msgid "Author Profile for E-E-A-T"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:250
+msgid "Every field below emits Schema.org Person data for Google EEAT and AI citation (ChatGPT, Perplexity, Google AI Overviews). Fill in only what applies. RankReady merges into Rank Math, Yoast, and AIOSEO Person schema automatically when those plugins are active."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:252
+msgid "These fields power the on-page Author Box and the basic Person schema that ships with every post. Each input below explains the EEAT or AI-citation signal it produces. Extended schema for credentials, verified identity, and social profiles is listed under Coming Soon."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:264
+msgid "Open RankReady E-E-A-T settings"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:274
 msgid "Identity & Work"
 msgstr ""
 
-#: includes/class-rr-author-box.php:246
-#: includes/class-rr-elementor-author-box.php:92
+#: includes/class-rnrd-author-box.php:275
+msgid "The core entity block. Job title plus employer give AI systems a verifiable career identity to attach citations to."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:279
+#: includes/class-rnrd-elementor-author-box.php:94
 msgid "Job Title"
 msgstr ""
 
-#: includes/class-rr-author-box.php:249
+#: includes/class-rnrd-author-box.php:282
 msgid "Your professional role. Emits as Person.jobTitle — a primary EEAT signal."
 msgstr ""
 
-#: includes/class-rr-author-box.php:253
+#: includes/class-rnrd-author-box.php:286
 msgid "Employer / Company"
 msgstr ""
 
-#: includes/class-rr-author-box.php:256
+#: includes/class-rnrd-author-box.php:289
 msgid "Organization you work for. Emits as Person.worksFor → Organization entity."
 msgstr ""
 
-#: includes/class-rr-author-box.php:260
+#: includes/class-rnrd-author-box.php:293
 msgid "Employer URL"
 msgstr ""
 
-#: includes/class-rr-author-box.php:263
+#: includes/class-rnrd-author-box.php:296
 msgid "Organization website. Emits as Person.worksFor.url — connects your author entity to the org entity."
 msgstr ""
 
-#: includes/class-rr-author-box.php:267
-#: includes/class-rr-elementor-author-box.php:95
+#: includes/class-rnrd-author-box.php:300
+#: includes/class-rnrd-elementor-author-box.php:97
 msgid "Bio"
 msgstr ""
 
-#: includes/class-rr-author-box.php:270
+#: includes/class-rnrd-author-box.php:303
 msgid "Short professional bio (max 500 chars). Emits as Person.description. Keep it factual — AI systems extract this verbatim."
 msgstr ""
 
-#: includes/class-rr-author-box.php:274
+#: includes/class-rnrd-author-box.php:307
 msgid "Headshot URL"
 msgstr ""
 
-#: includes/class-rr-author-box.php:277
+#: includes/class-rnrd-author-box.php:310
 msgid "Select Image"
 msgstr ""
 
-#: includes/class-rr-author-box.php:278
+#: includes/class-rnrd-author-box.php:311
 msgid "Real photo, square, at least 400x400px. Emits as Person.image. Avoid avatars and stock photos — AI Overviews favor verifiable faces."
 msgstr ""
 
-#: includes/class-rr-author-box.php:282
+#: includes/class-rnrd-author-box.php:315
 msgid "Headshot Alt Text"
 msgstr ""
 
-#: includes/class-rr-author-box.php:285
+#: includes/class-rnrd-author-box.php:318
 msgid "Accessibility text. Typically \"Photo of [Your Name]\"."
 msgstr ""
 
-#: includes/class-rr-author-box.php:290
+#: includes/class-rnrd-author-box.php:324
 msgid "Experience"
 msgstr ""
 
-#: includes/class-rr-author-box.php:293
+#: includes/class-rnrd-author-box.php:325
+msgid "The first-hand experience and topical authority signals. AI systems weight these heavily when deciding whether to cite a source on a given topic."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:329
 msgid "Started in Field (Year)"
 msgstr ""
 
-#: includes/class-rr-author-box.php:296
+#: includes/class-rnrd-author-box.php:332
 msgid "Year you started working in this field. RankReady auto-calculates years of experience from this — verifiable, not a vanity counter."
 msgstr ""
 
-#: includes/class-rr-author-box.php:300
-#: includes/class-rr-elementor-author-box.php:96
+#: includes/class-rnrd-author-box.php:336
+#: includes/class-rnrd-elementor-author-box.php:98
 msgid "Topics of Expertise"
 msgstr ""
 
-#: includes/class-rr-author-box.php:303
+#: includes/class-rnrd-author-box.php:339
 msgid "Comma-separated topics. Emits as Person.knowsAbout[] — the highest-signal field for LLM topical clustering. Use 3–8 specific topics."
 msgstr ""
 
-#: includes/class-rr-author-box.php:308
+#: includes/class-rnrd-author-box.php:348
+msgid "Coming Soon"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:349
+msgid "Extended schema"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:352
+msgid "Four extra section groups will unlock here. Each one emits a distinct Schema.org Person property that AI ranking systems read when picking authors to cite. Names below match the JSON-LD fields RankReady will write."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:356
+#: includes/class-rnrd-author-box.php:399
 msgid "Credentials"
 msgstr ""
 
-#: includes/class-rr-author-box.php:311
-msgid "Credentials Suffix"
+#: includes/class-rnrd-author-box.php:358
+msgid "Credentials suffix — Person.honorificSuffix"
 msgstr ""
 
-#: includes/class-rr-author-box.php:314
-msgid "Post-nominal letters displayed next to your name in the author box (e.g. \"Jane Smith, MD\"). Not required."
+#: includes/class-rnrd-author-box.php:359
+msgid "Education — Person.alumniOf and hasCredential"
 msgstr ""
 
-#: includes/class-rr-author-box.php:318
-msgid "Education"
+#: includes/class-rnrd-author-box.php:360
+msgid "Certifications — Person.hasCredential with verify URL"
 msgstr ""
 
-#: includes/class-rr-author-box.php:324
-msgid "+ Add Education"
+#: includes/class-rnrd-author-box.php:361
+msgid "Memberships — Person.memberOf"
 msgstr ""
 
-#: includes/class-rr-author-box.php:325
-msgid "Degrees and academic qualifications. Each row emits as Person.alumniOf[] + hasCredential[] (credentialCategory: degree)."
+#: includes/class-rnrd-author-box.php:362
+msgid "Awards — Person.award"
 msgstr ""
 
-#: includes/class-rr-author-box.php:329
-msgid "Certifications"
+#: includes/class-rnrd-author-box.php:366
+msgid "Verified identity"
 msgstr ""
 
-#: includes/class-rr-author-box.php:335
-msgid "+ Add Certification"
+#: includes/class-rnrd-author-box.php:368
+msgid "Wikidata QID — canonical entity URI"
 msgstr ""
 
-#: includes/class-rr-author-box.php:336
-msgid "Professional certifications with issuer and verify URL. Emits as Person.hasCredential[] (credentialCategory: certification)."
+#: includes/class-rnrd-author-box.php:369
+msgid "Wikipedia URL — high-trust entity anchor"
 msgstr ""
 
-#: includes/class-rr-author-box.php:340
-msgid "Memberships"
+#: includes/class-rnrd-author-box.php:370
+msgid "ORCID iD — academic identifier (dual emit)"
 msgstr ""
 
-#: includes/class-rr-author-box.php:346
-msgid "+ Add Membership"
+#: includes/class-rnrd-author-box.php:371
+msgid "Google Scholar URL — academic authority"
 msgstr ""
 
-#: includes/class-rr-author-box.php:347
-msgid "Professional associations (SPJ, AMA, IEEE, W3C, …). Emits as Person.memberOf[]."
+#: includes/class-rnrd-author-box.php:372
+msgid "LinkedIn URL — top-weighted Perplexity signal"
 msgstr ""
 
-#: includes/class-rr-author-box.php:351
-msgid "Awards"
+#: includes/class-rnrd-author-box.php:376
+msgid "Social profiles"
 msgstr ""
 
-#: includes/class-rr-author-box.php:357
-msgid "+ Add Award"
+#: includes/class-rnrd-author-box.php:378
+msgid "GitHub URL — sameAs technical authority"
 msgstr ""
 
-#: includes/class-rr-author-box.php:358
-msgid "Professional recognition. Emits as Person.award[]."
+#: includes/class-rnrd-author-box.php:379
+msgid "YouTube URL — sameAs media authority"
 msgstr ""
 
-#: includes/class-rr-author-box.php:363
-msgid "Verified Identity (priority sameAs)"
+#: includes/class-rnrd-author-box.php:380
+msgid "X / Twitter URL — sameAs"
 msgstr ""
 
-#: includes/class-rr-author-box.php:366
-msgid "Wikidata QID"
+#: includes/class-rnrd-author-box.php:381
+msgid "Personal website URL — sameAs canonical"
 msgstr ""
 
-#: includes/class-rr-author-box.php:369
-msgid "Your Wikidata identifier if you have one (format: Q12345). Highest-priority sameAs — the canonical entity URI LLMs actually reuse."
-msgstr ""
-
-#: includes/class-rr-author-box.php:373
-msgid "Wikipedia URL"
-msgstr ""
-
-#: includes/class-rr-author-box.php:376
-msgid "Wikipedia article URL about you, if one exists. Emits early in sameAs[] — strong entity anchor for Google and LLMs."
-msgstr ""
-
-#: includes/class-rr-author-box.php:380
-msgid "ORCID iD"
-msgstr ""
-
-#: includes/class-rr-author-box.php:383
-msgid "ORCID identifier (academic ID). Emits both as sameAs (orcid.org URL) and as identifier PropertyValue — dual emission improves disambiguation."
-msgstr ""
-
-#: includes/class-rr-author-box.php:387
-msgid "Google Scholar URL"
-msgstr ""
-
-#: includes/class-rr-author-box.php:390
-msgid "Google Scholar profile. Emits in sameAs[] — academic authority signal."
-msgstr ""
-
-#: includes/class-rr-author-box.php:394
-msgid "LinkedIn URL"
-msgstr ""
-
-#: includes/class-rr-author-box.php:397
-msgid "LinkedIn profile. Perplexity explicitly weights authors with verifiable LinkedIn — this is the single most important social signal for AI citation."
-msgstr ""
-
-#: includes/class-rr-author-box.php:402
-msgid "Social"
-msgstr ""
-
-#: includes/class-rr-author-box.php:405
-msgid "GitHub URL"
-msgstr ""
-
-#: includes/class-rr-author-box.php:408
-msgid "GitHub profile. Emits in sameAs[] — technical authority signal."
-msgstr ""
-
-#: includes/class-rr-author-box.php:412
-msgid "YouTube URL"
-msgstr ""
-
-#: includes/class-rr-author-box.php:415
-msgid "YouTube channel. Emits in sameAs[]."
-msgstr ""
-
-#: includes/class-rr-author-box.php:419
-msgid "X / Twitter URL"
-msgstr ""
-
-#: includes/class-rr-author-box.php:422
-msgid "X (Twitter) profile. Emits in sameAs[]."
-msgstr ""
-
-#: includes/class-rr-author-box.php:426
-msgid "Personal Website URL"
-msgstr ""
-
-#: includes/class-rr-author-box.php:429
-msgid "Your personal or portfolio site. Emits in sameAs[]."
-msgstr ""
-
-#: includes/class-rr-author-box.php:434
+#: includes/class-rnrd-author-box.php:385
+#: includes/class-rnrd-author-box.php:527
 msgid "Contact"
 msgstr ""
 
-#: includes/class-rr-author-box.php:437
+#: includes/class-rnrd-author-box.php:387
+msgid "Contact form URL — Person.contactPoint"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:388
+msgid "Public email — ContactPoint.email"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:389
+msgid "Mailing address — Person.address (PostalAddress)"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:404
+msgid "Credentials Suffix"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:407
+msgid "Post-nominal letters displayed next to your name in the author box (e.g. \"Jane Smith, MD\"). Not required."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:411
+msgid "Education"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:417
+msgid "+ Add Education"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:418
+msgid "Degrees and academic qualifications. Each row emits as Person.alumniOf[] + hasCredential[] (credentialCategory: degree)."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:422
+msgid "Certifications"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:428
+msgid "+ Add Certification"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:429
+msgid "Professional certifications with issuer and verify URL. Emits as Person.hasCredential[] (credentialCategory: certification)."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:433
+msgid "Memberships"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:439
+msgid "+ Add Membership"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:440
+msgid "Professional associations (SPJ, AMA, IEEE, W3C, …). Emits as Person.memberOf[]."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:444
+msgid "Awards"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:450
+msgid "+ Add Award"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:451
+msgid "Professional recognition. Emits as Person.award[]."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:456
+msgid "Verified Identity (priority sameAs)"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:459
+msgid "Wikidata QID"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:462
+msgid "Your Wikidata identifier if you have one (format: Q12345). Highest-priority sameAs — the canonical entity URI LLMs actually reuse."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:466
+msgid "Wikipedia URL"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:469
+msgid "Wikipedia article URL about you, if one exists. Emits early in sameAs[] — strong entity anchor for Google and LLMs."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:473
+msgid "ORCID iD"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:476
+msgid "ORCID identifier (academic ID). Emits both as sameAs (orcid.org URL) and as identifier PropertyValue — dual emission improves disambiguation."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:480
+msgid "Google Scholar URL"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:483
+msgid "Google Scholar profile. Emits in sameAs[] — academic authority signal."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:487
+msgid "LinkedIn URL"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:490
+msgid "LinkedIn profile. Perplexity explicitly weights authors with verifiable LinkedIn — this is the single most important social signal for AI citation."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:495
+msgid "Social"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:498
+msgid "GitHub URL"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:501
+msgid "GitHub profile. Emits in sameAs[] — technical authority signal."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:505
+msgid "YouTube URL"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:508
+msgid "YouTube channel. Emits in sameAs[]."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:512
+msgid "X / Twitter URL"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:515
+msgid "X (Twitter) profile. Emits in sameAs[]."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:519
+msgid "Personal Website URL"
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:522
+msgid "Your personal or portfolio site. Emits in sameAs[]."
+msgstr ""
+
+#: includes/class-rnrd-author-box.php:530
 msgid "Contact Form URL"
 msgstr ""
 
-#: includes/class-rr-author-box.php:440
+#: includes/class-rnrd-author-box.php:533
 msgid "Contact form page URL. Emits as Person.contactPoint — preferred over raw email (zero scrape risk)."
 msgstr ""
 
-#: includes/class-rr-author-box.php:546
+#: includes/class-rnrd-author-box.php:560
 msgid "No entries yet. Click \"Add\" below."
 msgstr ""
 
 #. translators: %d number of years
-#: includes/class-rr-author-box.php:1183
+#: includes/class-rnrd-author-box.php:1092
 #, php-format
 msgid "%d year experience"
 msgid_plural "%d years experience"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-rr-author-box.php:1254
+#: includes/class-rnrd-author-box.php:1163
 msgid "Fact-checked by"
 msgstr ""
 
-#: includes/class-rr-author-box.php:1260
+#: includes/class-rnrd-author-box.php:1169
 msgid "Reviewed by"
 msgstr ""
 
-#: includes/class-rr-author-box.php:1266
+#: includes/class-rnrd-author-box.php:1175
 msgid "Last reviewed"
 msgstr ""
 
-#: includes/class-rr-author-box.php:1281
+#: includes/class-rnrd-author-box.php:1190
 msgid "Editorial policy"
 msgstr ""
 
-#: includes/class-rr-author-box.php:1285
+#: includes/class-rnrd-author-box.php:1194
 msgid "How we fact-check"
 msgstr ""
 
-#: includes/class-rr-block.php:139
-#: includes/class-rr-elementor-faq.php:201
-#: includes/class-rr-faq.php:195
+#: includes/class-rnrd-block.php:179
+#: includes/class-rnrd-block.php:923
+#: includes/class-rnrd-elementor-faq.php:213
+#: includes/class-rnrd-faq.php:107
+#: includes/class-rnrd-faq.php:1270
 msgid "Frequently Asked Questions"
 msgstr ""
 
-#: includes/class-rr-block.php:234
-#: includes/class-rr-elementor-faq.php:235
-#: includes/class-rr-faq.php:222
+#. translators: %s: human-readable date the post was last reviewed
+#: includes/class-rnrd-block.php:283
+#: includes/class-rnrd-elementor-faq.php:248
+#: includes/class-rnrd-faq.php:139
 #, php-format
 msgid "Last reviewed: %s"
 msgstr ""
 
-#: includes/class-rr-block.php:1405
-msgid "Not scheduled"
+#: includes/class-rnrd-cache.php:748
+msgid "SWIS Performance detected — add one line to wp-config.php so AI agents get fresh content."
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:25
-#: includes/class-rr-elementor-faq.php:22
-#: includes/class-rr-elementor.php:26
+#: includes/class-rnrd-cache.php:751
+msgid "SWIS stores finished pages as static files, which can serve a cached copy of RankReady's dynamic endpoints (llms.txt, Markdown, the WebMCP manifest) to AI crawlers. SWIS has no per-request bypass or purge hook, so the fix is its documented exclusion constant. Add this to wp-config.php, above the \"That's all, stop editing\" line:"
+msgstr ""
+
+#: includes/class-rnrd-cache.php:755
+msgid "SWIS matches these as simple substrings of the request URL. Distinct .md URLs (e.g. /post-slug.md) are covered by the \".md\" entry. After adding it, clear the SWIS cache once from the admin bar."
+msgstr ""
+
+#: includes/class-rnrd-cache.php:756
+#: includes/class-rnrd-markdown.php:196
+msgid "Don't show again"
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:155
+msgid "A Cloudflare API token is required."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:169
+msgid "Could not determine the site host name."
+msgstr ""
+
+#. translators: %s: Cloudflare API error message
+#: includes/class-rnrd-cloudflare.php:191
+#, php-format
+msgid "Cloudflare rejected the request: %s. Create a Custom Token at dash.cloudflare.com/profile/api-tokens with two permissions — \"Zone : Zone : Read\" and \"Zone : Cache Rules : Edit\" — and scope it to this site's zone (or all zones)."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:213
+msgid "This Cloudflare token cannot see any zones. Add \"Zone : Zone : Read\" permission and scope the token to this site's zone (or all zones)."
+msgstr ""
+
+#. translators: 1: site host, 2: comma-separated zone names the token can access
+#: includes/class-rnrd-cloudflare.php:216
+#, php-format
+msgid "The token can see these zones: %2$s — but none match %1$s. Confirm %1$s is on this Cloudflare account and the token is scoped to it."
+msgstr ""
+
+#. translators: %s: Cloudflare API error message
+#: includes/class-rnrd-cloudflare.php:237
+#, php-format
+msgid "Found the zone, but creating the cache rule failed: %s. The token needs \"Zone : Cache Rules : Edit\" — make sure that row is set to Edit (not Read), alongside \"Zone : Zone : Read\"."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:372
+msgid "Cloudflare API rejected the request."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:481
+msgid "Cloudflare returned no rule ID."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:490
+msgid "Could not locate the RankReady rule in Cloudflare response."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:535
+msgid "Cloudflare cache compatibility"
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:537
+msgid "Cloudflare APO caches the HTML response and serves it back to every visitor, including AI agents that requested Markdown. RankReady adds one Cache Rule that bypasses cache for those requests."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:542
+msgid "Cache rule active. AI markdown requests bypass APO."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:545
+msgid "Disconnect and remove rule"
+msgstr ""
+
+#. translators: %s: Cloudflare Ray ID
+#: includes/class-rnrd-cloudflare.php:551
+#, php-format
+msgid "Cloudflare detected (Ray %s)."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:564
+msgid "Connect Cloudflare so RankReady creates the Markdown cache-bypass rule for you."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:569
+msgid "API token"
+msgstr ""
+
+#. translators: %s: link to the Cloudflare API token creation page
+#: includes/class-rnrd-cloudflare.php:577
+#, php-format
+msgid "Create a Custom Token at %s"
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:584
+msgid "Give it these two permission rows:"
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:592
+msgid "RankReady finds the zone automatically — you do not need the zone ID."
+msgstr ""
+
+#: includes/class-rnrd-cloudflare.php:600
+msgid "Connect and create rule"
+msgstr ""
+
+#. translators: %s: an nginx location config snippet.
+#: includes/class-rnrd-diagnostics.php:579
+#, php-format
+msgid "Add this ABOVE any \"location ~ /\\.\" deny rule, then reload the server (RunCloud: Web App → NGINX Config): %s — Apache and LiteSpeed need no change."
+msgstr ""
+
+#: includes/class-rnrd-elementor-author-box.php:16
+msgid "Author Box — RankReady"
+msgstr ""
+
+#: includes/class-rnrd-elementor-author-box.php:27
+#: includes/class-rnrd-elementor-faq.php:24
+#: includes/class-rnrd-elementor.php:129
 msgid "Content"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:30
+#: includes/class-rnrd-elementor-author-box.php:32
 msgid "Author Source"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:34
+#: includes/class-rnrd-elementor-author-box.php:36
 msgid "Current post author"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:35
+#: includes/class-rnrd-elementor-author-box.php:37
 msgid "Specific author"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:37
+#: includes/class-rnrd-elementor-author-box.php:39
 msgid "Defaults to the post author. Use \"Specific\" to pin a specific user on a landing page."
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:41
+#: includes/class-rnrd-elementor-author-box.php:43
 msgid "Author (User ID)"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:45
+#: includes/class-rnrd-elementor-author-box.php:47
 msgid "WordPress user ID. Find it at Users → All Users → hover an author."
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:49
+#: includes/class-rnrd-elementor-author-box.php:51
 msgid "Layout"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:53
+#: includes/class-rnrd-elementor-author-box.php:55
 msgid "Card (full box)"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:54
+#: includes/class-rnrd-elementor-author-box.php:56
 msgid "Compact (small)"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:55
+#: includes/class-rnrd-elementor-author-box.php:57
 msgid "Inline byline"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:57
+#: includes/class-rnrd-elementor-author-box.php:59
 msgid "Card = full end-of-article box. Compact = sidebar-ready. Inline = minimal byline row."
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:61
+#: includes/class-rnrd-elementor-author-box.php:63
 msgid "Show Heading"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:69
+#: includes/class-rnrd-elementor-author-box.php:71
 msgid "Heading Text"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:71
+#: includes/class-rnrd-elementor-author-box.php:73
 msgid "About the Author"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:73
+#: includes/class-rnrd-elementor-author-box.php:75
 msgid "Override the site-wide default from RankReady → Author Box settings."
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:77
+#: includes/class-rnrd-elementor-author-box.php:79
 msgid "Heading HTML Tag"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:85
+#: includes/class-rnrd-elementor-author-box.php:87
 msgid "Visible Fields"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:91
+#: includes/class-rnrd-elementor-author-box.php:93
 msgid "Headshot"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:93
+#: includes/class-rnrd-elementor-author-box.php:95
 msgid "Employer"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:94
+#: includes/class-rnrd-elementor-author-box.php:96
 msgid "Years of Experience"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:97
+#: includes/class-rnrd-elementor-author-box.php:99
 msgid "Credentials (Education + Certs)"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:98
+#: includes/class-rnrd-elementor-author-box.php:100
 msgid "Social Links"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:99
+#: includes/class-rnrd-elementor-author-box.php:101
 msgid "Reviewed-By / Last Reviewed"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:114
-#: includes/class-rr-elementor-faq.php:67
-#: includes/class-rr-elementor.php:62
+#: includes/class-rnrd-elementor-author-box.php:116
+#: includes/class-rnrd-elementor-faq.php:90
+#: includes/class-rnrd-elementor.php:189
 msgid "Box Style"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:119
-#: includes/class-rr-elementor-faq.php:72
-#: includes/class-rr-elementor.php:73
+#: includes/class-rnrd-elementor-author-box.php:121
+#: includes/class-rnrd-elementor-faq.php:95
+#: includes/class-rnrd-elementor.php:200
 msgid "Background Color"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:130
-#: includes/class-rr-elementor-author-box.php:239
-#: includes/class-rr-elementor-faq.php:83
-#: includes/class-rr-elementor.php:96
+#: includes/class-rnrd-elementor-author-box.php:132
+#: includes/class-rnrd-elementor-author-box.php:241
+#: includes/class-rnrd-elementor-faq.php:106
+#: includes/class-rnrd-elementor.php:223
 msgid "Border Radius"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:137
-#: includes/class-rr-elementor-faq.php:91
-#: includes/class-rr-elementor.php:79
+#: includes/class-rnrd-elementor-author-box.php:139
+#: includes/class-rnrd-elementor-faq.php:114
+#: includes/class-rnrd-elementor.php:206
 msgid "Padding"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:152
+#: includes/class-rnrd-elementor-author-box.php:154
 msgid "Heading Style"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:162
-#: includes/class-rr-elementor-author-box.php:180
-#: includes/class-rr-elementor-author-box.php:202
-#: includes/class-rr-elementor-author-box.php:219
-#: includes/class-rr-elementor-author-box.php:263
+#: includes/class-rnrd-elementor-author-box.php:164
+#: includes/class-rnrd-elementor-author-box.php:182
+#: includes/class-rnrd-elementor-author-box.php:204
+#: includes/class-rnrd-elementor-author-box.php:221
+#: includes/class-rnrd-elementor-author-box.php:265
 msgid "Color"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:171
+#: includes/class-rnrd-elementor-author-box.php:173
 msgid "Name Style"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:185
-#: includes/class-rr-elementor-author-box.php:268
+#: includes/class-rnrd-elementor-author-box.php:187
+#: includes/class-rnrd-elementor-author-box.php:270
 msgid "Hover Color"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:194
+#: includes/class-rnrd-elementor-author-box.php:196
 msgid "Meta Style"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:210
+#: includes/class-rnrd-elementor-author-box.php:212
 msgid "Bio Style"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:227
+#: includes/class-rnrd-elementor-author-box.php:229
 msgid "Image Style"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:232
+#: includes/class-rnrd-elementor-author-box.php:234
 msgid "Size"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:244
+#: includes/class-rnrd-elementor-author-box.php:246
 msgid "50% = perfect circle."
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:254
+#: includes/class-rnrd-elementor-author-box.php:256
 msgid "Social Style"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:273
+#: includes/class-rnrd-elementor-author-box.php:275
 msgid "Gap"
 msgstr ""
 
-#: includes/class-rr-elementor-author-box.php:294
+#: includes/class-rnrd-elementor-author-box.php:296
 msgid "No author resolved for this post. Pick \"Specific\" and enter a user ID."
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:13
-msgid "FAQ (RankReady)"
+#: includes/class-rnrd-elementor-faq.php:13
+msgid "FAQ — RankReady"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:27
+#: includes/class-rnrd-elementor-faq.php:35
+#: includes/class-rnrd-elementor.php:49
+msgid "Generate FAQ"
+msgstr ""
+
+#: includes/class-rnrd-elementor-faq.php:36
+msgid "FAQs auto-generate from your content. Use this to (re)generate manually."
+msgstr ""
+
+#: includes/class-rnrd-elementor-faq.php:43
+msgid "Focus Keyword"
+msgstr ""
+
+#: includes/class-rnrd-elementor-faq.php:45
+msgid "Auto-detected from Rank Math / Yoast"
+msgstr ""
+
+#: includes/class-rnrd-elementor-faq.php:46
+msgid "Leave empty to use your SEO plugin focus keyword."
+msgstr ""
+
+#: includes/class-rnrd-elementor-faq.php:50
 msgid "Show Title"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:29
-#: includes/class-rr-elementor-faq.php:57
-#: includes/class-rr-elementor.php:33
+#: includes/class-rnrd-elementor-faq.php:52
+#: includes/class-rnrd-elementor-faq.php:80
+#: includes/class-rnrd-elementor.php:160
 msgid "Yes"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:30
-#: includes/class-rr-elementor-faq.php:58
-#: includes/class-rr-elementor.php:34
+#: includes/class-rnrd-elementor-faq.php:53
+#: includes/class-rnrd-elementor-faq.php:81
+#: includes/class-rnrd-elementor.php:161
 msgid "No"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:36
+#: includes/class-rnrd-elementor-faq.php:59
 msgid "Title Text"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:44
+#: includes/class-rnrd-elementor-faq.php:67
 msgid "Title Tag"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:55
+#: includes/class-rnrd-elementor-faq.php:78
 msgid "Show \"Last Reviewed\" Date"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:103
+#: includes/class-rnrd-elementor-faq.php:126
 msgid "Title Style"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:114
+#: includes/class-rnrd-elementor-faq.php:137
 msgid "Title Color"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:123
+#: includes/class-rnrd-elementor-faq.php:146
 msgid "Question Style"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:133
+#: includes/class-rnrd-elementor-faq.php:156
 msgid "Question Color"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:142
+#: includes/class-rnrd-elementor-faq.php:165
 msgid "Answer Style"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:152
+#: includes/class-rnrd-elementor-faq.php:175
 msgid "Answer Color"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:158
+#: includes/class-rnrd-elementor-faq.php:181
 msgid "Divider Color"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:164
+#: includes/class-rnrd-elementor-faq.php:187
 msgid "Item Spacing"
 msgstr ""
 
-#: includes/class-rr-elementor-faq.php:194
-msgid "FAQ will appear here after generating. Go to RankReady > FAQ Generator tab or use the Gutenberg block to generate."
+#: includes/class-rnrd-elementor.php:13
+msgid "AI Summary — RankReady"
 msgstr ""
 
-#: includes/class-rr-elementor.php:67
+#: includes/class-rnrd-elementor.php:46
+#: includes/class-rnrd-elementor.php:91
+msgid "Generate Summary"
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:47
+msgid "Regenerate Summary"
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:48
+msgid "Generating…"
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:50
+msgid "Regenerate FAQ"
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:51
+msgid "Generating FAQ…"
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:92
+msgid "Summaries auto-generate on publish. Use this to refresh manually after editing the post body."
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:149
+msgid "How this widget works"
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:150
+msgid "On a single post or page, this widget shows that post's AI summary. On a Theme Builder Archive or Single template, every post in the loop renders its own summary — no separate archive-level summary is generated."
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:152
+msgid "Summaries auto-generate on publish. Use the button above to refresh one manually — you do not need it for the summary to appear."
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:175
+msgid "Label HTML Tag"
+msgstr ""
+
+#: includes/class-rnrd-elementor.php:194
 msgid "Border Color"
 msgstr ""
 
-#: includes/class-rr-elementor.php:88
+#: includes/class-rnrd-elementor.php:215
 msgid "Border Width"
 msgstr ""
 
-#: includes/class-rr-elementor.php:107
+#: includes/class-rnrd-elementor.php:234
 msgid "Label Style"
 msgstr ""
 
-#: includes/class-rr-elementor.php:118
+#: includes/class-rnrd-elementor.php:245
 msgid "Label Color"
 msgstr ""
 
-#: includes/class-rr-elementor.php:127
+#: includes/class-rnrd-elementor.php:254
 msgid "Bullets Style"
 msgstr ""
 
-#: includes/class-rr-elementor.php:137
+#: includes/class-rnrd-elementor.php:264
 msgid "Text Color"
 msgstr ""
 
-#: includes/class-rr-elementor.php:143
+#: includes/class-rnrd-elementor.php:270
 msgid "Marker Color"
 msgstr ""
 
-#: includes/class-rr-elementor.php:149
+#: includes/class-rnrd-elementor.php:276
 msgid "Space Between"
 msgstr ""
 
-#: includes/class-rr-elementor.php:179
-msgid "Summary will appear here after publishing."
+#. translators: %s: provider label
+#. translators: %s: provider name
+#: includes/class-rnrd-faq.php:582
+#: includes/class-rnrd-generator.php:329
+#, php-format
+msgid "No %s API key configured."
 msgstr ""
 
-#: includes/class-rr-generator.php:336
-msgid "No API key configured."
+#: includes/class-rnrd-faq.php:750
+msgid "The AI response could not be read as FAQ items. This is usually a temporary provider issue — try again, or switch AI provider in Settings. If it keeps happening, check the error log on the Advanced tab."
 msgstr ""
 
-#: includes/class-rr-headless.php:230
-msgid "Too many requests. Please slow down."
+#: includes/class-rnrd-faq.php:753
+msgid "The AI returned FAQ items, but all of them were rejected as low quality (too vague, or just restating the page). Add more specific detail to the content, or set a focus keyword, and try again."
 msgstr ""
 
-#: includes/class-rr-headless.php:255
-msgid "Revalidate secret not configured."
+#: includes/class-rnrd-freshness.php:51
+msgid "Freshness bucket filter"
 msgstr ""
 
-#: includes/class-rr-headless.php:262
-#: includes/class-rr-rest.php:1084
-msgid "Invalid credentials."
+#: includes/class-rnrd-freshness.php:53
+msgid "Stale"
 msgstr ""
 
-#: includes/class-rr-headless.php:298
-msgid "RankReady FAQ items (question/answer pairs)."
+#: includes/class-rnrd-freshness.php:54
+msgid "60+ days"
 msgstr ""
 
-#: includes/class-rr-headless.php:314
-#: includes/class-rr-headless.php:877
-msgid "RankReady AI-generated summary."
+#: includes/class-rnrd-freshness.php:56
+msgid "Refresh these first — they are losing AI citations."
 msgstr ""
 
-#: includes/class-rr-headless.php:331
-msgid "RankReady FAQPage JSON-LD schema."
+#: includes/class-rnrd-freshness.php:59
+msgid "Going stale"
 msgstr ""
 
-#: includes/class-rr-headless.php:505
-#: includes/class-rr-headless.php:550
-msgid "Invalid post type."
+#: includes/class-rnrd-freshness.php:60
+msgid "30–59 days"
 msgstr ""
 
-#: includes/class-rr-headless.php:528
-#: includes/class-rr-headless.php:996
-msgid "Post not found."
+#: includes/class-rnrd-freshness.php:62
+msgid "Plan a refresh before they drop out of AI answers."
 msgstr ""
 
-#: includes/class-rr-headless.php:864
-msgid "RankReady FAQ items (JSON-encoded)."
+#: includes/class-rnrd-freshness.php:65
+msgid "Fresh"
 msgstr ""
 
-#: includes/class-rr-headless.php:889
-msgid "RankReady FAQPage JSON-LD schema (JSON-encoded)."
+#: includes/class-rnrd-freshness.php:66
+msgid "under 30 days"
 msgstr ""
 
-#: includes/class-rr-headless.php:991
-msgid "Invalid post ID."
+#: includes/class-rnrd-freshness.php:68
+msgid "Prioritised by ChatGPT, Perplexity, and Gemini today."
 msgstr ""
 
-#: includes/class-rr-headless.php:1000
-msgid "Post is not published."
+#: includes/class-rnrd-freshness.php:75
+msgid "Select all"
 msgstr ""
 
-#: includes/class-rr-headless.php:1005
-msgid "Post type is not public."
+#: includes/class-rnrd-freshness.php:78
+msgid "Refresh dateModified"
 msgstr ""
 
-#: includes/class-rr-headless.php:1010
-msgid "Post is password-protected."
+#: includes/class-rnrd-freshness.php:83
+msgid "Loading…"
 msgstr ""
 
-#: includes/class-rr-markdown.php:248
-msgid "View as Markdown"
-msgstr ""
-
-#: includes/class-rr-rest.php:319
-#: includes/class-rr-rest.php:330
-#: includes/class-rr-rest.php:340
-msgid "You must be logged in."
-msgstr ""
-
-#: includes/class-rr-rest.php:323
-msgid "You do not have permission to edit this post."
-msgstr ""
-
-#: includes/class-rr-rest.php:333
-msgid "Admin access required."
-msgstr ""
-
-#: includes/class-rr-rest.php:343
+#: includes/class-rnrd-freshness.php:120
+#: includes/class-rnrd-rest.php:279
+#: includes/class-rnrd-welcome.php:390
 msgid "Insufficient permissions."
 msgstr ""
 
-#: includes/class-rr-rest.php:365
-#: includes/class-rr-rest.php:393
-#: includes/class-rr-rest.php:472
-#: includes/class-rr-rest.php:634
-msgid "OpenAI API key not configured."
+#: includes/class-rnrd-freshness.php:149
+msgid "No post IDs supplied."
 msgstr ""
 
-#: includes/class-rr-rest.php:373
-#: includes/class-rr-rest.php:1106
+#: includes/class-rnrd-llm.php:398
+msgid "GPT-5.4 nano (fastest, lowest cost)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:399
+msgid "GPT-5.4 mini (fast, cheap)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:400
+msgid "GPT-5.4 (balanced)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:401
+msgid "GPT-5.5 (highest quality)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:405
+msgid "Claude Haiku 4.5 (fast, cheap)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:406
+msgid "Claude Sonnet 4.6 (balanced)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:407
+msgid "Claude Opus 4.7 (high quality)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:408
+msgid "Claude Opus 4.8 (highest quality)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:412
+msgid "Gemini 3.1 Flash Lite (lowest cost)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:413
+msgid "Gemini 2.5 Flash (balanced, cheap)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:414
+msgid "Gemini 3.5 Flash (fast, most intelligent)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:415
+msgid "Gemini 2.5 Pro (highest quality)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:419
+msgid "DeepSeek V4 Flash (fast, cheap)"
+msgstr ""
+
+#: includes/class-rnrd-llm.php:420
+msgid "DeepSeek V4 Pro (highest quality)"
+msgstr ""
+
+#. translators: %s: provider label
+#: includes/class-rnrd-llm.php:446
+#, php-format
+msgid "No %s API key configured. Add one in RankReady → Settings."
+msgstr ""
+
+#: includes/class-rnrd-markdown.php:153
+msgid "Cloudflare APO detected — purge cache once to activate markdown content negotiation."
+msgstr ""
+
+#: includes/class-rnrd-markdown.php:156
+msgid "Step 1 — required, one-time:"
+msgstr ""
+
+#. translators: %s: link to Cloudflare Purge Cache
+#: includes/class-rnrd-markdown.php:160
+#, php-format
+msgid "In Cloudflare, open %s. This clears any stale HTML APO cached before RankReady was installed. Going forward, RankReady auto-purges every relevant URL when you change settings or save a post."
+msgstr ""
+
+#: includes/class-rnrd-markdown.php:166
+msgid "After the purge, RankReady's distinct Markdown URLs (/post-slug.md, /index.md) and Accept-header content negotiation both work through APO. Validators like AcceptMarkdown.com score 4/4."
+msgstr ""
+
+#: includes/class-rnrd-markdown.php:169
+msgid "Optional Step 2 — for sites that publish very frequently:"
+msgstr ""
+
+#: includes/class-rnrd-markdown.php:170
+msgid "If you push content edits every minute and APO's 5-minute TTL feels slow, either option below makes negotiation instant. Most sites do not need this."
+msgstr ""
+
+#: includes/class-rnrd-markdown.php:174
+msgid "Best — turn on Cloudflare's built-in Markdown for Agents"
+msgstr ""
+
+#. translators: %s: link to Cloudflare AI Crawl Control
+#: includes/class-rnrd-markdown.php:178
+#, php-format
+msgid "In your Cloudflare dashboard (Pro/Business plan), open %s. Cloudflare's edge converts HTML to Markdown automatically on Accept: text/markdown requests — happens before APO caching kicks in."
+msgstr ""
+
+#: includes/class-rnrd-markdown.php:184
+msgid "Alternative — add a Cache Rule (any plan, including free)"
+msgstr ""
+
+#. translators: %s: link to Cloudflare Cache Rules
+#: includes/class-rnrd-markdown.php:188
+#, php-format
+msgid "In %s create a rule. Match: <code>(http.request.headers[\"accept\"][0] contains \"text/markdown\")</code>. Then: <strong>Cache eligibility → Bypass cache</strong>."
+msgstr ""
+
+#: includes/class-rnrd-markdown.php:195
+msgid "Both options are Cloudflare-side toggles, not PHP changes. RankReady cannot influence APO's cache key from origin — that's an architectural limit of APO. Research notes: Joost de Valk's Markdown Alternate plugin reaches the same conclusion and uses distinct URLs as the primary mechanism; illodev's markdown-negotiation-for-agents plugin recommends Cache Rules; the squin.org production guide explicitly says it does not address APO."
+msgstr ""
+
+#: includes/class-rnrd-markdown.php:670
+msgid "Recent Posts"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:188
+msgid "WebMCP is disabled on this site."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:344
+msgid "Get site info"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:345
+msgid "Returns site identity: name, description, URL, brand terms, language."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:362
+msgid "Get brand terms"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:363
+msgid "Returns canonical brand names for entity consistency."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:374
+msgid "Search posts"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:375
+msgid "Keyword search across published posts. Returns title, URL, excerpt, modified date."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:408
+msgid "Get post AI summary"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:409
+msgid "Returns RankReady-generated AI summary (key takeaways) for a post."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:429
+msgid "Get post FAQ"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:430
+msgid "Returns RankReady-generated FAQ question/answer pairs for a post."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:459
+msgid "List recent posts"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:460
+msgid "Paginated list of recently modified posts."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:495
+msgid "Get post (full content)"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:496
+msgid "Returns full post content as clean Markdown plus title, URL, modified date, author, AI summary bullets, FAQ Q&A, and JSON-LD schema. The agent's primary content retrieval primitive."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:530
+msgid "Get post by URL"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:531
+msgid "Resolve any site URL (incl. .md, category, tag URLs) to a post. Returns the same shape as get-post. Returns 404-like empty payload if the URL does not map to content."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:547
+msgid "List pages"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:548
+msgid "List static pages (About, Pricing, Docs, etc.). Hierarchical — returns parent_id so an agent can rebuild the page tree."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:564
+msgid "List content types"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:565
+msgid "Returns every public post type the site exposes (Posts, Pages, Products, Docs, etc.) so the agent can target queries to the right type."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:574
+msgid "List categories"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:575
+msgid "Browse the site's topical hierarchy. Returns category name, slug, parent, post count, and archive URL."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:590
+msgid "List tags"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:591
+msgid "List tags ordered by post count. Returns name, slug, post count, archive URL."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:606
+msgid "Get llms.txt"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:607
+msgid "Returns the rendered /llms.txt content inline so the agent does not have to make a separate HTTP fetch. Same content as the file endpoint."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:622
+msgid "Get author (EEAT Person schema)"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:623
+msgid "Returns full EEAT Person schema for a WordPress author: name, bio, job title, employer, credentials, education, awards, social profiles. Drives AI trust signals."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:639
+msgid "Get sitemap"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:640
+msgid "Returns a parsed sitemap (URL + lastmod) of every published post + page. Agent's first call when discovering a site cold."
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:655
+msgid "Get fresh content"
+msgstr ""
+
+#: includes/class-rnrd-mcp.php:656
+msgid "Posts and pages modified within the last N days. AI engines prioritise fresh content — this ability surfaces what to read first when context is limited."
+msgstr ""
+
+#: includes/class-rnrd-okf.php:471
+msgid "You are not allowed to export the OKF bundle."
+msgstr ""
+
+#: includes/class-rnrd-okf.php:476
+msgid "The OKF bundle is not enabled."
+msgstr ""
+
+#: includes/class-rnrd-okf.php:479
+msgid "The PHP Zip extension is required to export the OKF bundle."
+msgstr ""
+
+#: includes/class-rnrd-okf.php:487
+msgid "Could not create the OKF bundle archive."
+msgstr ""
+
+#: includes/class-rnrd-rest.php:255
+#: includes/class-rnrd-rest.php:266
+#: includes/class-rnrd-rest.php:276
+msgid "You must be logged in."
+msgstr ""
+
+#: includes/class-rnrd-rest.php:259
+msgid "You do not have permission to edit this post."
+msgstr ""
+
+#: includes/class-rnrd-rest.php:269
+msgid "Admin access required."
+msgstr ""
+
+#: includes/class-rnrd-rest.php:303
+#: includes/class-rnrd-rest.php:1168
+msgid "This post no longer exists. Save the page, then try again."
+msgstr ""
+
+#. translators: %s: the active AI provider name, e.g. "Gemini (Google)".
+#. translators: %s: AI provider name.
+#: includes/class-rnrd-rest.php:310
+#: includes/class-rnrd-rest.php:1166
+#, php-format
+msgid "No %s API key yet. Add it under Settings → AI Provider, then generate."
+msgstr ""
+
+#. translators: %s: post type label, e.g. "Page".
+#: includes/class-rnrd-rest.php:321
+#, php-format
+msgid "AI Summary is not enabled for the “%s” type. Turn it on in Settings → Content AI → Post types."
+msgstr ""
+
+#: includes/class-rnrd-rest.php:330
+msgid "Not enough content to summarise yet. Add a few more sentences to the post, then generate."
+msgstr ""
+
+#. translators: %d: remaining seconds before regeneration is allowed
+#: includes/class-rnrd-rest.php:340
+#: includes/class-rnrd-rest.php:1154
 #, php-format
 msgid "Please wait %d more seconds before regenerating."
 msgstr ""
 
-#: includes/class-rr-rest.php:380
-msgid "Failed to generate summary."
+#: includes/class-rnrd-rest.php:377
+msgid "the AI provider"
 msgstr ""
 
-#: includes/class-rr-rest.php:464
+#: includes/class-rnrd-rest.php:390
+msgid "DataForSEO credentials are missing or invalid. Add them in Settings → FAQ, or generate without keyword research."
+msgstr ""
+
+#. translators: %s: AI provider name.
+#: includes/class-rnrd-rest.php:396
+#, php-format
+msgid "%s says the account is out of credits or rate-limited. Check your usage/billing on the provider dashboard, then try again."
+msgstr ""
+
+#. translators: %s: AI provider name.
+#: includes/class-rnrd-rest.php:402
+#, php-format
+msgid "%s rejected the API key. Re-check it under Settings → AI Provider."
+msgstr ""
+
+#. translators: %s: AI provider name.
+#: includes/class-rnrd-rest.php:408
+#, php-format
+msgid "The selected %s model is unavailable. Pick a current model under Settings → AI Provider."
+msgstr ""
+
+#. translators: %s: AI provider name.
+#: includes/class-rnrd-rest.php:414
+#, php-format
+msgid "Could not reach %s (network/timeout). Make sure the server can make outbound requests, then try again."
+msgstr ""
+
+#. translators: %s: AI provider name.
+#: includes/class-rnrd-rest.php:420
+#, php-format
+msgid "%s returned an unexpected response. Try again in a moment."
+msgstr ""
+
+#. translators: %s: the raw error returned by the AI provider.
+#: includes/class-rnrd-rest.php:426
+#, php-format
+msgid "AI generation failed: %s"
+msgstr ""
+
+#: includes/class-rnrd-rest.php:428
+msgid "AI generation failed. Please try again."
+msgstr ""
+
+#. translators: %s: the active AI provider name, e.g. "Gemini (Google)".
+#: includes/class-rnrd-rest.php:440
+#: includes/class-rnrd-rest.php:521
+#, php-format
+msgid "%s API key not configured. Add it in Settings → AI Provider."
+msgstr ""
+
+#: includes/class-rnrd-rest.php:511
 msgid "No pending start-over queue found. Start a new operation instead."
 msgstr ""
 
-#: includes/class-rr-rest.php:468
+#: includes/class-rnrd-rest.php:515
 msgid "A start-over operation is already running. Stop it first."
 msgstr ""
 
-#: includes/class-rr-rest.php:480
-#: includes/class-rr-rest.php:642
+#: includes/class-rnrd-rest.php:529
 msgid "No valid post types selected."
 msgstr ""
 
-#: includes/class-rr-rest.php:630
-msgid "A bulk operation is already in progress. Stop it first."
-msgstr ""
-
-#: includes/class-rr-rest.php:801
+#. translators: 1: post count, 2: target author display name
+#: includes/class-rnrd-rest.php:750
 #, php-format
 msgid "%1$d post will be reassigned to %2$s."
 msgid_plural "%1$d posts will be reassigned to %2$s."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-rr-rest.php:815
+#: includes/class-rnrd-rest.php:764
 msgid "An author change is already in progress. Stop it first."
 msgstr ""
 
-#: includes/class-rr-rest.php:829
+#: includes/class-rnrd-rest.php:778
 msgid "No matching posts found."
 msgstr ""
 
-#: includes/class-rr-rest.php:914
-#: includes/class-rr-rest.php:1204
+#: includes/class-rnrd-rest.php:871
 msgid "Select at least one post type."
 msgstr ""
 
-#: includes/class-rr-rest.php:918
+#: includes/class-rnrd-rest.php:875
 msgid "Invalid target author."
 msgstr ""
 
-#: includes/class-rr-rest.php:922
+#: includes/class-rnrd-rest.php:879
 msgid "Invalid source author."
 msgstr ""
 
-#: includes/class-rr-rest.php:986
-msgid "No API key provided."
+#: includes/class-rnrd-rest.php:930
+msgid "Cache cleared."
 msgstr ""
 
-#: includes/class-rr-rest.php:998
-msgid "No API key stored."
+#: includes/class-rnrd-rest.php:1021
+msgid "Unknown provider."
 msgstr ""
 
-#: includes/class-rr-rest.php:1019
+#: includes/class-rnrd-rest.php:1036
+msgid "No API key stored for this provider."
+msgstr ""
+
+#: includes/class-rnrd-rest.php:1054
 msgid "API key is valid and working."
 msgstr ""
 
-#: includes/class-rr-rest.php:1024
-msgid "Invalid API key."
+#. translators: %d: HTTP status code
+#: includes/class-rnrd-rest.php:1066
+#, php-format
+msgid "Verification failed (HTTP %d)."
 msgstr ""
 
-#: includes/class-rr-rest.php:1049
+#: includes/class-rnrd-rest.php:1092
 msgid "DataForSEO login or password not configured."
 msgstr ""
 
-#: includes/class-rr-rest.php:1080
+#. translators: %s: DataForSEO account balance in USD, e.g. "12.34"
+#: includes/class-rnrd-rest.php:1127
 #, php-format
 msgid "Credentials valid and saved. Balance: $%s"
 msgstr ""
 
-#: includes/class-rr-rest.php:1151
+#: includes/class-rnrd-rest.php:1131
+msgid "Invalid credentials."
+msgstr ""
+
+#: includes/class-rnrd-rest.php:1209
 msgid "Invalid FAQ data."
 msgstr ""
 
-#: includes/class-rr-rest.php:1195
-msgid "FAQ generation already running."
+#: includes/class-rnrd-welcome.php:134
+msgid "RankReady Setup"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:135
+msgid "Setup"
+msgstr ""
+
+#. translators: 1: current step number, 2: total steps
+#: includes/class-rnrd-welcome.php:430
+#, php-format
+msgid "Step %1$d of %2$d"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:465
+msgid "Welcome to RankReady"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:468
+msgid "Make your site readable by ChatGPT, Claude, Perplexity, and Google AI in about 2 minutes. Start with brand identity — these four fields feed every AI surface RankReady controls. The panel on the right shows exactly where each one is used."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:481
+msgid "The canonical brand name. ChatGPT quotes it, Claude cites it, Google AI Overviews uses it as the entity name. Leave blank to fall back to the WordPress site title."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:499
+msgid "A single sentence an AI engine can quote. Shows up under the brand name in /llms.txt and gets repeated verbatim in AI summaries. Max 160 characters."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:507
+msgid "Example: A 5-minute Pomodoro timer for Mac that hides your distracting apps automatically."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:513
+msgid "About (optional)"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:516
+msgid "Detailed context for AI engines to recommend the site confidently — audience, differentiators, proof. Markdown supported. ≤ 500 characters."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:524
+msgid "Example: We help solo Mac users stay focused without forcing them into a calendar. Built since 2022, used by 12,000+ freelancers and indie devs. Featured in The Verge and Lifehacker."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:533
+msgid "One canonical name per line — exact capitalisation and spacing. Include product names, frequent misspellings, abbreviations. AI engines unify every variant into a single recognised entity."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:541
+msgid ""
+"Acme Studio\n"
+"Acme\n"
+"AcmeStudio (one word)"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:557
+msgid "Email me free AI SEO tips and RankReady updates"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:578
+msgid "Make site AI-ready →"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:581
+msgid "Skip for now"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:586
+msgid "Where these fields appear"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:588
+msgid "Where this goes"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:590
+msgid "These exact fields are read by every AI surface RankReady controls. One place to write, six places to be cited."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:596
+msgid "Brand name = H1. One-liner = blockquote. About = body. Canonical terms = Brand line."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:600
+msgid "Same header block at the top of every page below. AI engines crawl the full corpus."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:604
+msgid "Brand name appears in the comment block above the RankReady AI-crawler rules."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:607
+msgid "AI Summary prompt"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:608
+msgid "Brand name is forced into every per-post summary so ChatGPT cites you by name, not \"this site\"."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:612
+msgid "Brand context anchors every FAQ answer — deduped against per-FAQ legacy fields."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:616
+msgid "WebMCP ability \"rankready/get-site-info\" returns brand name + canonical terms to Claude Desktop, Cursor, VS Code."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:619
+msgid "Homepage Markdown"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:620
+msgid "Sent when an agent requests text/markdown for /. Uses brand name + one-liner as the header."
+msgstr ""
+
+#. translators: %s: site name
+#: includes/class-rnrd-welcome.php:659
+#, php-format
+msgid "Congratulations! %s is now AI-ready"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:663
+msgid "Every surface below is live. AI crawlers can now discover, read, and cite your content."
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:667
+msgid "Brand Identity saved"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:668
+msgid "/llms.txt site index live"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:669
+msgid "Per-post /post-slug.md endpoints live"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:670
+msgid "robots.txt allowing 30+ AI crawlers"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:671
+msgid "Content Signals in <head>"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:672
+msgid "/.well-known/mcp.json (WebMCP manifest)"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:677
+msgid "Default post types enabled: Post, Page, WooCommerce Product"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:678
+msgid "Default post types enabled: Post, Page"
+msgstr ""
+
+#: includes/class-rnrd-welcome.php:686
+msgid "Go to Dashboard →"
 msgstr ""
 
 #. translators: 1: active version, 2: second plugin folder name
@@ -2415,34 +4486,22 @@ msgstr ""
 msgid "Another copy of RankReady is already active (version %1$s). The duplicate copy in \"%2$s\" has been disabled automatically to prevent conflicts. Delete the older folder from Plugins → Installed Plugins or via SFTP."
 msgstr ""
 
-#: rankready.php:248
+#: rankready.php:371
 msgid "Multiple RankReady plugin folders are active at the same time. Only one is running; the rest are disabled by the duplicate-install guard but are still consuming a slot in active_plugins. Deactivate the duplicates to silence this notice:"
 msgstr ""
 
-#: rankready.php:254
+#: rankready.php:377
 msgid "Go to Plugins → Installed Plugins"
 msgstr ""
 
-#. translators: %s: old folder name
-#: rankready.php:435
-#, php-format
-msgid "RankReady: plugin folder auto-migrated from \"%s\" to the canonical \"rankready\" folder. All settings preserved."
+#: rankready.php:467
+msgid "RankReady requires WordPress 6.9 or higher."
 msgstr ""
 
-#. translators: 1: current folder name, 2: current folder name
-#: rankready.php:447
-#, php-format
-msgid "RankReady: plugin is installed in \"%1$s\" instead of the canonical \"rankready\" folder. Auto-migration failed (file permissions). Rename the folder via SFTP: \"%2$s\" → \"rankready\", then reactivate if needed. Settings are preserved either way."
-msgstr ""
-
-#: rankready.php:462
-msgid "RankReady requires WordPress 6.2 or higher."
-msgstr ""
-
-#: rankready.php:580
+#: rankready.php:740
 msgid "Every 5 Minutes (RankReady)"
 msgstr ""
 
-#: rankready.php:586
+#: rankready.php:746
 msgid "Every Minute (RankReady Bulk)"
 msgstr ""

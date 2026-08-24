@@ -24,62 +24,6 @@ defined( 'ABSPATH' ) || exit;
 
 class RNRD_Llms_Txt {
 
-	/**
-	 * Canonical list of AI/LLM crawler user-agents — single source of truth used
-	 * by both the robots.txt block (public frontend) and the AI Crawlers admin UI.
-	 * It lives in this frontend-loaded class so the public robots.txt / llms.txt
-	 * fallback never has to autoload the 288KB RNRD_Admin class. RNRD_Admin's
-	 * get_llm_crawlers() delegates here for backward compatibility.
-	 *
-	 * @return array<string,array{0:string,1:string}> user-agent => [vendor, purpose]
-	 */
-	public static function get_llm_crawlers(): array {
-		return array(
-			// ── OpenAI ────────────────────────────────────────────────────────
-			'GPTBot'              => array( 'OpenAI', 'GPT model training data' ),
-			'ChatGPT-User'        => array( 'OpenAI', 'ChatGPT browse mode (user-initiated)' ),
-			'OAI-SearchBot'       => array( 'OpenAI', 'ChatGPT search results' ),
-			// ── Anthropic ─────────────────────────────────────────────────────
-			'ClaudeBot'           => array( 'Anthropic', 'Claude AI retrieval + training' ),
-			'anthropic-ai'        => array( 'Anthropic', 'Anthropic training data collection' ),
-			'Claude-Web'          => array( 'Anthropic', 'Claude AI (legacy identifier)' ),
-			// ── Google ────────────────────────────────────────────────────────
-			'Google-Extended'     => array( 'Google', 'Gemini AI training (does NOT affect search ranking)' ),
-			'GoogleOther'         => array( 'Google', 'Google R&D crawling (non-search)' ),
-			// ── Apple ─────────────────────────────────────────────────────────
-			'Applebot-Extended'   => array( 'Apple', 'Apple Intelligence / Siri AI features' ),
-			// ── Microsoft ─────────────────────────────────────────────────────
-			'Bingbot'             => array( 'Microsoft', 'Bing Search + Copilot (shared UA)' ),
-			// ── Perplexity ────────────────────────────────────────────────────
-			'PerplexityBot'       => array( 'Perplexity', 'Perplexity AI answer engine' ),
-			// ── Meta ──────────────────────────────────────────────────────────
-			'Meta-ExternalAgent'  => array( 'Meta', 'Meta AI / Llama training' ),
-			'Meta-ExternalFetcher' => array( 'Meta', 'Meta AI real-time retrieval' ),
-			'FacebookBot'         => array( 'Meta', 'Facebook/Meta content crawling' ),
-			// ── Mistral ───────────────────────────────────────────────────────
-			'MistralAI-User'      => array( 'Mistral', 'Le Chat real-time browsing' ),
-			// ── ByteDance ─────────────────────────────────────────────────────
-			'Bytespider'          => array( 'ByteDance', 'TikTok / ByteDance AI' ),
-			// ── Amazon ────────────────────────────────────────────────────────
-			'Amazonbot'           => array( 'Amazon', 'Alexa AI / Amazon' ),
-			// ── Cohere ────────────────────────────────────────────────────────
-			'cohere-ai'           => array( 'Cohere', 'Cohere AI RAG & enterprise' ),
-			// ── AI Search Engines ─────────────────────────────────────────────
-			'DuckAssistBot'       => array( 'DuckDuckGo', 'DuckDuckGo AI Assist' ),
-			'YouBot'              => array( 'You.com', 'You.com AI search' ),
-			'PhindBot'            => array( 'Phind', 'Phind AI search for developers' ),
-			// ── Training / Dataset Crawlers ────────────────────────────────────
-			'CCBot'               => array( 'Common Crawl', 'Open dataset used by many LLMs' ),
-			'AI2Bot'              => array( 'Allen Institute', 'AI2 research crawler' ),
-			'Diffbot'             => array( 'Diffbot', 'Diffbot AI extraction' ),
-			'Omgilibot'           => array( 'Webz.io', 'AI content aggregation' ),
-			'PetalBot'            => array( 'Huawei', 'Huawei search & AI data' ),
-			'Brightbot'           => array( 'BrightEdge', 'AI SEO data crawling' ),
-			'magpie-crawler'      => array( 'Magpie', 'AI data collection' ),
-			'DataForSeoBot'       => array( 'DataForSEO', 'SEO data with AI uses' ),
-		);
-	}
-
 	public static function init(): void {
 		add_action( 'init',             array( self::class, 'add_rewrite_rules' ) );
 		// v1.2.0-rc.2 — priority 1 so page builders (Bricks, Elementor Pro
@@ -96,9 +40,7 @@ class RNRD_Llms_Txt {
 		// Prevent WordPress from adding trailing slash to .txt URLs.
 		add_filter( 'redirect_canonical', array( self::class, 'prevent_txt_trailing_slash' ), 10, 2 );
 
-		// Flush rewrite rules when settings change.
-		add_action( 'update_option_' . RNRD_OPT_LLMS_ENABLE,      array( self::class, 'flush_rules' ) );
-		add_action( 'update_option_' . RNRD_OPT_LLMS_FULL_ENABLE, array( self::class, 'flush_rules' ) );
+		// Rewrite flush: pre_update_option_* busts rnrd_rewrite_ok; admin_init self-heal flushes.
 
 		// Bust cache when posts are published/updated/deleted.
 		add_action( 'transition_post_status', array( self::class, 'bust_cache_on_status_change' ), 10, 3 );
@@ -120,42 +62,9 @@ class RNRD_Llms_Txt {
 			add_action( 'update_option_' . $opt, array( self::class, 'bust_cache_and_purge_cdn' ) );
 		}
 
-		// Add llms.txt reference to robots.txt so AI crawlers discover it.
-		// rc.8 fix: bump priority to PHP_INT_MAX so RankReady's block
-		// survives SEOPress / Yoast / RankMath overwriting the entire
-		// robots_txt output at high priority. We APPEND to whatever
-		// the earlier filter left in $output — we don't replace.
-		add_filter( 'robots_txt', array( self::class, 'add_to_robots_txt' ), PHP_INT_MAX, 2 );
-
 		// Emit Link: headers and <link> tags for AI discovery on every front-end page.
 		add_action( 'send_headers', array( self::class, 'add_discovery_link_headers' ) );
 		add_action( 'wp_head',      array( self::class, 'add_discovery_link_tags' ) );
-
-		// Sync to physical robots.txt when settings change.
-		add_action( 'update_option_' . RNRD_OPT_ROBOTS_ENABLE,             array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RNRD_OPT_ROBOTS_CRAWLERS,           array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RNRD_OPT_LLMS_ENABLE,               array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RNRD_OPT_LLMS_FULL_ENABLE,          array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RNRD_OPT_MD_ENABLE,                 array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_ENABLE,   array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN, array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_SEARCH,   array( self::class, 'sync_physical_robots_txt' ) );
-		add_action( 'update_option_' . RNRD_OPT_CONTENT_SIGNALS_AI_INPUT, array( self::class, 'sync_physical_robots_txt' ) );
-
-		// v1.0.1 — robots.txt + mcp.json + .md endpoints also flush every cache
-		// layer on the option changes that affect them. Without this, CDNs serve
-		// stale robots.txt / mcp.json for hours after the user changes settings.
-		// Previously only /llms.txt + /llms-full.txt were CDN-purged; we now
-		// purge the full set whenever ANY agent-affecting option changes.
-		$cdn_purge_triggers = array(
-			RNRD_OPT_ROBOTS_ENABLE,           RNRD_OPT_ROBOTS_CRAWLERS,
-			RNRD_OPT_MD_ENABLE,
-			RNRD_OPT_CONTENT_SIGNALS_ENABLE,  RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN,
-			RNRD_OPT_CONTENT_SIGNALS_SEARCH,  RNRD_OPT_CONTENT_SIGNALS_AI_INPUT,
-		);
-		foreach ( $cdn_purge_triggers as $opt ) {
-			add_action( 'update_option_' . $opt, array( self::class, 'bust_cache_and_purge_cdn' ) );
-		}
 	}
 
 	/**
@@ -169,38 +78,6 @@ class RNRD_Llms_Txt {
 			return false;
 		}
 		return $redirect_url;
-	}
-
-	/**
-	 * Append llms.txt and llms-full.txt references to WordPress robots.txt.
-	 *
-	 * This tells AI crawlers where to find structured content about the site.
-	 * Similar to how Sitemap is referenced in robots.txt.
-	 */
-	public static function add_to_robots_txt( string $output, bool $public ): string {
-		// Note: do NOT bail out when ! $public.
-		//
-		// When the WP "Discourage search engines" toggle is on, $public is
-		// false and WordPress emits `Disallow: /`. We previously bailed out
-		// here, which silently dropped Content Signals output too. Content
-		// Signals (ai-train / search / ai-input) is an INDEPENDENT
-		// declaration about AI training, not about search-engine indexing —
-		// users may legitimately want SEO blocked but AI allowed (or
-		// vice-versa). The block below only emits content the user has
-		// explicitly enabled, so always running it is safe.
-
-		// Don't duplicate if RankReady block already present in $output
-		// (defends against double-filtering edge cases).
-		if ( false !== stripos( $output, 'RankReady' ) ) {
-			return $output;
-		}
-
-		$block = self::generate_robots_block();
-		if ( empty( trim( $block ) ) ) {
-			return $output;
-		}
-
-		return $output . $block;
 	}
 
 	/**
@@ -222,12 +99,10 @@ class RNRD_Llms_Txt {
 			header( 'Link: <' . esc_url( home_url( '/llms-full.txt' ) ) . '>; rel="llms-full-txt"', false );
 		}
 
-		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
-			// v1.1.2 — Advertise the distinct, cache-safe homepage markdown URL
-			// (/index.md), NOT the canonical `/`. Same-URL Accept negotiation is
-			// off by default, so `/` returns HTML; pointing agents there would
-			// hand them HTML when they asked for markdown. The /index.md endpoint
-			// always returns markdown and cannot poison the page cache.
+		// Archives / search / other listings. Front and Posts-page indexes emit
+		// their own alternates from RNRD_Markdown. Emitting /index.md here would
+		// duplicate the front and mis-label the blog index.
+		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) && 'on' === get_option( RNRD_OPT_MD_HOME_ENABLE, 'on' ) && ! is_singular() && ! is_front_page() && ! is_home() ) {
 			header( 'Link: <' . esc_url( home_url( '/index.md' ) ) . '>; rel="alternate"; type="text/markdown"', false );
 		}
 
@@ -272,93 +147,6 @@ class RNRD_Llms_Txt {
 	}
 
 	/**
-	 * Generate the RankReady robots.txt block as a standalone string.
-	 *
-	 * Used both by the `robots_txt` filter (virtual) and physical file sync.
-	 */
-	public static function generate_robots_block(): string {
-		$llms_on    = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
-		$full_on    = 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
-		$md_on      = 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
-		$robots_on  = 'on' === get_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
-		$signals_on = 'on' === get_option( RNRD_OPT_CONTENT_SIGNALS_ENABLE, 'off' );
-
-		if ( ! $llms_on && ! $md_on && ! $robots_on && ! $signals_on ) {
-			return '';
-		}
-
-		$allow_paths = array();
-		if ( $llms_on ) {
-			$allow_paths[] = '/llms.txt';
-		}
-		if ( $llms_on && $full_on ) {
-			$allow_paths[] = '/llms-full.txt';
-		}
-		if ( $md_on ) {
-			$allow_paths[] = '/*.md$';
-		}
-
-		// rc.11 — Use BEGIN/END functional markers (like `# BEGIN WordPress`)
-		// instead of branded header. Visible header is unbranded; the BEGIN
-		// marker is a technical identifier so sync_physical_robots_txt() can
-		// reliably locate + replace our block on re-saves.
-		$block  = "\n# BEGIN RankReady\n";
-		$block .= "# LLM & AI Crawler Rules\n";
-
-		// Brand Terms — canonical names as a comment. Some AI crawlers
-		// (notably PerplexityBot and SearchBot variants) ingest robots.txt
-		// comments alongside directives for entity recognition.
-		$brand_terms = self::get_brand_terms_list();
-		if ( ! empty( $brand_terms ) ) {
-			$block .= '# Brand: ' . implode( ', ', $brand_terms ) . "\n";
-		}
-
-		// Stack all User-agent lines in one block — per robots.txt spec,
-		// grouped User-agent lines share the same Allow/Disallow rules.
-		if ( $robots_on ) {
-			// Read the stored crawler list WITHOUT eagerly evaluating the default —
-			// PHP evaluates default args eagerly, so referencing RNRD_Admin here
-			// would autoload the 288KB admin class on every public robots.txt /
-			// llms.txt request (the AI-crawler-heavy URLs). The option is seeded on
-			// activation, so the RNRD_Admin fallback effectively never runs here.
-			$enabled_crawlers = get_option( RNRD_OPT_ROBOTS_CRAWLERS, null );
-			if ( null === $enabled_crawlers ) {
-				$enabled_crawlers = array_keys( self::get_llm_crawlers() );
-			}
-			$enabled_crawlers = (array) $enabled_crawlers;
-
-			if ( ! empty( $enabled_crawlers ) ) {
-				foreach ( $enabled_crawlers as $crawler ) {
-					$block .= 'User-agent: ' . sanitize_text_field( $crawler ) . "\n";
-				}
-				$block .= "Allow: /\n";
-				foreach ( $allow_paths as $path ) {
-					$block .= "Allow: {$path}\n";
-				}
-				$block .= "\n";
-			}
-		}
-
-		// Content Signals — single Content-Signal directive (contentsignals.org).
-		// Format per isitagentready.com check: Content-Signal: ai-train=yes, search=yes, ai-input=yes
-		// Options stored as allow/deny internally; mapped to yes/no for output.
-		if ( $signals_on ) {
-			$ai_train = 'allow' === get_option( RNRD_OPT_CONTENT_SIGNALS_AI_TRAIN, 'allow' ) ? 'yes' : 'no';
-			$search   = 'allow' === get_option( RNRD_OPT_CONTENT_SIGNALS_SEARCH, 'allow' ) ? 'yes' : 'no';
-			$ai_input = 'allow' === get_option( RNRD_OPT_CONTENT_SIGNALS_AI_INPUT, 'allow' ) ? 'yes' : 'no';
-
-			$block .= "# Content Signals (contentsignals.org)\n";
-			$block .= "Content-Signal: ai-train={$ai_train}, search={$search}, ai-input={$ai_input}\n";
-			$block .= "\n";
-		}
-
-		// rc.11 — Close functional marker (paired with `# BEGIN RankReady` opener).
-		$block .= "# END RankReady\n";
-
-		return $block;
-	}
-
-	/**
 	 * Whether the "Generated from RankReady" credit line should be hidden.
 	 *
 	 * WP.org Free build: always returns false (credit shows). The branding
@@ -369,152 +157,6 @@ class RNRD_Llms_Txt {
 	public static function should_hide_branding(): bool {
 		return ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() )
 			&& 'on' === get_option( RNRD_OPT_HIDE_BRANDING, 'off' );
-	}
-
-	/**
-	 * Sync RankReady rules to a physical robots.txt file.
-	 *
-	 * When a physical robots.txt exists (e.g. manually created or by a plugin),
-	 * WordPress's `robots_txt` filter never fires. This method detects the
-	 * physical file and appends/updates the RankReady block directly.
-	 *
-	 * Safe: only touches the RankReady-marked block, never modifies other rules.
-	 */
-	public static function sync_physical_robots_txt(): void {
-		// Skip physical robots.txt on multisite — subsites share ABSPATH.
-		if ( is_multisite() ) {
-			return;
-		}
-
-		$file = ABSPATH . 'robots.txt';
-
-		global $wp_filesystem;
-		if ( ! function_exists( 'WP_Filesystem' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-		if ( ! WP_Filesystem() ) {
-			return;
-		}
-
-		// v1.2.0-rc.9 — Write a physical robots.txt when one doesn't exist
-		// AND another plugin is intercepting the URL via custom rewrite.
-		// Without a physical file, plugins like SEOPress can register their
-		// own /robots.txt rewrite that bypasses both WP's virtual robots_txt
-		// filter AND our PHP_INT_MAX-priority append. A physical file wins
-		// at the webserver level (nginx/Apache) before WP routing runs.
-		//
-		// We only create the file when robots toggle is ON and we have a
-		// non-empty block to write — otherwise we'd leave an empty file
-		// around that could surprise users.
-		if ( ! $wp_filesystem->exists( $file ) ) {
-			$robots_on = (bool) get_option( RNRD_OPT_ROBOTS_ENABLE, false );
-			$block     = self::generate_robots_block();
-			if ( ! $robots_on || empty( trim( $block ) ) ) {
-				// Filter handles it — no need for physical file.
-				return;
-			}
-			// Detect another plugin actively claiming /robots.txt.
-			$intercepting = self::detect_robots_txt_interceptor();
-			if ( ! $intercepting ) {
-				// WP serves virtual robots.txt — our filter at PHP_INT_MAX wins.
-				return;
-			}
-			// Write a fresh physical robots.txt — block-only is fine; it
-			// reads as a normal robots.txt with comments + directives.
-			$wp_filesystem->put_contents( $file, ltrim( $block ) . "\n", FS_CHMOD_FILE );
-			self::purge_robots_cache();
-			return;
-		}
-
-		if ( ! $wp_filesystem->is_writable( $file ) ) {
-			return;
-		}
-
-		$contents = $wp_filesystem->get_contents( $file );
-		if ( false === $contents ) {
-			return;
-		}
-
-		// Remove any existing RankReady block.
-		// rc.11 — new format uses `# BEGIN RankReady` ... `# END RankReady` markers.
-		// Older formats (rc.10 and earlier) used `# -- LLM ... (RankReady) --` style.
-		// Match all 3 patterns so upgrades cleanly replace old blocks.
-		$new_contents = preg_replace( '/\n?# BEGIN RankReady\n.*?# END RankReady\n?/s', '', $contents );
-		$new_contents = preg_replace( '/\n?# -+ LLM.*?\(RankReady\).*?\n.*?(?=\n#[^-]|\n?$)/s', '', $new_contents );
-		$new_contents = preg_replace( '/\n?#[^\n]*LLM[^\n]*RankReady[^\n]*\n.*?(?=\n#[^-]|\n?$)/s', '', $new_contents );
-
-		// Trim trailing whitespace.
-		$new_contents = rtrim( $new_contents ) . "\n";
-
-		// Generate and append new block.
-		$block = self::generate_robots_block();
-
-		if ( ! empty( trim( $block ) ) ) {
-			$new_contents .= $block;
-		}
-
-		// v1.2.0-rc.1 — diff before writing. Settings saves that don't
-		// actually change the rendered robots block were touching the file
-		// (slow on managed hosts) and purging every cache layer for nothing.
-		// (Audit beta.3 #14.)
-		if ( $new_contents === $contents ) {
-			return;
-		}
-
-		$wp_filesystem->put_contents( $file, $new_contents, FS_CHMOD_FILE );
-
-		// Purge robots.txt from all common page caches so changes are live immediately.
-		self::purge_robots_cache();
-	}
-
-	/**
-	 * Purge robots.txt from every active cache layer.
-	 *
-	 * Delegates to RNRD_Cache::purge_url() which covers all major WordPress cache
-	 * plugins and CDN layers — no user configuration needed, safe no-op when
-	 * a plugin is not active. See class-rnrd-cache.php for the full layer list.
-	 */
-	public static function purge_robots_cache(): void {
-		RNRD_Cache::purge_url( home_url( '/robots.txt' ) );
-	}
-
-	/**
-	 * Detect another plugin actively serving /robots.txt via custom rewrite.
-	 *
-	 * If detected, the `robots_txt` filter NEVER fires (interceptor exits
-	 * before WP's template router reaches the virtual robots.txt). We
-	 * detect this so sync_physical_robots_txt() knows to create a physical
-	 * file that wins at the webserver level.
-	 *
-	 * @since 1.2.0-rc.9
-	 * @return string Plugin name if detected, empty string otherwise.
-	 */
-	public static function detect_robots_txt_interceptor(): string {
-		// SEOPress Pro has its own /robots.txt rewrite when the feature is on.
-		if ( ( defined( 'SEOPRESS_VERSION' ) || defined( 'SEOPRESS_PRO_VERSION' ) ) ) {
-			$seopress = get_option( 'seopress_pro_option_name', array() );
-			if ( is_array( $seopress ) && ! empty( $seopress['seopress_pro_robots'] ) ) {
-				return 'SEOPress (robots module on)';
-			}
-		}
-
-		// Rank Math: their robots editor sets a transient when active.
-		if ( defined( 'RANK_MATH_VERSION' ) ) {
-			$rm_general = (array) get_option( 'rank-math-options-general', array() );
-			if ( ! empty( $rm_general['robots_txt_content'] ) ) {
-				return 'Rank Math (custom robots.txt set)';
-			}
-		}
-
-		// Yoast: editor stored in option `wpseo_robots`.
-		if ( defined( 'WPSEO_VERSION' ) ) {
-			$yoast_robots = get_option( 'wpseo_robots' );
-			if ( ! empty( $yoast_robots ) ) {
-				return 'Yoast SEO (robots editor used)';
-			}
-		}
-
-		return '';
 	}
 
 	// ── Rewrite rules ─────────────────────────────────────────────────────────
@@ -610,22 +252,45 @@ class RNRD_Llms_Txt {
 		return $vars;
 	}
 
-	public static function flush_rules(): void {
-		flush_rewrite_rules( false );
-	}
-
 	// ── Request handler ───────────────────────────────────────────────────────
 
 	public static function handle_request(): void {
-		if ( get_query_var( 'rnrd_llms_txt' ) ) {
+		// Primary path: WordPress resolved our rewrite rule into a query var.
+		// Fallback path: match the raw request URI directly. On some stacks (e.g. an
+		// SEO plugin's early template_redirect router, aggressive rewrite ordering, or
+		// a query_vars strip) WP never surfaces our query var even though the rule
+		// matched — the raw-path check keeps the endpoint working. (Support: barisdayak.com.)
+		$path     = self::request_path();
+		$llms_on  = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$full_on  = 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
+		$other    = self::another_plugin_handles_llms_txt();
+
+		if ( $llms_on && ! $other
+			&& ( get_query_var( 'rnrd_llms_txt' ) || 'llms.txt' === $path ) ) {
 			RNRD_Crawler_Log::log( 'llms_txt' );
 			self::serve_llms_txt( false );
 		}
 
-		if ( get_query_var( 'rnrd_llms_full_txt' ) ) {
+		if ( $llms_on && $full_on
+			&& ( get_query_var( 'rnrd_llms_full_txt' ) || 'llms-full.txt' === $path ) ) {
 			RNRD_Crawler_Log::log( 'llms_full' );
 			self::serve_llms_txt( true );
 		}
+	}
+
+	/** Normalised current request path: no query string, no surrounding slashes, subdirectory-aware. */
+	private static function request_path(): string {
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		$req = trim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
+		$home = trim( (string) wp_parse_url( home_url(), PHP_URL_PATH ), '/' );
+		if ( '' !== $home ) {
+			if ( 0 === strpos( $req, $home . '/' ) ) {
+				$req = trim( substr( $req, strlen( $home ) ), '/' );
+			} elseif ( $req === $home ) {
+				$req = '';
+			}
+		}
+		return $req;
 	}
 
 	// ── Serve ─────────────────────────────────────────────────────────────────
@@ -697,8 +362,23 @@ class RNRD_Llms_Txt {
 			exit;
 		}
 
+		// Assert 200 explicitly. We run on template_redirect, which fires AFTER
+		// the main query — if another plugin intercepted the rewrite rule, WP has
+		// already resolved this request as a 404 and sent that status. Serving the
+		// correct body under a 404 makes agents and scanners discard it. Mirrors
+		// RNRD_MCP::handle_request(), which has always done this.
+		status_header( 200 );
+
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'Content-Type: text/plain; charset=utf-8' );
+
+		// v1.2.0 — Keep llms.txt / llms-full.txt CRAWLABLE (AI agents fetch it,
+		// and Google must be able to read this directive) but OUT of Google's
+		// search results. Google ignores llms.txt for ranking, and it's a
+		// machine-readable file, not a user-facing page — the recommended
+		// practice for such files is "allow crawling, then X-Robots-Tag: noindex".
+		// This response already bypasses page caches, so the header survives.
+		header( 'X-Robots-Tag: noindex, follow' );
 
 		// Browser-vs-edge TTL split (Mark Nottingham's caching tutorial §6.2).
 		// max-age=60 keeps end-user browsers re-checking every minute (cheap
@@ -762,7 +442,7 @@ class RNRD_Llms_Txt {
 
 		// v1.2.0-beta.4 — read every brand field from the unified getter.
 		// Single source of truth: see get_brand_identity().
-		$brand = self::get_brand_identity();
+		$brand = RNRD_Brand_Identity::get_brand_identity();
 
 		// ── H1: Site name (REQUIRED per spec) ─────────────────────────────
 		$lines[] = '# ' . self::clean_text( $brand['name'] );
@@ -785,7 +465,7 @@ class RNRD_Llms_Txt {
 
 		// Brand Terms — canonical names for entity consistency. Helps AI engines
 		// recognise the same site/brand across variant spellings.
-		$brand_terms = self::get_brand_terms_list();
+		$brand_terms = RNRD_Brand_Identity::get_brand_terms_list();
 		if ( ! empty( $brand_terms ) ) {
 			$lines[] = '- Brand: ' . implode( ', ', $brand_terms );
 		}
@@ -853,11 +533,11 @@ class RNRD_Llms_Txt {
 			}
 
 			// H2 section header.
-			$section_title = $type_obj->labels->name;
-			$lines[]       = '## ' . self::clean_text( $section_title );
+			$section_title = self::flatten_for_list_line( self::clean_text( $type_obj->labels->name ) );
+			$lines[]       = '## ' . $section_title;
 
 			foreach ( $filtered as $post ) {
-				$title    = self::clean_text( get_the_title( $post ) );
+				$title    = self::flatten_for_list_line( self::clean_text( get_the_title( $post ) ) );
 				$url      = get_permalink( $post );
 				$excerpt  = self::get_post_description( $post );
 				$lastmod  = get_post_modified_time( 'Y-m-d', false, $post );
@@ -890,7 +570,7 @@ class RNRD_Llms_Txt {
 				$lines[] = '## Optional';
 
 				foreach ( $categories as $cat ) {
-					$lines[] = '- [' . self::clean_text( $cat->name ) . '](' . get_category_link( $cat->term_id ) . '): '
+					$lines[] = '- [' . self::flatten_for_list_line( self::clean_text( $cat->name ) ) . '](' . get_category_link( $cat->term_id ) . '): '
 						. sprintf( '%d posts', $cat->count );
 				}
 
@@ -923,7 +603,7 @@ class RNRD_Llms_Txt {
 		$lines = array();
 
 		// v1.2.0-beta.4 — unified getter, same brand truth as generate().
-		$brand = self::get_brand_identity();
+		$brand = RNRD_Brand_Identity::get_brand_identity();
 
 		// ── Header (same as llms.txt) ─────────────────────────────────────
 		$lines[] = '# ' . self::clean_text( $brand['name'] );
@@ -940,7 +620,7 @@ class RNRD_Llms_Txt {
 		}
 
 		// Brand Terms — canonical names for entity consistency.
-		$brand_terms = self::get_brand_terms_list();
+		$brand_terms = RNRD_Brand_Identity::get_brand_terms_list();
 		if ( ! empty( $brand_terms ) ) {
 			$lines[] = '- Brand: ' . implode( ', ', $brand_terms );
 			$lines[] = '';
@@ -980,7 +660,7 @@ class RNRD_Llms_Txt {
 					continue;
 				}
 
-				$title   = self::clean_text( get_the_title( $post ) );
+				$title   = self::flatten_for_list_line( self::clean_text( get_the_title( $post ) ) );
 				$url     = get_permalink( $post );
 				$content = self::post_to_clean_markdown( $post, false );
 
@@ -1031,36 +711,8 @@ class RNRD_Llms_Txt {
 	 */
 	public static function bust_cache_and_purge_cdn(): void {
 		self::bust_cache();
-		if ( ! class_exists( 'RNRD_Cache' ) ) {
-			return;
-		}
-
-		// v1.0.1 — Purge every RankReady-managed endpoint, not just llms.txt,
-		// so any setting change that affects AI discovery / agent readiness
-		// produces fresh responses for crawlers across every cache layer.
-		//
-		// Each call fires the full purge chain inside RNRD_Cache::purge_url():
-		//   - litespeed_purge_url        (LiteSpeed Cache plugin + LSWS)
-		//   - cloudflare_purge_by_url    (official Cloudflare WP plugin)
-		//   - rt_nginx_helper_purge_url  (Nginx Helper)
-		//   - wphb_clear_cache_url       (Hummingbird)
-		//   - nitropack_purge_individual_url (NitroPack)
-		//   - rocket_clean_files         (WP Rocket — registered via filter elsewhere)
-		// If the user has any of the major cache plugins active, the purge
-		// reaches the CDN. If they have none, the purge_url() call is a no-op.
-		$urls_to_purge = array(
-			home_url( '/llms.txt' ),
-			home_url( '/llms-full.txt' ),
-			home_url( '/robots.txt' ),
-			home_url( '/.well-known/mcp.json' ),
-			home_url( '/index.md' ),
-		);
-
-		// Allow third parties + the RankReady Pro addon to extend the purge list.
-		$urls_to_purge = (array) apply_filters( 'rankready_purge_urls', $urls_to_purge );
-
-		foreach ( $urls_to_purge as $url ) {
-			RNRD_Cache::purge_url( $url );
+		if ( class_exists( 'RNRD_Cache' ) ) {
+			RNRD_Cache::purge_all_endpoints();
 		}
 	}
 
@@ -1402,13 +1054,13 @@ class RNRD_Llms_Txt {
 	 * @return bool True if the post should be excluded.
 	 */
 	// v1.1.5 — made public so RNRD_OKF reuses the same exclusion rules (per-post
-	// "Exclude from llms.txt" toggle + Yoast/Rank Math/AIOSEO/SEOPress noindex) as the
+	// "Exclude this post from AI surfaces" toggle + Yoast/Rank Math/AIOSEO/SEOPress noindex) as the
 	// single source of truth for what belongs on an AI-readable surface.
 	public static function should_exclude_from_llms( WP_Post $post ): bool {
 		$post_id = $post->ID;
 
 		// ── Per-post RankReady opt-out (v1.2.0) ──────────────────────────
-		// Editors can tick "Exclude from llms.txt" in the meta box.
+		// Editors can tick "Exclude this post from AI surfaces" in the meta box.
 		if ( '1' === (string) get_post_meta( $post_id, RNRD_META_LLMS_EXCLUDE, true ) ) {
 			return true;
 		}
@@ -1469,109 +1121,6 @@ class RNRD_Llms_Txt {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
-	/**
-	 * Parse the Brand Terms textarea (one canonical name per line) into an
-	 * array of cleaned, deduplicated terms. Used by:
-	 *   - generate()             llms.txt header metadata
-	 *   - generate_full()        llms-full.txt header metadata
-	 *   - generate_robots_block() robots.txt comment line
-	 *   - RNRD_Faq::generate_faq()  augments FAQ prompt brand context
-	 *   - RNRD_Generator           augments summary system prompt
-	 *
-	 * Single source of truth: RNRD_OPT_BRAND_TERMS option (AI Crawlers tab).
-	 */
-	public static function get_brand_terms_list(): array {
-		$raw = (string) get_option( RNRD_OPT_BRAND_TERMS, '' );
-		if ( '' === trim( $raw ) ) {
-			return array();
-		}
-		$lines = preg_split( '/\r\n|\r|\n/', $raw );
-		$out   = array();
-		foreach ( $lines as $line ) {
-			$line = trim( $line );
-			// v1.2.0-rc.1 — strip any embedded line separator that survived
-			// sanitize_textarea_field. A \r /   /   inside a term
-			// would split the robots.txt # Brand: line across records and
-			// confuse parsers. (Audit beta.3 #16.)
-			$line = preg_replace( '/[\r\n\x{2028}\x{2029}]+/u', ' ', $line );
-			$line = trim( (string) $line );
-			if ( '' !== $line ) {
-				$out[] = $line;
-			}
-		}
-		return array_values( array_unique( $out ) );
-	}
-
-	/**
-	 * Returns brand terms as a comma-separated string suitable for prompt
-	 * injection. Empty string when nothing is configured.
-	 */
-	public static function get_brand_terms_string(): string {
-		$list = self::get_brand_terms_list();
-		return empty( $list ) ? '' : implode( ', ', $list );
-	}
-
-	/**
-	 * Unified Brand Identity getter (v1.2.0-beta.4).
-	 *
-	 * Replaces five fragmented inputs (RNRD_OPT_LLMS_SITE_NAME,
-	 * RNRD_OPT_LLMS_SUMMARY, RNRD_OPT_LLMS_ABOUT, RNRD_OPT_BRAND_TERMS,
-	 * RNRD_OPT_FAQ_BRAND_TERMS) with one consistent record so every consumer
-	 * — llms.txt, llms-full.txt, robots.txt, FAQ prompt, summary prompt,
-	 * MCP ability, homepage .md — sees the same brand truth.
-	 *
-	 * Resolution order (per field):
-	 *   1. The new unified options if present
-	 *   2. The legacy per-field options (back-compat)
-	 *   3. WordPress core fallbacks (bloginfo)
-	 *
-	 * Returns an associative array shaped:
-	 *   [
-	 *     'name'    => string (site / brand name),
-	 *     'summary' => string (one-line, ≤ 160 chars),
-	 *     'about'   => string (longer description, ≤ 500 chars),
-	 *     'terms'   => string[] (canonical brand names list),
-	 *   ]
-	 *
-	 * @since 1.2.0-beta.4
-	 */
-	public static function get_brand_identity(): array {
-		// Name: explicit > legacy > WP site title.
-		$name = (string) get_option( RNRD_OPT_LLMS_SITE_NAME, '' );
-		if ( '' === trim( $name ) ) {
-			$name = (string) get_bloginfo( 'name' );
-		}
-
-		// Summary: legacy LLMS summary > WP tagline.
-		$summary = (string) get_option( RNRD_OPT_LLMS_SUMMARY, '' );
-		if ( '' === trim( $summary ) ) {
-			$summary = (string) get_bloginfo( 'description' );
-		}
-
-		// About: only the dedicated LLMS_ABOUT option.
-		$about = (string) get_option( RNRD_OPT_LLMS_ABOUT, '' );
-
-		// Terms: the canonical Brand Terms list (already a getter).
-		$terms = self::get_brand_terms_list();
-
-		return array(
-			'name'    => trim( $name ),
-			'summary' => trim( $summary ),
-			'about'   => trim( $about ),
-			'terms'   => $terms,
-		);
-	}
-
-	/**
-	 * Brand identity sub-getters — convenience wrappers so callers don't have
-	 * to unpack the array. Returns empty string / array on miss, never null.
-	 *
-	 * @since 1.2.0-beta.4
-	 */
-	public static function get_brand_name(): string    { return (string) self::get_brand_identity()['name']; }
-	public static function get_brand_summary(): string { return (string) self::get_brand_identity()['summary']; }
-	public static function get_brand_about(): string   { return (string) self::get_brand_identity()['about']; }
-
 	private static function clean_text( string $text ): string {
 		$text = wp_strip_all_tags( $text );
 		$text = html_entity_decode( $text, ENT_QUOTES, 'UTF-8' );
@@ -1582,32 +1131,60 @@ class RNRD_Llms_Txt {
 		return trim( $text );
 	}
 
+	/**
+	 * Flatten a value that will be interpolated into a SINGLE Markdown line.
+	 *
+	 * clean_text() deliberately preserves newlines (llms.txt has multi-line
+	 * brand/about sections), but titles, category names, CPT section labels,
+	 * and descriptions are spliced into one `# Heading`, `## Section`, or
+	 * `- [title](url): desc` line. An Author-level user can put newlines in a
+	 * post title via REST / wp_insert_post() / importers (classic + Gutenberg
+	 * strip them client-side) and forge extra `## Section` headings in the
+	 * public file that AI crawlers treat as the site's authoritative index.
+	 *
+	 * Descriptions were hardened first; titles and other single-line fields
+	 * use the same flattener.
+	 *
+	 * @param string $text Cleaned text that may contain newlines.
+	 * @return string Single-line, length-capped text.
+	 */
+	private static function flatten_for_list_line( string $text ): string {
+		$text = preg_replace( '/\s*\R\s*/u', ' ', $text );
+		$text = trim( preg_replace( '/\s{2,}/u', ' ', (string) $text ) );
+
+		if ( function_exists( 'mb_strlen' ) && mb_strlen( $text, 'UTF-8' ) > 300 ) {
+			$text = rtrim( mb_substr( $text, 0, 300, 'UTF-8' ) ) . '…';
+		}
+
+		return $text;
+	}
+
 	private static function get_post_description( $post ): string {
 		// Try Yoast.
 		$yoast = get_post_meta( $post->ID, '_yoast_wpseo_metadesc', true );
 		if ( ! empty( $yoast ) ) {
-			return self::clean_text( $yoast );
+			return self::flatten_for_list_line( self::clean_text( $yoast ) );
 		}
 
 		// Try Rank Math.
 		$rankmath = get_post_meta( $post->ID, 'rank_math_description', true );
 		if ( ! empty( $rankmath ) ) {
-			return self::clean_text( $rankmath );
+			return self::flatten_for_list_line( self::clean_text( $rankmath ) );
 		}
 
 		// Try AIOSEO.
 		$aioseo = get_post_meta( $post->ID, '_aioseo_description', true );
 		if ( ! empty( $aioseo ) ) {
-			return self::clean_text( $aioseo );
+			return self::flatten_for_list_line( self::clean_text( $aioseo ) );
 		}
 
 		// Excerpt.
 		if ( ! empty( $post->post_excerpt ) ) {
-			return self::clean_text( $post->post_excerpt );
+			return self::flatten_for_list_line( self::clean_text( $post->post_excerpt ) );
 		}
 
 		// Auto excerpt.
 		$content = wp_strip_all_tags( do_shortcode( $post->post_content ) );
-		return self::clean_text( wp_trim_words( $content, 30, '...' ) );
+		return self::flatten_for_list_line( self::clean_text( wp_trim_words( $content, 30, '...' ) ) );
 	}
 }

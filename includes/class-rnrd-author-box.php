@@ -3,11 +3,9 @@
  * Author Box — profile fields, Person schema, renderers.
  *
  * Every profile field mapped here emits Schema.org Person data for EEAT.
- * When a major SEO plugin is active, the Person data is merged into its
- * existing schema graph via the filters in class-rnrd-block.php (rank_math/json_ld,
- * wpseo_schema_graph, aioseo_schema_output, …). When no SEO plugin is active,
- * this class emits a standalone Person node inline in Article.author on singular
- * views, plus an additional node on is_author() archive pages via wp_head.
+ * When a major SEO plugin is active, Person data is merged into its schema graph
+ * via this class's filters (rank_math/json_ld, wpseo_schema_graph, …). Article
+ * enrichment (speakable, abstract, reviewedBy, …) is handled by RNRD_Schema.
  *
  * @package RankReady
  */
@@ -15,6 +13,22 @@
 defined( 'ABSPATH' ) || exit;
 
 class RNRD_Author_Box {
+
+	/**
+	 * Frontend output for the Author Box (block, widget, shortcode, auto-display).
+	 * Profile fields and Person schema stay available when this is off.
+	 */
+	public static function is_enabled(): bool {
+		return 'on' === get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' );
+	}
+
+	/**
+	 * Whether Author Box auto-display and the Trust panel apply to this post type.
+	 */
+	public static function is_post_type_enabled( string $post_type ): bool {
+		$types = array_values( array_filter( (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) ) ) );
+		return in_array( $post_type, $types, true );
+	}
 
 	// ── All profile field meta keys (user meta) ──────────────────────────────
 	// Kept as a single map so register_meta(), render(), schema build, and
@@ -82,12 +96,12 @@ class RNRD_Author_Box {
 		add_filter( 'seopress_pro_get_json_data_article',  array( self::class, 'merge_into_seopress' ), 100 );
 		add_filter( 'the_seo_framework_schema_graph_data', array( self::class, 'merge_into_tsf' ),      100 );
 		add_filter( 'slim_seo_schema_graph',               array( self::class, 'merge_into_slim_seo' ), 100 );
-		// v1.1.3 — Squirrly SEO (sq_json_ld_data); priority 100 runs after the
+		// v1.2.0 — Squirrly SEO (sq_json_ld_data); priority 100 runs after the
 		// Article merge so the author Person node is upgraded last.
 		add_filter( 'sq_json_ld_data',                     array( self::class, 'merge_into_squirrly' ), 100 );
 
 		// reviewedBy + lastReviewed into Article schema (all SEO plugins).
-		// Piggybacks on the existing RNRD_Block merge_into_article_node helper by providing data through filter.
+		// Piggybacks on RNRD_Schema's Article merge path by providing data through filter.
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -253,15 +267,15 @@ class RNRD_Author_Box {
 					<?php endif; ?>
 				</p>
 				<?php
-				/* v1.1.28 — Deep link to the E-E-A-T tab in the RankReady
+				/* v1.1.28 — Deep link to Content → Author Box in the RankReady
 				 * settings screen. Lets users jump straight from this
 				 * profile page to the schema toggles + author box settings
 				 * that consume the fields below. */
-				$rnrd_eeat_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=authority' );
+				$rnrd_eeat_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=author' );
 				?>
 				<p class="rnrd-author-card__head-cta">
 					<a class="rnrd-author-card__head-link" href="<?php echo esc_url( $rnrd_eeat_url ); ?>">
-						<?php esc_html_e( 'Open RankReady E-E-A-T settings', 'rankready-ai-llm-seo' ); ?>
+						<?php esc_html_e( 'Open RankReady Author Box settings', 'rankready-ai-llm-seo' ); ?>
 						<span class="rnrd-author-card__head-link-arrow" aria-hidden="true">&rarr;</span>
 					</a>
 				</p>
@@ -538,102 +552,20 @@ class RNRD_Author_Box {
 
 		</div><!-- /.rnrd-author-card -->
 
-		<script>
-		(function(){
-			// Repeater add/remove (vanilla, no jQuery).
-			function syncHidden(repeater){
-				var key = repeater.getAttribute('data-repeater');
-				var fields = repeater.getAttribute('data-fields').split(',');
-				var rows = repeater.querySelectorAll('.rnrd-repeater-row');
-				var data = [];
-				for (var i = 0; i < rows.length; i++) {
-					var row = {};
-					var has = false;
-					for (var j = 0; j < fields.length; j++) {
-						var input = rows[i].querySelector('[data-field="' + fields[j] + '"]');
-						if (input) {
-							row[fields[j]] = input.value;
-							if (input.value) has = true;
-						}
-					}
-					if (has) data.push(row);
-				}
-				var hidden = document.querySelector('input[name="rnrd_author_' + key + '"]');
-				if (hidden) hidden.value = JSON.stringify(data);
-			}
-
-			function makeRow(fields, values){
-				var row = document.createElement('div');
-				row.className = 'rnrd-repeater-row';
-				row.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center;';
-				for (var i = 0; i < fields.length; i++) {
-					var f = fields[i].trim();
-					var input = document.createElement('input');
-					input.type = 'text';
-					input.setAttribute('data-field', f);
-					input.placeholder = f.charAt(0).toUpperCase() + f.slice(1);
-					input.value = (values && values[f]) || '';
-					input.style.flex = '1';
-					row.appendChild(input);
-				}
-				var del = document.createElement('button');
-				del.type = 'button';
-				del.className = 'button';
-				del.textContent = '×';
-				del.style.cssText = 'min-width:32px;';
-				del.addEventListener('click', function(){
-					row.parentNode.removeChild(row);
-					syncHidden(row.parentNode || document.querySelector('.rnrd-repeater'));
-				});
-				row.appendChild(del);
-				return row;
-			}
-
-			document.querySelectorAll('.rnrd-repeater-add').forEach(function(btn){
-				btn.addEventListener('click', function(){
-					var key = btn.getAttribute('data-target');
-					var repeater = document.querySelector('.rnrd-repeater[data-repeater="' + key + '"]');
-					if (!repeater) return;
-					var fields = repeater.getAttribute('data-fields').split(',');
-					var row = makeRow(fields, {});
-					repeater.appendChild(row);
-					row.querySelectorAll('input').forEach(function(inp){
-						inp.addEventListener('input', function(){ syncHidden(repeater); });
-					});
-				});
-			});
-
-			document.querySelectorAll('.rnrd-repeater').forEach(function(repeater){
-				repeater.querySelectorAll('input').forEach(function(inp){
-					inp.addEventListener('input', function(){ syncHidden(repeater); });
-				});
-				repeater.querySelectorAll('.rnrd-repeater-row-remove').forEach(function(btn){
-					btn.addEventListener('click', function(){
-						btn.closest('.rnrd-repeater-row').remove();
-						syncHidden(repeater);
-					});
-				});
-			});
-
-			// Media picker.
-			document.querySelectorAll('.rnrd-media-picker').forEach(function(btn){
-				btn.addEventListener('click', function(e){
-					e.preventDefault();
-					if (typeof wp === 'undefined' || !wp.media) return;
-					var frame = wp.media({ title: 'Select Headshot', button: { text: 'Use this image' }, multiple: false });
-					frame.on('select', function(){
-						var attachment = frame.state().get('selection').first().toJSON();
-						var target = document.getElementById(btn.getAttribute('data-target'));
-						if (target) target.value = attachment.url;
-					});
-					frame.open();
-				});
-			});
-		})();
-		</script>
 		<?php
-		// Make sure wp.media is available.
+		// Repeater + media-picker JS lives in a real file. WP.org hard rules 3 and 13
+		// forbid raw script-tag echoes in admin context. The previous block sat in
+		// inline-HTML mode rather than a PHP echo, which is why the release gate's
+		// echo-based pattern never matched it — see gate checks 3 and 13.
+		// wp_enqueue_media() must run first so wp.media exists when the script inits.
 		wp_enqueue_media();
+		wp_enqueue_script(
+			'rnrd-author-profile',
+			RNRD_URL . 'assets/author-profile.js',
+			array(),
+			RNRD_VERSION,
+			true
+		);
 	}
 
 	private static function render_repeater_rows( array $rows, array $field_labels ): void {
@@ -1070,7 +1002,7 @@ class RNRD_Author_Box {
 
 		printf(
 			'<script type="application/ld+json">%s</script>' . "\n",
-			wp_json_encode( $profile, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE )
+			wp_json_encode( $profile, JSON_UNESCAPED_UNICODE )
 		);
 	}
 
@@ -1080,7 +1012,7 @@ class RNRD_Author_Box {
 
 	/**
 	 * Render the author box. Called by the Gutenberg block render_callback,
-	 * the Elementor widget, and the auto-display filter.
+	 * the Elementor widget, the [rankready_author] shortcode, and auto-display.
 	 *
 	 * @param int   $user_id  Author user ID.
 	 * @param array $attrs    Block/widget attributes.
@@ -1206,7 +1138,7 @@ class RNRD_Author_Box {
 							<div class="rnrd-ab-credentials">
 								<?php foreach ( $education as $row ) : if ( empty( $row['degree'] ) && empty( $row['institution'] ) ) continue; ?>
 									<div class="rnrd-ab-cred-row">
-										<span class="rnrd-ab-cred-icon" aria-hidden="true">🎓</span>
+										<span class="rnrd-ab-cred-icon" aria-hidden="true">&#9733;</span>
 										<?php echo esc_html( trim( ( $row['degree'] ?? '' ) . ( ! empty( $row['institution'] ) ? ' · ' . $row['institution'] : '' ) ) ); ?>
 									</div>
 								<?php endforeach; ?>
@@ -1315,6 +1247,47 @@ class RNRD_Author_Box {
 	 * Build the inline style="..." attribute from block attributes.
 	 * Uses CSS variables so style.css does the layout.
 	 */
+	/**
+	 * Validate one CSS custom-property value by the kind of attribute it came from.
+	 *
+	 * Returns '' for anything that does not match, so an invalid value is dropped
+	 * rather than emitted. Nothing here can contain ';', so a value can never open
+	 * a second declaration.
+	 *
+	 * @param string $attr  Attribute name (used to infer the expected value kind).
+	 * @param string $value Raw value.
+	 * @return string Safe value, or '' to skip.
+	 */
+	private static function sanitize_style_value( string $attr, string $value ): string {
+		$value = trim( $value );
+		if ( '' === $value ) {
+			return '';
+		}
+
+		if ( false !== stripos( $attr, 'color' ) ) {
+			// hex / rgb() / rgba() / hsl() / hsla() / CSS named colour.
+			return preg_match( '/^(#[0-9a-fA-F]{3,8}|rgba?\([\d\s.,%]+\)|hsla?\([\d\s.,%]+\)|[a-zA-Z]{3,20})$/', $value )
+				? $value
+				: '';
+		}
+
+		if ( false !== stripos( $attr, 'fontfamily' ) ) {
+			// Font stacks: letters, digits, spaces, quotes, hyphens and commas only.
+			return preg_match( '/^[a-zA-Z0-9 ,\'"\-]{1,120}$/', $value ) ? esc_attr( $value ) : '';
+		}
+
+		if ( false !== stripos( $attr, 'fontweight' ) ) {
+			return preg_match( '/^(normal|bold|lighter|bolder|[1-9]00)$/', $value ) ? $value : '';
+		}
+
+		if ( false !== stripos( $attr, 'lineheight' ) ) {
+			return is_numeric( $value ) ? (string) (float) $value : '';
+		}
+
+		// Unknown kind — allow only a conservative token charset.
+		return preg_match( '/^[a-zA-Z0-9 .%\-]{1,60}$/', $value ) ? esc_attr( $value ) : '';
+	}
+
 	private static function inline_style( array $attrs ): string {
 		$vars = array();
 
@@ -1349,9 +1322,19 @@ class RNRD_Author_Box {
 			$value = $attrs[ $attr ];
 			if ( is_array( $var ) ) {
 				$vars[] = $var[0] . ':' . (float) $value . $var[1];
-			} else {
-				$vars[] = $var . ':' . esc_attr( (string) $value );
+				continue;
 			}
+
+			// esc_attr() alone is NOT enough here: it blocks attribute breakout but
+			// leaves `;` intact, so a post editor could set a colour to
+			// "red;background-image:url(https://attacker.example)" and inject a
+			// second declaration — an outbound request on render, or a UI-redress
+			// overlay. Validate by value kind, matching RNRD_Util::sanitize_color().
+			$clean = self::sanitize_style_value( $attr, (string) $value );
+			if ( '' === $clean ) {
+				continue;
+			}
+			$vars[] = $var . ':' . $clean;
 		}
 
 		if ( empty( $vars ) ) return '';
@@ -1364,7 +1347,7 @@ class RNRD_Author_Box {
 
 	public static function maybe_auto_display( $content ) {
 		if ( ! is_singular() || ! is_main_query() || ! in_the_loop() ) return $content;
-		if ( 'on' !== get_option( RNRD_OPT_AUTHOR_ENABLE, 'on' ) ) return $content;
+		if ( ! self::is_enabled() ) return $content;
 
 		$position = (string) get_option( RNRD_OPT_AUTHOR_AUTO_DISPLAY, 'off' );
 		if ( 'off' === $position ) return $content;
@@ -1383,11 +1366,12 @@ class RNRD_Author_Box {
 		if ( get_post_meta( $post_id, RNRD_META_AUTHOR_DISABLE, true ) ) return $content;
 
 		// Post type allowlist.
-		$allowed = (array) get_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
-		if ( ! in_array( $post->post_type, $allowed, true ) ) return $content;
+		if ( ! self::is_post_type_enabled( $post->post_type ) ) return $content;
 
-		// Skip if the block is already in content.
-		if ( has_block( 'rankready/author-box', $post ) ) return $content;
+		// Skip if the Gutenberg block or shortcode already places the author box.
+		if ( RNRD_Shortcode::post_has_manual( $post, 'rankready/author-box', RNRD_Shortcode::AUTHOR ) ) {
+			return $content;
+		}
 
 		$html = self::render_html( (int) $post->post_author, array(), $post_id );
 		if ( '' === $html ) return $content;
@@ -1404,8 +1388,16 @@ class RNRD_Author_Box {
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function render_block( $attrs, $content = '', $block = null ): string {
+		if ( ! self::is_enabled() ) {
+			return '';
+		}
 		$post_id = get_the_ID();
 		if ( ! $post_id ) return '';
+
+		$post = get_post( $post_id );
+		if ( ! $post || ! self::is_post_type_enabled( $post->post_type ) ) {
+			return '';
+		}
 
 		$source  = isset( $attrs['authorSource'] ) ? $attrs['authorSource'] : 'post';
 		$user_id = 'specific' === $source && ! empty( $attrs['authorId'] )

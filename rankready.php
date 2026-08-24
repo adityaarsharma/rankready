@@ -1,13 +1,13 @@
 <?php
 /**
- * Plugin Name:       RankReady – AI & LLM SEO for ChatGPT, Perplexity & Google AI
- * Plugin URI:        https://posimyth.com
- * Description:       Make your WordPress site cited by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.1.2
+ * Plugin Name:       RankReady – AI SEO, Schema, llms.txt, AEO and GEO for ChatGPT, Gemini and Perplexity
+ * Plugin URI:        https://hostmy.blog/plugins/rankready/
+ * Description:       Make your WordPress content readable by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, Markdown endpoints, agent discovery headers, WebMCP, and crawler controls — in one plugin.
+ * Version:           1.3.0
  * Requires at least: 6.9
  * Requires PHP:      7.4
- * Author:            POSIMYTH Inc. & Aditya Sharma
- * Author URI:        https://posimyth.com
+ * Author:            HostMyBlog
+ * Author URI:        https://hostmy.blog
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       rankready-ai-llm-seo
@@ -15,6 +15,46 @@
  */
 
 defined( 'ABSPATH' ) || exit;
+
+if ( ! function_exists( 'rnrd_fs' ) ) {
+    // Create a helper function for easy SDK access.
+    function rnrd_fs() {
+        global $rnrd_fs;
+
+        if ( ! isset( $rnrd_fs ) ) {
+            $rnrd_fs_sdk = dirname( __FILE__ ) . '/vendor/freemius/start.php';
+            if ( ! file_exists( $rnrd_fs_sdk ) ) {
+                return false;
+            }
+
+            require_once $rnrd_fs_sdk;
+
+            $rnrd_fs = fs_dynamic_init( array(
+                'id'                  => '37729',
+                'slug'                => 'rankready-ai-llm-seo',
+                'type'                => 'plugin',
+                'public_key'          => 'pk_4a3356e64068eb259388059c5c167',
+                'is_premium'          => false,
+                'has_addons'          => false,
+                'has_paid_plans'      => false,
+                'is_org_compliant'    => true,
+                'menu'                => array(
+                    'slug'           => 'rankready-ai-llm-seo',
+                    'first-path'     => 'admin.php?page=rankready-ai-llm-seo',
+                    'account'        => false,
+                    'contact'        => false,
+                    'support'        => false,
+                ),
+            ) );
+        }
+
+        return $rnrd_fs;
+    }
+
+    if ( false !== rnrd_fs() ) {
+        do_action( 'rnrd_fs_loaded' );
+    }
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Duplicate-install guard — prevent fatals when two copies are active.
@@ -51,7 +91,7 @@ if ( defined( 'RNRD_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RNRD_VERSION' ) ) {
-	define( 'RNRD_VERSION',  '1.1.2' );
+	define( 'RNRD_VERSION',  '1.3.0' );
 	define( 'RNRD_FILE',     __FILE__ );
 	define( 'RNRD_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RNRD_URL',      plugin_dir_url( __FILE__ ) );
@@ -94,8 +134,9 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_SHOW_LABEL',       'rnrd_default_show_label' );
 	define( 'RNRD_OPT_HEADING_TAG',      'rnrd_default_heading_tag' );
 	define( 'RNRD_OPT_AUTO_GENERATE',    'rnrd_auto_generate' );
-	define( 'RNRD_OPT_AUTO_DISPLAY',     'rnrd_auto_display' );
-	define( 'RNRD_OPT_DISPLAY_POSITION', 'rnrd_display_position' );
+	define( 'RNRD_OPT_SUMMARY_ENABLE',   'rnrd_summary_enable' ); // Frontend: block, widget, shortcode, auto-display.
+	define( 'RNRD_OPT_AUTO_DISPLAY',     'rnrd_auto_display' );   // 'off' | 'before' | 'after' (legacy: 'on' + RNRD_OPT_DISPLAY_POSITION).
+	define( 'RNRD_OPT_DISPLAY_POSITION', 'rnrd_display_position' ); // Legacy; read fallback only.
 	define( 'RNRD_OPT_CUSTOM_PROMPT',    'rnrd_custom_prompt' );
 	define( 'RNRD_OPT_PRODUCT_CONTEXT',  'rnrd_product_context' );
 
@@ -117,6 +158,12 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	// Option keys — LLM Crawler robots.txt controls.
 	define( 'RNRD_OPT_ROBOTS_ENABLE',   'rnrd_robots_enable' );
 	define( 'RNRD_OPT_ROBOTS_CRAWLERS', 'rnrd_robots_crawlers' );
+	define( 'RNRD_OPT_ROBOTS_BLOCKED',  'rnrd_robots_blocked' );  // AI crawlers to hard-block (Disallow: /). Default empty = back-compat.
+	// v1.2.1 — UI transport for the per-crawler Allow/Default/Block radio. Map of
+	// user-agent => 'allow'|'block'|'default'. The two arrays above stay the
+	// source of truth for robots.txt output and are DERIVED from this on save,
+	// so every existing reader keeps working unchanged.
+	define( 'RNRD_OPT_ROBOTS_MODE',     'rnrd_robots_mode' );
 
 	// Option keys — Content Signals (contentsignals.org).
 	define( 'RNRD_OPT_CONTENT_SIGNALS_ENABLE',   'rnrd_content_signals_enable' );
@@ -166,8 +213,9 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_FAQ_POST_TYPES',   'rnrd_faq_post_types' );
 	define( 'RNRD_OPT_FAQ_COUNT',        'rnrd_faq_count' );
 	define( 'RNRD_OPT_FAQ_BRAND_TERMS',  'rnrd_faq_brand_terms' );
-	define( 'RNRD_OPT_FAQ_AUTO_DISPLAY', 'rnrd_faq_auto_display' );
-	define( 'RNRD_OPT_FAQ_POSITION',     'rnrd_faq_position' );
+	define( 'RNRD_OPT_FAQ_ENABLE',       'rnrd_faq_enable' ); // Frontend: block, widget, shortcode, auto-display.
+	define( 'RNRD_OPT_FAQ_AUTO_DISPLAY', 'rnrd_faq_auto_display' ); // 'off' | 'before' | 'after' (legacy: 'on' + RNRD_OPT_FAQ_POSITION).
+	define( 'RNRD_OPT_FAQ_POSITION',     'rnrd_faq_position' );     // Legacy; read fallback only.
 	define( 'RNRD_OPT_FAQ_HEADING_TAG',  'rnrd_faq_heading_tag' );
 	define( 'RNRD_OPT_FAQ_SHOW_REVIEWED','rnrd_faq_show_reviewed' );
 	define( 'RNRD_OPT_FAQ_AUTO_GENERATE','rnrd_faq_auto_generate' );
@@ -180,7 +228,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_HIDE_BRANDING', 'rnrd_hide_branding' );
 
 	// Option keys — Author Box (EEAT).
-	define( 'RNRD_OPT_AUTHOR_ENABLE',         'rnrd_author_enable' );          // Master toggle for the feature.
+	define( 'RNRD_OPT_AUTHOR_ENABLE',         'rnrd_author_enable' );          // Frontend: block, widget, shortcode, auto-display.
 	define( 'RNRD_OPT_AUTHOR_AUTO_DISPLAY',   'rnrd_author_auto_display' );    // 'off' | 'before' | 'after' | 'both'
 	define( 'RNRD_OPT_AUTHOR_LAYOUT',         'rnrd_author_layout' );          // 'card' | 'compact' | 'inline'
 	define( 'RNRD_OPT_AUTHOR_HEADING',        'rnrd_author_heading' );         // Default heading text ("About the Author").
@@ -216,14 +264,17 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_META_MAX_SNIPPET',          '_rnrd_max_snippet' );          // per-post override: 'on'|'off'|'' (inherit)
 
 	// Per-post llms.txt exclusion.
-	define( 'RNRD_META_LLMS_EXCLUDE',         '_rnrd_llms_exclude' );         // '1' = exclude this post from llms.txt
+	define( 'RNRD_META_LLMS_EXCLUDE',         '_rnrd_llms_exclude' );         // '1' = exclude from AI surfaces (llms.txt, Markdown, WebMCP, OKF)
 
+	// AI Insights tracking toggles.
+	define( 'RNRD_OPT_AI_TRAINING_ENABLE',    'rnrd_ai_training_enable' ); // 'on' | 'off' — master toggle for training-bot logging.
+	define( 'RNRD_OPT_AI_CITATION_ENABLE',    'rnrd_ai_citation_enable' ); // 'on' | 'off' — master toggle for citation-bot logging.
 	// AI Referral Traffic — daily counts per source, rolling 30 days.
 	define( 'RNRD_OPT_AI_REFERRAL_STATS',     'rnrd_ai_referral_stats' );
 	define( 'RNRD_OPT_AI_REFERRAL_ENABLE',    'rnrd_ai_referral_enable' ); // 'on' | 'off' — master toggle.
 
 	// WebMCP — master toggle for /.well-known/mcp.json + Abilities API registration.
-	define( 'RNRD_OPT_MCP_ENABLE',            'rnrd_mcp_enable' );          // 'on' | 'off'
+	define( 'RNRD_OPT_MCP_ENABLE',            'rnrd_mcp_enable' );          // 'on' | 'off' — opt-in, default off.
 
 	// WebMCP — per-resource exposure toggles (v1.2.0-beta.6).
 	// Sensible defaults: public content ON, PII/heavy/stack-reveal resources OFF.
@@ -245,6 +296,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_MCP_EXPOSE_SETTINGS',   'rnrd_mcp_expose_settings' );   // OFF — may leak secrets
 
 	// Markdown layer sub-toggles (controlled inside the Markdown Endpoints card).
+	define( 'RNRD_OPT_MD_HOME_ENABLE',        'rnrd_md_home_enable' );        // 'on' | 'off' — homepage / posts-page markdown surfaces
 	define( 'RNRD_OPT_MD_HINT_DIV',           'rnrd_md_hint_div' );         // 'on' | 'off' — hidden AI-hint div in body
 	define( 'RNRD_OPT_MD_BOT_AUTO_SERVE',     'rnrd_md_bot_auto_serve' );   // 'on' | 'off' — UA-based forced markdown for AI bots
 	// v1.1.2 — Same-URL Accept-header content negotiation. DEFAULT OFF.
@@ -261,7 +313,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	// the `Link: rel="alternate"; type="text/markdown"` header + llms.txt. The
 	// llms.txt spec, Vercel, Mintlify and GitBook all use distinct `.md` URLs as
 	// the cache-safe layer. Only turn this on if you control your cache key.
-	define( 'RNRD_OPT_MD_ACCEPT_NEGOTIATION', 'rnrd_md_accept_negotiation' ); // 'on' | 'off' — same-URL Accept negotiation (default off)
+	define( 'RNRD_OPT_MD_ACCEPT_NEGOTIATION', 'rnrd_md_accept_negotiation' ); // 'on' | 'off' — same-URL Accept negotiation (v1.2: default on; auto-guarded off on Cloudflare APO)
 
 	// Meta keys.
 	define( 'RNRD_META_SUMMARY',   '_rnrd_summary' );
@@ -275,7 +327,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_META_FAQ_GENERATED',    '_rnrd_faq_generated' );
 	define( 'RNRD_META_FAQ_DISABLE',      '_rnrd_faq_disable' );
 	define( 'RNRD_META_FAQ_KEYWORD',      '_rnrd_faq_keyword' );
-	define( 'RNRD_META_FAQ_LAST_FAILURE', '_rnrd_faq_last_failure' ); // v1.1.3 — circuit-breaker timestamp.
+	define( 'RNRD_META_FAQ_LAST_FAILURE', '_rnrd_faq_last_failure' ); // v1.2.0 — circuit-breaker timestamp.
 
 	// Cron.
 	define( 'RNRD_CRON_HOOK', 'rnrd_async_generate' );
@@ -325,6 +377,46 @@ if ( ! function_exists( 'rnrd_is_pro' ) ) {
 	function rnrd_is_pro(): bool {
 		return (bool) apply_filters( 'rnrd_is_pro', false );
 	}
+}
+
+/**
+ * Resolve Auto-display to off|before|after.
+ * Legacy Summary/FAQ stored 'on' plus a separate position option.
+ * 'both' is Author Box only; maps to the feature's default position.
+ */
+function rnrd_auto_display_mode( string $option, string $legacy_position_option, string $legacy_position_default ): string {
+	$v = (string) get_option( $option, 'off' );
+	if ( in_array( $v, array( 'off', 'before', 'after' ), true ) ) {
+		return $v;
+	}
+	if ( 'both' === $v ) {
+		return $legacy_position_default;
+	}
+	if ( 'on' === $v ) {
+		$pos = (string) get_option( $legacy_position_option, $legacy_position_default );
+		return 'before' === $pos ? 'before' : 'after';
+	}
+	return 'off';
+}
+
+/**
+ * One-shot: rewrite legacy 'on' Auto-display rows to before/after.
+ */
+function rnrd_maybe_merge_auto_display_options(): void {
+	if ( get_option( 'rnrd_auto_display_merged' ) ) {
+		return;
+	}
+	$summary = (string) get_option( RNRD_OPT_AUTO_DISPLAY, 'off' );
+	if ( 'on' === $summary ) {
+		$pos = (string) get_option( RNRD_OPT_DISPLAY_POSITION, 'before' );
+		update_option( RNRD_OPT_AUTO_DISPLAY, 'before' === $pos ? 'before' : 'after', false );
+	}
+	$faq = (string) get_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' );
+	if ( 'on' === $faq ) {
+		$pos = (string) get_option( RNRD_OPT_FAQ_POSITION, 'after' );
+		update_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'before' === $pos ? 'before' : 'after', false );
+	}
+	update_option( 'rnrd_auto_display_merged', '1', false );
 }
 
 // ── Autoloader ────────────────────────────────────────────────────────────────
@@ -455,14 +547,16 @@ add_action( 'plugins_loaded', function (): void {
 	// auto-loads translations for plugins hosted on WordPress.org. Calling it
 	// manually triggers a PCP warning and is no longer needed for the .org build.
 
-	if ( version_compare( get_bloginfo( 'version' ), '6.2', '<' ) ) {
+	if ( version_compare( get_bloginfo( 'version' ), '6.9', '<' ) ) {
 		add_action( 'admin_notices', function (): void {
 			echo '<div class="notice notice-error"><p>'
-				. esc_html__( 'RankReady requires WordPress 6.2 or higher.', 'rankready-ai-llm-seo' )
+				. esc_html__( 'RankReady requires WordPress 6.9 or higher.', 'rankready-ai-llm-seo' )
 				. '</p></div>';
 		} );
 		return;
 	}
+
+	rnrd_maybe_merge_auto_display_options();
 
 	// Auto-flush rewrite rules after plugin update (activation hook doesn't fire on updates).
 	$stored_version = get_option( 'rnrd_installed_version', '' );
@@ -483,7 +577,6 @@ add_action( 'plugins_loaded', function (): void {
 			// fresh install where these two had never been written to the DB.
 			$upgrade_safe_off = array(
 				'rnrd_max_snippet_default',  // emits <meta robots> sitewide
-				'rnrd_ai_referral_enable',   // tracks Referer on every pageview (privacy)
 				'rnrd_mcp_enable',           // publishes /.well-known/mcp.json
 			);
 			foreach ( $upgrade_safe_off as $opt ) {
@@ -510,19 +603,15 @@ add_action( 'plugins_loaded', function (): void {
 			update_option( 'rnrd_md_signals_corrected_v1119', 1, false );
 		}
 
-		// v1.1.21 — Same one-shot pattern for the last two scorecard signals
-		// that were unreachable from the onboarding wizard prior to v1.1.21
-		// (rnrd_llms_full_enable + rnrd_ai_referral_enable). Only seeded
-		// 'on' when the site is already invested in the corresponding
-		// feature — llms-full follows llms_enable, referral tracking follows
-		// llms_enable as a proxy for "this user wants AI visibility data".
+		// v1.1.21 — One-shot seed for llms-full when the site already has
+		// llms.txt on (the signal was unreachable from the onboarding wizard
+		// prior to v1.1.21). Referral tracking is no longer forced here —
+		// default is on via get_option fallback; the user controls it from
+		// Insights → Real AI Referrals.
 		if ( ! get_option( 'rnrd_scorecard_corrected_v1121' ) ) {
 			if ( 'on' === get_option( 'rnrd_llms_enable', 'off' ) ) {
 				if ( 'on' !== get_option( 'rnrd_llms_full_enable', 'off' ) ) {
 					update_option( 'rnrd_llms_full_enable', 'on', false );
-				}
-				if ( 'on' !== get_option( 'rnrd_ai_referral_enable', 'on' ) ) {
-					update_option( 'rnrd_ai_referral_enable', 'on', false );
 				}
 			}
 			update_option( 'rnrd_scorecard_corrected_v1121', 1, false );
@@ -594,6 +683,27 @@ add_action( 'plugins_loaded', function (): void {
 			}
 		}
 
+		// Re-persist cache exclusions on upgrade. Activation does not fire on
+		// WordPress.org auto-updates, and this must run BEFORE the version
+		// marker is bumped — an older admin_init silent-update path was
+		// unreachable because plugins_loaded already wrote the new version.
+		if ( class_exists( 'RNRD_Cache' ) ) {
+			RNRD_Cache::persist_exclusions( array(
+				'/llms.txt',
+				'/llms-full.txt',
+				'/.well-known/mcp.json',
+				'.md',
+			) );
+		}
+
+		// v1.1.2 — One-shot FAQ Count repair. Pre-1.1.0 Settings API cross-nulling
+		// stored 0 on some installs when adjacent options saved. Repair stored 0
+		// (or any out-of-range value) to the documented default of 5.
+		$faq_count = (int) get_option( RNRD_OPT_FAQ_COUNT, 5 );
+		if ( $faq_count < 3 || $faq_count > 10 ) {
+			update_option( RNRD_OPT_FAQ_COUNT, 5 );
+		}
+
 		update_option( 'rnrd_installed_version', RNRD_VERSION );
 		// Defer rewrite rule registration + flush to 'init' — $wp_rewrite is not
 		// ready at plugins_loaded and calling add_rewrite_rule() before init causes
@@ -605,7 +715,7 @@ add_action( 'plugins_loaded', function (): void {
 			RNRD_MCP::add_rewrite_rules();
 			flush_rewrite_rules( false );
 		}, 99 );
-		RNRD_Llms_Txt::sync_physical_robots_txt();
+		RNRD_Robots::sync_physical_robots_txt();
 
 		// Migrate data from old AI Post Summary plugin (_aps_ meta) if present.
 		// Only run once — skip if already migrated.
@@ -662,10 +772,17 @@ add_action( 'plugins_loaded', function (): void {
 	add_filter( 'pre_update_option_' . RNRD_OPT_LLMS_FULL_ENABLE, function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
 	add_filter( 'pre_update_option_' . RNRD_OPT_MD_ENABLE,        function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
 	add_filter( 'pre_update_option_' . RNRD_OPT_OKF_ENABLE,       function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
+	add_filter( 'pre_update_option_' . RNRD_OPT_MCP_ENABLE,       function ( $v ) { delete_transient( 'rnrd_rewrite_ok' ); return $v; } );
 
-	// Fix part 2: on admin page loads, detect missing rules and auto-flush.
+	// Fix part 2: on admin GET loads, detect missing or stale rules and auto-flush.
+	// Skip POST — options.php runs admin_init before saving; evaluating here would
+	// mark rewrites OK with the pre-save option and throttle the post-redirect GET.
 	// Transient throttles this to at most once per hour.
 	add_action( 'admin_init', function (): void {
+		if ( 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) ) {
+			return;
+		}
+
 		if ( get_transient( 'rnrd_rewrite_ok' ) ) {
 			return;
 		}
@@ -673,21 +790,24 @@ add_action( 'plugins_loaded', function (): void {
 		$rules = (array) get_option( 'rewrite_rules', array() );
 		$needs = false;
 
+		$ours = static function ( string $pattern, string $query_var ) use ( $rules ): bool {
+			return isset( $rules[ $pattern ] )
+				&& false !== strpos( (string) $rules[ $pattern ], $query_var );
+		};
+
+		$llms_on    = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$llms_other = class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::another_plugin_handles_llms_txt();
+		$want_llms  = $llms_on && ! $llms_other;
+		$want_full  = $llms_on && 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
+
 		// Check llms.txt — skip if another plugin is known to handle it.
-		if ( 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' ) && ! isset( $rules['^llms\.txt$'] ) ) {
-			// v1.1.5 (#10) — defer to the canonical detector instead of an inline
-			// Rank Math/Yoast-only check. It also recognises AIOSEO, SEOPress and the
-			// rankready_force_llms_txt filter, so on those-as-llms-provider sites the
-			// missing ^llms\.txt$ rule is EXPECTED and we no longer trigger a needless
-			// flush_rewrite_rules() on every admin load (the throttle masked it hourly).
-			// One source of truth — see RNRD_Llms_Txt::another_plugin_handles_llms_txt().
-			if ( class_exists( 'RNRD_Llms_Txt' ) && ! RNRD_Llms_Txt::another_plugin_handles_llms_txt() ) {
-				$needs = true;
-			}
+		if ( $want_llms && ! isset( $rules['^llms\.txt$'] ) ) {
+			// v1.1.5 (#10) — defer to the canonical detector; see RNRD_Llms_Txt::another_plugin_handles_llms_txt().
+			$needs = true;
 		}
 
-		// Check llms-full.txt — never handled by other plugins.
-		if ( ! $needs && 'on' === get_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' ) && ! isset( $rules['^llms-full\.txt$'] ) ) {
+		// Check llms-full.txt — requires both master llms.txt and the full toggle.
+		if ( ! $needs && $want_full && ! isset( $rules['^llms-full\.txt$'] ) ) {
 			$needs = true;
 		}
 
@@ -711,7 +831,33 @@ add_action( 'plugins_loaded', function (): void {
 		}
 
 		// Check WebMCP manifest rewrite rule (v1.2.0 — restored serving endpoint).
-		if ( ! $needs && 'on' === get_option( 'rnrd_mcp_enable', 'on' ) && ! isset( $rules['^\.well-known/mcp\.json$'] ) ) {
+		if ( ! $needs && 'on' === get_option( RNRD_OPT_MCP_ENABLE, 'off' ) && ! isset( $rules['^\.well-known/mcp\.json$'] ) ) {
+			$needs = true;
+		}
+
+		// Stale rules: feature OFF but our rewrite still persisted (e.g. same-request
+		// flush after a toggle used to bake in rules registered from the old value).
+		if ( ! $needs && ! $want_llms && $ours( '^llms\.txt$', 'rnrd_llms_txt' ) ) {
+			$needs = true;
+		}
+
+		if ( ! $needs && ! $want_full && $ours( '^llms-full\.txt$', 'rnrd_llms_full_txt' ) ) {
+			$needs = true;
+		}
+
+		$md_pattern = '^(?!wp-admin|wp-content|wp-includes|wp-json)(.+)\.md$';
+		if ( ! $needs && 'on' !== get_option( RNRD_OPT_MD_ENABLE, 'off' )
+			&& $ours( $md_pattern, 'rnrd_md_path' ) ) {
+			$needs = true;
+		}
+
+		if ( ! $needs && 'on' !== get_option( RNRD_OPT_OKF_ENABLE, 'off' )
+			&& $ours( '^okf/?$', 'rnrd_okf' ) ) {
+			$needs = true;
+		}
+
+		if ( ! $needs && 'on' !== get_option( RNRD_OPT_MCP_ENABLE, 'off' )
+			&& $ours( '^\.well-known/mcp\.json$', 'rnrd_mcp' ) ) {
 			$needs = true;
 		}
 
@@ -726,22 +872,25 @@ add_action( 'plugins_loaded', function (): void {
 		set_transient( 'rnrd_rewrite_ok', 1, HOUR_IN_SECONDS );
 	}, 20 );
 
-	// Register custom cron schedules.
-	add_filter( 'cron_schedules', function ( array $schedules ): array {
-		if ( ! isset( $schedules['rnrd_five_minutes'] ) ) {
-			$schedules['rnrd_five_minutes'] = array(
-				'interval' => 5 * MINUTE_IN_SECONDS,
-				'display'  => __( 'Every 5 Minutes (RankReady)', 'rankready-ai-llm-seo' ),
-			);
-		}
-		if ( ! isset( $schedules['rnrd_one_minute'] ) ) {
-			$schedules['rnrd_one_minute'] = array(
-				'interval' => MINUTE_IN_SECONDS,
-				'display'  => __( 'Every Minute (RankReady Bulk)', 'rankready-ai-llm-seo' ),
-			);
-		}
-		return $schedules;
-	} );
+	// Register custom cron schedules on init — __() in the display labels must not
+	// run during plugins_loaded (WP 6.7+ _load_textdomain_just_in_time notice).
+	add_action( 'init', function (): void {
+		add_filter( 'cron_schedules', function ( array $schedules ): array {
+			if ( ! isset( $schedules['rnrd_five_minutes'] ) ) {
+				$schedules['rnrd_five_minutes'] = array(
+					'interval' => 5 * MINUTE_IN_SECONDS,
+					'display'  => __( 'Every 5 Minutes (RankReady)', 'rankready-ai-llm-seo' ),
+				);
+			}
+			if ( ! isset( $schedules['rnrd_one_minute'] ) ) {
+				$schedules['rnrd_one_minute'] = array(
+					'interval' => MINUTE_IN_SECONDS,
+					'display'  => __( 'Every Minute (RankReady Bulk)', 'rankready-ai-llm-seo' ),
+				);
+			}
+			return $schedules;
+		} );
+	}, 1 );
 
 	// v1.1.0 — Encrypts API secrets at rest. Must run BEFORE any class that
 	// reads RNRD_OPT_KEY / DataForSEO password, so the decryption filter is
@@ -761,18 +910,24 @@ add_action( 'plugins_loaded', function (): void {
 	// meta-box save POST, so the settings UI + meta box keep working.
 	if ( is_admin() ) {
 		RNRD_Admin::init();
+		RNRD_Metabox::init();       // Post-edit Summary / FAQ / Visibility boxes.
 		RNRD_Welcome::init();          // 1-question onboarding flow on first activation.
 		RNRD_Agent_Dashboard::init();  // Unified dashboard widget (admin only).
 	}
 
 	RNRD_Generator::init();
+	RNRD_Summary::init();
+	RNRD_Schema::init();
 	RNRD_Block::init();
 	RNRD_Rest::init();
+	RNRD_Crawler_Access::init();
+	RNRD_Robots::init();
 	RNRD_Llms_Txt::init();
 	RNRD_Markdown::init();
 	RNRD_OKF::init();              // Open Knowledge Format (OKF) bundle at /okf/.
 	RNRD_Faq::init();
 	RNRD_Author_Box::init();
+	RNRD_Shortcode::init();    // [rankready_summary], [rankready_faq], [rankready_author].
 	RNRD_Crawler_Log::init();
 
 	// v1.2.0 — Agent Ready feature modules.
@@ -830,10 +985,8 @@ add_action( 'plugins_loaded', function (): void {
 
 // ── Activation / Deactivation ─────────────────────────────────────────────────
 register_activation_hook( RNRD_FILE, function (): void {
-	// v1.2.0 — flag the one-shot welcome redirect for first-time activations.
-	// RNRD_Welcome::flag_activation() is a no-op when the welcome has already
-	// been completed, so re-activating an existing install does NOT relaunch
-	// the onboarding flow.
+	// v1.2.0 — flag the one-shot post-activation redirect (onboarding for fresh
+	// installs, main settings page when the wizard was already completed).
 	if ( class_exists( 'RNRD_Welcome' ) ) {
 		RNRD_Welcome::flag_activation();
 	}
@@ -841,9 +994,12 @@ register_activation_hook( RNRD_FILE, function (): void {
 	if ( false === get_option( RNRD_OPT_POST_TYPES ) ) {
 		update_option( RNRD_OPT_POST_TYPES, array( 'post' ) );
 	}
-	if ( false === get_option( RNRD_OPT_LABEL ) ) {
-		update_option( RNRD_OPT_LABEL, 'Key Takeaways' );
-	}
+	// v1.2.1 — deliberately NOT seeded here. Activation runs before the text
+	// domain is reliably loaded, so writing a default would bake the English
+	// string into the DB and a German site would render German bullets under an
+	// English "Key Takeaways" heading. Leaving the option unset lets every read
+	// site fall back to __( 'Key Takeaways' ), which resolves in the site's
+	// language. Existing installs already hold a value and are untouched.
 	if ( false === get_option( RNRD_OPT_SHOW_LABEL ) ) {
 		update_option( RNRD_OPT_SHOW_LABEL, true );
 	}
@@ -859,17 +1015,29 @@ register_activation_hook( RNRD_FILE, function (): void {
 	if ( false === get_option( RNRD_OPT_MD_ENABLE ) ) {
 		update_option( RNRD_OPT_MD_ENABLE, 'off' );
 	}
+	if ( false === get_option( RNRD_OPT_MCP_ENABLE ) ) {
+		update_option( RNRD_OPT_MCP_ENABLE, 'off' );
+	}
+	if ( false === get_option( RNRD_OPT_MD_HOME_ENABLE ) ) {
+		update_option( RNRD_OPT_MD_HOME_ENABLE, 'on' );
+	}
 	if ( false === get_option( RNRD_OPT_ROBOTS_ENABLE ) ) {
 		update_option( RNRD_OPT_ROBOTS_ENABLE, 'on' );
 	}
 	if ( false === get_option( RNRD_OPT_ROBOTS_CRAWLERS ) ) {
-		update_option( RNRD_OPT_ROBOTS_CRAWLERS, array_keys( RNRD_Llms_Txt::get_llm_crawlers() ) );
+		update_option( RNRD_OPT_ROBOTS_CRAWLERS, array_keys( RNRD_Crawler_Access::get_llm_crawlers() ) );
 	}
 	if ( false === get_option( RNRD_OPT_FAQ_COUNT ) ) {
 		update_option( RNRD_OPT_FAQ_COUNT, 5 );
 	}
 	if ( false === get_option( RNRD_OPT_FAQ_HEADING_TAG ) ) {
 		update_option( RNRD_OPT_FAQ_HEADING_TAG, 'h3' );
+	}
+	if ( false === get_option( RNRD_OPT_SUMMARY_ENABLE ) ) {
+		update_option( RNRD_OPT_SUMMARY_ENABLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_FAQ_ENABLE ) ) {
+		update_option( RNRD_OPT_FAQ_ENABLE, 'on' );
 	}
 	if ( false === get_option( RNRD_OPT_FAQ_AUTO_DISPLAY ) ) {
 		update_option( RNRD_OPT_FAQ_AUTO_DISPLAY, 'off' );
@@ -902,6 +1070,46 @@ register_activation_hook( RNRD_FILE, function (): void {
 	if ( false === get_option( RNRD_OPT_AUTHOR_POST_TYPES ) ) {
 		update_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
 	}
+	if ( false === get_option( RNRD_OPT_AUTHOR_TRUST_ENABLE ) ) {
+		update_option( RNRD_OPT_AUTHOR_TRUST_ENABLE, 'off' );
+	}
+
+	// Front-end toggles read on every request. Seed autoloaded rows so a
+	// default install does not pay a SELECT per missing option (O-4).
+	// MCP enable and author auto-display are already seeded above.
+	if ( false === get_option( RNRD_OPT_AI_REFERRAL_ENABLE ) ) {
+		update_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_LLMS_FULL_ENABLE ) ) {
+		update_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
+	}
+	if ( false === get_option( RNRD_OPT_MD_POST_TYPES ) ) {
+		update_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+	}
+	if ( false === get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION ) ) {
+		update_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_MD_BOT_AUTO_SERVE ) ) {
+		update_option( RNRD_OPT_MD_BOT_AUTO_SERVE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_MD_HINT_DIV ) ) {
+		update_option( RNRD_OPT_MD_HINT_DIV, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_AUTO_DISPLAY ) ) {
+		update_option( RNRD_OPT_AUTO_DISPLAY, 'off' );
+	}
+	if ( false === get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT ) ) {
+		update_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_SCHEMA_ARTICLE ) ) {
+		update_option( RNRD_OPT_SCHEMA_ARTICLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_SCHEMA_SPEAKABLE ) ) {
+		update_option( RNRD_OPT_SCHEMA_SPEAKABLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_SCHEMA_FAQ ) ) {
+		update_option( RNRD_OPT_SCHEMA_FAQ, 'on' );
+	}
 
 	// Register rewrite rules before flushing so they get written.
 	RNRD_Llms_Txt::add_rewrite_rules();
@@ -911,7 +1119,7 @@ register_activation_hook( RNRD_FILE, function (): void {
 	flush_rewrite_rules();
 
 	// Sync to physical robots.txt if one exists.
-	RNRD_Llms_Txt::sync_physical_robots_txt();
+	RNRD_Robots::sync_physical_robots_txt();
 
 	// rc.16 audit fix C2 + M3 — persist exclusions to every cache plugin's
 	// saved option so LSWS / FastCGI / WPSC honour our bypass BEFORE PHP runs.
@@ -936,32 +1144,6 @@ register_activation_hook( RNRD_FILE, function (): void {
 	// PRO engine. The Pro add-on (RNRD_Pro_Schema) schedules it on its own init.
 	// The Free build no longer schedules it — the constant stays defined so the
 	// deactivation cleanup below can still clear any leftover event.
-} );
-
-// Re-sync robots.txt and rewrite rules when the plugin is updated (activation hook
-// doesn't fire on silent updates — version mismatch triggers it instead).
-add_action( 'admin_init', function (): void {
-	$stored = get_option( 'rnrd_installed_version', '' );
-	if ( version_compare( $stored, RNRD_VERSION, '<' ) ) {
-		update_option( 'rnrd_installed_version', RNRD_VERSION );
-		RNRD_Llms_Txt::sync_physical_robots_txt();
-		// rc.16 — re-persist cache exclusions on silent update; new bypass
-		// rules (LSWS .htaccess option entries) won't exist on sites updated
-		// from earlier RCs until they save settings or hit this admin_init.
-		if ( class_exists( 'RNRD_Cache' ) ) {
-			RNRD_Cache::persist_exclusions( array(
-				'/llms.txt', '/llms-full.txt', '/.well-known/mcp.json', '.md',
-			) );
-		}
-
-		// v1.1.2 — One-shot FAQ Count repair. Pre-1.1.0 Settings API cross-nulling
-		// stored 0 on some installs when adjacent options saved. Repair stored 0
-		// (or any out-of-range value) to the documented default of 5.
-		$faq_count = (int) get_option( RNRD_OPT_FAQ_COUNT, 5 );
-		if ( $faq_count < 3 || $faq_count > 10 ) {
-			update_option( RNRD_OPT_FAQ_COUNT, 5 );
-		}
-	}
 } );
 
 register_deactivation_hook( RNRD_FILE, function (): void {
@@ -994,7 +1176,7 @@ register_deactivation_hook( RNRD_FILE, function (): void {
 		if ( WP_Filesystem() && $wp_filesystem->exists( $robots_file ) && $wp_filesystem->is_writable( $robots_file ) ) {
 			$contents = $wp_filesystem->get_contents( $robots_file );
 			if ( false !== $contents && false !== strpos( $contents, 'RankReady' ) ) {
-				$contents = preg_replace( '/\n?#[^\n]*LLM[^\n]*RankReady[^\n]*\n.*?(?=\n#[^-]|\n?$)/s', '', $contents );
+				$contents = RNRD_Robots::strip_rankready_robots_block( $contents );
 				$contents = rtrim( $contents ) . "\n";
 				$wp_filesystem->put_contents( $robots_file, $contents, FS_CHMOD_FILE );
 			}

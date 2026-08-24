@@ -127,6 +127,32 @@ class RNRD_Crawler_Log {
 	}
 
 	/**
+	 * Whether logging is enabled for the given bot intent.
+	 *
+	 * Only training and citation are user-toggleable from Insights. All other
+	 * intents stay on so generic/indexing diagnostics continue to work.
+	 */
+	public static function is_tracking_enabled_for_intent( string $intent ): bool {
+		if ( 'training' === $intent ) {
+			return 'on' === get_option( RNRD_OPT_AI_TRAINING_ENABLE, 'on' );
+		}
+		if ( 'citation' === $intent ) {
+			return 'on' === get_option( RNRD_OPT_AI_CITATION_ENABLE, 'on' );
+		}
+		return true;
+	}
+
+	/**
+	 * Whether RankReady is serving at least one AI surface that crawler
+	 * logging can observe (llms.txt or Markdown).
+	 */
+	public static function has_loggable_endpoints(): bool {
+		$llms_on = defined( 'RNRD_OPT_LLMS_ENABLE' ) && 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$md_on   = defined( 'RNRD_OPT_MD_ENABLE' ) && 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
+		return $llms_on || $md_on;
+	}
+
+	/**
 	 * Build a SQL fragment matching any citation-intent bot. Returns the
 	 * fragment + the corresponding params array, ready to splice into a
 	 * $wpdb->prepare() call. Returns null when the list is empty (defensive).
@@ -164,10 +190,17 @@ class RNRD_Crawler_Log {
 			}
 		}
 
+		// Defer scheduling to init — wp_schedule_event() calls wp_get_schedules(),
+		// which must not trigger translated cron labels before init (WP 6.7+).
+		add_action( 'init', array( self::class, 'maybe_schedule_prune' ), 10 );
+		add_action( 'rnrd_crawler_log_prune', array( self::class, 'prune' ) );
+	}
+
+	/** Schedule the daily prune cron once, after init. */
+	public static function maybe_schedule_prune(): void {
 		if ( ! wp_next_scheduled( 'rnrd_crawler_log_prune' ) ) {
 			wp_schedule_event( time(), 'daily', 'rnrd_crawler_log_prune' );
 		}
-		add_action( 'rnrd_crawler_log_prune', array( self::class, 'prune' ) );
 	}
 
 	// ── Table management ───────────────────────────────────────────────────
@@ -197,7 +230,26 @@ class RNRD_Crawler_Log {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
-		update_option( self::DB_VERSION_KEY, self::DB_VERSION );
+
+		// Only record the schema version if the table actually exists. Bumping it
+		// unconditionally meant a failed CREATE (no CREATE privilege on locked-down
+		// managed MySQL, disk full, quota) was permanent: init() only calls this
+		// when stored < DB_VERSION, so it never retried, every insert silently
+		// errored, and AI Crawler Insights showed "0 visits" forever — which reads
+		// as "no bots have visited yet" rather than "logging is broken".
+		$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table; // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		if ( $exists ) {
+			update_option( self::DB_VERSION_KEY, self::DB_VERSION );
+			return;
+		}
+
+		if ( class_exists( 'RNRD_Generator' ) ) {
+			RNRD_Generator::log_error(
+				'CrawlerLog',
+				'Could not create the crawler-log table (' . $table . '). AI crawler visits are not being recorded. '
+					. ( $wpdb->last_error ? 'MySQL: ' . $wpdb->last_error : 'No MySQL error reported — check DB user CREATE privilege and disk space.' )
+			);
+		}
 	}
 
 	/**
@@ -249,9 +301,19 @@ class RNRD_Crawler_Log {
 	 * @param string        $endpoint  'llms_txt' | 'llms_full' | 'markdown' | 'home_md'
 	 * @param WP_Post|null  $post      Resolved post object (null for llms.txt / homepage).
 	 */
+	// Bot logging fires on template_redirect when RankReady serves one of its AI
+	// endpoints (llms.txt / *.md / mcp.json). Those endpoints are excluded from every
+	// supported page cache (WP Rocket / W3TC / WP Super Cache / LiteSpeed reject-URI +
+	// DONOTCACHEPAGE), so they always reach PHP and ARE logged even when a full-page
+	// cache is active — verified against WP Super Cache. Regular (cached) pages are not
+	// logged by design; only the always-uncached AI endpoints are the bot-visit signal.
 	public static function log( string $endpoint, ?WP_Post $post = null ): void {
 		$bot = self::detect_bot();
 		if ( '' === $bot ) {
+			return;
+		}
+		$intent = self::bot_intent( $bot );
+		if ( ! self::is_tracking_enabled_for_intent( $intent ) ) {
 			return;
 		}
 
@@ -265,7 +327,8 @@ class RNRD_Crawler_Log {
 		// identical hits (same IP + bot + path) to one row per 5 minutes — this kills the
 		// flood vector while still logging genuine crawls of distinct pages.
 		$rnrd_cl_ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-		$rnrd_cl_key = 'rnrd_cl_' . md5( $rnrd_cl_ip . '|' . $bot . '|' . $uri );
+		$rnrd_cl_path = explode( '?', $uri, 2 )[0]; // TC-SEC-03: throttle on PATH only — a spoofed bot cannot bypass the 5-min collapse by varying the query string.
+		$rnrd_cl_key  = 'rnrd_cl_' . md5( $rnrd_cl_ip . '|' . $bot . '|' . $rnrd_cl_path );
 		if ( get_transient( $rnrd_cl_key ) ) {
 			return;
 		}

@@ -21,45 +21,50 @@ class RNRD_LLM_OpenAI {
 		$api_key  = RNRD_LLM::get_api_key( $provider );
 
 		$body = array(
-			'model'             => $model,
-			'messages'          => array(
+			'model'                 => $model,
+			'messages'              => array(
 				array( 'role' => 'system', 'content' => $system ),
 				array( 'role' => 'user',   'content' => $user ),
 			),
-			'max_tokens'        => (int) $opts['max_tokens'],
-			'temperature'       => (float) $opts['temperature'],
-			'frequency_penalty' => 0.3,
+			'max_completion_tokens' => (int) $opts['max_tokens'], // GPT-5.x rejects 'max_tokens'; Chat Completions requires 'max_completion_tokens'.
+			'temperature'           => (float) $opts['temperature'],
+			'frequency_penalty'     => 0.3,
 		);
 
 		if ( ! empty( $opts['json'] ) ) {
 			$body['response_format'] = array( 'type' => 'json_object' );
 		}
 
-		$response = wp_remote_post( self::ENDPOINT, array(
-			'timeout'    => (int) $opts['timeout'],
-			'user-agent' => 'RankReady/' . RNRD_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
-			'headers'    => array(
-				'Authorization' => 'Bearer ' . $api_key,
-				'Content-Type'  => 'application/json',
-			),
-			// Send non-Latin content (Turkish/CJK/Arabic/Hindi/Cyrillic) as
-			// real UTF-8 bytes rather than \uXXXX escapes — providers
-			// handle both, but explicit UTF-8 is smaller on the wire and
-			// removes a class of edge-case escape bugs.
-			'body' => wp_json_encode( $body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ),
-		) );
-
+		$timeout  = (int) $opts['timeout'];
+		$response = self::request( $api_key, $body, $timeout );
 		if ( is_wp_error( $response ) ) {
 			return RNRD_LLM::error_response( $provider, 'OpenAI HTTP error: ' . $response->get_error_message(), $model );
 		}
 
 		$http = (int) wp_remote_retrieve_response_code( $response );
-		if ( 200 !== $http ) {
-			$err = wp_remote_retrieve_body( $response );
-			return RNRD_LLM::error_response( $provider, 'OpenAI HTTP ' . $http . ': ' . mb_substr( (string) $err, 0, 300 ), $model );
+		$raw  = (string) wp_remote_retrieve_body( $response );
+
+		// Self-heal the SAME class as the max_tokens bug: some models (notably
+		// GPT-5.x reasoning variants) reject a non-default 'temperature' or
+		// 'frequency_penalty' with a 400. If that is why the call failed, retry
+		// ONCE with those sampling params dropped — keeping 'max_completion_tokens'
+		// and JSON mode, which those models accept. Models that accept the params
+		// (every curated chat model today) succeed on the first request, unchanged.
+		if ( 400 === $http && self::is_unsupported_param_error( $raw ) ) {
+			unset( $body['temperature'], $body['frequency_penalty'] );
+			$response = self::request( $api_key, $body, $timeout );
+			if ( is_wp_error( $response ) ) {
+				return RNRD_LLM::error_response( $provider, 'OpenAI HTTP error: ' . $response->get_error_message(), $model );
+			}
+			$http = (int) wp_remote_retrieve_response_code( $response );
+			$raw  = (string) wp_remote_retrieve_body( $response );
 		}
 
-		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( 200 !== $http ) {
+			return RNRD_LLM::error_response( $provider, 'OpenAI HTTP ' . $http . ': ' . mb_substr( $raw, 0, 300 ), $model );
+		}
+
+		$decoded = json_decode( $raw, true );
 		$content = isset( $decoded['choices'][0]['message']['content'] ) ? trim( (string) $decoded['choices'][0]['message']['content'] ) : '';
 
 		if ( '' === $content ) {
@@ -70,5 +75,55 @@ class RNRD_LLM_OpenAI {
 		$tokens_out = isset( $decoded['usage']['completion_tokens'] ) ? (int) $decoded['usage']['completion_tokens'] : 0;
 
 		return RNRD_LLM::success_response( $provider, $model, $content, $tokens_in, $tokens_out );
+	}
+
+	/**
+	 * POST a chat-completions body to OpenAI. Returns the raw wp_remote_post()
+	 * result (response array or WP_Error) so the caller can inspect status + body.
+	 *
+	 * @param string $api_key OpenAI API key.
+	 * @param array  $body    Request body.
+	 * @param int    $timeout Request timeout in seconds.
+	 * @return array|WP_Error
+	 */
+	private static function request( string $api_key, array $body, int $timeout ) {
+		return wp_remote_post( self::ENDPOINT, array(
+			'timeout'    => $timeout,
+			'user-agent' => 'RankReady/' . RNRD_VERSION . '; WordPress/' . get_bloginfo( 'version' ),
+			'headers'    => array(
+				'Authorization' => 'Bearer ' . $api_key,
+				'Content-Type'  => 'application/json',
+			),
+			// Send non-Latin content (Turkish/CJK/Arabic/Hindi/Cyrillic) as real
+			// UTF-8 bytes rather than \uXXXX escapes — smaller on the wire and
+			// removes a class of edge-case escape bugs.
+			'body' => wp_json_encode( $body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ),
+		) );
+	}
+
+	/**
+	 * Whether an OpenAI 400 body indicates a rejected sampling parameter
+	 * ('temperature' / 'frequency_penalty'). Matches the model-rejects-param
+	 * class so the caller can retry without them instead of failing outright.
+	 *
+	 * @param string $raw Raw response body.
+	 * @return bool
+	 */
+	private static function is_unsupported_param_error( string $raw ): bool {
+		$raw = strtolower( $raw );
+
+		// Must reference one of the sampling params we would drop.
+		if ( false === strpos( $raw, 'temperature' ) && false === strpos( $raw, 'frequency_penalty' ) ) {
+			return false;
+		}
+
+		// ...and read like an "unsupported / not-allowed value" error.
+		foreach ( array( 'unsupported', 'does not support', 'not supported', 'only the default', 'unsupported_value', 'unsupported_parameter' ) as $needle ) {
+			if ( false !== strpos( $raw, $needle ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }

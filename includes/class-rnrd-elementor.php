@@ -307,6 +307,7 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 			return;
 		}
 
+		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- render_html() escapes every value it interpolates.
 		echo RNRD_Summary::render_html( $raw, array(
 			'showLabel'  => 'yes' === ( isset( $settings['show_label'] ) ? $settings['show_label'] : ( get_option( RNRD_OPT_SHOW_LABEL, '1' ) ? 'yes' : '' ) ),
 			'label'      => ! empty( $settings['label_text'] )
@@ -316,5 +317,6 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 				? $settings['heading_tag']
 				: (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' ),
 		) );
+		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 }

@@ -217,11 +217,13 @@ class RNRD_Elementor_Faq_Widget extends \Elementor\Widget_Base {
 			return;
 		}
 
+		// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- render_html() escapes every value it interpolates.
 		echo RNRD_Faq::render_html( $faq_data, array(
 			'showTitle'    => 'yes' === ( $settings['show_title'] ?? 'yes' ),
 			'titleText'    => ! empty( $settings['title_text'] ) ? sanitize_text_field( $settings['title_text'] ) : __( 'Frequently Asked Questions', 'rankready-ai-llm-seo' ),
 			'headingTag'   => ! empty( $settings['heading_tag'] ) ? $settings['heading_tag'] : 'h3',
 			'showReviewed' => 'yes' === ( $settings['show_reviewed'] ?? 'yes' ),
 		), $post_id );
+		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 }

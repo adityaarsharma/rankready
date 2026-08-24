@@ -187,8 +187,10 @@ class RNRD_Cloudflare {
 				return new WP_REST_Response(
 					array(
 						'success' => false,
+						// phpcs:disable PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- Instructional link to the user's own Cloudflare dashboard, not an offloaded asset.
 						/* translators: %s: Cloudflare API error message */
 						'error'   => sprintf( __( 'Cloudflare rejected the request: %s. Create a Custom Token at dash.cloudflare.com/profile/api-tokens with two permissions — "Zone : Zone : Read" and "Zone : Cache Rules : Edit" — and scope it to this site\'s zone (or all zones).', 'rankready-ai-llm-seo' ), $all->get_error_message() ),
+						// phpcs:enable PluginCheck.CodeAnalysis.Offloading.OffloadedContent
 					),
 					400
 				);
@@ -575,6 +577,7 @@ class RNRD_Cloudflare {
 							printf(
 								/* translators: %s: link to the Cloudflare API token creation page */
 								esc_html__( 'Create a Custom Token at %s', 'rankready-ai-llm-seo' ),
+								// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- Instructional link to the user's own Cloudflare dashboard, not an offloaded asset.
 								'<a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener noreferrer">dash.cloudflare.com/profile/api-tokens</a>'
 							);
 							?>

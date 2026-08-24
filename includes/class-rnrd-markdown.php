@@ -157,6 +157,7 @@ class RNRD_Markdown {
 				printf(
 					/* translators: %s: link to Cloudflare Purge Cache */
 					wp_kses_post( __( 'In Cloudflare, open %s. This clears any stale HTML APO cached before RankReady was installed. Going forward, RankReady auto-purges every relevant URL when you change settings or save a post.', 'rankready-ai-llm-seo' ) ),
+					// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- Instructional link to the user's own Cloudflare dashboard, not an offloaded asset.
 					'<a href="https://dash.cloudflare.com/?to=/:account/:zone/caching/configuration" target="_blank" rel="noopener"><strong>Caching → Configuration → Purge Everything</strong></a>'
 				);
 				?>
@@ -175,6 +176,7 @@ class RNRD_Markdown {
 					printf(
 						/* translators: %s: link to Cloudflare AI Crawl Control */
 						wp_kses_post( __( 'In your Cloudflare dashboard (Pro/Business plan), open %s. Cloudflare\'s edge converts HTML to Markdown automatically on Accept: text/markdown requests — happens before APO caching kicks in.', 'rankready-ai-llm-seo' ) ),
+						// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- Instructional link to the user's own Cloudflare dashboard, not an offloaded asset.
 						'<a href="https://dash.cloudflare.com/?to=/:account/:zone/ai-crawl-control" target="_blank" rel="noopener"><strong>AI Crawl Control → Markdown for Agents</strong></a>'
 					);
 					?>
@@ -185,6 +187,7 @@ class RNRD_Markdown {
 					printf(
 						/* translators: %s: link to Cloudflare Cache Rules */
 						wp_kses_post( __( 'In %s create a rule. Match: <code>(http.request.headers["accept"][0] contains "text/markdown")</code>. Then: <strong>Cache eligibility → Bypass cache</strong>.', 'rankready-ai-llm-seo' ) ),
+						// phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent -- Instructional link to the user's own Cloudflare dashboard, not an offloaded asset.
 						'<a href="https://dash.cloudflare.com/?to=/:account/:zone/caching/cache-rules" target="_blank" rel="noopener"><strong>Caching → Cache Rules → Create rule</strong></a>'
 					);
 					?>

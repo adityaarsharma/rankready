@@ -5155,3 +5155,40 @@ a.rnrd-kpi--link:focus .rnrd-kpi__go {
 .rnrd-dash-alert__text a:hover {
 	text-decoration: underline;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Header title row — alignment fix (1.3.0)
+   ---------------------------------------------------------------------------
+   .rnrd-title is declared four times in this file; the rule that actually won
+   the cascade set `align-items: baseline`. The version and Official Website
+   chips are bordered pills, so baseline alignment sat them low against the
+   title text instead of optically centred. The home link also carried its own
+   `margin-left: 6px` on top of the flex `gap`, so the two gaps in the row
+   measured differently (10px then 16px).
+
+   Appended at the end of the file deliberately: editing any single earlier
+   block is unreliable while four definitions compete.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.rnrd-title {
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    row-gap: 6px;
+}
+
+.rnrd-header__home-link {
+    margin-left: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.rnrd-header__home-link span[aria-hidden] {
+    margin-left: 0;
+}
+
+.rnrd-version {
+    margin-left: 0;
+    display: inline-flex;
+    align-items: center;
+}

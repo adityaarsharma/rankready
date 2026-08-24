@@ -533,11 +533,11 @@ class RNRD_Llms_Txt {
 			}
 
 			// H2 section header.
-			$section_title = $type_obj->labels->name;
-			$lines[]       = '## ' . self::clean_text( $section_title );
+			$section_title = self::flatten_for_list_line( self::clean_text( $type_obj->labels->name ) );
+			$lines[]       = '## ' . $section_title;
 
 			foreach ( $filtered as $post ) {
-				$title    = self::clean_text( get_the_title( $post ) );
+				$title    = self::flatten_for_list_line( self::clean_text( get_the_title( $post ) ) );
 				$url      = get_permalink( $post );
 				$excerpt  = self::get_post_description( $post );
 				$lastmod  = get_post_modified_time( 'Y-m-d', false, $post );
@@ -570,7 +570,7 @@ class RNRD_Llms_Txt {
 				$lines[] = '## Optional';
 
 				foreach ( $categories as $cat ) {
-					$lines[] = '- [' . self::clean_text( $cat->name ) . '](' . get_category_link( $cat->term_id ) . '): '
+					$lines[] = '- [' . self::flatten_for_list_line( self::clean_text( $cat->name ) ) . '](' . get_category_link( $cat->term_id ) . '): '
 						. sprintf( '%d posts', $cat->count );
 				}
 
@@ -660,7 +660,7 @@ class RNRD_Llms_Txt {
 					continue;
 				}
 
-				$title   = self::clean_text( get_the_title( $post ) );
+				$title   = self::flatten_for_list_line( self::clean_text( get_the_title( $post ) ) );
 				$url     = get_permalink( $post );
 				$content = self::post_to_clean_markdown( $post, false );
 
@@ -1132,14 +1132,18 @@ class RNRD_Llms_Txt {
 	}
 
 	/**
-	 * Flatten a value that will be interpolated into a SINGLE Markdown list line.
+	 * Flatten a value that will be interpolated into a SINGLE Markdown line.
 	 *
 	 * clean_text() deliberately preserves newlines (llms.txt has multi-line
-	 * sections), but a description is spliced into one `- [title](url): desc`
-	 * line. An Author-level user could put newlines in an excerpt or a Yoast /
-	 * Rank Math meta description and forge extra `## Section` headings and
-	 * `- [anything](https://attacker.example)` entries in the public file that
-	 * AI crawlers treat as the site's authoritative guidance.
+	 * brand/about sections), but titles, category names, CPT section labels,
+	 * and descriptions are spliced into one `# Heading`, `## Section`, or
+	 * `- [title](url): desc` line. An Author-level user can put newlines in a
+	 * post title via REST / wp_insert_post() / importers (classic + Gutenberg
+	 * strip them client-side) and forge extra `## Section` headings in the
+	 * public file that AI crawlers treat as the site's authoritative index.
+	 *
+	 * Descriptions were hardened first; titles and other single-line fields
+	 * use the same flattener.
 	 *
 	 * @param string $text Cleaned text that may contain newlines.
 	 * @return string Single-line, length-capped text.

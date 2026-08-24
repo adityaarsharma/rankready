@@ -4,7 +4,7 @@ Tags: seo, schema, ai seo, aeo, llms.txt
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.1-beta
+Stable tag: 1.3.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -351,7 +351,7 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 
 == Changelog ==
 
-= 1.3.1-beta, 2026-08-19 =
+= 1.3.0, 2026-08-24 =
 
 * Improved: Settings are reorganized into focused tabs, Dashboard, AI Visibility, AI Content, Insights, and Settings, with subtabs so Brand Identity, robots.txt, llms.txt, Markdown, WebMCP, OKF, Summary, FAQ, Author Box, and Schema are easier to find.
 * Improved: The post-edit RankReady UI is three metaboxes (AI Summary, AI FAQ, AI Visibility) instead of one combined box. Each box only appears on post types that use that feature, and saves are isolated so hiding a box cannot clear another feature's settings.
@@ -434,7 +434,7 @@ First public release. The AI-search layer for WordPress: unlimited manual AI Sum
 
 == Upgrade Notice ==
 
-= 1.3.1-beta =
+= 1.3.0 =
 Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.
 
 = 1.2.1 =

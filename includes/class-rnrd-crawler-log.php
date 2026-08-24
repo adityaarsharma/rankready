@@ -127,6 +127,32 @@ class RNRD_Crawler_Log {
 	}
 
 	/**
+	 * Whether logging is enabled for the given bot intent.
+	 *
+	 * Only training and citation are user-toggleable from Insights. All other
+	 * intents stay on so generic/indexing diagnostics continue to work.
+	 */
+	public static function is_tracking_enabled_for_intent( string $intent ): bool {
+		if ( 'training' === $intent ) {
+			return 'on' === get_option( RNRD_OPT_AI_TRAINING_ENABLE, 'on' );
+		}
+		if ( 'citation' === $intent ) {
+			return 'on' === get_option( RNRD_OPT_AI_CITATION_ENABLE, 'on' );
+		}
+		return true;
+	}
+
+	/**
+	 * Whether RankReady is serving at least one AI surface that crawler
+	 * logging can observe (llms.txt or Markdown).
+	 */
+	public static function has_loggable_endpoints(): bool {
+		$llms_on = defined( 'RNRD_OPT_LLMS_ENABLE' ) && 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$md_on   = defined( 'RNRD_OPT_MD_ENABLE' ) && 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
+		return $llms_on || $md_on;
+	}
+
+	/**
 	 * Build a SQL fragment matching any citation-intent bot. Returns the
 	 * fragment + the corresponding params array, ready to splice into a
 	 * $wpdb->prepare() call. Returns null when the list is empty (defensive).
@@ -284,6 +310,10 @@ class RNRD_Crawler_Log {
 	public static function log( string $endpoint, ?WP_Post $post = null ): void {
 		$bot = self::detect_bot();
 		if ( '' === $bot ) {
+			return;
+		}
+		$intent = self::bot_intent( $bot );
+		if ( ! self::is_tracking_enabled_for_intent( $intent ) ) {
 			return;
 		}
 

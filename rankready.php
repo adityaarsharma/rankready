@@ -265,6 +265,9 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	// Per-post llms.txt exclusion.
 	define( 'RNRD_META_LLMS_EXCLUDE',         '_rnrd_llms_exclude' );         // '1' = exclude from AI surfaces (llms.txt, Markdown, WebMCP, OKF)
 
+	// AI Insights tracking toggles.
+	define( 'RNRD_OPT_AI_TRAINING_ENABLE',    'rnrd_ai_training_enable' ); // 'on' | 'off' — master toggle for training-bot logging.
+	define( 'RNRD_OPT_AI_CITATION_ENABLE',    'rnrd_ai_citation_enable' ); // 'on' | 'off' — master toggle for citation-bot logging.
 	// AI Referral Traffic — daily counts per source, rolling 30 days.
 	define( 'RNRD_OPT_AI_REFERRAL_STATS',     'rnrd_ai_referral_stats' );
 	define( 'RNRD_OPT_AI_REFERRAL_ENABLE',    'rnrd_ai_referral_enable' ); // 'on' | 'off' — master toggle.

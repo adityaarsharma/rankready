@@ -25,7 +25,7 @@ class RNRD_Admin {
 	private const DATA_GROUP       = 'rnrd_data_group';      // Data Retention card on Advanced tab
 	private const AUTHORITY_GROUP  = 'rnrd_authority_group'; // Authority tab (author + schema)
 	private const LLMS_GROUP       = 'rnrd_llms_group';      // AI Visibility tab (shared LLMS settings)
-	private const INSIGHTS_GROUP   = 'rnrd_insights_group';  // Insights → Real AI Referrals toggle only
+	private const INSIGHTS_GROUP   = 'rnrd_insights_group';  // Insights tracking toggles (training / citation / referral)
 	private const HEADLESS_GROUP   = 'rnrd_headless_group';  // Advanced tab
 	private const OKF_GROUP        = 'rnrd_okf_group';       // OKF bundle card (Advanced tab) — isolated, cross-null-safe
 	// Legacy aliases kept for any saved nonces in flight during upgrade.
@@ -773,8 +773,18 @@ class RNRD_Admin {
 			'default'           => 'on',
 		) );
 
-		// Insights → Real AI Referrals master toggle. Own group so Visibility
-		// saves never POST (or wipe) this option.
+		// Insights tracking toggles. Own group so Visibility saves never POST
+		// (or wipe) these options.
+		register_setting( self::INSIGHTS_GROUP, RNRD_OPT_AI_TRAINING_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+		register_setting( self::INSIGHTS_GROUP, RNRD_OPT_AI_CITATION_ENABLE, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
 		register_setting( self::INSIGHTS_GROUP, RNRD_OPT_AI_REFERRAL_ENABLE, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
@@ -1794,8 +1804,13 @@ class RNRD_Admin {
 			$schema_seo = 'The SEO Framework';
 		}
 
-		$training_hits = class_exists( 'RNRD_Crawler_Log' ) ? (int) RNRD_Crawler_Log::get_training_hits_total( 30 ) : 0;
-		$citation_hits = class_exists( 'RNRD_Crawler_Log' ) ? (int) RNRD_Crawler_Log::get_citation_hits_total( 30 ) : 0;
+		$training_on     = 'on' === get_option( RNRD_OPT_AI_TRAINING_ENABLE, 'on' );
+		$citation_on     = 'on' === get_option( RNRD_OPT_AI_CITATION_ENABLE, 'on' );
+		$surfaces_on     = class_exists( 'RNRD_Crawler_Log' ) && RNRD_Crawler_Log::has_loggable_endpoints();
+		$training_active = $training_on && $surfaces_on;
+		$citation_active = $citation_on && $surfaces_on;
+		$training_hits   = ( $training_active && class_exists( 'RNRD_Crawler_Log' ) ) ? (int) RNRD_Crawler_Log::get_training_hits_total( 30 ) : 0;
+		$citation_hits   = ( $citation_active && class_exists( 'RNRD_Crawler_Log' ) ) ? (int) RNRD_Crawler_Log::get_citation_hits_total( 30 ) : 0;
 		$referral_on   = 'on' === get_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' );
 		$referral_hits = ( $referral_on && class_exists( 'RNRD_AI_Referral' ) ) ? (int) RNRD_AI_Referral::total_last_n_days( 30 ) : 0;
 		$stale_count   = 0;
@@ -1950,18 +1965,30 @@ class RNRD_Admin {
 						<div class="rnrd-kpi__label"><?php esc_html_e( 'Training Bots', 'rankready-ai-llm-seo' ); ?></div>
 						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
 					</div>
-					<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
-					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $training_hits ) ); ?></div>
-					<div class="rnrd-kpi__foot"><?php esc_html_e( 'AI crawler hits', 'rankready-ai-llm-seo' ); ?></div>
+					<?php if ( $training_active ) : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $training_hits ) ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'AI crawler hits', 'rankready-ai-llm-seo' ); ?></div>
+					<?php else : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php esc_html_e( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__foot"><?php echo esc_html( $training_on ? __( 'llms.txt and Markdown are off', 'rankready-ai-llm-seo' ) : __( 'Training bot logging paused', 'rankready-ai-llm-seo' ) ); ?></div>
+					<?php endif; ?>
 				</a>
 				<a class="rnrd-kpi rnrd-kpi--link" data-intent="citation" href="<?php echo esc_url( $insights_citation ); ?>" aria-label="<?php esc_attr_e( 'Citation Bots — open Insights', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">
 						<div class="rnrd-kpi__label"><?php esc_html_e( 'Citation Bots', 'rankready-ai-llm-seo' ); ?></div>
 						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
 					</div>
-					<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
-					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $citation_hits ) ); ?></div>
-					<div class="rnrd-kpi__foot"><?php esc_html_e( 'live answer bots', 'rankready-ai-llm-seo' ); ?></div>
+					<?php if ( $citation_active ) : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $citation_hits ) ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'live answer bots', 'rankready-ai-llm-seo' ); ?></div>
+					<?php else : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php esc_html_e( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__foot"><?php echo esc_html( $citation_on ? __( 'llms.txt and Markdown are off', 'rankready-ai-llm-seo' ) : __( 'Citation bot logging paused', 'rankready-ai-llm-seo' ) ); ?></div>
+					<?php endif; ?>
 				</a>
 				<a class="rnrd-kpi rnrd-kpi--link" data-intent="referral" href="<?php echo esc_url( $insights_referral ); ?>" aria-label="<?php esc_attr_e( 'Real AI Referrals — open Insights', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">
@@ -3190,8 +3217,102 @@ class RNRD_Admin {
 		<?php
 	}
 
+	/**
+	 * Emit hidden inputs preserving INSIGHTS_GROUP options absent from the
+	 * current Insights subtab form. Prevents options.php from nulling sibling toggles.
+	 *
+	 * @param string $except Option key being edited in this form.
+	 */
+	private static function render_insights_preserve_hiddens( string $except ): void {
+		$opts = array(
+			RNRD_OPT_AI_TRAINING_ENABLE => 'on',
+			RNRD_OPT_AI_CITATION_ENABLE => 'on',
+			RNRD_OPT_AI_REFERRAL_ENABLE => 'on',
+		);
+		foreach ( $opts as $key => $default ) {
+			if ( $key === $except ) {
+				continue;
+			}
+			printf(
+				'<input type="hidden" name="%1$s" value="%2$s" />' . "\n",
+				esc_attr( $key ),
+				esc_attr( (string) get_option( $key, $default ) )
+			);
+		}
+	}
+
+	/**
+	 * Warning when bot-endpoint tracking cannot record new hits.
+	 *
+	 * @param string $enable Current toggle value ('on'|'off').
+	 * @param string $kind   'training'|'citation'.
+	 */
+	private static function render_bot_endpoint_tracking_notice( string $enable, string $kind ): void {
+		$llms_on = 'on' === get_option( RNRD_OPT_LLMS_ENABLE, 'off' );
+		$md_on   = 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' );
+		if ( 'on' === $enable && $llms_on && $md_on ) {
+			return;
+		}
+
+		$llms_url = admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=crawlers&sub=llms' );
+		$md_url   = admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=crawlers&sub=markdown' );
+		$allowed  = array( 'a' => array( 'href' => true ) );
+		$training = 'training' === $kind;
+
+		echo '<p class="rnrd-notice rnrd-notice--warn" role="status">';
+		if ( 'on' !== $enable ) {
+			echo esc_html(
+				$training
+					? __( 'Tracking is currently off. Turn it on above to resume counting new training-bot activity.', 'rankready-ai-llm-seo' )
+					: __( 'Tracking is currently off. Turn it on above to resume counting new citation-bot activity.', 'rankready-ai-llm-seo' )
+			);
+		} elseif ( ! $llms_on && ! $md_on ) {
+			if ( $training ) {
+				echo wp_kses(
+					sprintf(
+						/* translators: 1: llms.txt settings URL, 2: Markdown settings URL */
+						__( 'Tracking is on, but both llms.txt and Markdown are disabled, so no new training-bot hits can be recorded. Enable <a href="%1$s">llms.txt</a> or <a href="%2$s">Markdown</a> in AI Visibility.', 'rankready-ai-llm-seo' ),
+						esc_url( $llms_url ),
+						esc_url( $md_url )
+					),
+					$allowed
+				);
+			} else {
+				echo wp_kses(
+					sprintf(
+						/* translators: 1: llms.txt settings URL, 2: Markdown settings URL */
+						__( 'Tracking is on, but both llms.txt and Markdown are disabled, so no new citation-bot hits can be recorded. Enable <a href="%1$s">llms.txt</a> or <a href="%2$s">Markdown</a> in AI Visibility.', 'rankready-ai-llm-seo' ),
+						esc_url( $llms_url ),
+						esc_url( $md_url )
+					),
+					$allowed
+				);
+			}
+		} elseif ( ! $llms_on ) {
+			echo wp_kses(
+				sprintf(
+					/* translators: %s: llms.txt settings URL */
+					__( 'llms.txt is disabled, so only Markdown endpoint hits are counted. <a href="%s">Enable llms.txt</a> to also track those fetches.', 'rankready-ai-llm-seo' ),
+					esc_url( $llms_url )
+				),
+				$allowed
+			);
+		} else {
+			echo wp_kses(
+				sprintf(
+					/* translators: %s: Markdown settings URL */
+					__( 'Markdown is disabled, so only llms.txt hits are counted. <a href="%s">Enable Markdown</a> to also track .md fetches.', 'rankready-ai-llm-seo' ),
+					esc_url( $md_url )
+				),
+				$allowed
+			);
+		}
+		echo '</p>';
+	}
+
 	private static function render_insights_bot_activity(): void {
 		// v1.1.6 — demo-mode helpers removed. Real data only.
+		$training_enable = (string) get_option( RNRD_OPT_AI_TRAINING_ENABLE, 'on' );
 		$citation_hits = (int) RNRD_Crawler_Log::get_citation_hits_total( 30 );
 		$training_hits = (int) RNRD_Crawler_Log::get_training_hits_total( 30 );
 		$total_30d     = (int) RNRD_Crawler_Log::get_total( 30 );
@@ -3223,11 +3344,37 @@ class RNRD_Admin {
 
 		$has_data = $total_30d > 0;
 		?>
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::INSIGHTS_GROUP ); ?>
+			<?php self::render_insights_preserve_hiddens( RNRD_OPT_AI_TRAINING_ENABLE ); ?>
+			<div class="rnrd-card" style="margin-bottom:16px;">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'Training Bot Logging', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Count AI training crawlers that fetch your llms.txt and Markdown endpoints. Data stays on your site.', 'rankready-ai-llm-seo' ); ?></p>
+				<table class="form-table rnrd-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable tracking', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<label class="rnrd-toggle">
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AI_TRAINING_ENABLE ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_AI_TRAINING_ENABLE ); ?>"
+									   value="on" <?php checked( $training_enable, 'on' ); ?> />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Track training-bot visits on AI endpoints', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<p class="description"><?php esc_html_e( 'When off, no new training-bot hits are recorded. Existing totals below stay available. Default is on.', 'rankready-ai-llm-seo' ); ?></p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button( __( 'Save tracking setting', 'rankready-ai-llm-seo' ), 'primary', 'submit', false ); ?>
+			</div>
+		</form>
+
 		<div class="rnrd-card">
 			<?php /* v1.1.15 — Restored card title to match Citation Bots /
 			   Real AI Referrals / Content Freshness pattern. */ ?>
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Training Activity', 'rankready-ai-llm-seo' ); ?></h2>
 			<p class="rnrd-card-goal"><?php esc_html_e( 'Training bots ingesting your content for future models — hits and pages read in the last 30 days.', 'rankready-ai-llm-seo' ); ?></p>
+
+			<?php self::render_bot_endpoint_tracking_notice( $training_enable, 'training' ); ?>
 
 			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'Training bot activity', 'rankready-ai-llm-seo' ); ?>">
 				<!-- KPI 1: Training hits — primary metric for this tab -->
@@ -3341,6 +3488,7 @@ class RNRD_Admin {
 
 	private static function render_insights_citation(): void {
 		// v1.1.6 — demo-mode helpers removed. Real data only.
+		$citation_enable = (string) get_option( RNRD_OPT_AI_CITATION_ENABLE, 'on' );
 		$citation_pages = RNRD_Crawler_Log::get_citation_top_pages( 30, 25 );
 
 		$total_pages_cited = count( $citation_pages );
@@ -3351,9 +3499,35 @@ class RNRD_Admin {
 		$max_hits          = $total_pages_cited > 0 ? max( array_column( $citation_pages, 'hits' ) ) : 1;
 		$has_data          = $total_pages_cited > 0;
 		?>
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::INSIGHTS_GROUP ); ?>
+			<?php self::render_insights_preserve_hiddens( RNRD_OPT_AI_CITATION_ENABLE ); ?>
+			<div class="rnrd-card" style="margin-bottom:16px;">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'Citation Bot Logging', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Count citation-intent crawlers that fetch your llms.txt and Markdown endpoints. Data stays on your site.', 'rankready-ai-llm-seo' ); ?></p>
+				<table class="form-table rnrd-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable tracking', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<label class="rnrd-toggle">
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AI_CITATION_ENABLE ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_AI_CITATION_ENABLE ); ?>"
+									   value="on" <?php checked( $citation_enable, 'on' ); ?> />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Track citation-bot visits on AI endpoints', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<p class="description"><?php esc_html_e( 'When off, no new citation-bot hits are recorded. Existing totals below stay available. Default is on.', 'rankready-ai-llm-seo' ); ?></p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button( __( 'Save tracking setting', 'rankready-ai-llm-seo' ), 'primary', 'submit', false ); ?>
+			</div>
+		</form>
+
 		<div class="rnrd-card">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Citation Candidates', 'rankready-ai-llm-seo' ); ?></h2>
 			<p class="rnrd-card-goal"><?php esc_html_e( 'Pages citation bots already fetch as live answer sources — refresh these first.', 'rankready-ai-llm-seo' ); ?></p>
+
+			<?php self::render_bot_endpoint_tracking_notice( $citation_enable, 'citation' ); ?>
 
 			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'Citation candidates summary', 'rankready-ai-llm-seo' ); ?>">
 				<div class="rnrd-kpi" data-intent="citation">
@@ -3479,6 +3653,7 @@ class RNRD_Admin {
 		?>
 		<form method="post" action="options.php" novalidate="novalidate">
 			<?php settings_fields( self::INSIGHTS_GROUP ); ?>
+			<?php self::render_insights_preserve_hiddens( RNRD_OPT_AI_REFERRAL_ENABLE ); ?>
 			<div class="rnrd-card" style="margin-bottom:16px;">
 				<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Referral Tracking', 'rankready-ai-llm-seo' ); ?></h2>
 				<p class="rnrd-card-goal"><?php esc_html_e( 'Count real visitors who arrive from ChatGPT, Perplexity, Claude, Gemini, or Copilot via the HTTP Referer header. Data stays on your site. Honours Sec-GPC and Do Not Track.', 'rankready-ai-llm-seo' ); ?></p>

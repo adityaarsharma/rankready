@@ -374,7 +374,6 @@ fieldset[data-rnrd-min-one-checkboxes] {
 	border-radius: 4px;
 	font-size: 13px;
 	margin-top: 14px;
-	max-width: 560px;
 }
 
 .rnrd-notice--info {
@@ -1631,6 +1630,17 @@ fieldset[data-rnrd-min-one-checkboxes] {
 	border-left-color: var(--rnrd-success);
 	background: var(--rnrd-success-bg);
 	color: var(--rnrd-mint-800);
+}
+
+.rnrd-notice a {
+	color: inherit;
+	font-weight: 600;
+	text-decoration: underline;
+}
+
+.rnrd-notice a:hover,
+.rnrd-notice a:focus {
+	text-decoration: none;
 }
 
 /* ── 16. Stats row (Dashboard) — match KPI styling ──────────────────────── */

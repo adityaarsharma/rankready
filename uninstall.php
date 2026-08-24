@@ -126,6 +126,8 @@ $rnrd_options = array(
 	// v1.2.0 — Agent Ready options.
 	'rnrd_brand_terms',
 	'rnrd_max_snippet_default',
+	'rnrd_ai_training_enable',
+	'rnrd_ai_citation_enable',
 	'rnrd_ai_referral_stats',
 	'rnrd_ai_referral_enable',
 	'rnrd_mcp_enable',

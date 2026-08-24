@@ -457,7 +457,10 @@
 
             unset( $users[ $user_id ] );
 
-            self::$_accounts->set_option( 'users', $users, $store );
+            // RankReady patch: FS_DebugManager has no $_accounts; accounts live on Freemius.
+            // Upstream still uses self::$_accounts (fatal on PHP 8.2+ when deleting a user
+            // from the Freemius Debug page). Mirror the rest of this file.
+            Freemius::get_accounts()->set_option( 'users', $users, $store );
 
             return $user_id;
         }

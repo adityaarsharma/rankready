@@ -1070,6 +1070,46 @@ register_activation_hook( RNRD_FILE, function (): void {
 	if ( false === get_option( RNRD_OPT_AUTHOR_POST_TYPES ) ) {
 		update_option( RNRD_OPT_AUTHOR_POST_TYPES, array( 'post' ) );
 	}
+	if ( false === get_option( RNRD_OPT_AUTHOR_TRUST_ENABLE ) ) {
+		update_option( RNRD_OPT_AUTHOR_TRUST_ENABLE, 'off' );
+	}
+
+	// Front-end toggles read on every request. Seed autoloaded rows so a
+	// default install does not pay a SELECT per missing option (O-4).
+	// MCP enable and author auto-display are already seeded above.
+	if ( false === get_option( RNRD_OPT_AI_REFERRAL_ENABLE ) ) {
+		update_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_LLMS_FULL_ENABLE ) ) {
+		update_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );
+	}
+	if ( false === get_option( RNRD_OPT_MD_POST_TYPES ) ) {
+		update_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+	}
+	if ( false === get_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION ) ) {
+		update_option( RNRD_OPT_MD_ACCEPT_NEGOTIATION, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_MD_BOT_AUTO_SERVE ) ) {
+		update_option( RNRD_OPT_MD_BOT_AUTO_SERVE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_MD_HINT_DIV ) ) {
+		update_option( RNRD_OPT_MD_HINT_DIV, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_AUTO_DISPLAY ) ) {
+		update_option( RNRD_OPT_AUTO_DISPLAY, 'off' );
+	}
+	if ( false === get_option( RNRD_OPT_MAX_SNIPPET_DEFAULT ) ) {
+		update_option( RNRD_OPT_MAX_SNIPPET_DEFAULT, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_SCHEMA_ARTICLE ) ) {
+		update_option( RNRD_OPT_SCHEMA_ARTICLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_SCHEMA_SPEAKABLE ) ) {
+		update_option( RNRD_OPT_SCHEMA_SPEAKABLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_SCHEMA_FAQ ) ) {
+		update_option( RNRD_OPT_SCHEMA_FAQ, 'on' );
+	}
 
 	// Register rewrite rules before flushing so they get written.
 	RNRD_Llms_Txt::add_rewrite_rules();

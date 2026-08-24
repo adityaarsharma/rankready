@@ -22,8 +22,12 @@ if ( ! function_exists( 'rnrd_fs' ) ) {
         global $rnrd_fs;
 
         if ( ! isset( $rnrd_fs ) ) {
-            // Include Freemius SDK.
-            require_once dirname( __FILE__ ) . '/vendor/freemius/start.php';
+            $rnrd_fs_sdk = dirname( __FILE__ ) . '/vendor/freemius/start.php';
+            if ( ! file_exists( $rnrd_fs_sdk ) ) {
+                return false;
+            }
+
+            require_once $rnrd_fs_sdk;
 
             $rnrd_fs = fs_dynamic_init( array(
                 'id'                  => '37729',
@@ -46,10 +50,9 @@ if ( ! function_exists( 'rnrd_fs' ) ) {
         return $rnrd_fs;
     }
 
-    // Init Freemius.
-    rnrd_fs();
-    // Signal that SDK was initiated.
-    do_action( 'rnrd_fs_loaded' );
+    if ( false !== rnrd_fs() ) {
+        do_action( 'rnrd_fs_loaded' );
+    }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

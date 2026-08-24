@@ -25,6 +25,7 @@ class RNRD_Admin {
 	private const DATA_GROUP       = 'rnrd_data_group';      // Data Retention card on Advanced tab
 	private const AUTHORITY_GROUP  = 'rnrd_authority_group'; // Authority tab (author + schema)
 	private const LLMS_GROUP       = 'rnrd_llms_group';      // AI Visibility tab (shared LLMS settings)
+	private const INSIGHTS_GROUP   = 'rnrd_insights_group';  // Insights → Real AI Referrals toggle only
 	private const HEADLESS_GROUP   = 'rnrd_headless_group';  // Advanced tab
 	private const OKF_GROUP        = 'rnrd_okf_group';       // OKF bundle card (Advanced tab) — isolated, cross-null-safe
 	// Legacy aliases kept for any saved nonces in flight during upgrade.
@@ -772,8 +773,9 @@ class RNRD_Admin {
 			'default'           => 'on',
 		) );
 
-		// v1.2.0-beta.3 — AI Referral Traffic tracker master toggle.
-		register_setting( self::LLMS_GROUP, RNRD_OPT_AI_REFERRAL_ENABLE, array(
+		// Insights → Real AI Referrals master toggle. Own group so Visibility
+		// saves never POST (or wipe) this option.
+		register_setting( self::INSIGHTS_GROUP, RNRD_OPT_AI_REFERRAL_ENABLE, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
 			'default'           => 'on',
@@ -1794,7 +1796,8 @@ class RNRD_Admin {
 
 		$training_hits = class_exists( 'RNRD_Crawler_Log' ) ? (int) RNRD_Crawler_Log::get_training_hits_total( 30 ) : 0;
 		$citation_hits = class_exists( 'RNRD_Crawler_Log' ) ? (int) RNRD_Crawler_Log::get_citation_hits_total( 30 ) : 0;
-		$referral_hits = class_exists( 'RNRD_AI_Referral' ) ? (int) RNRD_AI_Referral::total_last_n_days( 30 ) : 0;
+		$referral_on   = 'on' === get_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' );
+		$referral_hits = ( $referral_on && class_exists( 'RNRD_AI_Referral' ) ) ? (int) RNRD_AI_Referral::total_last_n_days( 30 ) : 0;
 		$stale_count   = 0;
 		if ( class_exists( 'RNRD_Freshness' ) && method_exists( 'RNRD_Freshness', 'bucket_counts' ) ) {
 			$buckets     = RNRD_Freshness::bucket_counts();
@@ -1965,9 +1968,15 @@ class RNRD_Admin {
 						<div class="rnrd-kpi__label"><?php esc_html_e( 'Real AI Referrals', 'rankready-ai-llm-seo' ); ?></div>
 						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
 					</div>
-					<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
-					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $referral_hits ) ); ?></div>
-					<div class="rnrd-kpi__foot"><?php esc_html_e( 'visitors from AI apps', 'rankready-ai-llm-seo' ); ?></div>
+					<?php if ( $referral_on ) : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $referral_hits ) ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'visitors from AI apps', 'rankready-ai-llm-seo' ); ?></div>
+					<?php else : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php esc_html_e( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'Referer tracking paused', 'rankready-ai-llm-seo' ); ?></div>
+					<?php endif; ?>
 				</a>
 				<a class="rnrd-kpi rnrd-kpi--link" data-intent="freshness" href="<?php echo esc_url( $insights_freshness ); ?>" aria-label="<?php esc_attr_e( 'Content Fresh — open Insights', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">
@@ -2546,7 +2555,6 @@ class RNRD_Admin {
 		$freshness_scanned = (bool) get_option( 'rnrd_freshness_last_run', 0 );
 
 		// Tab deep-links.
-		$tab_crawlers       = '?page=rankready-ai-llm-seo&tab=crawlers';
 		$tab_crawlers_brand  = '?page=rankready-ai-llm-seo&tab=crawlers&sub=brand';
 		$tab_crawlers_robots = '?page=rankready-ai-llm-seo&tab=crawlers&sub=robots';
 		$tab_crawlers_llms   = '?page=rankready-ai-llm-seo&tab=crawlers&sub=llms';
@@ -2667,7 +2675,7 @@ class RNRD_Admin {
 				// Default must match the runtime gate in RNRD_AI_Referral ('on'); the two
 				// Dashboard cards previously disagreed with each other.
 				'active'   => 'on' === get_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' ),
-				'deeplink' => $tab_crawlers,
+				'deeplink' => $tab_insights_referral,
 			),
 			array(
 				'group'    => __( 'Engagement', 'rankready-ai-llm-seo' ),
@@ -3447,6 +3455,7 @@ class RNRD_Admin {
 
 	private static function render_insights_referral(): void {
 		// v1.1.6 — demo-mode helpers removed. Real data only.
+		$referral_enable = (string) get_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' );
 		$counts = class_exists( 'RNRD_AI_Referral' ) ? RNRD_AI_Referral::aggregate_last_n_days( 30 ) : array();
 
 		$total       = (int) array_sum( $counts );
@@ -3468,9 +3477,38 @@ class RNRD_Admin {
 			'copilot'    => 'Copilot',
 		);
 		?>
+		<form method="post" action="options.php" novalidate="novalidate">
+			<?php settings_fields( self::INSIGHTS_GROUP ); ?>
+			<div class="rnrd-card" style="margin-bottom:16px;">
+				<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Referral Tracking', 'rankready-ai-llm-seo' ); ?></h2>
+				<p class="rnrd-card-goal"><?php esc_html_e( 'Count real visitors who arrive from ChatGPT, Perplexity, Claude, Gemini, or Copilot via the HTTP Referer header. Data stays on your site. Honours Sec-GPC and Do Not Track.', 'rankready-ai-llm-seo' ); ?></p>
+				<table class="form-table rnrd-form-table">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enable tracking', 'rankready-ai-llm-seo' ); ?></th>
+						<td>
+							<label class="rnrd-toggle">
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_AI_REFERRAL_ENABLE ); ?>" value="off" />
+								<input type="checkbox" name="<?php echo esc_attr( RNRD_OPT_AI_REFERRAL_ENABLE ); ?>"
+									   value="on" <?php checked( $referral_enable, 'on' ); ?> />
+								<span class="rnrd-toggle-label"><?php esc_html_e( 'Track AI referral visits on public pages', 'rankready-ai-llm-seo' ); ?></span>
+							</label>
+							<p class="description"><?php esc_html_e( 'When off, no new Referer hits are recorded. Existing totals below stay available. Default is on.', 'rankready-ai-llm-seo' ); ?></p>
+						</td>
+					</tr>
+				</table>
+				<?php submit_button( __( 'Save tracking setting', 'rankready-ai-llm-seo' ), 'primary', 'submit', false ); ?>
+			</div>
+		</form>
+
 		<div class="rnrd-card">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'AI Referral Traffic', 'rankready-ai-llm-seo' ); ?></h2>
 			<p class="rnrd-card-goal"><?php esc_html_e( 'Real humans who clicked through from ChatGPT, Perplexity, Claude, Gemini, or Copilot — tracked via HTTP Referer.', 'rankready-ai-llm-seo' ); ?></p>
+
+			<?php if ( 'on' !== $referral_enable ) : ?>
+				<p class="rnrd-notice rnrd-notice--warn" role="status">
+					<?php esc_html_e( 'Tracking is currently off. Turn it on above to resume counting new AI referrals.', 'rankready-ai-llm-seo' ); ?>
+				</p>
+			<?php endif; ?>
 
 			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'AI referral summary', 'rankready-ai-llm-seo' ); ?>">
 				<div class="rnrd-kpi" data-intent="citation">
@@ -4460,12 +4498,6 @@ class RNRD_Admin {
 	 * @param string $view 'robots'|'llms'|'markdown'|'webmcp'
 	 */
 	private static function render_llms_preserve_hiddens( string $view ): void {
-		// Always preserve — no UI on any subtab.
-		printf(
-			'<input type="hidden" name="%1$s" value="on" />' . "\n",
-			esc_attr( RNRD_OPT_AI_REFERRAL_ENABLE )
-		);
-
 		$view_opts = array(
 			'robots'   => array(
 				RNRD_OPT_ROBOTS_ENABLE,

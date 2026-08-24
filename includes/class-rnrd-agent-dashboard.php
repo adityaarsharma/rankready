@@ -64,7 +64,8 @@ class RNRD_Agent_Dashboard {
 
 		$training  = self::sum_bot_intent( 'training' );
 		$citation  = self::sum_bot_intent( 'citation' );
-		$referrals = class_exists( 'RNRD_AI_Referral' ) ? (int) RNRD_AI_Referral::total_last_n_days( 30 ) : 0;
+		$referral_on = 'on' === get_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' );
+		$referrals = ( $referral_on && class_exists( 'RNRD_AI_Referral' ) ) ? (int) RNRD_AI_Referral::total_last_n_days( 30 ) : 0;
 		?>
 		<div class="rnrd-agent-dashboard">
 			<div class="rnrd-kpi-row" role="group" aria-label="<?php esc_attr_e( 'Insights summary', 'rankready-ai-llm-seo' ); ?>">
@@ -91,9 +92,15 @@ class RNRD_Agent_Dashboard {
 						<div class="rnrd-kpi__label"><?php esc_html_e( 'Real AI Referrals', 'rankready-ai-llm-seo' ); ?></div>
 						<span class="rnrd-kpi__go" aria-hidden="true">→</span>
 					</div>
-					<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
-					<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $referrals ) ); ?></div>
-					<div class="rnrd-kpi__foot"><?php esc_html_e( 'visitors from AI apps', 'rankready-ai-llm-seo' ); ?></div>
+					<?php if ( $referral_on ) : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Last 30 days', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php echo esc_html( number_format_i18n( $referrals ) ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'visitors from AI apps', 'rankready-ai-llm-seo' ); ?></div>
+					<?php else : ?>
+						<div class="rnrd-kpi__period"><?php esc_html_e( 'Disabled', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__value"><?php esc_html_e( 'Off', 'rankready-ai-llm-seo' ); ?></div>
+						<div class="rnrd-kpi__foot"><?php esc_html_e( 'Referer tracking paused', 'rankready-ai-llm-seo' ); ?></div>
+					<?php endif; ?>
 				</a>
 				<a class="rnrd-kpi rnrd-kpi--link" href="<?php echo esc_url( $insights_url . '&sub=freshness' ); ?>" aria-label="<?php esc_attr_e( 'Content Fresh — open Insights', 'rankready-ai-llm-seo' ); ?>">
 					<div class="rnrd-kpi__title">

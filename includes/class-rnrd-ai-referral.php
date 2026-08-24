@@ -118,7 +118,7 @@ class RNRD_AI_Referral {
 	 * increment the daily counter for that engine.
 	 */
 	public static function maybe_record_referral(): void {
-		// Master toggle (v1.2.0-beta.3) — users can disable from AI Crawlers tab.
+		// Master toggle — Insights → Real AI Referrals (default on).
 		if ( 'on' !== get_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' ) ) {
 			return;
 		}

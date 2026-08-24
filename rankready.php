@@ -573,7 +573,6 @@ add_action( 'plugins_loaded', function (): void {
 			// fresh install where these two had never been written to the DB.
 			$upgrade_safe_off = array(
 				'rnrd_max_snippet_default',  // emits <meta robots> sitewide
-				'rnrd_ai_referral_enable',   // tracks Referer on every pageview (privacy)
 				'rnrd_mcp_enable',           // publishes /.well-known/mcp.json
 			);
 			foreach ( $upgrade_safe_off as $opt ) {
@@ -600,19 +599,15 @@ add_action( 'plugins_loaded', function (): void {
 			update_option( 'rnrd_md_signals_corrected_v1119', 1, false );
 		}
 
-		// v1.1.21 — Same one-shot pattern for the last two scorecard signals
-		// that were unreachable from the onboarding wizard prior to v1.1.21
-		// (rnrd_llms_full_enable + rnrd_ai_referral_enable). Only seeded
-		// 'on' when the site is already invested in the corresponding
-		// feature — llms-full follows llms_enable, referral tracking follows
-		// llms_enable as a proxy for "this user wants AI visibility data".
+		// v1.1.21 — One-shot seed for llms-full when the site already has
+		// llms.txt on (the signal was unreachable from the onboarding wizard
+		// prior to v1.1.21). Referral tracking is no longer forced here —
+		// default is on via get_option fallback; the user controls it from
+		// Insights → Real AI Referrals.
 		if ( ! get_option( 'rnrd_scorecard_corrected_v1121' ) ) {
 			if ( 'on' === get_option( 'rnrd_llms_enable', 'off' ) ) {
 				if ( 'on' !== get_option( 'rnrd_llms_full_enable', 'off' ) ) {
 					update_option( 'rnrd_llms_full_enable', 'on', false );
-				}
-				if ( 'on' !== get_option( 'rnrd_ai_referral_enable', 'on' ) ) {
-					update_option( 'rnrd_ai_referral_enable', 'on', false );
 				}
 			}
 			update_option( 'rnrd_scorecard_corrected_v1121', 1, false );

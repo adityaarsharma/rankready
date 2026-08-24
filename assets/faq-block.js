@@ -309,7 +309,7 @@
 						colorControl( 'Color', attrs.questionColor, function ( v ) { setAttrs( { questionColor: v } ); } ),
 						el( SelectControl, {
 							label: 'Font Family',
-							help: 'Pulls from your theme.json fonts (Nexter Theme, Nexter Blocks, Kadence, any block theme). Leave blank to inherit.',
+							help: 'Pulls from your theme.json fonts (Kadence, or any block theme). Leave blank to inherit.',
 							value: attrs.questionFontFamily || '',
 							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { questionFontFamily: v } ); },

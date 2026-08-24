@@ -5729,7 +5729,7 @@ class RNRD_Admin {
 							          rows="3" class="large-text"
 							          placeholder="<?php esc_attr_e( 'Your Brand Name, Your Product Name (one per line or comma-separated)', 'rankready-ai-llm-seo' ); ?>"
 							><?php echo esc_textarea( (string) get_option( RNRD_OPT_FAQ_BRAND_TERMS, '' ) ); ?></textarea>
-							<p class="description"><?php esc_html_e( 'Brand/product names to inject as semantic triples in FAQ answers. This builds brand-entity association for LLMs (+642% AI citation lift).', 'rankready-ai-llm-seo' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Brand and product names to reinforce in FAQ answers, so AI engines associate the answer with your brand rather than with "this site".', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 						<?php $rnrd_faq_autogen_pro = function_exists( 'rnrd_is_pro' ) && rnrd_is_pro(); ?>

@@ -203,7 +203,9 @@ You will see these marked "Coming soon" inside the plugin. They are not availabl
 
 == Privacy & Third-Party Services ==
 
-No telemetry. No analytics. Nothing is sent anywhere on its own. Your keys stay in your own database, and every service below runs on your own API key.
+Your post content never leaves your site unless you ask for it. Your API keys stay in your own database, and every AI service below runs on your own key.
+
+**Plugin usage data (Freemius).** [Terms](https://freemius.com/terms/) · [Privacy](https://freemius.com/privacy/). RankReady uses the Freemius SDK to understand how the plugin is being used, so we know what to fix and build next. **It is opt-in.** On activation you are asked to connect, and you can skip it. If you allow it, Freemius receives your site URL, your WordPress and PHP versions, your name and email address, your active plugins and theme, and plugin activation and deactivation events. Your post content, your AI API keys and your visitor data are never sent. If you change your mind later, an "Opt Out" link appears next to RankReady on your Plugins page.
 
 **AI providers.** Pick one. When you click Generate, that post's title and text go to your chosen provider and the reply is saved on your site. Nothing else is shared.
 

@@ -40,7 +40,7 @@ if ( ! function_exists( 'rnrd_fs' ) ) {
                 'is_org_compliant'    => true,
                 'menu'                => array(
                     'slug'           => 'rankready-ai-llm-seo',
-                    'first-path'     => 'admin.php?page=rankready-welcome',
+                    'first-path'     => 'admin.php?page=rankready-ai-llm-seo',
                     'account'        => false,
                     'contact'        => false,
                     'support'        => false,

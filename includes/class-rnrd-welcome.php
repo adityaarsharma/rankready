@@ -69,6 +69,11 @@ class RNRD_Welcome {
 	 * Onboarding gate. Runs on admin_init. Three triggers, all one-time and
 	 * gated by the FLAG_OPTION so the wizard is shown exactly once per site:
 	 *
+	 *   0. Freemius connect first — while Freemius is still in activation mode
+	 *      (not opted-in and not skipped), do not redirect away from the main
+	 *      RankReady page. Freemius only renders connect.php there; sending
+	 *      users to rankready-welcome makes the opt-in unreachable. After
+	 *      Allow/Skip, first-path lands on the main page and trigger 2 runs.
 	 *   1. Activation → immediate redirect (one-shot transient): onboarding
 	 *      when the wizard has never been completed/skipped, otherwise the
 	 *      main RankReady settings page.
@@ -86,6 +91,19 @@ class RNRD_Welcome {
 			// Consume a lingering activation transient even when we can't act,
 			// so it never fires later in the wrong context.
 			delete_transient( self::REDIRECT_KEY );
+			return;
+		}
+
+		// Freemius owns admin.php?page=rankready-ai-llm-seo until the site
+		// opts in or skips. Diverting to rankready-welcome makes the connect
+		// UI unreachable (it only renders on the main plugin page).
+		if ( self::freemius_needs_connect() ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+			if ( self::MENU_SLUG === $page ) {
+				wp_safe_redirect( admin_url( 'admin.php?page=' . self::SETTINGS_SLUG ) );
+				exit;
+			}
 			return;
 		}
 
@@ -138,6 +156,24 @@ class RNRD_Welcome {
 			wp_safe_redirect( admin_url( 'admin.php?page=' . self::MENU_SLUG ) );
 			exit;
 		}
+	}
+
+	/**
+	 * Whether Freemius still needs the connect / skip screen.
+	 *
+	 * While true, Freemius overrides the main plugin menu with connect.php.
+	 * RankReady must not redirect that page (or activation) to the welcome
+	 * wizard, or the opt-in becomes unreachable.
+	 */
+	private static function freemius_needs_connect(): bool {
+		if ( ! function_exists( 'rnrd_fs' ) ) {
+			return false;
+		}
+		$fs = rnrd_fs();
+		if ( ! is_object( $fs ) || ! method_exists( $fs, 'is_activation_mode' ) ) {
+			return false;
+		}
+		return (bool) $fs->is_activation_mode();
 	}
 
 	/**

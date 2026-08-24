@@ -1,14 +1,14 @@
-=== RankReady – AI SEO, llms.txt & Markdown for ChatGPT, Gemini & Claude ===
-Contributors: adityaarsharma
-Tags: seo, ai, schema, llms.txt, aeo
+=== RankReady – AI SEO, Schema, llms.txt, AEO and GEO for ChatGPT, Gemini and Perplexity ===
+Contributors: adityaarsharma, hmbhq, agusmu, hostmyblogco
+Tags: seo, schema, ai seo, aeo, llms.txt
 Requires at least: 6.9
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
 Stable tag: 1.3.1-beta
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Make your WordPress site AI agent ready. Adds llms.txt, Markdown, WebMCP, FAQ schema and AI summaries so AI assistants can read your content.
+AI SEO plugin for WordPress: llms.txt, FAQ schema, Markdown, AEO and GEO signals so ChatGPT, Gemini, Claude and Perplexity can read your content.
 
 == Description ==
 

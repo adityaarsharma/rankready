@@ -33,11 +33,7 @@ Traditional SEO plugins optimize for Google's classic results. RankReady adds th
 
 Your WordPress SEO plugin handles Google. RankReady handles what comes after. That is **ChatGPT SEO**, **AEO** (answer engine optimization), **GEO optimization** (generative engine optimization) and **LLM SEO**, all from one plugin.
 
-## A quick walkthrough of the whole plugin.
-
-https://www.youtube.com/watch?v=JA-rEwMbqNo
-
-Built by [HostMyBlog](https://hostmy.blog/).
+Built by [HostMyBlog](https://hostmy.blog/plugins/rankready/).
 
 ## Works alongside your WordPress SEO plugin — Yoast, Rank Math, AIOSEO, SEOPress and more
 
@@ -188,19 +184,6 @@ On Cloudflare it can create the cache rule for you from the **Settings** tab.
 * **Every failure comes with a one-line fix**
 * **One-click report** you can paste into a support ticket
 
-## Coming soon in RankReady AI SEO
-
-Everything above is free AI SEO, with no caps on manual generation. These are in development:
-
-* **Auto-generate on publish.** AI Summaries and FAQs written automatically as you publish
-* **Bulk-generate** AI Summaries and FAQs across your whole library
-* **HowTo and ItemList schema**
-* **Deeper author schema.** Credentials, education, certifications, memberships, awards, Wikidata, ORCID, Google Scholar, LinkedIn, editorial and fact-check policies
-* **Custom post types** beyond posts and pages
-* **Headless and WPGraphQL** for decoupled front ends
-
-You will see these marked "Coming soon" inside the plugin. They are not available yet.
-
 == Privacy & Third-Party Services ==
 
 Your post content never leaves your site unless you ask for it. Your API keys stay in your own database, and every AI service below runs on your own key.
@@ -219,8 +202,6 @@ Your post content never leaves your site unless you ask for it. Your API keys st
 * **DataForSEO.** [Terms](https://dataforseo.com/terms-of-service) · [Privacy](https://dataforseo.com/privacy-policy). Sends your focus keyword when you run the FAQ Generator. Never your article text.
 * **Cloudflare.** [Terms](https://www.cloudflare.com/terms/) · [Privacy](https://www.cloudflare.com/privacypolicy/). Only if you connect it. Sends your zone ID and API credentials so RankReady can add or remove one cache rule and clear changed pages. No post content is ever sent.
 * **HostMyBlog tips email.** [Terms](https://hostmy.blog/terms/) · [Privacy](https://hostmy.blog/privacy/). Only if you opt in from the setup wizard or the dashboard. Sends your first name and email address once for that admin account. Leave it unticked / don't submit and nothing is sent.
-
-The plugin dashboard also embeds one YouTube walkthrough using Google's no-cookie player. It appears inside wp-admin only, never on your public site.
 
 == Installation ==
 
@@ -246,6 +227,34 @@ The plugin dashboard also embeds one YouTube walkthrough using Google's no-cooki
 * Add the **RankReady Author Box** Gutenberg block (or Elementor widget) to a post to display the author bio.
 
 == Frequently Asked Questions ==
+
+= Does RankReady replace Yoast SEO, Rank Math or AIOSEO? =
+
+No. RankReady is not a replacement for your WordPress SEO plugin and does not try to be. It has no title editor, no meta description editor and no XML sitemap. Your SEO plugin keeps handling Google's classic results. RankReady adds the AI SEO layer on top: llms.txt, Markdown endpoints, FAQ schema, Open Knowledge Format, WebMCP and AI crawler control. Run both.
+
+= How do I add FAQ schema to WordPress? =
+
+Open any post, find the RankReady FAQ panel, and either type your questions or let the FAQ schema generator pull the real "People Also Ask" questions ranking for your focus keyword through DataForSEO. Your chosen LLM writes the answers, and RankReady publishes them as FAQPage JSON-LD, the schema.org type Google AI Overviews, ChatGPT and Perplexity can read directly. If your SEO plugin already outputs FAQ schema on that page, RankReady merges into its graph instead of printing a second block. Generations are unlimited.
+
+= How do I add an author box with E-E-A-T schema in WordPress? =
+
+RankReady ships an author box on the E-E-A-T tab. Fill in the author's name, job title, employer, bio, headshot and sameAs profile links, then place the box with the Gutenberg block or the Elementor widget. It publishes as Person JSON-LD next to your Article, Speakable and FAQPage schema, so AI search engines can attribute a page to a real author. E-E-A-T stands for Experience, Expertise, Authoritativeness and Trustworthiness, the framework Google sets out in its Search Quality Rater Guidelines. If Rank Math, Yoast or AIOSEO is already emitting author schema, RankReady detects it and steps aside rather than duplicating it.
+
+= How do I add schema markup for AI search? =
+
+Turn on the schema options in RankReady and it emits Article, Speakable, FAQPage and Person JSON-LD. The important part is that it never prints a second schema block: when Yoast, Rank Math, AIOSEO or SEOPress is active, RankReady joins their existing schema graph through that plugin's own filter. One graph, one canonical, no duplicate structured data. That matters because duplicate or conflicting JSON-LD is one of the most common reasons a parser ignores a page's schema entirely.
+
+= What is AI SEO, and how is it different from normal SEO? =
+
+Normal SEO optimises for a ranked list of blue links. AI SEO, also called LLM SEO, optimises for the answer an assistant writes before anyone reaches that list. The mechanics are different: an AI engine needs to fetch your page cheaply, parse it without a theme in the way, work out who wrote it, and know it is allowed to read it. That is what llms.txt, Markdown endpoints, clean schema, an author box and AI crawler rules each solve. Answer engine optimization (AEO) and generative engine optimization (GEO) are the two names most people use for the same work.
+
+= Will RankReady get my site into Google AI Overviews or ChatGPT answers? =
+
+It cannot promise that, and neither can any other plugin. What RankReady does is remove the mechanical reasons an AI engine would skip or misread your pages: no clean machine-readable copy, no structured data, no author attribution, a crawler rule that blocks it, or a cache serving it the wrong format. Whether an engine then uses your page depends on your content. The Insights tab shows you which AI crawlers actually fetched a page, which tells you it was read, not that it was quoted.
+
+= Does RankReady work with WordPress 7.1? =
+
+Yes. This release is tested against WordPress 7.1, including a full upgrade from the previous version and a rollback back to it, with no settings or generated content lost. WordPress 6.9 is the minimum, because RankReady uses the Abilities API that WordPress ships from 6.9 onward.
 
 = Will RankReady conflict with Rank Math, Yoast, or AIOSEO? =
 
@@ -347,8 +356,6 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 5. **AI Citation Tracking & Bot Insights**, Bot Activity, AI Citation Candidates, Real AI Referrals, and Content Freshness scanner.
 6. **Connect OpenAI, Claude, Gemini & DataForSEO**, Single-screen config for all four LLM providers plus DataForSEO credentials and live Diagnostics endpoint probes.
 
-
-
 == Changelog ==
 
 = 1.3.0, 2026-08-24 =
@@ -378,6 +385,7 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 * Improved: AI Summaries and FAQs now generate in your site's language instead of English (a German site gets German content), section headings included; question research uses your language and country too.
 * Improved: llms.txt, Markdown, WebMCP and OKF endpoints resolve more reliably across server and SEO-plugin setups, with clearer nginx guidance when /.well-known/ is blocked.
 * Fixed: robots.txt no longer collects a duplicate Content-Signal line every time you save settings. Any duplicates already in the file are removed on the next save.
+* Improved: tested and verified against WordPress 7.1, including a full upgrade and rollback pass from 1.2.0 with no settings or generated content lost.
 * Several bug fixes and stability improvements.
 
 = 1.2.0, 2026-07-09 =
@@ -438,35 +446,10 @@ First public release. The AI-search layer for WordPress: unlimited manual AI Sum
 Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.
 
 = 1.2.1 =
+Adds AI crawler blocking in robots.txt, Cloudflare cache-rule connect, and summaries and FAQs in your site's language. Fixes duplicate Content-Signal lines, endpoint 404s behind some SEO and cache plugins, and the DataForSEO credential check. Tested on WordPress 7.1. Safe update, no data loss.
 
-**New**
-
-* Block AI crawlers, pick bots to `Disallow` in robots.txt. Off by default; if a bot is in both lists, block wins.
-* Cloudflare connect using a scoped API token. Creates the Cache Rule that keeps APO from serving HTML to agents asking for Markdown, and removes it again on disconnect or uninstall.
-* Googlebot and Facebook's link crawler get their own robots.txt entry that repeats the rules your site already applies to every crawler. They are named for tools that check crawler access, while what they can reach stays exactly as you had it.
-* nginx `/.well-known/` notice, detects the 403 that blocks agent-discovery files and shows the exact server-config fix.
-
-**Fixed**
-
-* robots.txt collected a duplicate `Content-Signal` line every time you saved settings. Duplicates already in your file are cleared on the next save.
-* The Googlebot entry re-checks your site's own robots.txt rules hourly, so a rule you add through another plugin is picked up rather than missed.
-* Summaries and FAQs now generate in your site's language (WPML / Polylang / site locale), and keyword research uses the matching language and country instead of US English.
-* The "Key Takeaways" heading is now translatable, so a German site no longer shows an English heading above German content.
-* `llms.txt`, `.md`, `/okf/` and `mcp.json` resolve on stacks where another plugin intercepts routing.
-* Homepage advertised its Markdown alternate twice on sites using a static front page.
-* Diagnostics reported "No credentials configured" for DataForSEO even when credentials were saved and working.
-* AI Summary generation no longer fails on models that reject custom sampling settings.
-
-**Privacy and housekeeping**
-
-* Removed a remote Google Fonts request from the admin screens, no third-party asset loading, and your admin IP is no longer sent to Google.
-* Removed the `X-AEO-Version` response header. It advertised a draft convention that no standards body has adopted and that nothing reads.
-* Cloudflare and the dashboard walkthrough video are now documented in the Privacy section.
-* Removed unused stylesheet rules and tightened admin copy.
-
-Safe update, no settings or generated content change.
 = 1.2.0 =
-Adds an optional "AI SEO tips by email" opt-in, saves your AI keys and settings reliably, keeps Markdown pages out of Google even behind a cache, aligns the WebMCP toggles with what is actually served, and gives Nginx sites the exact fix for /.well-known/mcp.json. No data loss; safe to update.
+Adds an optional AI SEO tips email opt-in, saves your AI keys and settings reliably, keeps Markdown pages out of Google even behind a cache, aligns the WebMCP toggles with what is served, and gives Nginx sites the exact fix for /.well-known/mcp.json. No data loss, safe to update.
 
 = 1.1.1 =
 Fixes API keys not saving on first entry, and pages showing raw Markdown behind Cloudflare APO and similar caches. Adds multilingual support plus Squirrly SEO and SWIS Performance compatibility. No data loss. If you saved a key on an earlier version, re-enter it once after updating.

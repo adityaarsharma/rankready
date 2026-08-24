@@ -546,6 +546,41 @@ class RNRD_Welcome {
 	}
 
 	/**
+	 * Whether to show tips opt-in UI (onboarding + dashboard sidebar).
+	 * Hidden when this admin already subscribed, or when Freemius is registered
+	 * and the current user is the site admin (Settings → General email match) —
+	 * they already shared an email via Freemius connect, so don't ask again.
+	 * Does not set the tips subscription flag; Freemius ≠ HostMyBlog tips list.
+	 */
+	public static function should_show_tips_optin(): bool {
+		if ( self::tips_optin_done() ) {
+			return false;
+		}
+
+		if ( ! function_exists( 'rnrd_fs' ) ) {
+			return true;
+		}
+
+		$fs = rnrd_fs();
+		if ( ! $fs || ! $fs->is_registered() ) {
+			return true;
+		}
+
+		$current = wp_get_current_user();
+		$admin_email = (string) get_option( 'admin_email' );
+		if (
+			$current instanceof WP_User
+			&& ! empty( $current->user_email )
+			&& '' !== $admin_email
+			&& strtolower( $current->user_email ) === strtolower( $admin_email )
+		) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
 	 * Subscribe one admin to the RankReady tips list via the HostMyBlog webhook.
 	 * The single place the plugin transmits opt-in data externally. One-shot per
 	 * admin (user_meta) so the form disappears for that user after a confirmed
@@ -794,9 +829,9 @@ class RNRD_Welcome {
 				$rnrd_prefill_fn = ( $rnrd_user && ! empty( $rnrd_user->first_name ) )
 					? $rnrd_user->first_name
 					: '';
-				$rnrd_tips_done  = self::tips_optin_done();
+				$rnrd_show_tips  = self::should_show_tips_optin();
 				?>
-				<?php if ( ! $rnrd_tips_done ) : ?>
+				<?php if ( $rnrd_show_tips ) : ?>
 				<div class="rnrd-onboard__field rnrd-onboard__optin-field">
 					<label class="rnrd-onboard__optin">
 						<input type="checkbox" name="rnrd_onboard_tips_optin" value="1" class="rnrd-onboard__optin-check" />

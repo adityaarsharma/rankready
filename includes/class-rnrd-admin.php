@@ -1559,9 +1559,9 @@ class RNRD_Admin {
 		<aside class="rnrd-dash-aside">
 
 			<?php
-			// Tips opt-in first — primary growth CTA. Shown until THIS admin
-			// subscribes; other admins on the same site still see the card.
-			if ( class_exists( 'RNRD_Welcome' ) && ! RNRD_Welcome::tips_optin_done() ) :
+			// Tips opt-in first — primary growth CTA. Hidden after subscribe or
+			// when Freemius-registered as the site admin (see should_show_tips_optin).
+			if ( class_exists( 'RNRD_Welcome' ) && RNRD_Welcome::should_show_tips_optin() ) :
 				$rnrd_dash_user  = wp_get_current_user();
 				$rnrd_dash_email = ( $rnrd_dash_user && ! empty( $rnrd_dash_user->user_email ) )
 					? $rnrd_dash_user->user_email

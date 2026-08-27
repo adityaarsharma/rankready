@@ -5,7 +5,7 @@
  * Top tabs: Dashboard | AI Visibility | AI Content | Insights | Settings
  * AI Visibility subtabs (slug crawlers): Brand | Robots | LLMs.txt | Markdown | WebMCP | OKF
  * AI Content subtabs (slug content): AI Summary | AI FAQ Generator | Author Box | Schema
- * Settings subtabs: API Keys | Advanced
+ * Settings subtabs: API Keys | Cloudflare | Advanced
  *
  * @package RankReady
  */
@@ -1466,7 +1466,7 @@ class RNRD_Admin {
 			'crawlers'  => __( 'AI Visibility', 'rankready-ai-llm-seo' ), // subtabs: Brand | Robots | LLMs.txt | Markdown | WebMCP | OKF
 			'content'   => __( 'AI Content', 'rankready-ai-llm-seo' ), // subtabs: AI Summary | AI FAQ Generator | Author Box | Schema
 			'insights'  => __( 'Insights', 'rankready-ai-llm-seo' ),  // v1.2.0-beta.7 — Bot Activity / Citation / Referral / Freshness
-			'settings'  => __( 'Settings', 'rankready-ai-llm-seo' ),  // subtabs: API Keys | Advanced
+			'settings'  => __( 'Settings', 'rankready-ai-llm-seo' ),  // subtabs: API Keys | Cloudflare | Advanced
 		);
 
 		if ( ! array_key_exists( $active_tab, $tabs ) ) {
@@ -3773,14 +3773,15 @@ class RNRD_Admin {
 	}
 
 	/**
-	 * Settings tab — API Keys + Advanced subtabs (mirrors Insights subnav pattern).
+	 * Settings tab — API Keys | Cloudflare | Advanced subtabs (mirrors Insights subnav pattern).
 	 */
 	private static function render_tab_settings(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only $_GET[sub] for sub-tab display routing.
 		$sub = isset( $_GET['sub'] ) ? sanitize_key( wp_unslash( $_GET['sub'] ) ) : 'api-keys';
 		$sub_tabs = array(
-			'api-keys' => __( 'API Keys', 'rankready-ai-llm-seo' ),
-			'advanced' => __( 'Advanced', 'rankready-ai-llm-seo' ),
+			'api-keys'    => __( 'API Keys', 'rankready-ai-llm-seo' ),
+			'cloudflare' => __( 'Cloudflare', 'rankready-ai-llm-seo' ),
+			'advanced'    => __( 'Advanced', 'rankready-ai-llm-seo' ),
 		);
 		if ( ! isset( $sub_tabs[ $sub ] ) ) {
 			$sub = 'api-keys';
@@ -3805,6 +3806,9 @@ class RNRD_Admin {
 
 		<?php
 		switch ( $sub ) {
+			case 'cloudflare':
+				self::render_tab_cloudflare();
+				break;
 			case 'advanced':
 				self::render_tab_advanced();
 				break;
@@ -3812,6 +3816,16 @@ class RNRD_Admin {
 			default:
 				self::render_tab_api();
 				break;
+		}
+	}
+
+	/**
+	 * Settings → Cloudflare — always visible; connect form works even when CF
+	 * is not auto-detected (staging / DNS-only false negatives).
+	 */
+	private static function render_tab_cloudflare(): void {
+		if ( class_exists( 'RNRD_Cloudflare' ) ) {
+			RNRD_Cloudflare::render_card();
 		}
 	}
 
@@ -4114,16 +4128,6 @@ class RNRD_Admin {
 		// (rnrd_token_usage, rnrd_dfs_usage) and JS hooks (#rr-tokens-load,
 		// #rr-tokens-tbody, etc.) preserved verbatim from rc.5.
 		self::render_card_api_usage();
-		?>
-
-		<?php
-		// v1.1.0 — Cloudflare auto-fix card. Detects cf-ray header; if Cloudflare
-		// is fronting the site, offers a one-click Cache Rule that bypasses APO
-		// for AI markdown requests. Self-contained card (its own REST endpoint,
-		// not the Settings API form), so it sits below the API form.
-		if ( class_exists( 'RNRD_Cloudflare' ) ) {
-			RNRD_Cloudflare::render_card();
-		}
 		?>
 		<?php
 	}
@@ -6174,31 +6178,40 @@ class RNRD_Admin {
 		?>
 
 		<?php
-		// v1.0.22 — Cloudflare advisory. Renders ONLY when Cloudflare is actually
-		// in front of the site (cf-ray detected), so non-Cloudflare users never see
-		// noise. Plain-language explanation of how RankReady's Markdown + caching
-		// behave behind Cloudflare, and a clear reassurance that RankReady changes
-		// NOTHING in the user's Cloudflare configuration.
+		// Short pointer when Cloudflare is in front — full connect UI lives on
+		// Settings → Cloudflare so Advanced stays diagnostics-focused.
 		$rnrd_cf = class_exists( 'RNRD_Cloudflare' ) ? RNRD_Cloudflare::detect() : array( 'detected' => false );
 		if ( ! empty( $rnrd_cf['detected'] ) ) :
+			$rnrd_cf_url = add_query_arg(
+				array(
+					'page' => self::MENU_SLUG,
+					'tab'  => 'settings',
+					'sub'  => 'cloudflare',
+				),
+				admin_url( 'admin.php' )
+			);
 			?>
 			<div class="rnrd-card" id="rnrd-cf-advisory">
 				<h2 class="rnrd-card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
 					<?php esc_html_e( 'Cloudflare detected', 'rankready-ai-llm-seo' ); ?>
-					<span style="display:inline-block;background:var(--rnrd-color-success-bg,#d1ecdf);color:var(--rnrd-color-success-text,#0a6c39);font-size:10px;font-weight:700;padding:2px 9px;border-radius:9999px;text-transform:uppercase;letter-spacing:.04em;"><?php esc_html_e( 'No action needed', 'rankready-ai-llm-seo' ); ?></span>
+					<span style="display:inline-block;background:var(--rnrd-color-success-bg,#d1ecdf);color:var(--rnrd-color-success-text,#0a6c39);font-size:10px;font-weight:700;padding:2px 9px;border-radius:9999px;text-transform:uppercase;letter-spacing:.04em;"><?php esc_html_e( 'Optional setup', 'rankready-ai-llm-seo' ); ?></span>
 				</h2>
-				<p class="rnrd-card-desc">
-					<?php esc_html_e( 'Your site is served through Cloudflare. Here is what that means for RankReady, in plain language:', 'rankready-ai-llm-seo' ); ?>
-				</p>
-				<ul style="margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.7;color:var(--rnrd-text-secondary,#3c434a);">
-					<li><strong><?php esc_html_e( 'RankReady sends Markdown with proper cache headers.', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'Every /post.md is served as public, cacheable content, so browsers and standard CDNs can store it. RankReady changes none of your Cloudflare settings — it only sets the right response headers.', 'rankready-ai-llm-seo' ); ?></li>
-					<li><strong><?php esc_html_e( 'Cloudflare will not cache .md on its own — and that is fine.', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'Cloudflare caches your HTML pages automatically, but it does not cache non-HTML files like .md unless you add a "Cache Everything" Cache Rule for /*.md. Without one, .md is served fresh from your origin: still fast, and always current (no stale Markdown). Adding that rule is optional.', 'rankready-ai-llm-seo' ); ?></li>
-					<li><strong><?php esc_html_e( 'If you use APO, one harmless quirk:', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'An AI tool that asks for Markdown via the "Accept: text/markdown" header on a normal page URL may receive the cached HTML page instead, because Cloudflare APO ignores that header. This does not matter — AI tools fetch the /post.md URL, which always returns clean Markdown.', 'rankready-ai-llm-seo' ); ?></li>
-				</ul>
 				<p class="rnrd-card-desc" style="margin:0;">
 					<?php
-					/* translators: %s: Cloudflare ray id */
-					echo esc_html( sprintf( __( 'In short: point AI tools at your /post.md URLs (RankReady already advertises them on every page) — they work whether or not Cloudflare caches them. Detected via Cloudflare ray %s.', 'rankready-ai-llm-seo' ), (string) ( $rnrd_cf['ray'] ?? '—' ) ) );
+					echo wp_kses(
+						sprintf(
+							/* translators: 1: Cloudflare ray id, 2: opening anchor, 3: closing anchor */
+							__( 'Your site is served through Cloudflare (ray %1$s). Manage the Markdown cache-bypass rule under %2$sSettings → Cloudflare%3$s.', 'rankready-ai-llm-seo' ),
+							esc_html( (string) ( $rnrd_cf['ray'] ?? '—' ) ),
+							'<a href="' . esc_url( $rnrd_cf_url ) . '">',
+							'</a>'
+						),
+						array(
+							'a' => array(
+								'href' => true,
+							),
+						)
+					);
 					?>
 				</p>
 			</div>

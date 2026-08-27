@@ -897,7 +897,7 @@ add_action( 'plugins_loaded', function (): void {
 	// registered when the read happens.
 	RNRD_Crypto::init();
 
-	// v1.1.0 — Cloudflare auto-fix card (Settings tab) + REST endpoints for
+	// v1.1.0 — Cloudflare auto-fix (Settings → Cloudflare) + REST endpoints for
 	// connect / disconnect. Lives outside RNRD_Admin so the REST routes
 	// register on every admin AND front-end request.
 	RNRD_Cloudflare::init();

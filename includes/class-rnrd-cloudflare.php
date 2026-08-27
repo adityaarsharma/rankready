@@ -516,22 +516,14 @@ class RNRD_Cloudflare {
 	// ── Admin render helper (called from RNRD_Admin Settings tab) ─────────
 
 	/**
-	 * Render the Cloudflare card on the Settings tab.
-	 * Detects state and renders the appropriate UI:
-	 *   - Connected: status + Disconnect button
-	 *   - Detected but not connected: token + zone ID form
-	 *   - Not detected: passive label
+	 * Render the Cloudflare card on Settings → Cloudflare.
+	 * Always visible. Detects state and renders:
+	 *   - Connected: status + Disconnect
+	 *   - Detected, not connected: Ray ID + connect form
+	 *   - Not detected: advisory notice + connect form (false negatives OK)
 	 */
 	public static function render_card(): void {
 		$state = self::detect();
-
-		// v1.1.10 — Only render the card when Cloudflare is actually in front
-		// of the site (cf-ray header detected) OR already connected. If neither
-		// is true, no UI noise: the user isn't on Cloudflare, so the card
-		// has nothing to offer.
-		if ( ! $state['detected'] && ! $state['connected'] ) {
-			return;
-		}
 		?>
 		<div class="rnrd-card rnrd-cf-card">
 			<h2 class="rnrd-card-title"><?php esc_html_e( 'Cloudflare cache compatibility', 'rankready-ai-llm-seo' ); ?></h2>
@@ -547,12 +539,18 @@ class RNRD_Cloudflare {
 					<?php esc_html_e( 'Disconnect and remove rule', 'rankready-ai-llm-seo' ); ?>
 				</button>
 			<?php else : ?>
-				<p class="rnrd-cf-status rnrd-cf-status--info">
-					<?php
-					/* translators: %s: Cloudflare Ray ID */
-					echo esc_html( sprintf( __( 'Cloudflare detected (Ray %s).', 'rankready-ai-llm-seo' ), (string) ( $state['ray'] ?? '?' ) ) );
-					?>
-				</p>
+				<?php if ( ! empty( $state['detected'] ) ) : ?>
+					<p class="rnrd-cf-status rnrd-cf-status--info">
+						<?php
+						/* translators: %s: Cloudflare Ray ID */
+						echo esc_html( sprintf( __( 'Cloudflare detected (Ray %s).', 'rankready-ai-llm-seo' ), (string) ( $state['ray'] ?? '?' ) ) );
+						?>
+					</p>
+				<?php else : ?>
+					<p class="rnrd-notice rnrd-notice--warn" role="status">
+						<?php esc_html_e( 'RankReady did not detect Cloudflare on this site (no cf-ray / Cloudflare headers on the homepage). If you use Cloudflare, you can still connect a scoped API token. If you do not use Cloudflare, you can ignore this tab.', 'rankready-ai-llm-seo' ); ?>
+					</p>
+				<?php endif; ?>
 				<?php self::render_connect_form(); ?>
 			<?php endif; ?>
 		</div>

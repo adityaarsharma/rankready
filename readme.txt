@@ -4,7 +4,7 @@ Tags: seo, schema, ai seo, aeo, llms.txt
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1-beta
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -351,6 +351,11 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 
 == Changelog ==
 
+= 1.3.1-beta, 2026-08-29 =
+
+* New: Cloudflare has its own Settings subtab (API Keys → Cloudflare → Advanced). The connect form is always available, with a warning when Cloudflare is not detected, so staging and DNS-only sites can still connect.
+* Fixed: OpenAI "Verify Key" no longer fails on GPT-5.x with "max_tokens or model output limit was reached" — the probe now allows enough completion tokens for reasoning models.
+
 = 1.3.0, 2026-08-24 =
 
 * Improved: Settings are reorganized into focused tabs, Dashboard, AI Visibility, AI Content, Insights, and Settings, with subtabs so Brand Identity, robots.txt, llms.txt, Markdown, WebMCP, OKF, Summary, FAQ, Author Box, and Schema are easier to find.
@@ -433,6 +438,9 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 First public release. The AI-search layer for WordPress: unlimited manual AI Summaries and FAQ schema, llms.txt + llms-full.txt, Markdown endpoints, 29 AI-crawler controls with robots.txt sync, E-E-A-T + Article/Speakable schema (coexists with Rank Math / Yoast / AIOSEO without duplicate output), content freshness, Insights, broad cache-plugin compatibility, multilingual llms.txt, and a Diagnostics suite.
 
 == Upgrade Notice ==
+
+= 1.3.1-beta =
+Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works again with GPT-5.x. No data loss; safe to update.
 
 = 1.3.0 =
 Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.

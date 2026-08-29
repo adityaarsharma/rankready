@@ -966,7 +966,9 @@ class RNRD_Rest {
 						),
 						'body' => wp_json_encode( array(
 							'model'                 => $model,
-							'max_completion_tokens' => 1,
+							// GPT-5.x reasoning counts against this budget; 1 is too
+							// low and returns "max_tokens or model output limit".
+							'max_completion_tokens' => 64,
 							'messages'              => array( array( 'role' => 'user', 'content' => 'hi' ) ),
 						) ),
 					) );

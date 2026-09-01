@@ -232,12 +232,14 @@
 	if ( flushBtn ) {
 		var flushLabelDefault = flushBtn.getAttribute( 'data-label-default' ) || flushBtn.textContent || 'Clear cache';
 		var flushLabelBusy    = flushBtn.getAttribute( 'data-label-busy' ) || 'Clearing...';
+		var flushSuccessMsg   = ( flushStatus && flushStatus.getAttribute( 'data-success-msg' ) ) || 'Cache cleared.';
 
 		flushBtn.addEventListener( 'click', function () {
 			flushBtn.disabled    = true;
 			flushBtn.textContent = flushLabelBusy;
 			if ( flushStatus ) {
-				flushStatus.hidden = true;
+				flushStatus.textContent = '';
+				flushStatus.classList.remove( 'is-success' );
 			}
 
 			rnrdFetch( '/llms/flush-cache', 'POST' )
@@ -245,9 +247,11 @@
 					flushBtn.disabled    = false;
 					flushBtn.textContent = flushLabelDefault;
 					if ( flushStatus ) {
-						flushStatus.hidden = false;
+						flushStatus.classList.add( 'is-success' );
+						flushStatus.textContent = '✓ ' + flushSuccessMsg;
 						setTimeout( function () {
-							flushStatus.hidden = true;
+							flushStatus.textContent = '';
+							flushStatus.classList.remove( 'is-success' );
 						}, 3000 );
 					}
 				} )

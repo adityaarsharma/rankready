@@ -665,7 +665,7 @@ class RNRD_Llms_Txt {
 				}
 
 				$title   = self::flatten_for_list_line( self::clean_text( get_the_title( $post ) ) );
-				$url     = get_permalink( $post );
+				$url     = self::entry_url_for_post( $post );
 				$content = self::post_to_clean_markdown( $post, false );
 
 				// Per-page separator: # Title + Source URL

@@ -1828,13 +1828,6 @@ class RNRD_Admin {
 			$stale_count = (int) ( $buckets['stale'] ?? 0 );
 		}
 
-		$user_id            = get_current_user_id();
-		$tutorial_dismissed = (bool) get_user_meta( $user_id, 'rnrd_tutorial_dismissed', true );
-		$tutorial_dismiss   = wp_nonce_url(
-			admin_url( 'admin.php?page=' . self::MENU_SLUG . '&rnrd_dismiss_tutorial=1' ),
-			'rnrd_dismiss_tutorial'
-		);
-
 		$content_url         = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content' );
 		$content_summary_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=summary' );
 		$content_faq_url     = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=faq' );
@@ -2026,31 +2019,10 @@ class RNRD_Admin {
 			</div>
 		</div>
 
-		<?php if ( ! $tutorial_dismissed ) : ?>
-		<div class="rnrd-card rnrd-tutorial-card" style="margin-bottom:24px;">
-			<div class="rnrd-tutorial-card__head">
-				<h2 class="rnrd-card-title" style="margin:0;"><?php esc_html_e( 'New to RankReady? Watch the video', 'rankready-ai-llm-seo' ); ?></h2>
-				<a href="<?php echo esc_url( $tutorial_dismiss ); ?>" class="rnrd-aside-card__close" aria-label="<?php esc_attr_e( 'Dismiss tutorial', 'rankready-ai-llm-seo' ); ?>" title="<?php esc_attr_e( 'Dismiss', 'rankready-ai-llm-seo' ); ?>">
-					<span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
-				</a>
-			</div>
-			<p class="rnrd-card-desc" style="margin-top:0;"><?php esc_html_e( 'Aditya walks through every RankReady setting — AI Summary, FAQ Generator, Author Box, llms.txt, AI crawler controls — so you can ship a 100/100 AI-ready site.', 'rankready-ai-llm-seo' ); ?></p>
-			<div style="position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;background:#000;">
-				<iframe
-					style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"
-					src="https://www.youtube-nocookie.com/embed/JA-rEwMbqNo?rel=0&modestbranding=1"
-					title="<?php esc_attr_e( 'RankReady walkthrough', 'rankready-ai-llm-seo' ); ?>"
-					loading="lazy"
-					allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-					allowfullscreen></iframe>
-			</div>
-		</div>
-		<?php else : ?>
-			<p style="margin:0 0 14px;font-size:12px;color:var(--rnrd-color-text-muted,#646970);">
-				<?php esc_html_e( 'Need to start over?', 'rankready-ai-llm-seo' ); ?>
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-welcome' ) ); ?>"><?php esc_html_e( 'Re-run the setup wizard →', 'rankready-ai-llm-seo' ); ?></a>
-			</p>
-		<?php endif; ?>
+		<p style="margin:0 0 14px;font-size:12px;color:var(--rnrd-color-text-muted,#646970);">
+			<?php esc_html_e( 'Need to start over?', 'rankready-ai-llm-seo' ); ?>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-welcome' ) ); ?>"><?php esc_html_e( 'Re-run the setup wizard →', 'rankready-ai-llm-seo' ); ?></a>
+		</p>
 
 		<?php
 	}
@@ -5278,7 +5250,12 @@ class RNRD_Admin {
 										data-label-busy="<?php echo esc_attr__( 'Clearing…', 'rankready-ai-llm-seo' ); ?>"
 									><?php esc_html_e( 'Clear cache', 'rankready-ai-llm-seo' ); ?></button>
 								</div>
-								<span id="rnrd-flush-status" class="rnrd-input-action-row__status" hidden><?php esc_html_e( 'Cache cleared.', 'rankready-ai-llm-seo' ); ?></span>
+								<span
+									id="rnrd-flush-status"
+									class="rnrd-input-action-row__status"
+									data-success-msg="<?php echo esc_attr__( 'Cache cleared.', 'rankready-ai-llm-seo' ); ?>"
+									aria-live="polite"
+								></span>
 								<p class="description"><?php esc_html_e( 'How long to cache the generated llms.txt output. Use Clear cache to rebuild /llms.txt and /llms-full.txt immediately.', 'rankready-ai-llm-seo' ); ?></p>
 							</td>
 						</tr>

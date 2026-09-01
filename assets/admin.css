@@ -2021,6 +2021,10 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 	display: none;
 }
 
+.rnrd-input-action-row__status.is-success {
+	color: var(--rnrd-mint-700, #047857);
+}
+
 /* Legacy alias — keep for any older markup */
 .rnrd-verify-row {
 	display: flex;

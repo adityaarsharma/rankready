@@ -4,7 +4,7 @@ Tags: seo, schema, ai seo, aeo, llms.txt
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.1-beta
+Stable tag: 1.3.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,10 +32,6 @@ Traditional SEO plugins optimize for Google's classic results. RankReady adds th
 * **AI visibility insights.** Which AI crawlers visited, and who arrived from ChatGPT, Perplexity, Claude or Gemini
 
 Your WordPress SEO plugin handles Google. RankReady handles what comes after. That is **ChatGPT SEO**, **AEO** (answer engine optimization), **GEO optimization** (generative engine optimization) and **LLM SEO**, all from one plugin.
-
-## A quick walkthrough of the whole plugin.
-
-https://www.youtube.com/watch?v=JA-rEwMbqNo
 
 Built by [HostMyBlog](https://hostmy.blog/).
 
@@ -220,8 +216,6 @@ Your post content never leaves your site unless you ask for it. Your API keys st
 * **Cloudflare.** [Terms](https://www.cloudflare.com/terms/) · [Privacy](https://www.cloudflare.com/privacypolicy/). Only if you connect it. Sends your zone ID and API credentials so RankReady can add or remove one cache rule and clear changed pages. No post content is ever sent.
 * **HostMyBlog tips email.** [Terms](https://hostmy.blog/terms/) · [Privacy](https://hostmy.blog/privacy/). Only if you opt in from the setup wizard or the dashboard. Sends your first name and email address once for that admin account. Leave it unticked / don't submit and nothing is sent.
 
-The plugin dashboard also embeds one YouTube walkthrough using Google's no-cookie player. It appears inside wp-admin only, never on your public site.
-
 == Installation ==
 
 = Easy install (recommended) =
@@ -351,7 +345,7 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 
 == Changelog ==
 
-= 1.3.1-beta, 2026-09-01 =
+= 1.3.1, 2026-09-01 =
 
 * New: Cloudflare has its own Settings subtab (API Keys → Cloudflare → Advanced). The connect form is always available, with a warning when Cloudflare is not detected, so staging and DNS-only sites can still connect.
 * Fixed: OpenAI "Verify Key" no longer fails on GPT-5.x with "max_tokens or model output limit was reached" — the probe now allows enough completion tokens for reasoning models.
@@ -365,7 +359,9 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 * New: Delete generated Summary or FAQ from the post editor metabox — an inline danger link in the status line (e.g. "Summary generated 8 minutes ago. Delete summary").
 * Improved: Regenerate cooldown countdown shows in the status line ("You can regenerate again in 59s.") instead of changing the button label to "Wait 59s".
 * New: llms.txt setting to use .md URLs in post links (on by default when Markdown endpoints are enabled). Hides the redundant "Append .md to any page URL" hint when active.
+* Improved: llms-full.txt `Source:` lines use the same .md URLs when that setting is on.
 * New: "Clear cache" button on the llms.txt settings screen rebuilds /llms.txt and /llms-full.txt on demand and purges CDN/page-cache layers for those endpoints.
+* Removed: Dashboard YouTube walkthrough embed (no third-party video in wp-admin).
 
 = 1.3.0, 2026-08-24 =
 
@@ -450,8 +446,8 @@ First public release. The AI-search layer for WordPress: unlimited manual AI Sum
 
 == Upgrade Notice ==
 
-= 1.3.1-beta =
-Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works with GPT-5.x. Model dropdowns use live provider lists with Refresh list on demand, exact model ID labels, and smarter filtering. Post editor metaboxes let you delete generated Summary/FAQ and show regenerate cooldown in the status line. llms.txt can list .md URLs in post links by default when Markdown is on, with a manual Clear cache control. No data loss; safe to update.
+= 1.3.1 =
+Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works with GPT-5.x. Model dropdowns use live provider lists with Refresh list on demand, exact model ID labels, and smarter filtering. Post editor metaboxes let you delete generated Summary/FAQ and show regenerate cooldown in the status line. llms.txt and llms-full.txt can list .md URLs in post links by default when Markdown is on, with a manual Clear cache control. No data loss; safe to update.
 
 = 1.3.0 =
 Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.

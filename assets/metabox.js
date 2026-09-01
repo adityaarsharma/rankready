@@ -191,7 +191,7 @@
 		}
 
 		function regenInShort( left ) {
-			return t( 'regenInShort', 'Regenerate in %ds.' ).replace( '%d', String( left ) );
+			return t( 'regenInShort', 'You can regenerate again in %ds.' ).replace( '%d', String( left ) );
 		}
 
 		function ensureDeleteControl() {
@@ -238,7 +238,7 @@
 				return '';
 			}
 			return String( statusTextEl.textContent || '' )
-				.replace( /\s*Regenerate in \d+s\.?\s*$/i, '' )
+				.replace( /\s*You can regenerate again in \d+s\.?\s*$/i, '' )
 				.trim();
 		}
 

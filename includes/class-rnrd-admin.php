@@ -399,7 +399,7 @@ class RNRD_Admin {
 						/* translators: %d: seconds until regeneration is allowed */
 						'regenIn'          => __( 'Regenerate available in %ds.', 'rankready-ai-llm-seo' ),
 						/* translators: %d: seconds until regeneration is allowed */
-						'regenInShort'     => __( 'Regenerate in %ds.', 'rankready-ai-llm-seo' ),
+						'regenInShort'     => __( 'You can regenerate again in %ds.', 'rankready-ai-llm-seo' ),
 						'failed'           => __( 'Generation failed.', 'rankready-ai-llm-seo' ),
 						'saveFirst'        => __( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ),
 						'generatedJust'    => __( 'Summary generated just now.', 'rankready-ai-llm-seo' ),
@@ -686,6 +686,12 @@ class RNRD_Admin {
 		) );
 
 		register_setting( self::LLMS_GROUP, RNRD_OPT_LLMS_SHOW_CATEGORIES, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+
+		register_setting( self::LLMS_GROUP, RNRD_OPT_LLMS_USE_MD_URLS, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
 			'default'           => 'on',
@@ -4674,6 +4680,7 @@ class RNRD_Admin {
 				RNRD_OPT_LLMS_CACHE_TTL,
 				RNRD_OPT_LLMS_FULL_ENABLE,
 				RNRD_OPT_LLMS_SHOW_CATEGORIES,
+				RNRD_OPT_LLMS_USE_MD_URLS,
 				RNRD_OPT_HIDE_BRANDING,
 			),
 			'markdown' => array(
@@ -4704,6 +4711,7 @@ class RNRD_Admin {
 			RNRD_OPT_LLMS_CACHE_TTL              => 3600,
 			RNRD_OPT_LLMS_FULL_ENABLE            => 'off',
 			RNRD_OPT_LLMS_SHOW_CATEGORIES        => 'on',
+			RNRD_OPT_LLMS_USE_MD_URLS            => 'on',
 			RNRD_OPT_HIDE_BRANDING               => 'off',
 			RNRD_OPT_ROBOTS_ENABLE               => 'on',
 			RNRD_OPT_MD_ENABLE                   => 'off',
@@ -5141,6 +5149,40 @@ class RNRD_Admin {
 								</fieldset>
 								<?php if ( ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?><p class="rnrd-cpt-hint"><?php esc_html_e( 'Want to include Custom Post Types?', 'rankready-ai-llm-seo' ); ?> <span class="rnrd-soon-tag"><?php esc_html_e( 'COMING SOON', 'rankready-ai-llm-seo' ); ?></span></p><?php endif; ?>
 								<p class="description"><?php esc_html_e( 'Which post types to list in llms.txt as file lists. At least one post type is required.', 'rankready-ai-llm-seo' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><?php esc_html_e( 'Markdown URLs in links', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<?php
+								$md_enable   = (string) get_option( RNRD_OPT_MD_ENABLE, 'off' );
+								$use_md_urls = (string) get_option( RNRD_OPT_LLMS_USE_MD_URLS, 'on' );
+								?>
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_LLMS_USE_MD_URLS ); ?>" value="off" />
+								<label>
+									<input type="checkbox"
+										   name="<?php echo esc_attr( RNRD_OPT_LLMS_USE_MD_URLS ); ?>"
+										   value="on"
+										   <?php checked( $use_md_urls, 'on' ); ?>
+										   <?php disabled( 'on' !== $md_enable ); ?> />
+									<?php esc_html_e( 'Use .md URLs in post links', 'rankready-ai-llm-seo' ); ?>
+								</label>
+								<p class="description">
+									<?php esc_html_e( 'List /post-slug.md instead of the HTML page URL in llms.txt. Posts without a Markdown endpoint keep their normal URL.', 'rankready-ai-llm-seo' ); ?>
+								</p>
+								<?php if ( 'on' !== $md_enable ) : ?>
+									<p class="description">
+										<?php
+										echo wp_kses_post(
+											sprintf(
+												/* translators: %s: Markdown settings subtab URL */
+												__( 'Enable <a href="%s">Markdown Endpoints</a> first to use Markdown URLs in llms.txt links.', 'rankready-ai-llm-seo' ),
+												esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=visibility&sub=markdown' ) )
+											)
+										);
+										?>
+									</p>
+								<?php endif; ?>
 							</td>
 						</tr>
 						<tr>

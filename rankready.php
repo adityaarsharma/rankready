@@ -154,6 +154,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_LLMS_EXCLUDE_CATS',    'rnrd_llms_exclude_cats' );
 	define( 'RNRD_OPT_LLMS_EXCLUDE_TAGS',    'rnrd_llms_exclude_tags' );
 	define( 'RNRD_OPT_LLMS_SHOW_CATEGORIES', 'rnrd_llms_show_categories' );
+	define( 'RNRD_OPT_LLMS_USE_MD_URLS',     'rnrd_llms_use_md_urls' );
 
 	// Option keys — LLM Crawler robots.txt controls.
 	define( 'RNRD_OPT_ROBOTS_ENABLE',   'rnrd_robots_enable' );
@@ -615,6 +616,11 @@ add_action( 'plugins_loaded', function (): void {
 				}
 			}
 			update_option( 'rnrd_scorecard_corrected_v1121', 1, false );
+		}
+
+		// v1.3.1 — Default llms.txt post links to .md URLs when Markdown is on.
+		if ( false === get_option( RNRD_OPT_LLMS_USE_MD_URLS, false ) ) {
+			update_option( RNRD_OPT_LLMS_USE_MD_URLS, 'on', false );
 		}
 
 		// v1.1.1 — One-shot UTF-8 rewrite of existing summary + FAQ post meta.
@@ -1079,6 +1085,9 @@ register_activation_hook( RNRD_FILE, function (): void {
 	// MCP enable and author auto-display are already seeded above.
 	if ( false === get_option( RNRD_OPT_AI_REFERRAL_ENABLE ) ) {
 		update_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_LLMS_USE_MD_URLS ) ) {
+		update_option( RNRD_OPT_LLMS_USE_MD_URLS, 'on' );
 	}
 	if ( false === get_option( RNRD_OPT_LLMS_FULL_ENABLE ) ) {
 		update_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );

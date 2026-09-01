@@ -57,6 +57,8 @@ class RNRD_Llms_Txt {
 			RNRD_OPT_LLMS_POST_TYPES,       RNRD_OPT_LLMS_MAX_POSTS,
 			RNRD_OPT_LLMS_EXCLUDE_CATS,     RNRD_OPT_LLMS_EXCLUDE_TAGS,
 			RNRD_OPT_LLMS_SHOW_CATEGORIES,  RNRD_OPT_LLMS_CACHE_TTL,
+			RNRD_OPT_LLMS_USE_MD_URLS,      RNRD_OPT_MD_ENABLE,
+			RNRD_OPT_MD_POST_TYPES,
 		);
 		foreach ( $busters as $opt ) {
 			add_action( 'update_option_' . $opt, array( self::class, 'bust_cache_and_purge_cdn' ) );
@@ -488,7 +490,9 @@ class RNRD_Llms_Txt {
 
 		// Tell crawlers that markdown is available per page.
 		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
-			$lines[] = '- Markdown: Append .md to any page URL for clean markdown (e.g., /page-slug.md)';
+			if ( ! self::use_md_urls_in_index() ) {
+				$lines[] = '- Markdown: Append .md to any page URL for clean markdown (e.g., /page-slug.md)';
+			}
 			$lines[] = '- Content negotiation: Send `Accept: text/markdown` header on any page URL';
 		}
 
@@ -538,7 +542,7 @@ class RNRD_Llms_Txt {
 
 			foreach ( $filtered as $post ) {
 				$title    = self::flatten_for_list_line( self::clean_text( get_the_title( $post ) ) );
-				$url      = get_permalink( $post );
+				$url      = self::entry_url_for_post( $post );
 				$excerpt  = self::get_post_description( $post );
 				$lastmod  = get_post_modified_time( 'Y-m-d', false, $post );
 
@@ -1042,6 +1046,33 @@ class RNRD_Llms_Txt {
 	}
 
 	// ── Post exclusion logic ──────────────────────────────────────────────────
+
+	/**
+	 * Whether llms.txt post links should use .md URLs (when Markdown is on).
+	 */
+	public static function use_md_urls_in_index(): bool {
+		return 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' )
+			&& 'on' === get_option( RNRD_OPT_LLMS_USE_MD_URLS, 'on' );
+	}
+
+	/**
+	 * Permalink for a post row in llms.txt — HTML or .md depending on settings.
+	 *
+	 * @param WP_Post $post Post object.
+	 */
+	public static function entry_url_for_post( WP_Post $post ): string {
+		$url = get_permalink( $post );
+		if ( ! self::use_md_urls_in_index() || ! class_exists( 'RNRD_Markdown' ) ) {
+			return (string) $url;
+		}
+
+		$md_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		if ( ! in_array( $post->post_type, $md_types, true ) ) {
+			return (string) $url;
+		}
+
+		return RNRD_Markdown::get_md_url( $post );
+	}
 
 	/**
 	 * Check if a post should be excluded from llms.txt output.

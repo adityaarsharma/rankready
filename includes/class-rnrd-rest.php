@@ -5,6 +5,7 @@
  * Endpoints:
  *   GET  /rankready/v1/summary/{id}
  *   POST /rankready/v1/regenerate/{id}
+ *   DELETE /rankready/v1/summary/{id}
  *   POST /rankready/v1/bulk/start
  *   POST /rankready/v1/bulk/process
  *   POST /rankready/v1/bulk/stop
@@ -41,10 +42,18 @@ class RNRD_Rest {
 		// ── Summary endpoints ─────────────────────────────────────────────────
 
 		register_rest_route( self::NS, '/summary/(?P<id>\d+)', array(
-			'methods'             => WP_REST_Server::READABLE,
-			'callback'            => array( self::class, 'get_summary' ),
-			'permission_callback' => array( self::class, 'can_edit_post' ),
-			'args'                => self::post_id_arg(),
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( self::class, 'get_summary' ),
+				'permission_callback' => array( self::class, 'can_edit_post' ),
+				'args'                => self::post_id_arg(),
+			),
+			array(
+				'methods'             => WP_REST_Server::DELETABLE,
+				'callback'            => array( self::class, 'delete_summary' ),
+				'permission_callback' => array( self::class, 'can_edit_post' ),
+				'args'                => self::post_id_arg(),
+			),
 		) );
 
 		register_rest_route( self::NS, '/regenerate/(?P<id>\d+)', array(
@@ -168,6 +177,13 @@ class RNRD_Rest {
 		register_rest_route( self::NS, '/faq/save/(?P<id>\d+)', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( self::class, 'faq_save' ),
+			'permission_callback' => array( self::class, 'can_edit_post' ),
+			'args'                => self::post_id_arg(),
+		) );
+
+		register_rest_route( self::NS, '/faq/(?P<id>\d+)', array(
+			'methods'             => WP_REST_Server::DELETABLE,
+			'callback'            => array( self::class, 'delete_faq' ),
 			'permission_callback' => array( self::class, 'can_edit_post' ),
 			'args'                => self::post_id_arg(),
 		) );
@@ -371,6 +387,41 @@ class RNRD_Rest {
 	}
 
 	/**
+	 * Remove generated summary meta for a single post (no regeneration).
+	 */
+	public static function delete_summary( $request ) {
+		$post_id = (int) $request->get_param( 'id' );
+		$post    = get_post( $post_id );
+
+		if ( ! $post instanceof WP_Post ) {
+			return new WP_Error( 'rnrd_invalid_post', __( 'This post no longer exists.', 'rankready-ai-llm-seo' ), array( 'status' => 404 ) );
+		}
+
+		self::clear_summary_meta( $post_id );
+
+		return new WP_REST_Response( array( 'success' => true ), 200 );
+	}
+
+	/**
+	 * Delete summary post meta keys. Shared by Start Over and per-post delete.
+	 */
+	private static function clear_summary_meta( int $post_id ): void {
+		delete_post_meta( $post_id, RNRD_META_SUMMARY );
+		delete_post_meta( $post_id, RNRD_META_HASH );
+		delete_post_meta( $post_id, RNRD_META_GENERATED );
+	}
+
+	/**
+	 * Delete FAQ post meta keys. Shared by faq_save, Start Over, and per-post delete.
+	 */
+	private static function clear_faq_meta( int $post_id ): void {
+		delete_post_meta( $post_id, RNRD_META_FAQ );
+		delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
+		delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
+		delete_post_meta( $post_id, RNRD_META_FAQ_KEYWORD );
+	}
+
+	/**
 	 * Most recent generation error message logged by RNRD_Generator, or ''.
 	 * Lets the summary endpoint surface WHY a generation failed (provider quota,
 	 * bad key, timeout) instead of a flat "Failed to generate".
@@ -460,15 +511,10 @@ class RNRD_Rest {
 		}
 
 		// Clear existing summary data.
-		delete_post_meta( $post_id, RNRD_META_SUMMARY );
-		delete_post_meta( $post_id, RNRD_META_HASH );
-		delete_post_meta( $post_id, RNRD_META_GENERATED );
+		self::clear_summary_meta( $post_id );
 
 		// Clear existing FAQ data.
-		delete_post_meta( $post_id, RNRD_META_FAQ );
-		delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
-		delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
-		delete_post_meta( $post_id, RNRD_META_FAQ_KEYWORD );
+		self::clear_faq_meta( $post_id );
 
 		$result = array(
 			'summary' => null,
@@ -1231,6 +1277,22 @@ class RNRD_Rest {
 		), 200 );
 	}
 
+	/**
+	 * Remove generated FAQ meta for a single post (no regeneration).
+	 */
+	public static function delete_faq( $request ) {
+		$post_id = (int) $request->get_param( 'id' );
+		$post    = get_post( $post_id );
+
+		if ( ! $post instanceof WP_Post ) {
+			return new WP_Error( 'rnrd_invalid_post', __( 'This post no longer exists.', 'rankready-ai-llm-seo' ), array( 'status' => 404 ) );
+		}
+
+		self::clear_faq_meta( $post_id );
+
+		return new WP_REST_Response( array( 'success' => true ), 200 );
+	}
+
 	public static function faq_get( $request ) {
 		$post_id  = (int) $request->get_param( 'id' );
 		$faq_data = RNRD_Faq::get_faq_data( $post_id );
@@ -1276,9 +1338,7 @@ class RNRD_Rest {
 			// for a post with no FAQ. Worse, RNRD_Faq::generate_faq() short-circuits
 			// on `hash matches && ! empty( meta )`, so leaving "[]" plus a stale hash
 			// made "Generate FAQ" silently return nothing until the content changed.
-			delete_post_meta( $post_id, RNRD_META_FAQ );
-			delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
-			delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
+			self::clear_faq_meta( $post_id );
 
 			return new WP_REST_Response( array( 'success' => true, 'count' => 0 ), 200 );
 		}

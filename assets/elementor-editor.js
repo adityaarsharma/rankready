@@ -139,18 +139,23 @@
 		} );
 	}
 
-	function startCooldown( wrap, key ) {
+	function startCooldown( wrap, key, successMsg ) {
 		cooldowns[ key ] = Date.now() + COOLDOWN_SECONDS * 1000;
 		var btn = btnEl( wrap );
+		var c   = cfg( kindOf( wrap ) );
 		if ( ! btn ) return;
+		var idle = btn.getAttribute( 'data-idle-label' ) || c.done;
 		var tick = function () {
 			var remaining = Math.max( 0, Math.ceil( ( cooldowns[ key ] - Date.now() ) / 1000 ) );
 			if ( remaining <= 0 ) {
 				setBusy( wrap, false );
+				setStatus( wrap, successMsg || '', 'success' );
 				return;
 			}
 			btn.disabled = true;
-			btn.textContent = 'Wait ' + remaining + 's';
+			btn.textContent = idle;
+			var hint = 'Regenerate available in ' + remaining + 's.';
+			setStatus( wrap, successMsg ? ( successMsg + ' ' + hint ) : hint, 'success' );
 			setTimeout( tick, 1000 );
 		};
 		tick();
@@ -204,9 +209,10 @@
 			.then( function ( res ) {
 				var ok = res.status >= 200 && res.status < 300 && ( ! res.body || res.body.success !== false );
 				if ( ok ) {
-					setStatus( wrap, 'Updated. Refresh the preview to see the result.', 'success' );
+					var successMsg = 'Updated. Refresh the preview to see the result.';
+					setStatus( wrap, successMsg, 'success' );
 					btn.setAttribute( 'data-idle-label', c.done ); // content now exists
-					startCooldown( wrap, key );
+					startCooldown( wrap, key, successMsg );
 				} else {
 					var msg = ( res.body && res.body.message ) || 'Generation failed.';
 					setStatus( wrap, msg, 'error' );

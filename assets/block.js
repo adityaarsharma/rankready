@@ -223,9 +223,7 @@
 			var hasSummary = summary.type !== 'empty';
 			var regenLabel = loading
 				? ( hasSummary ? 'Regenerating…' : 'Generating…' )
-				: cooldown > 0
-					? 'Wait ' + cooldown + 's'
-					: ( hasSummary ? 'Regenerate' : 'Generate' );
+				: ( hasSummary ? 'Regenerate' : 'Generate' );
 
 			// Build preview styles
 			var boxStyle = {};
@@ -306,7 +304,10 @@
 								disabled: loading || cooldown > 0 || ! postId || ! hasKey,
 								onClick: handleRegenerate,
 								style: { width: '100%', justifyContent: 'center' },
-							}, regenLabel )
+							}, regenLabel ),
+							cooldown > 0 && el( 'p', { style: { color: '#757575', fontSize: '11px', margin: '8px 0 0' } },
+								'Regenerate available in ' + cooldown + 's.'
+							)
 						),
 
 						! hasKey && el( 'p', { style: { color: '#d63638', fontSize: '12px', margin: '8px 0 0' } },

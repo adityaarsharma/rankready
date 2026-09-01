@@ -362,6 +362,8 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 * Fixed: OpenAI model selection no longer reverts after save — removed the hardcoded GPT-4o allowlist that rejected newer model IDs.
 * Improved: OpenAI model list hides chat-only variants (IDs containing `-chat`). Gemini hides non-text models (robotics, TTS, image, transcribe, computer-use, and similar).
 * Improved: If your saved model is retired and missing from the live list, it stays visible with a deprecated notice so you can pick a replacement.
+* New: Delete generated Summary or FAQ from the post editor metabox — an inline danger link in the status line (e.g. "Summary generated 8 minutes ago. Delete summary").
+* Improved: Regenerate cooldown countdown shows in the status line ("Regenerate in 59s.") instead of changing the button label to "Wait 59s".
 
 = 1.3.0, 2026-08-24 =
 
@@ -447,7 +449,7 @@ First public release. The AI-search layer for WordPress: unlimited manual AI Sum
 == Upgrade Notice ==
 
 = 1.3.1-beta =
-Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works with GPT-5.x. Model dropdowns use live provider lists with Refresh list on demand, exact model ID labels, and smarter filtering. No data loss; safe to update.
+Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works with GPT-5.x. Model dropdowns use live provider lists with Refresh list on demand, exact model ID labels, and smarter filtering. Post editor metaboxes let you delete generated Summary/FAQ and show regenerate cooldown in the status line. No data loss; safe to update.
 
 = 1.3.0 =
 Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.

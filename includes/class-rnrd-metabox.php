@@ -236,6 +236,62 @@ class RNRD_Metabox {
 		<?php
 	}
 
+	/**
+	 * Generate button for Summary / FAQ meta boxes.
+	 */
+	private static function render_gen_actions( bool $can_generate, string $gen_label ): void {
+		?>
+		<div class="rnrd-mb__actions">
+			<button
+				type="button"
+				class="button button-secondary rnrd-mb__gen"
+				data-rnrd-gen
+				<?php disabled( ! $can_generate ); ?>
+			><?php echo esc_html( $gen_label ); ?></button>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Generated timestamp + inline delete control below the generate button.
+	 *
+	 * @param string $kind summary|faq
+	 */
+	private static function render_generated_status( string $kind, bool $has_content, int $generated_ts ): void {
+		$delete_label = 'faq' === $kind
+			? __( 'Delete FAQ', 'rankready-ai-llm-seo' )
+			: __( 'Delete summary', 'rankready-ai-llm-seo' );
+		$status_text  = '';
+		if ( $generated_ts > 0 ) {
+			if ( 'faq' === $kind ) {
+				$status_text = sprintf(
+					/* translators: %s: human-readable age like "3 minutes" */
+					__( 'FAQ generated %s ago', 'rankready-ai-llm-seo' ),
+					human_time_diff( $generated_ts )
+				);
+			} else {
+				$status_text = sprintf(
+					/* translators: %s: human-readable age like "3 minutes" */
+					__( 'Summary generated %s ago', 'rankready-ai-llm-seo' ),
+					human_time_diff( $generated_ts )
+				);
+			}
+		}
+		$visible = $has_content || $generated_ts > 0;
+		?>
+		<p class="rnrd-mb__hint rnrd-mb__generated"<?php echo $visible ? '' : ' hidden'; ?>>
+			<span data-rnrd-mb-status-text><?php echo esc_html( $status_text ); ?></span><?php
+			if ( $has_content ) :
+				?><span data-rnrd-mb-delete-wrap> <?php
+				?><button type="button" class="rnrd-mb__delete" data-rnrd-delete><?php
+				echo esc_html( $delete_label );
+				?></button></span><?php
+			endif;
+			?>
+		</p>
+		<?php
+	}
+
 	public static function render_summary( $post ): void {
 		$disabled      = (bool) get_post_meta( $post->ID, RNRD_META_DISABLE, true );
 		$summary       = (string) get_post_meta( $post->ID, RNRD_META_SUMMARY, true );
@@ -289,26 +345,11 @@ class RNRD_Metabox {
 					</div>
 				</details>
 
-				<button
-					type="button"
-					class="button button-secondary rnrd-mb__gen"
-					data-rnrd-gen
-					<?php disabled( ! $can_generate ); ?>
-				><?php echo esc_html( $gen_label ); ?></button>
+				<?php self::render_gen_actions( $can_generate, $gen_label ); ?>
 
 				<p class="rnrd-mb__error" hidden></p>
 
-				<p class="rnrd-mb__hint rnrd-mb__generated"<?php echo $generated ? '' : ' hidden'; ?>>
-					<?php
-					if ( $generated ) {
-						printf(
-							/* translators: %s: human-readable age like "3 minutes" */
-							esc_html__( 'Summary generated %s ago', 'rankready-ai-llm-seo' ),
-							esc_html( human_time_diff( $generated ) )
-						);
-					}
-					?>
-				</p>
+				<?php self::render_generated_status( 'summary', $has_summary, $generated ); ?>
 			</div>
 
 			<?php if ( $autogen_on ) : ?>
@@ -385,26 +426,11 @@ class RNRD_Metabox {
 					</div>
 				</details>
 
-				<button
-					type="button"
-					class="button button-secondary rnrd-mb__gen"
-					data-rnrd-gen
-					<?php disabled( ! $can_generate ); ?>
-				><?php echo esc_html( $gen_label ); ?></button>
+				<?php self::render_gen_actions( $can_generate, $gen_label ); ?>
 
 				<p class="rnrd-mb__error" hidden></p>
 
-				<p class="rnrd-mb__hint rnrd-mb__generated"<?php echo $faq_generated ? '' : ' hidden'; ?>>
-					<?php
-					if ( $faq_generated ) {
-						printf(
-							/* translators: %s: human-readable age like "3 minutes" */
-							esc_html__( 'FAQ generated %s ago', 'rankready-ai-llm-seo' ),
-							esc_html( human_time_diff( $faq_generated ) )
-						);
-					}
-					?>
-				</p>
+				<?php self::render_generated_status( 'faq', $has_faq, $faq_generated ); ?>
 			</div>
 
 			<?php

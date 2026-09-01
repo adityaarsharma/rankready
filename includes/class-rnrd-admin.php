@@ -396,12 +396,22 @@ class RNRD_Admin {
 						'regenerateFaq'    => __( 'Regenerate FAQ', 'rankready-ai-llm-seo' ),
 						'generatingFaq'    => __( 'Generating FAQ…', 'rankready-ai-llm-seo' ),
 						'regeneratingFaq'  => __( 'Regenerating FAQ…', 'rankready-ai-llm-seo' ),
-						/* translators: %d: seconds remaining before the next generate is allowed */
-						'wait'             => __( 'Wait %ds', 'rankready-ai-llm-seo' ),
+						/* translators: %d: seconds until regeneration is allowed */
+						'regenIn'          => __( 'Regenerate available in %ds.', 'rankready-ai-llm-seo' ),
+						/* translators: %d: seconds until regeneration is allowed */
+						'regenInShort'     => __( 'Regenerate in %ds.', 'rankready-ai-llm-seo' ),
 						'failed'           => __( 'Generation failed.', 'rankready-ai-llm-seo' ),
 						'saveFirst'        => __( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ),
-						'generatedJust'    => __( 'Summary generated just now', 'rankready-ai-llm-seo' ),
-						'generatedFaqJust' => __( 'FAQ generated just now', 'rankready-ai-llm-seo' ),
+						'generatedJust'    => __( 'Summary generated just now.', 'rankready-ai-llm-seo' ),
+						'generatedFaqJust' => __( 'FAQ generated just now.', 'rankready-ai-llm-seo' ),
+						'deleteSummary'    => __( 'Delete summary', 'rankready-ai-llm-seo' ),
+						'deleteFaq'        => __( 'Delete FAQ', 'rankready-ai-llm-seo' ),
+						'deleting'         => __( 'Deleting…', 'rankready-ai-llm-seo' ),
+						'deletedSummary'   => __( 'Summary removed.', 'rankready-ai-llm-seo' ),
+						'deletedFaq'       => __( 'FAQ removed.', 'rankready-ai-llm-seo' ),
+						'deleteFailed'     => __( 'Could not delete. Try again.', 'rankready-ai-llm-seo' ),
+						'confirmSummary'   => __( 'Remove the generated summary for this post? It will no longer appear on the frontend, in Markdown, or in schema.', 'rankready-ai-llm-seo' ),
+						'confirmFaq'       => __( 'Remove the generated FAQ for this post? It will no longer appear on the frontend, in Markdown, or in schema.', 'rankready-ai-llm-seo' ),
 					),
 				) );
 			}

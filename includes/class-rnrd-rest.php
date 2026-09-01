@@ -116,6 +116,26 @@ class RNRD_Rest {
 			),
 		) );
 
+		register_rest_route( self::NS, '/models/refresh', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( self::class, 'refresh_models' ),
+			'permission_callback' => array( self::class, 'is_admin_user' ),
+			'args'                => array(
+				'provider' => array(
+					'required'          => true,
+					'type'              => 'string',
+					'enum'              => array( 'openai', 'anthropic', 'gemini', 'deepseek' ),
+					'sanitize_callback' => 'sanitize_key',
+				),
+				'key' => array(
+					'required'          => false,
+					'type'              => 'string',
+					'default'           => '',
+					'sanitize_callback' => 'sanitize_text_field',
+				),
+			),
+		) );
+
 		register_rest_route( self::NS, '/verify-dfs', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( self::class, 'verify_dfs_key' ),
@@ -1025,11 +1045,9 @@ class RNRD_Rest {
 
 		$cfg = $providers[ $provider ];
 
-		// If the form sends a masked value (`sk-1234••••••••`), fall back to
-		// the stored key for that provider — same UX as before.
-		if ( '' === $key || false !== strpos( $key, '••••' ) ) {
-			$key = (string) get_option( $cfg['option'], '' );
-		}
+		$key = class_exists( 'RNRD_LLM' )
+			? RNRD_LLM::resolve_api_key( $provider, (string) $request->get_param( 'key' ) )
+			: (string) $request->get_param( 'key' );
 
 		if ( empty( $key ) ) {
 			return new WP_REST_Response( array(
@@ -1070,6 +1088,34 @@ class RNRD_Rest {
 		return new WP_REST_Response( array(
 			'valid'   => false,
 			'message' => $err,
+		), 200 );
+	}
+
+	/**
+	 * Force-refresh the model dropdown list for a provider (bypasses transient cache).
+	 */
+	public static function refresh_models( $request ) {
+		$provider = sanitize_key( (string) $request->get_param( 'provider' ) );
+		$key      = (string) $request->get_param( 'key' );
+
+		if ( ! class_exists( 'RNRD_LLM' ) ) {
+			return new WP_REST_Response( array(
+				'ok'      => false,
+				'models'  => array(),
+				'source'  => 'fallback',
+				'count'   => 0,
+				'message' => __( 'LLM module not available.', 'rankready-ai-llm-seo' ),
+			), 200 );
+		}
+
+		$result = RNRD_LLM::refresh_models_for( $provider, $key );
+
+		return new WP_REST_Response( array(
+			'ok'      => (bool) $result['ok'],
+			'models'  => $result['models'],
+			'source'  => (string) $result['source'],
+			'count'   => (int) $result['count'],
+			'message' => (string) $result['message'],
 		), 200 );
 	}
 

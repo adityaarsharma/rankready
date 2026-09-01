@@ -559,53 +559,6 @@
 	}
 
 	/* ═══════════════════════════════════════════════════════════════════════
-	 * VERIFY API KEY
-	 * ═══════════════════════════════════════════════════════════════════════ */
-
-	var verifyBtn    = document.getElementById( 'rnrd-verify-key' );
-	var verifyStatus = document.getElementById( 'rnrd-verify-status' );
-
-	if ( verifyBtn ) {
-		verifyBtn.addEventListener( 'click', function () {
-			var keyField = document.getElementById( 'rnrd_api_key' );
-			var key      = keyField ? keyField.value : '';
-
-			if ( ! key ) {
-				verifyStatus.textContent    = 'Enter an API key first.';
-				verifyStatus.style.color    = '#B42318';
-				verifyStatus.style.display  = 'inline';
-				return;
-			}
-
-			verifyBtn.disabled    = true;
-			verifyBtn.textContent = 'Verifying...';
-			verifyStatus.style.display = 'none';
-
-			rnrdFetch( '/verify-key', 'POST', { key: key } )
-				.then( function ( data ) {
-					verifyBtn.disabled    = false;
-					verifyBtn.textContent = 'Verify Key';
-
-					if ( data.valid ) {
-						verifyStatus.textContent   = '✓ ' + data.message;
-						verifyStatus.style.color   = '#0F9C70';
-					} else {
-						verifyStatus.textContent   = '✗ ' + data.message;
-						verifyStatus.style.color   = '#B42318';
-					}
-					verifyStatus.style.display = 'inline';
-				} )
-				.catch( function () {
-					verifyBtn.disabled    = false;
-					verifyBtn.textContent = 'Verify Key';
-					verifyStatus.textContent   = '✗ Request failed.';
-					verifyStatus.style.color   = '#B42318';
-					verifyStatus.style.display = 'inline';
-				} );
-		} );
-	}
-
-	/* ═══════════════════════════════════════════════════════════════════════
 	 * VERIFY DATAFORSEO KEY
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -1111,6 +1064,74 @@
 	// the matching key field's value (or the saved key if masked) and pings
 	// the REST verify endpoint with the chosen provider.
 	//
+	function rebuildModelSelect( select, models, selectedValue ) {
+		if ( ! select ) { return; }
+		var keep = selectedValue || select.value;
+		select.innerHTML = '';
+		Object.keys( models ).forEach( function ( id ) {
+			var opt = document.createElement( 'option' );
+			opt.value = id;
+			opt.textContent = models[ id ];
+			if ( id === keep ) {
+				opt.selected = true;
+			}
+			select.appendChild( opt );
+		} );
+		if ( keep && ! models[ keep ] ) {
+			var deprecated = document.createElement( 'option' );
+			deprecated.value = keep;
+			deprecated.textContent = keep;
+			deprecated.selected = true;
+			select.appendChild( deprecated );
+		}
+	}
+
+	function refreshModelsForProvider( provider, key, statusEl, btn ) {
+		var select = document.querySelector( '[data-rnrd-model-for="' + provider + '"]' );
+		var label  = btn ? ( btn.textContent || 'Refresh list' ) : 'Refresh list';
+
+		if ( btn ) {
+			btn.disabled    = true;
+			btn.textContent = 'Refreshing…';
+		}
+		if ( statusEl ) {
+			statusEl.style.display = 'inline';
+			statusEl.style.color   = '#646970';
+			statusEl.textContent   = 'Refreshing…';
+		}
+
+		return rnrdFetch( '/models/refresh', 'POST', { provider: provider, key: key || '' } )
+			.then( function ( data ) {
+				if ( btn ) {
+					btn.disabled    = false;
+					btn.textContent = label;
+				}
+				if ( data && data.models ) {
+					rebuildModelSelect( select, data.models, select ? select.value : '' );
+				}
+				if ( statusEl ) {
+					if ( data && data.ok ) {
+						statusEl.style.color = '#0F9C70';
+						statusEl.textContent = '✓ ' + ( data.count || 0 ) + ' models updated';
+					} else {
+						statusEl.style.color = '#B42318';
+						statusEl.textContent = '✗ ' + ( ( data && data.message ) ? data.message : 'Could not refresh models.' );
+					}
+				}
+				return data;
+			} )
+			.catch( function () {
+				if ( btn ) {
+					btn.disabled    = false;
+					btn.textContent = label;
+				}
+				if ( statusEl ) {
+					statusEl.style.color = '#B42318';
+					statusEl.textContent = '✗ Request failed.';
+				}
+			} );
+	}
+
 	function bindVerifyButtons() {
 		var buttons = document.querySelectorAll( '[data-rnrd-verify-provider]' );
 		buttons.forEach( function ( btn ) {
@@ -1122,28 +1143,48 @@
 				if ( ! keyInput || ! status ) { return; }
 
 				var key = keyInput.value;
+				var label = btn.textContent || 'Verify Key';
 				status.style.display = 'inline';
 				status.style.color   = '#646970';
 				status.textContent   = 'Verifying…';
 				btn.disabled = true;
 
-				// rnrdFetch already parses the JSON response — do NOT call .json() again
-				// (would throw TypeError and force the catch branch).
 				rnrdFetch( '/verify-key', 'POST', { key: key, provider: provider } )
 					.then( function ( data ) {
 						btn.disabled       = false;
+						btn.textContent    = label;
 						status.style.color = data.valid ? '#0F9C70' : '#B42318';
 						status.textContent = data.valid ? '✓ ' + data.message : '✗ ' + data.message;
+						if ( data.valid ) {
+							var modelsStatus = document.querySelector( '[data-rnrd-models-status="' + provider + '"]' );
+							refreshModelsForProvider( provider, key, modelsStatus, null );
+						}
 					} )
 					.catch( function () {
 						btn.disabled       = false;
+						btn.textContent    = label;
 						status.style.color = '#B42318';
 						status.textContent = '✗ Request failed.';
 					} );
 			} );
 		} );
 	}
+
+	function bindRefreshModels() {
+		var buttons = document.querySelectorAll( '[data-rnrd-refresh-models]' );
+		buttons.forEach( function ( btn ) {
+			btn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				var provider = btn.getAttribute( 'data-rnrd-refresh-models' );
+				var keyInput = document.querySelector( '[data-rnrd-key-for="' + provider + '"]' );
+				var status   = document.querySelector( '[data-rnrd-models-status="' + provider + '"]' );
+				var key      = keyInput ? keyInput.value : '';
+				refreshModelsForProvider( provider, key, status, btn );
+			} );
+		} );
+	}
 	bindVerifyButtons();
+	bindRefreshModels();
 
 	/* ─────────────────────────────────────────────────────────────────────────
 	 * AJAX form submit — no page reload on Save (rc.16).

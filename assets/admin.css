@@ -1995,7 +1995,33 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
 	margin-left: 4px;
 }
 
-/* ── 23e. Verify-key row (Settings cards) ──────────────────────────────── */
+/* ── 23e. Input + action row (API key verify, model refresh) ─────────── */
+.rnrd-input-action-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.rnrd-input-action-row .regular-text,
+.rnrd-input-action-row select {
+	flex: 1;
+	min-width: 220px;
+	max-width: 400px;
+}
+
+.rnrd-input-action-row__status {
+	display: block;
+	font-size: 13px;
+	color: var(--rnrd-text-tertiary);
+	margin: 6px 0 0;
+}
+
+.rnrd-input-action-row__status:empty {
+	display: none;
+}
+
+/* Legacy alias — keep for any older markup */
 .rnrd-verify-row {
 	display: flex;
 	align-items: center;
@@ -2546,10 +2572,11 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
     font-size: 12px;
 }
 
-/* ── 26d. Verify row + description spacing inside form-table cells ─────── */
+/* ── 26d. Action row + description spacing inside form-table cells ─────── */
+.rnrd-card .rnrd-input-action-row,
 .rnrd-card .rnrd-verify-row {
-    margin: 12px 0 0;
-    gap: 12px;
+	margin: 0;
+	gap: 8px;
 }
 
 /* Inputs inside cards — consistent height + width. */

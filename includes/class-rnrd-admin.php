@@ -497,8 +497,8 @@ class RNRD_Admin {
 		) );
 		register_setting( self::SETTINGS_GROUP, RNRD_OPT_MODEL, array(
 			'type'              => 'string',
-			'sanitize_callback' => array( self::class, 'sanitize_model' ),
-			'default'           => 'gpt-4o-mini',
+			'sanitize_callback' => array( self::class, 'sanitize_provider_model' ),
+			'default'           => 'gpt-5.4-mini',
 		) );
 
 		// Anthropic (Claude) key + model.
@@ -1238,15 +1238,14 @@ class RNRD_Admin {
 	}
 
 	/**
-	 * Generic provider model sanitizer. Accepts any model ID listed in the
-	 * provider's RNRD_LLM::get_models_for() list, falls back to provider
-	 * default. Resolves the provider from the option name being sanitized.
+	 * Model ID sanitizer for every LLM provider (OpenAI, Anthropic, Gemini, DeepSeek).
+	 * Light validation only — no hard allowlist — so curated / future model IDs
+	 * save correctly without a plugin update.
 	 */
 	public static function sanitize_provider_model( $value ): string {
 		$value = sanitize_text_field( (string) $value );
-		// Light validation — no strict allowlist so future model IDs work
-		// without a plugin update. We just strip anything that isn't a safe
-		// model-ID character (alphanumerics, dot, dash, underscore, slash).
+		// Strip anything that isn't a safe model-ID character
+		// (alphanumerics, dot, dash, underscore, slash).
 		$value = preg_replace( '/[^a-zA-Z0-9._\-\/]/', '', $value );
 		return (string) $value;
 	}
@@ -1282,12 +1281,6 @@ class RNRD_Admin {
 		}
 		// Real password — store as-is (no sanitize_text_field, it can mangle hex strings).
 		return trim( $value );
-	}
-
-	public static function sanitize_model( $value ): string {
-		$allowed = array_keys( self::get_allowed_models() );
-		$value   = sanitize_text_field( (string) $value );
-		return in_array( $value, $allowed, true ) ? $value : 'gpt-4o-mini';
 	}
 
 	public static function sanitize_post_types( $value ): array {
@@ -3898,15 +3891,38 @@ class RNRD_Admin {
 				</table>
 
 				<?php
-				// Helper for the per-provider verify button row.
-				$render_verify_row = function ( $provider_id ) {
+				$render_key_field = function ( $provider_id, $input_id, $option_name, $display_value ) {
 					?>
-					<div class="rnrd-verify-row">
+					<div class="rnrd-input-action-row">
+						<input type="password" id="<?php echo esc_attr( $input_id ); ?>" name="<?php echo esc_attr( $option_name ); ?>"
+							   value="<?php echo esc_attr( $display_value ); ?>" class="regular-text"
+							   autocomplete="new-password" spellcheck="false"
+							   data-rnrd-key-for="<?php echo esc_attr( $provider_id ); ?>" />
 						<button type="button" class="button button-secondary" data-rnrd-verify-provider="<?php echo esc_attr( $provider_id ); ?>">
 							<?php esc_html_e( 'Verify Key', 'rankready-ai-llm-seo' ); ?>
 						</button>
-						<span class="rnrd-verify-row__status" data-rnrd-verify-status="<?php echo esc_attr( $provider_id ); ?>"></span>
 					</div>
+					<span class="rnrd-input-action-row__status" data-rnrd-verify-status="<?php echo esc_attr( $provider_id ); ?>"></span>
+					<?php
+				};
+
+				$render_model_field = function ( $provider_id, $select_id, $option_name ) {
+					$cur     = RNRD_LLM::get_model( $provider_id );
+					$models  = RNRD_LLM::get_models_for( $provider_id );
+					?>
+					<div class="rnrd-input-action-row">
+						<select name="<?php echo esc_attr( $option_name ); ?>" id="<?php echo esc_attr( $select_id ); ?>" data-rnrd-model-for="<?php echo esc_attr( $provider_id ); ?>">
+							<?php foreach ( $models as $value => $label ) : ?>
+								<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
+									<?php echo esc_html( $label ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+						<button type="button" class="button button-secondary" data-rnrd-refresh-models="<?php echo esc_attr( $provider_id ); ?>">
+							<?php esc_html_e( 'Refresh list', 'rankready-ai-llm-seo' ); ?>
+						</button>
+					</div>
+					<span class="rnrd-input-action-row__status" data-rnrd-models-status="<?php echo esc_attr( $provider_id ); ?>"></span>
 					<?php
 				};
 				?>
@@ -3920,11 +3936,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_api_key"><?php esc_html_e( 'API Key', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<input type="password" id="rnrd_api_key" name="<?php echo esc_attr( RNRD_OPT_KEY ); ?>"
-								   value="<?php echo esc_attr( $openai_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false"
-								   data-rnrd-key-for="openai" />
-							<?php $render_verify_row( 'openai' ); ?>
+							<?php $render_key_field( 'openai', 'rnrd_api_key', RNRD_OPT_KEY, $openai_disp ); ?>
 							<p class="description"><?php
 								printf(
 									/* translators: %s: link to the OpenAI API keys page */
@@ -3937,15 +3949,8 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_model"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( RNRD_OPT_MODEL ); ?>" id="rnrd_model">
-								<?php $current_model = RNRD_LLM::get_model( 'openai' ); ?>
-								<?php foreach ( RNRD_LLM::get_models_for( 'openai' ) as $value => $label ) : ?>
-									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $current_model, $value ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-							<p class="description"><?php esc_html_e( 'gpt-4o-mini is the cheapest and recommended for most sites.', 'rankready-ai-llm-seo' ); ?></p>
+							<?php $render_model_field( 'openai', 'rnrd_model', RNRD_OPT_MODEL ); ?>
+							<p class="description"><?php esc_html_e( 'gpt-5.4-nano is the cheapest and fastest. gpt-5.4-mini is recommended for most sites. gpt-5.4 is balanced. gpt-5.5 is highest quality.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -3960,11 +3965,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_anthropic_key"><?php esc_html_e( 'API Key', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<input type="password" id="rnrd_anthropic_key" name="<?php echo esc_attr( RNRD_OPT_ANTHROPIC_KEY ); ?>"
-								   value="<?php echo esc_attr( $anthropic_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false"
-								   data-rnrd-key-for="anthropic" />
-							<?php $render_verify_row( 'anthropic' ); ?>
+							<?php $render_key_field( 'anthropic', 'rnrd_anthropic_key', RNRD_OPT_ANTHROPIC_KEY, $anthropic_disp ); ?>
 							<p class="description"><?php
 								printf(
 									/* translators: %s: link to the Anthropic Console API keys page */
@@ -3977,15 +3978,8 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_anthropic_model"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( RNRD_OPT_ANTHROPIC_MODEL ); ?>" id="rnrd_anthropic_model">
-								<?php $cur = RNRD_LLM::get_model( 'anthropic' ); ?>
-								<?php foreach ( RNRD_LLM::get_models_for( 'anthropic' ) as $value => $label ) : ?>
-									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-							<p class="description"><?php esc_html_e( 'Haiku 4.5 is the cheapest and fastest. Sonnet 4.6 is the balanced pick. Opus 4.7 is highest quality (most expensive).', 'rankready-ai-llm-seo' ); ?></p>
+							<?php $render_model_field( 'anthropic', 'rnrd_anthropic_model', RNRD_OPT_ANTHROPIC_MODEL ); ?>
+							<p class="description"><?php esc_html_e( 'claude-haiku-4-5 is the cheapest and fastest. claude-sonnet-4-6 is the balanced pick. claude-opus-4-7 is highest quality (most expensive).', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -4000,11 +3994,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_gemini_key"><?php esc_html_e( 'API Key', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<input type="password" id="rnrd_gemini_key" name="<?php echo esc_attr( RNRD_OPT_GEMINI_KEY ); ?>"
-								   value="<?php echo esc_attr( $gemini_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false"
-								   data-rnrd-key-for="gemini" />
-							<?php $render_verify_row( 'gemini' ); ?>
+							<?php $render_key_field( 'gemini', 'rnrd_gemini_key', RNRD_OPT_GEMINI_KEY, $gemini_disp ); ?>
 							<p class="description"><?php
 								printf(
 									/* translators: %s: link to the Google AI Studio API key page */
@@ -4017,15 +4007,8 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_gemini_model"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( RNRD_OPT_GEMINI_MODEL ); ?>" id="rnrd_gemini_model">
-								<?php $cur = RNRD_LLM::get_model( 'gemini' ); ?>
-								<?php foreach ( RNRD_LLM::get_models_for( 'gemini' ) as $value => $label ) : ?>
-									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-							<p class="description"><?php esc_html_e( 'Gemini 2.5 Flash is recommended for both summaries and FAQ.', 'rankready-ai-llm-seo' ); ?></p>
+							<?php $render_model_field( 'gemini', 'rnrd_gemini_model', RNRD_OPT_GEMINI_MODEL ); ?>
+							<p class="description"><?php esc_html_e( 'gemini-2.5-flash is recommended for both summaries and FAQ.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -4040,11 +4023,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_deepseek_key"><?php esc_html_e( 'API Key', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<input type="password" id="rnrd_deepseek_key" name="<?php echo esc_attr( RNRD_OPT_DEEPSEEK_KEY ); ?>"
-								   value="<?php echo esc_attr( $deepseek_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false"
-								   data-rnrd-key-for="deepseek" />
-							<?php $render_verify_row( 'deepseek' ); ?>
+							<?php $render_key_field( 'deepseek', 'rnrd_deepseek_key', RNRD_OPT_DEEPSEEK_KEY, $deepseek_disp ); ?>
 							<p class="description"><?php
 								printf(
 									/* translators: %s: link to the DeepSeek API keys page */
@@ -4057,14 +4036,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_deepseek_model"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( RNRD_OPT_DEEPSEEK_MODEL ); ?>" id="rnrd_deepseek_model">
-								<?php $cur = RNRD_LLM::get_model( 'deepseek' ); ?>
-								<?php foreach ( RNRD_LLM::get_models_for( 'deepseek' ) as $value => $label ) : ?>
-									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
+							<?php $render_model_field( 'deepseek', 'rnrd_deepseek_model', RNRD_OPT_DEEPSEEK_MODEL ); ?>
 						</td>
 					</tr>
 				</table>
@@ -4099,16 +4071,16 @@ class RNRD_Admin {
 						<td>
 							<?php $dfs_pw = (string) get_option( RNRD_OPT_DFS_PASSWORD, '' ); ?>
 							<?php $dfs_pw_display = ! empty( $dfs_pw ) ? str_repeat( '••••', 4 ) : ''; ?>
-							<input type="password" id="rnrd_dfs_password" name="<?php echo esc_attr( RNRD_OPT_DFS_PASSWORD ); ?>"
-							       value="<?php echo esc_attr( $dfs_pw_display ); ?>"
-							       class="regular-text" autocomplete="new-password" />
-							<p class="description"><?php esc_html_e( 'Your DataForSEO API password. Enter a new value to change.', 'rankready-ai-llm-seo' ); ?></p>
-							<div class="rnrd-verify-row">
+							<div class="rnrd-input-action-row">
+								<input type="password" id="rnrd_dfs_password" name="<?php echo esc_attr( RNRD_OPT_DFS_PASSWORD ); ?>"
+								       value="<?php echo esc_attr( $dfs_pw_display ); ?>"
+								       class="regular-text" autocomplete="new-password" />
 								<button type="button" id="rnrd-verify-dfs" class="button button-secondary">
 									<?php esc_html_e( 'Verify DataForSEO', 'rankready-ai-llm-seo' ); ?>
 								</button>
-								<span id="rnrd-verify-dfs-status" class="rnrd-verify-row__status"></span>
 							</div>
+							<span id="rnrd-verify-dfs-status" class="rnrd-input-action-row__status"></span>
+							<p class="description"><?php esc_html_e( 'Your DataForSEO API password. Enter a new value to change.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -6713,14 +6685,6 @@ class RNRD_Admin {
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
-
-	public static function get_allowed_models(): array {
-		return array(
-			'gpt-4o-mini'   => 'GPT-4o Mini -- fast & cheap (recommended)',
-			'gpt-4o'        => 'GPT-4o -- more powerful, higher cost',
-			'gpt-3.5-turbo' => 'GPT-3.5 Turbo -- legacy',
-		);
-	}
 
 	/**
 	 * Hard-exclude list shared by all post-type pickers in the plugin.

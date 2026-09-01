@@ -351,10 +351,17 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 
 == Changelog ==
 
-= 1.3.1-beta, 2026-08-29 =
+= 1.3.1-beta, 2026-09-01 =
 
 * New: Cloudflare has its own Settings subtab (API Keys → Cloudflare → Advanced). The connect form is always available, with a warning when Cloudflare is not detected, so staging and DNS-only sites can still connect.
 * Fixed: OpenAI "Verify Key" no longer fails on GPT-5.x with "max_tokens or model output limit was reached" — the probe now allows enough completion tokens for reasoning models.
+* Improved: LLM model dropdowns load live model lists from each provider when an API key is saved; a small offline fallback is used only when no key is set or the fetch fails.
+* Improved: Model dropdown labels use exact provider model IDs (e.g. `claude-sonnet-4-5-20250929`) so each option is unambiguous; tier guidance remains in the field description below.
+* New: "Refresh list" button next to each model dropdown fetches the latest models on demand without waiting for the cache to expire. A successful "Verify Key" also refreshes that provider's list.
+* Improved: "Verify Key" sits inline beside each API key field (all four LLM providers and DataForSEO).
+* Fixed: OpenAI model selection no longer reverts after save — removed the hardcoded GPT-4o allowlist that rejected newer model IDs.
+* Improved: OpenAI model list hides chat-only variants (IDs containing `-chat`). Gemini hides non-text models (robotics, TTS, image, transcribe, computer-use, and similar).
+* Improved: If your saved model is retired and missing from the live list, it stays visible with a deprecated notice so you can pick a replacement.
 
 = 1.3.0, 2026-08-24 =
 
@@ -440,7 +447,7 @@ First public release. The AI-search layer for WordPress: unlimited manual AI Sum
 == Upgrade Notice ==
 
 = 1.3.1-beta =
-Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works again with GPT-5.x. No data loss; safe to update.
+Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works with GPT-5.x. Model dropdowns use live provider lists with Refresh list on demand, exact model ID labels, and smarter filtering. No data loss; safe to update.
 
 = 1.3.0 =
 Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.

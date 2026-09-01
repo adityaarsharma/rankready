@@ -203,175 +203,305 @@ class RNRD_LLM {
 	}
 
 	/**
-	 * Returns the list of model IDs available for a provider. Each entry is
-	 * `id => human label`. Deliberately SHORT — only the 4-5 KEY text models we
-	 * curate per provider (get_fallback_models). Updated each plugin release as
-	 * providers ship new generations.
+	 * Returns model choices for Settings / metabox dropdowns: `id => label`.
 	 *
-	 * When a key is configured we still call the provider's live /models
-	 * endpoint, but only to CONFIRM which curated IDs the account can actually
-	 * use — we intersect the live list with our curated set rather than dumping
-	 * every model the provider exposes (OpenAI alone returns 25+). This keeps
-	 * the dropdown to a hand-picked few, drops any curated model the account
-	 * can't access, and lets us add new models by editing one curated list.
+	 * When an API key is set and the provider /models fetch succeeds, the live
+	 * list is used as-is (labels are the model ID). Curated fallbacks apply only
+	 * when there is no key or the fetch fails / returns empty. If the saved model
+	 * is missing from a successful remote list it is appended with a deprecated
+	 * notice so the user can pick a replacement.
 	 *
-	 * Why no `*-latest` evergreen aliases:
-	 *   - Anthropic: every model ID is a pinned snapshot — there's no evergreen
-	 *     pointer (per Anthropic docs).
-	 *   - Google: `gemini-flash-latest` etc. exist but Google explicitly
-	 *     recommends pinned IDs for production (2-week hot-swap notice).
-	 *   - DeepSeek: `deepseek-chat` / `deepseek-reasoner` were the only true
-	 *     evergreen aliases and DeepSeek is deprecating them in favour of
-	 *     pinned `deepseek-v4-*` IDs.
+	 * @param bool $force_refresh When true, bypass the transient cache.
 	 */
-	public static function get_models_for( string $provider ): array {
-		$curated = self::get_fallback_models( $provider );
+	public static function get_models_for( string $provider, bool $force_refresh = false ): array {
+		if ( $force_refresh ) {
+			$result = self::refresh_models_for( $provider );
+			return $result['models'];
+		}
 
-		$key = trim( self::get_api_key( $provider ) );
+		$fallback = self::get_fallback_models( $provider );
+		$key      = trim( self::get_api_key( $provider ) );
+
 		if ( '' === $key ) {
-			return self::add_saved_model( $provider, $curated );
+			return self::ensure_saved_in_list( $provider, $fallback, false );
 		}
 
-		$cache_key = 'rnrd_models_' . $provider;
+		$cache_key = self::models_cache_key( $provider );
 		$cached    = get_transient( $cache_key );
-		if ( is_array( $cached ) && ! empty( $cached ) ) {
-			return self::add_saved_model( $provider, $cached );
-		}
 
-		$remote = self::fetch_remote_models( $provider, $key );
-		if ( ! empty( $remote ) ) {
-			// Keep only curated KEY models the account actually exposes,
-			// preserving our labels + order. If the live list confirms none of
-			// them (e.g. a brand-new generation not yet in our curated set),
-			// show the curated list as-is so the dropdown is never empty.
-			$confirmed = array();
-			foreach ( $curated as $id => $label ) {
-				if ( isset( $remote[ $id ] ) ) {
-					$confirmed[ $id ] = $label;
-				}
+		if ( false === $cached ) {
+			$remote = self::fetch_remote_models( $provider, $key );
+			if ( ! empty( $remote ) ) {
+				set_transient( $cache_key, $remote, 12 * HOUR_IN_SECONDS );
+				return self::ensure_saved_in_list( $provider, $remote, true );
 			}
-			$list = ! empty( $confirmed ) ? $confirmed : $curated;
-			set_transient( $cache_key, $list, 12 * HOUR_IN_SECONDS );
-			return self::add_saved_model( $provider, $list );
+			set_transient( $cache_key, array(), 30 * MINUTE_IN_SECONDS );
+			return self::ensure_saved_in_list( $provider, $fallback, false );
 		}
 
-		// Fetch failed — serve the curated list, and cache it briefly so a
-		// down/blocked provider doesn't trigger a slow call on every page load.
-		set_transient( $cache_key, $curated, 30 * MINUTE_IN_SECONDS );
-		return self::add_saved_model( $provider, $curated );
+		if ( is_array( $cached ) && ! empty( $cached ) ) {
+			return self::ensure_saved_in_list( $provider, $cached, true );
+		}
+
+		return self::ensure_saved_in_list( $provider, $fallback, false );
 	}
 
 	/**
-	 * Ensure the user's currently-saved model always appears in the dropdown,
-	 * even if the provider has since dropped it from the live list — otherwise
-	 * the saved value would silently fall off the <select>.
+	 * Force-refresh the remote model list for a provider (clears transient cache).
+	 *
+	 * @param string $key_override Optional key from the settings form (before save).
+	 * @return array{ok:bool,models:array<string,string>,source:string,count:int,message:string}
 	 */
-	private static function add_saved_model( string $provider, array $models ): array {
+	public static function refresh_models_for( string $provider, string $key_override = '' ): array {
+		$key = self::resolve_api_key( $provider, $key_override );
+		if ( '' === $key ) {
+			$fallback = self::get_fallback_models( $provider );
+			return array(
+				'ok'      => false,
+				'models'  => self::ensure_saved_in_list( $provider, $fallback, false ),
+				'source'  => 'fallback',
+				'count'   => count( $fallback ),
+				'message' => __( 'No API key available for this provider.', 'rankready-ai-llm-seo' ),
+			);
+		}
+
+		delete_transient( self::models_cache_key( $provider ) );
+		$remote = self::fetch_remote_models( $provider, $key );
+
+		if ( ! empty( $remote ) ) {
+			set_transient( self::models_cache_key( $provider ), $remote, 12 * HOUR_IN_SECONDS );
+			$models = self::ensure_saved_in_list( $provider, $remote, true );
+			return array(
+				'ok'      => true,
+				'models'  => $models,
+				'source'  => 'remote',
+				'count'   => count( $models ),
+				'message' => '',
+			);
+		}
+
+		set_transient( self::models_cache_key( $provider ), array(), 30 * MINUTE_IN_SECONDS );
+		$fallback = self::get_fallback_models( $provider );
+		$models   = self::ensure_saved_in_list( $provider, $fallback, false );
+
+		return array(
+			'ok'      => false,
+			'models'  => $models,
+			'source'  => 'fallback',
+			'count'   => count( $models ),
+			'message' => __( 'Could not fetch models from the provider. Showing offline defaults.', 'rankready-ai-llm-seo' ),
+		);
+	}
+
+	/**
+	 * Resolve an API key from a form submission or stored option (masked → stored).
+	 */
+	public static function resolve_api_key( string $provider, string $submitted_key = '' ): string {
+		$key = trim( $submitted_key );
+		if ( '' === $key || false !== strpos( $key, '••••' ) ) {
+			$key = trim( self::get_api_key( $provider ) );
+		}
+		return $key;
+	}
+
+	/**
+	 * Transient key for cached remote model lists.
+	 */
+	private static function models_cache_key( string $provider ): string {
+		return 'rnrd_models_remote_v4_' . $provider;
+	}
+
+	/**
+	 * Keep the saved model visible. When a live remote list is active and the
+	 * saved ID is absent, mark it deprecated so the user knows to switch.
+	 *
+	 * @param array<string,string> $models
+	 */
+	private static function ensure_saved_in_list( string $provider, array $models, bool $remote_active ): array {
 		$saved = self::get_model( $provider );
-		if ( '' !== $saved && ! isset( $models[ $saved ] ) ) {
+		if ( '' === $saved || isset( $models[ $saved ] ) ) {
+			return $models;
+		}
+
+		if ( $remote_active ) {
+			$models[ $saved ] = sprintf(
+				/* translators: %s: retired model ID */
+				__( '%s — deprecated; please choose another model', 'rankready-ai-llm-seo' ),
+				$saved
+			);
+		} else {
 			$models[ $saved ] = $saved;
 		}
+
 		return $models;
 	}
 
 	/**
-	 * Live model list from the provider's /models endpoint. Returns id => label.
-	 * Empty array on any failure (caller falls back to the static list).
+	 * Live model list from the provider's /models endpoint. Returns id => id.
+	 * Empty array on any failure (caller uses fallback list).
 	 */
 	private static function fetch_remote_models( string $provider, string $key ): array {
+		$resp = self::request_models_list( $provider, $key );
+		$json = self::decode_ok( $resp );
+		if ( null === $json ) {
+			return array();
+		}
+
+		$ids = self::extract_model_ids( $provider, $json );
+		return self::filter_model_ids( $ids, self::provider_model_rules( $provider ) );
+	}
+
+	/**
+	 * HTTP GET for a provider's model-list endpoint.
+	 */
+	private static function request_models_list( string $provider, string $key ) {
 		switch ( $provider ) {
 			case self::PROVIDER_OPENAI:
-				$resp = wp_remote_get( 'https://api.openai.com/v1/models', array(
+				return wp_remote_get( 'https://api.openai.com/v1/models', array(
 					'timeout' => 8,
 					'headers' => array( 'Authorization' => 'Bearer ' . $key ),
 				) );
-				// Keep gpt-* chat models; drop non-chat families and noisy dated /
-				// sized / preview snapshots so the dropdown shows clean aliases.
-				return self::parse_data_id_models(
-					$resp,
-					'gpt-',
-					array( 'instruct', 'realtime', 'audio', 'transcribe', 'tts', 'image', 'dall', 'whisper', 'search', 'embedding', 'moderation', 'codex' ),
-					'/(\d{4}|\d+k\b|preview|chatgpt)/'
-				);
-
 			case self::PROVIDER_DEEPSEEK:
-				$resp = wp_remote_get( 'https://api.deepseek.com/v1/models', array(
+				return wp_remote_get( 'https://api.deepseek.com/v1/models', array(
 					'timeout' => 8,
 					'headers' => array( 'Authorization' => 'Bearer ' . $key ),
 				) );
-				return self::parse_data_id_models( $resp, 'deepseek-', array() );
-
 			case self::PROVIDER_ANTHROPIC:
-				$resp = wp_remote_get( 'https://api.anthropic.com/v1/models', array(
+				return wp_remote_get( 'https://api.anthropic.com/v1/models', array(
 					'timeout' => 8,
 					'headers' => array( 'x-api-key' => $key, 'anthropic-version' => '2023-06-01' ),
 				) );
-				$json = self::decode_ok( $resp );
-				if ( empty( $json['data'] ) || ! is_array( $json['data'] ) ) {
-					return array();
-				}
-				$out = array();
-				foreach ( $json['data'] as $m ) {
-					$id = isset( $m['id'] ) ? (string) $m['id'] : '';
-					if ( '' === $id || 0 !== strpos( $id, 'claude-' ) ) {
-						continue;
-					}
-					$out[ $id ] = isset( $m['display_name'] ) && '' !== $m['display_name'] ? (string) $m['display_name'] : $id;
-				}
-				return $out;
-
 			case self::PROVIDER_GEMINI:
-				$resp = wp_remote_get( 'https://generativelanguage.googleapis.com/v1beta/models?key=' . rawurlencode( $key ), array(
+				return wp_remote_get( 'https://generativelanguage.googleapis.com/v1beta/models?key=' . rawurlencode( $key ), array(
 					'timeout' => 8,
 				) );
-				$json = self::decode_ok( $resp );
-				if ( empty( $json['models'] ) || ! is_array( $json['models'] ) ) {
-					return array();
+		}
+		return null;
+	}
+
+	/**
+	 * Provider-specific prefix / exclude rules for text-generation model IDs.
+	 *
+	 * @return array{prefix:string,exclude:array<int,string>,drop_regex:string}
+	 */
+	private static function provider_model_rules( string $provider ): array {
+		switch ( $provider ) {
+			case self::PROVIDER_OPENAI:
+				return array(
+					'prefix'     => 'gpt-',
+					'exclude'    => array( 'instruct', 'realtime', 'audio', 'transcribe', 'tts', 'image', 'dall', 'whisper', 'search', 'embedding', 'moderation', 'codex', '-chat' ),
+					'drop_regex' => '/(\d{4}|\d+k\b|preview|chatgpt)/',
+				);
+			case self::PROVIDER_GEMINI:
+				return array(
+					'prefix'     => 'gemini-',
+					'exclude'    => array( 'computer-use', 'robotics', '-image', 'tts', 'transcribe', 'omni', '-latest', 'customtools', 'embedding', 'aqa' ),
+					'drop_regex' => '',
+				);
+			case self::PROVIDER_ANTHROPIC:
+				return array(
+					'prefix'     => 'claude-',
+					'exclude'    => array(),
+					'drop_regex' => '',
+				);
+			case self::PROVIDER_DEEPSEEK:
+				return array(
+					'prefix'     => 'deepseek-',
+					'exclude'    => array(),
+					'drop_regex' => '',
+				);
+			default:
+				return array(
+					'prefix'     => '',
+					'exclude'    => array(),
+					'drop_regex' => '',
+				);
+		}
+	}
+
+	/**
+	 * Pull raw model ID strings from a provider /models JSON body.
+	 *
+	 * @return string[]
+	 */
+	private static function extract_model_ids( string $provider, array $json ): array {
+		$ids = array();
+
+		switch ( $provider ) {
+			case self::PROVIDER_OPENAI:
+			case self::PROVIDER_DEEPSEEK:
+			case self::PROVIDER_ANTHROPIC:
+				if ( empty( $json['data'] ) || ! is_array( $json['data'] ) ) {
+					break;
 				}
-				$out = array();
+				foreach ( $json['data'] as $m ) {
+					if ( ! empty( $m['id'] ) ) {
+						$ids[] = (string) $m['id'];
+					}
+				}
+				break;
+
+			case self::PROVIDER_GEMINI:
+				if ( empty( $json['models'] ) || ! is_array( $json['models'] ) ) {
+					break;
+				}
 				foreach ( $json['models'] as $m ) {
 					$methods = isset( $m['supportedGenerationMethods'] ) ? (array) $m['supportedGenerationMethods'] : array();
 					if ( ! in_array( 'generateContent', $methods, true ) ) {
 						continue;
 					}
-					$id = isset( $m['name'] ) ? str_replace( 'models/', '', (string) $m['name'] ) : '';
-					if ( '' === $id || 0 !== strpos( $id, 'gemini-' ) ) {
+					if ( empty( $m['name'] ) ) {
 						continue;
 					}
-					$out[ $id ] = isset( $m['displayName'] ) && '' !== $m['displayName'] ? (string) $m['displayName'] : $id;
+					$ids[] = str_replace( 'models/', '', (string) $m['name'] );
 				}
-				return $out;
+				break;
 		}
-		return array();
+
+		return $ids;
 	}
 
 	/**
-	 * Shared parser for OpenAI-shaped `{ data: [ { id } ] }` model lists.
-	 * Keeps ids beginning with $prefix, drops any containing a $exclude term.
+	 * Apply prefix + exclude rules to a list of model IDs. Returns id => id.
+	 *
+	 * @param string[]                                      $ids
+	 * @param array{prefix:string,exclude:array,drop_regex:string} $rules
+	 * @return array<string,string>
 	 */
-	private static function parse_data_id_models( $resp, string $prefix, array $exclude, string $drop_regex = '' ): array {
-		$json = self::decode_ok( $resp );
-		if ( empty( $json['data'] ) || ! is_array( $json['data'] ) ) {
-			return array();
-		}
-		$out = array();
-		foreach ( $json['data'] as $m ) {
-			$id = isset( $m['id'] ) ? (string) $m['id'] : '';
-			if ( '' === $id || 0 !== strpos( $id, $prefix ) ) {
+	private static function filter_model_ids( array $ids, array $rules ): array {
+		$prefix     = (string) ( $rules['prefix'] ?? '' );
+		$exclude    = (array) ( $rules['exclude'] ?? array() );
+		$drop_regex = (string) ( $rules['drop_regex'] ?? '' );
+		$out        = array();
+
+		foreach ( $ids as $id ) {
+			$id = (string) $id;
+			if ( '' === $id ) {
 				continue;
 			}
-			foreach ( $exclude as $term ) {
-				if ( false !== strpos( $id, $term ) ) {
-					continue 2;
-				}
+			if ( '' !== $prefix && 0 !== strpos( $id, $prefix ) ) {
+				continue;
 			}
-			if ( '' !== $drop_regex && preg_match( $drop_regex, $id ) ) {
+			if ( self::is_model_id_excluded( $id, $exclude, $drop_regex ) ) {
 				continue;
 			}
 			$out[ $id ] = $id;
 		}
+
 		ksort( $out );
 		return $out;
+	}
+
+	/**
+	 * Returns true when a model ID should be dropped from provider lists.
+	 */
+	private static function is_model_id_excluded( string $id, array $exclude, string $drop_regex = '' ): bool {
+		foreach ( $exclude as $term ) {
+			if ( false !== strpos( $id, $term ) ) {
+				return true;
+			}
+		}
+		return '' !== $drop_regex && (bool) preg_match( $drop_regex, $id );
 	}
 
 	/**
@@ -387,40 +517,32 @@ class RNRD_LLM {
 	}
 
 	/**
-	 * Verified static model lists — the FALLBACK only. Correct as of the
-	 * release date; the live fetch above supersedes these whenever a key is
-	 * present. Update when a provider ships/retires a model.
+	 * Offline fallback when no API key is set or the live /models fetch fails.
+	 * Labels match values (model ID) so the dropdown stays unambiguous.
+	 *
+	 * @return array<string,string>
 	 */
 	private static function get_fallback_models( string $provider ): array {
+		$ids = array();
 		switch ( $provider ) {
 			case self::PROVIDER_OPENAI:
-				return array(
-					'gpt-5.4-nano' => __( 'GPT-5.4 nano (fastest, lowest cost)', 'rankready-ai-llm-seo' ),
-					'gpt-5.4-mini' => __( 'GPT-5.4 mini (fast, cheap)', 'rankready-ai-llm-seo' ),
-					'gpt-5.4'      => __( 'GPT-5.4 (balanced)', 'rankready-ai-llm-seo' ),
-					'gpt-5.5'      => __( 'GPT-5.5 (highest quality)', 'rankready-ai-llm-seo' ),
-				);
+				$ids = array( 'gpt-5.4-nano', 'gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5' );
+				break;
 			case self::PROVIDER_ANTHROPIC:
-				return array(
-					'claude-haiku-4-5'  => __( 'Claude Haiku 4.5 (fast, cheap)', 'rankready-ai-llm-seo' ),
-					'claude-sonnet-4-6' => __( 'Claude Sonnet 4.6 (balanced)', 'rankready-ai-llm-seo' ),
-					'claude-opus-4-7'   => __( 'Claude Opus 4.7 (high quality)', 'rankready-ai-llm-seo' ),
-					'claude-opus-4-8'   => __( 'Claude Opus 4.8 (highest quality)', 'rankready-ai-llm-seo' ),
-				);
+				$ids = array( 'claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-opus-4-7', 'claude-opus-4-8' );
+				break;
 			case self::PROVIDER_GEMINI:
-				return array(
-					'gemini-3.1-flash-lite' => __( 'Gemini 3.1 Flash Lite (lowest cost)', 'rankready-ai-llm-seo' ),
-					'gemini-2.5-flash'      => __( 'Gemini 2.5 Flash (balanced, cheap)', 'rankready-ai-llm-seo' ),
-					'gemini-3.5-flash'      => __( 'Gemini 3.5 Flash (fast, most intelligent)', 'rankready-ai-llm-seo' ),
-					'gemini-2.5-pro'        => __( 'Gemini 2.5 Pro (highest quality)', 'rankready-ai-llm-seo' ),
-				);
+				$ids = array( 'gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-2.5-pro' );
+				break;
 			case self::PROVIDER_DEEPSEEK:
-				return array(
-					'deepseek-v4-flash' => __( 'DeepSeek V4 Flash (fast, cheap)', 'rankready-ai-llm-seo' ),
-					'deepseek-v4-pro'   => __( 'DeepSeek V4 Pro (highest quality)', 'rankready-ai-llm-seo' ),
-				);
+				$ids = array( 'deepseek-v4-flash', 'deepseek-v4-pro' );
+				break;
 		}
-		return array();
+		$out = array();
+		foreach ( $ids as $id ) {
+			$out[ $id ] = $id;
+		}
+		return $out;
 	}
 
 	/**

@@ -990,9 +990,20 @@ class RNRD_Rest {
 	// ══════════════════════════════════════════════════════════════════════════
 
 	public static function llms_flush_cache() {
-		delete_transient( RNRD_LLMS_CACHE_KEY );
-		delete_transient( RNRD_LLMS_FULL_CACHE_KEY );
-		return new WP_REST_Response( array( 'success' => true, 'message' => __( 'Cache cleared.', 'rankready-ai-llm-seo' ) ), 200 );
+		if ( class_exists( 'RNRD_Llms_Txt' ) ) {
+			RNRD_Llms_Txt::bust_cache_and_purge_cdn();
+		} else {
+			delete_transient( RNRD_LLMS_CACHE_KEY );
+			delete_transient( RNRD_LLMS_FULL_CACHE_KEY );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'success' => true,
+				'message' => __( 'Cache cleared.', 'rankready-ai-llm-seo' ),
+			),
+			200
+		);
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════

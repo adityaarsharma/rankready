@@ -230,24 +230,30 @@
 	var flushStatus = document.getElementById( 'rnrd-flush-status' );
 
 	if ( flushBtn ) {
+		var flushLabelDefault = flushBtn.getAttribute( 'data-label-default' ) || flushBtn.textContent || 'Clear cache';
+		var flushLabelBusy    = flushBtn.getAttribute( 'data-label-busy' ) || 'Clearing...';
+
 		flushBtn.addEventListener( 'click', function () {
 			flushBtn.disabled    = true;
-			flushBtn.textContent = 'Flushing...';
+			flushBtn.textContent = flushLabelBusy;
+			if ( flushStatus ) {
+				flushStatus.hidden = true;
+			}
 
 			rnrdFetch( '/llms/flush-cache', 'POST' )
 				.then( function () {
 					flushBtn.disabled    = false;
-					flushBtn.textContent = 'Flush LLMs.txt Cache';
+					flushBtn.textContent = flushLabelDefault;
 					if ( flushStatus ) {
-						flushStatus.style.display = 'inline';
+						flushStatus.hidden = false;
 						setTimeout( function () {
-							flushStatus.style.display = 'none';
+							flushStatus.hidden = true;
 						}, 3000 );
 					}
 				} )
 				.catch( function () {
 					flushBtn.disabled    = false;
-					flushBtn.textContent = 'Flush LLMs.txt Cache';
+					flushBtn.textContent = flushLabelDefault;
 				} );
 		} );
 	}

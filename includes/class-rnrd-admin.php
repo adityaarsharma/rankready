@@ -5256,20 +5256,30 @@ class RNRD_Admin {
 						<tr>
 							<th scope="row"><label><?php esc_html_e( 'Cache Duration', 'rankready-ai-llm-seo' ); ?></label></th>
 							<td>
-								<select name="<?php echo esc_attr( RNRD_OPT_LLMS_CACHE_TTL ); ?>">
-									<?php $current_ttl = (int) get_option( RNRD_OPT_LLMS_CACHE_TTL, 3600 ); ?>
-									<?php foreach ( array(
-										900   => __( '15 minutes', 'rankready-ai-llm-seo' ),
-										3600  => __( '1 hour', 'rankready-ai-llm-seo' ),
-										21600 => __( '6 hours', 'rankready-ai-llm-seo' ),
-										86400 => __( '24 hours', 'rankready-ai-llm-seo' ),
-									) as $seconds => $label ) : ?>
-										<option value="<?php echo esc_attr( $seconds ); ?>" <?php selected( $current_ttl, $seconds ); ?>>
-											<?php echo esc_html( $label ); ?>
-										</option>
-									<?php endforeach; ?>
-								</select>
-								<p class="description"><?php esc_html_e( 'How long to cache the generated llms.txt output.', 'rankready-ai-llm-seo' ); ?></p>
+								<div class="rnrd-input-action-row">
+									<select name="<?php echo esc_attr( RNRD_OPT_LLMS_CACHE_TTL ); ?>">
+										<?php $current_ttl = (int) get_option( RNRD_OPT_LLMS_CACHE_TTL, 3600 ); ?>
+										<?php foreach ( array(
+											900   => __( '15 minutes', 'rankready-ai-llm-seo' ),
+											3600  => __( '1 hour', 'rankready-ai-llm-seo' ),
+											21600 => __( '6 hours', 'rankready-ai-llm-seo' ),
+											86400 => __( '24 hours', 'rankready-ai-llm-seo' ),
+										) as $seconds => $label ) : ?>
+											<option value="<?php echo esc_attr( $seconds ); ?>" <?php selected( $current_ttl, $seconds ); ?>>
+												<?php echo esc_html( $label ); ?>
+											</option>
+										<?php endforeach; ?>
+									</select>
+									<button
+										type="button"
+										class="button button-secondary"
+										id="rnrd-flush-llms-cache"
+										data-label-default="<?php echo esc_attr__( 'Clear cache', 'rankready-ai-llm-seo' ); ?>"
+										data-label-busy="<?php echo esc_attr__( 'Clearing…', 'rankready-ai-llm-seo' ); ?>"
+									><?php esc_html_e( 'Clear cache', 'rankready-ai-llm-seo' ); ?></button>
+								</div>
+								<span id="rnrd-flush-status" class="rnrd-input-action-row__status" hidden><?php esc_html_e( 'Cache cleared.', 'rankready-ai-llm-seo' ); ?></span>
+								<p class="description"><?php esc_html_e( 'How long to cache the generated llms.txt output. Use Clear cache to rebuild /llms.txt and /llms-full.txt immediately.', 'rankready-ai-llm-seo' ); ?></p>
 							</td>
 						</tr>
 						<tr>

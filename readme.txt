@@ -365,6 +365,7 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 * New: Delete generated Summary or FAQ from the post editor metabox — an inline danger link in the status line (e.g. "Summary generated 8 minutes ago. Delete summary").
 * Improved: Regenerate cooldown countdown shows in the status line ("You can regenerate again in 59s.") instead of changing the button label to "Wait 59s".
 * New: llms.txt setting to use .md URLs in post links (on by default when Markdown endpoints are enabled). Hides the redundant "Append .md to any page URL" hint when active.
+* New: "Clear cache" button on the llms.txt settings screen rebuilds /llms.txt and /llms-full.txt on demand and purges CDN/page-cache layers for those endpoints.
 
 = 1.3.0, 2026-08-24 =
 
@@ -450,7 +451,7 @@ First public release. The AI-search layer for WordPress: unlimited manual AI Sum
 == Upgrade Notice ==
 
 = 1.3.1-beta =
-Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works with GPT-5.x. Model dropdowns use live provider lists with Refresh list on demand, exact model ID labels, and smarter filtering. Post editor metaboxes let you delete generated Summary/FAQ and show regenerate cooldown in the status line. llms.txt can list .md URLs in post links by default when Markdown is on. No data loss; safe to update.
+Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works with GPT-5.x. Model dropdowns use live provider lists with Refresh list on demand, exact model ID labels, and smarter filtering. Post editor metaboxes let you delete generated Summary/FAQ and show regenerate cooldown in the status line. llms.txt can list .md URLs in post links by default when Markdown is on, with a manual Clear cache control. No data loss; safe to update.
 
 = 1.3.0 =
 Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.

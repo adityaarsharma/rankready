@@ -4645,17 +4645,22 @@ class RNRD_Admin {
 				RNRD_OPT_MD_ACCEPT_NEGOTIATION,
 				RNRD_OPT_MD_BOT_AUTO_SERVE,
 			),
-			'webmcp'   => array(
-				RNRD_OPT_MCP_ENABLE,
-				RNRD_OPT_MCP_EXPOSE_POSTS,
-				RNRD_OPT_MCP_EXPOSE_PAGES,
-				RNRD_OPT_MCP_EXPOSE_AUTHORS,
-				RNRD_OPT_MCP_EXPOSE_TAXONOMIES,
-				RNRD_OPT_MCP_EXPOSE_SITEMAP,
-				RNRD_OPT_MCP_EXPOSE_MENUS,
-				RNRD_OPT_MCP_EXPOSE_LLMS_TXT,
-				RNRD_OPT_MCP_EXPOSE_RR_AI,
-				RNRD_OPT_MCP_EXPOSE_FRESHNESS,
+			// Expose toggles render only when WebMCP is already on; when off, preserve-hiddens must carry them so the first "Enable" save does not null them.
+			'webmcp'   => array_merge(
+				array( RNRD_OPT_MCP_ENABLE ),
+				'on' === (string) get_option( RNRD_OPT_MCP_ENABLE, 'off' )
+					? array(
+						RNRD_OPT_MCP_EXPOSE_POSTS,
+						RNRD_OPT_MCP_EXPOSE_PAGES,
+						RNRD_OPT_MCP_EXPOSE_AUTHORS,
+						RNRD_OPT_MCP_EXPOSE_TAXONOMIES,
+						RNRD_OPT_MCP_EXPOSE_SITEMAP,
+						RNRD_OPT_MCP_EXPOSE_MENUS,
+						RNRD_OPT_MCP_EXPOSE_LLMS_TXT,
+						RNRD_OPT_MCP_EXPOSE_RR_AI,
+						RNRD_OPT_MCP_EXPOSE_FRESHNESS,
+					)
+					: array()
 			),
 		);
 

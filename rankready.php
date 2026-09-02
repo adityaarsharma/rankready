@@ -618,9 +618,23 @@ add_action( 'plugins_loaded', function (): void {
 			update_option( 'rnrd_scorecard_corrected_v1121', 1, false );
 		}
 
-		// v1.3.1 — Default llms.txt post links to .md URLs when Markdown is on.
+		// v1.3.1 — Seed llms .md-URL toggle: on for fresh installs, off for upgrades
+		// (silent-upgrade safety — do not change public /llms.txt output on update).
 		if ( false === get_option( RNRD_OPT_LLMS_USE_MD_URLS, false ) ) {
-			update_option( RNRD_OPT_LLMS_USE_MD_URLS, 'on', false );
+			$md_urls_default = ( '' === $stored_version ) ? 'on' : 'off';
+			update_option( RNRD_OPT_LLMS_USE_MD_URLS, $md_urls_default, false );
+			if ( class_exists( 'RNRD_Llms_Txt' ) ) {
+				RNRD_Llms_Txt::bust_cache_and_purge_cdn();
+			}
+		}
+
+		// v1.3.1 — Drop legacy per-provider model-list transients (v4 keys and
+		// pre-fingerprint rows). Safe to re-run; only clears rnrd_models_* cache.
+		if ( '' !== $stored_version && version_compare( $stored_version, '1.3.1', '<' ) && ! get_option( 'rnrd_models_cache_migrated_v131' ) ) {
+			if ( class_exists( 'RNRD_LLM' ) ) {
+				RNRD_LLM::purge_models_cache();
+			}
+			update_option( 'rnrd_models_cache_migrated_v131', 1, false );
 		}
 
 		// v1.1.1 — One-shot UTF-8 rewrite of existing summary + FAQ post meta.
@@ -897,6 +911,19 @@ add_action( 'plugins_loaded', function (): void {
 			return $schedules;
 		} );
 	}, 1 );
+
+	// Shared t/tr helpers for localized admin + block scripts.
+	add_action( 'init', function (): void {
+		if ( wp_script_is( 'rnrd-i18n', 'registered' ) ) {
+			return;
+		}
+		$path = RNRD_DIR . 'assets/rnrd-i18n.js';
+		$ver  = RNRD_VERSION;
+		if ( file_exists( $path ) ) {
+			$ver .= '.' . filemtime( $path );
+		}
+		wp_register_script( 'rnrd-i18n', RNRD_URL . 'assets/rnrd-i18n.js', array(), $ver, true );
+	}, 2 );
 
 	// v1.1.0 — Encrypts API secrets at rest. Must run BEFORE any class that
 	// reads RNRD_OPT_KEY / DataForSEO password, so the decryption filter is

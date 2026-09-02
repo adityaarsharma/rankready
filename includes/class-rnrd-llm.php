@@ -226,16 +226,19 @@ class RNRD_LLM {
 			return self::ensure_saved_in_list( $provider, $fallback, false );
 		}
 
-		$cache_key = self::models_cache_key( $provider );
+		$cache_key = self::models_cache_key( $provider, $key );
 		$cached    = get_transient( $cache_key );
 
 		if ( false === $cached ) {
-			$remote = self::fetch_remote_models( $provider, $key );
+			$fetched = self::fetch_remote_models_result( $provider, $key );
+			$remote  = $fetched['models'];
 			if ( ! empty( $remote ) ) {
 				set_transient( $cache_key, $remote, 12 * HOUR_IN_SECONDS );
 				return self::ensure_saved_in_list( $provider, $remote, true );
 			}
-			set_transient( $cache_key, array(), 30 * MINUTE_IN_SECONDS );
+			if ( 'auth' !== $fetched['error'] ) {
+				set_transient( $cache_key, array(), 30 * MINUTE_IN_SECONDS );
+			}
 			return self::ensure_saved_in_list( $provider, $fallback, false );
 		}
 
@@ -265,11 +268,13 @@ class RNRD_LLM {
 			);
 		}
 
-		delete_transient( self::models_cache_key( $provider ) );
-		$remote = self::fetch_remote_models( $provider, $key );
+		delete_transient( self::models_cache_key( $provider, $key ) );
+		$fetched = self::fetch_remote_models_result( $provider, $key );
+		$remote  = $fetched['models'];
+		$cache_key = self::models_cache_key( $provider, $key );
 
 		if ( ! empty( $remote ) ) {
-			set_transient( self::models_cache_key( $provider ), $remote, 12 * HOUR_IN_SECONDS );
+			set_transient( $cache_key, $remote, 12 * HOUR_IN_SECONDS );
 			$models = self::ensure_saved_in_list( $provider, $remote, true );
 			return array(
 				'ok'      => true,
@@ -280,16 +285,22 @@ class RNRD_LLM {
 			);
 		}
 
-		set_transient( self::models_cache_key( $provider ), array(), 30 * MINUTE_IN_SECONDS );
+		if ( 'auth' !== $fetched['error'] ) {
+			set_transient( $cache_key, array(), 30 * MINUTE_IN_SECONDS );
+		}
 		$fallback = self::get_fallback_models( $provider );
 		$models   = self::ensure_saved_in_list( $provider, $fallback, false );
+
+		$message = 'auth' === $fetched['error']
+			? __( 'The API key was rejected by the provider. Check the key and try again.', 'rankready-ai-llm-seo' )
+			: __( 'Could not fetch models from the provider. Showing offline defaults.', 'rankready-ai-llm-seo' );
 
 		return array(
 			'ok'      => false,
 			'models'  => $models,
 			'source'  => 'fallback',
 			'count'   => count( $models ),
-			'message' => __( 'Could not fetch models from the provider. Showing offline defaults.', 'rankready-ai-llm-seo' ),
+			'message' => $message,
 		);
 	}
 
@@ -305,10 +316,35 @@ class RNRD_LLM {
 	}
 
 	/**
-	 * Transient key for cached remote model lists.
+	 * Transient key for cached remote model lists (scoped per provider + API key).
 	 */
-	private static function models_cache_key( string $provider ): string {
-		return 'rnrd_models_remote_v4_' . $provider;
+	private static function models_cache_key( string $provider, string $key = '' ): string {
+		if ( '' === $key ) {
+			$key = trim( self::get_api_key( $provider ) );
+		}
+		$fingerprint = '' !== $key ? substr( hash( 'sha256', $key ), 0, 16 ) : 'none';
+		return 'rnrd_models_remote_v5_' . $provider . '_' . $fingerprint;
+	}
+
+	/**
+	 * Delete cached remote model lists (object-cache-aware via delete_transient).
+	 *
+	 * @param string|null $provider Limit to one provider, or null for all four.
+	 */
+	public static function purge_models_cache( ?string $provider = null ): void {
+		$providers = null === $provider
+			? array( self::PROVIDER_OPENAI, self::PROVIDER_ANTHROPIC, self::PROVIDER_GEMINI, self::PROVIDER_DEEPSEEK )
+			: array( $provider );
+
+		foreach ( $providers as $p ) {
+			delete_transient( 'rnrd_models_remote_v4_' . $p );
+			delete_transient( self::models_cache_key( $p ) );
+		}
+
+		global $wpdb;
+		$key_like    = $wpdb->esc_like( '_transient_rnrd_models_' ) . '%';
+		$timeout_like = $wpdb->esc_like( '_transient_timeout_rnrd_models_' ) . '%';
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", $key_like, $timeout_like ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- uninstall/upgrade sweep for legacy DB transients
 	}
 
 	/**
@@ -341,14 +377,44 @@ class RNRD_LLM {
 	 * Empty array on any failure (caller uses fallback list).
 	 */
 	private static function fetch_remote_models( string $provider, string $key ): array {
+		return self::fetch_remote_models_result( $provider, $key )['models'];
+	}
+
+	/**
+	 * Live model list plus a coarse error bucket for user-facing messages.
+	 *
+	 * @return array{models:array<string,string>,error:string} error: '' | 'auth' | 'remote'
+	 */
+	private static function fetch_remote_models_result( string $provider, string $key ): array {
 		$resp = self::request_models_list( $provider, $key );
+		if ( is_wp_error( $resp ) ) {
+			return array(
+				'models' => array(),
+				'error'  => 'remote',
+			);
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $resp );
+		if ( 401 === $code || 403 === $code ) {
+			return array(
+				'models' => array(),
+				'error'  => 'auth',
+			);
+		}
+
 		$json = self::decode_ok( $resp );
 		if ( null === $json ) {
-			return array();
+			return array(
+				'models' => array(),
+				'error'  => 'remote',
+			);
 		}
 
 		$ids = self::extract_model_ids( $provider, $json );
-		return self::filter_model_ids( $ids, self::provider_model_rules( $provider ) );
+		return array(
+			'models' => self::filter_model_ids( $ids, self::provider_model_rules( $provider ) ),
+			'error'  => '',
+		);
 	}
 
 	/**

@@ -332,7 +332,7 @@ Blog Post:
 	public static function test_api_connection() {
 		if ( ! RNRD_LLM::active_provider_ready() ) {
 			return sprintf(
-				/* translators: %s: provider name */
+				/* translators: %s: AI provider name */
 				__( 'No %s API key configured.', 'rankready-ai-llm-seo' ),
 				RNRD_LLM::get_provider_label( RNRD_LLM::get_active_provider() )
 			);

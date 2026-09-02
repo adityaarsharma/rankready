@@ -342,7 +342,7 @@ class RNRD_Rest {
 		// 2. AI provider key present.
 		if ( ! RNRD_LLM::active_provider_ready() ) {
 			$rnrd_prov = RNRD_LLM::get_provider_label( RNRD_LLM::get_active_provider() );
-			/* translators: %s: the active AI provider name, e.g. "Gemini (Google)". */
+			/* translators: %s: AI provider name */
 			return new WP_Error( 'rnrd_no_api_key', sprintf( __( 'No %s API key yet. Add it under Settings → AI Provider, then generate.', 'rankready-ai-llm-seo' ), $rnrd_prov ), array( 'status' => 400 ) );
 		}
 
@@ -412,12 +412,19 @@ class RNRD_Rest {
 	}
 
 	/**
-	 * Delete FAQ post meta keys. Shared by faq_save, Start Over, and per-post delete.
+	 * Delete FAQ content meta (rows, hash, timestamp). Keeps saved keyword.
 	 */
-	private static function clear_faq_meta( int $post_id ): void {
+	private static function clear_faq_content_meta( int $post_id ): void {
 		delete_post_meta( $post_id, RNRD_META_FAQ );
 		delete_post_meta( $post_id, RNRD_META_FAQ_HASH );
 		delete_post_meta( $post_id, RNRD_META_FAQ_GENERATED );
+	}
+
+	/**
+	 * Delete FAQ post meta keys. Shared by Start Over and per-post delete.
+	 */
+	private static function clear_faq_meta( int $post_id ): void {
+		self::clear_faq_content_meta( $post_id );
 		delete_post_meta( $post_id, RNRD_META_FAQ_KEYWORD );
 	}
 
@@ -1027,14 +1034,18 @@ class RNRD_Rest {
 		// Provider → (stored option key, validation endpoint, header builder).
 		$providers = array(
 			'openai'    => array(
-				'option'  => RNRD_OPT_KEY,
-				'verify'  => function ( $key ) {
+				'verify'  => function ( $key, $model = '' ) {
 					// TC-KEY-04: probe the REAL generation path (chat/completions with the same
 					// 'max_completion_tokens' parameter generation uses) so Verify fails loudly when
 					// generation would fail. A /v1/models auth ping passes even when the model
 					// rejects the request body — that was the false positive QA caught.
-					$model = ( class_exists( 'RNRD_LLM' ) && method_exists( 'RNRD_LLM', 'get_model' ) )
-						? RNRD_LLM::get_model( 'openai' ) : 'gpt-5.4-mini';
+					$model = sanitize_text_field( (string) $model );
+					if ( '' === $model && class_exists( 'RNRD_LLM' ) && method_exists( 'RNRD_LLM', 'get_model' ) ) {
+						$model = RNRD_LLM::get_model( 'openai' );
+					}
+					if ( '' === $model ) {
+						$model = 'gpt-5.4-mini';
+					}
 					return wp_remote_post( 'https://api.openai.com/v1/chat/completions', array(
 						'timeout' => 15,
 						'headers' => array(
@@ -1052,8 +1063,7 @@ class RNRD_Rest {
 				},
 			),
 			'anthropic' => array(
-				'option'  => 'rnrd_anthropic_api_key',
-				'verify'  => function ( $key ) {
+				'verify'  => function ( $key, $model = '' ) {
 					// Tiny messages call — `model` is required, 1-token output keeps cost trivial.
 					return wp_remote_post( 'https://api.anthropic.com/v1/messages', array(
 						'timeout' => 15,
@@ -1074,8 +1084,7 @@ class RNRD_Rest {
 				},
 			),
 			'gemini'    => array(
-				'option'  => 'rnrd_gemini_api_key',
-				'verify'  => function ( $key ) {
+				'verify'  => function ( $key, $model = '' ) {
 					// `models` list endpoint — cheapest valid auth check for AI Studio keys.
 					return wp_remote_get( 'https://generativelanguage.googleapis.com/v1beta/models?key=' . rawurlencode( $key ), array(
 						'timeout' => 15,
@@ -1083,8 +1092,7 @@ class RNRD_Rest {
 				},
 			),
 			'deepseek'  => array(
-				'option'  => 'rnrd_deepseek_api_key',
-				'verify'  => function ( $key ) {
+				'verify'  => function ( $key, $model = '' ) {
 					return wp_remote_get( 'https://api.deepseek.com/v1/models', array(
 						'headers' => array( 'Authorization' => 'Bearer ' . $key ),
 						'timeout' => 15,
@@ -1113,7 +1121,7 @@ class RNRD_Rest {
 			), 200 );
 		}
 
-		$response = call_user_func( $cfg['verify'], $key );
+		$response = call_user_func( $cfg['verify'], $key, sanitize_text_field( (string) $request->get_param( 'model' ) ) );
 
 		if ( is_wp_error( $response ) ) {
 			return new WP_REST_Response( array(
@@ -1266,7 +1274,7 @@ class RNRD_Rest {
 			$code = $result->get_error_code();
 			if ( 'no_api_key' === $code ) {
 				$rnrd_prov = RNRD_LLM::get_provider_label( RNRD_LLM::get_active_provider() );
-				/* translators: %s: AI provider name. */
+				/* translators: %s: AI provider name */
 				$message = sprintf( __( 'No %s API key yet. Add it under Settings → AI Provider, then generate.', 'rankready-ai-llm-seo' ), $rnrd_prov );
 			} elseif ( 'invalid_post' === $code ) {
 				$message = __( 'This post no longer exists. Save the page, then try again.', 'rankready-ai-llm-seo' );
@@ -1349,7 +1357,7 @@ class RNRD_Rest {
 			// for a post with no FAQ. Worse, RNRD_Faq::generate_faq() short-circuits
 			// on `hash matches && ! empty( meta )`, so leaving "[]" plus a stale hash
 			// made "Generate FAQ" silently return nothing until the content changed.
-			self::clear_faq_meta( $post_id );
+			self::clear_faq_content_meta( $post_id );
 
 			return new WP_REST_Response( array( 'success' => true, 'count' => 0 ), 200 );
 		}

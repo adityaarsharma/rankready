@@ -1,4 +1,8 @@
 (function(){
+	var cfg  = window.rnrdAuthorProfile || {};
+	var i18n = window.rnrdI18n.bind( cfg.i18n || {} );
+	var t    = i18n.t;
+
 	// Repeater add/remove (vanilla, no jQuery).
 	function syncHidden(repeater){
 		var key = repeater.getAttribute('data-repeater');
@@ -79,7 +83,7 @@
 		btn.addEventListener('click', function(e){
 			e.preventDefault();
 			if (typeof wp === 'undefined' || !wp.media) return;
-			var frame = wp.media({ title: 'Select Headshot', button: { text: 'Use this image' }, multiple: false });
+			var frame = wp.media({ title: t('selectHeadshot', 'Select Headshot'), button: { text: t('useThisImage', 'Use this image') }, multiple: false });
 			frame.on('select', function(){
 				var attachment = frame.state().get('selection').first().toJSON();
 				var target = document.getElementById(btn.getAttribute('data-target'));

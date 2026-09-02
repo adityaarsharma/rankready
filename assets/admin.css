@@ -2377,14 +2377,6 @@ button.rnrd-kpi.rnrd-fw-tab.is-active:focus-visible {
     color: var(--rnrd-warn-link-hover, #92400E);
 }
 
-.rnrd-tutorial-card__head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
  * Section 26 — Consistent card spacing + grid system
  *

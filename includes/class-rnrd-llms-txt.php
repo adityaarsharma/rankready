@@ -62,6 +62,7 @@ class RNRD_Llms_Txt {
 		);
 		foreach ( $busters as $opt ) {
 			add_action( 'update_option_' . $opt, array( self::class, 'bust_cache_and_purge_cdn' ) );
+			add_action( 'add_option_' . $opt, array( self::class, 'bust_cache_and_purge_cdn' ) );
 		}
 
 		// Emit Link: headers and <link> tags for AI discovery on every front-end page.
@@ -490,9 +491,7 @@ class RNRD_Llms_Txt {
 
 		// Tell crawlers that markdown is available per page.
 		if ( 'on' === get_option( RNRD_OPT_MD_ENABLE, 'off' ) ) {
-			if ( ! self::use_md_urls_in_index() ) {
-				$lines[] = '- Markdown: Append .md to any page URL for clean markdown (e.g., /page-slug.md)';
-			}
+			$lines[] = '- Markdown: Append .md to any page URL for clean markdown (e.g., /page-slug.md)';
 			$lines[] = '- Content negotiation: Send `Accept: text/markdown` header on any page URL';
 		}
 
@@ -1066,8 +1065,7 @@ class RNRD_Llms_Txt {
 			return (string) $url;
 		}
 
-		$md_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
-		if ( ! in_array( $post->post_type, $md_types, true ) ) {
+		if ( ! RNRD_Markdown::post_has_servable_md_url( $post ) ) {
 			return (string) $url;
 		}
 

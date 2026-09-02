@@ -350,7 +350,7 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 * New: Cloudflare has its own Settings subtab (API Keys → Cloudflare → Advanced). The connect form is always available, with a warning when Cloudflare is not detected, so staging and DNS-only sites can still connect.
 * Fixed: OpenAI "Verify Key" no longer fails on GPT-5.x with "max_tokens or model output limit was reached" — the probe now allows enough completion tokens for reasoning models.
 * Improved: LLM model dropdowns load live model lists from each provider when an API key is saved; a small offline fallback is used only when no key is set or the fetch fails.
-* Improved: Model dropdown labels use exact provider model IDs (e.g. `claude-sonnet-4-5-20250929`) so each option is unambiguous; tier guidance remains in the field description below.
+* Improved: Model dropdown labels use exact provider model IDs (e.g. `claude-sonnet-4-6`) so each option is unambiguous; tier guidance remains in the field description below.
 * New: "Refresh list" button next to each model dropdown fetches the latest models on demand without waiting for the cache to expire. A successful "Verify Key" also refreshes that provider's list.
 * Improved: "Verify Key" sits inline beside each API key field (all four LLM providers and DataForSEO).
 * Fixed: OpenAI model selection no longer reverts after save — removed the hardcoded GPT-4o allowlist that rejected newer model IDs.
@@ -447,7 +447,7 @@ First public release. The AI-search layer for WordPress: unlimited manual AI Sum
 == Upgrade Notice ==
 
 = 1.3.1 =
-Cloudflare settings are always available under Settings → Cloudflare. OpenAI Verify Key works with GPT-5.x. Model dropdowns use live provider lists with Refresh list on demand, exact model ID labels, and smarter filtering. Post editor metaboxes let you delete generated Summary/FAQ and show regenerate cooldown in the status line. llms.txt and llms-full.txt can list .md URLs in post links by default when Markdown is on, with a manual Clear cache control. No data loss; safe to update.
+Live model lists with Refresh list and inline Verify Key. Metabox delete + regenerate cooldown. llms.txt .md post links are opt-in on upgrade (Settings → llms.txt). Cloudflare tab always available. No data loss; safe to update.
 
 = 1.3.0 =
 Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.

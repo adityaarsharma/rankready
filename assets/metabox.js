@@ -10,12 +10,9 @@
 	'use strict';
 
 	var cfg = window.rnrdMetabox || {};
-	var i18n = cfg.i18n || {};
 	var COOLDOWN = parseInt( cfg.cooldown, 10 ) || 60;
-
-	function t( key, fallback ) {
-		return i18n[ key ] || fallback;
-	}
+	var i18n = window.rnrdI18n.bind( cfg.i18n || {} );
+	var t    = i18n.t;
 
 	function remaining( generatedUnix ) {
 		generatedUnix = parseInt( generatedUnix, 10 ) || 0;
@@ -149,6 +146,9 @@
 		var list = wrap.querySelector( '[data-rnrd-mb-list]' );
 		var generatedEl = wrap.querySelector( '.rnrd-mb__generated' );
 		var statusTextEl = generatedEl ? generatedEl.querySelector( '[data-rnrd-mb-status-text]' ) : null;
+		var statusBaseText = statusTextEl
+			? String( statusTextEl.getAttribute( 'data-status-base' ) || statusTextEl.textContent || '' ).trim()
+			: '';
 		var deleteWrap = generatedEl ? generatedEl.querySelector( '[data-rnrd-mb-delete-wrap]' ) : null;
 		var delBtn = deleteWrap ? deleteWrap.querySelector( '[data-rnrd-delete]' ) : null;
 		if ( ! btn ) {
@@ -221,6 +221,13 @@
 			}
 		}
 
+		function appendCooldown( base, left ) {
+			if ( ! base ) {
+				return regenInShort( left );
+			}
+			return base + ' ' + regenInShort( left );
+		}
+
 		function setDeleteVisible( show ) {
 			if ( show ) {
 				ensureDeleteControl();
@@ -231,15 +238,6 @@
 			if ( delBtn ) {
 				delBtn.disabled = ! canDelete();
 			}
-		}
-
-		function statusPrefix() {
-			if ( ! statusTextEl ) {
-				return '';
-			}
-			return String( statusTextEl.textContent || '' )
-				.replace( /\s*You can regenerate again in \d+s\.?\s*$/i, '' )
-				.trim();
 		}
 
 		function paintButton() {
@@ -293,25 +291,18 @@
 			setDeleteVisible( hasContent );
 
 			if ( left > 0 ) {
-				if ( statusMode === 'just' ) {
-					setStatusText( t( spec.just, spec.justFb ) + ' ' + regenInShort( left ) );
-					return;
-				}
-				var prefix = statusPrefix();
-				if ( prefix ) {
-					setStatusText( prefix + ( prefix.slice( -1 ) === '.' ? ' ' : '. ' ) + regenInShort( left ) );
-				} else {
-					setStatusText( regenInShort( left ) );
-				}
+				setStatusText( appendCooldown( statusBaseText, left ) );
 				return;
 			}
 
 			if ( statusMode === 'just' ) {
-				setStatusText( t( spec.just, spec.justFb ) );
+				setStatusText( statusBaseText );
 				return;
 			}
 
-			// idle: keep server-rendered age text in statusTextEl
+			if ( statusBaseText ) {
+				setStatusText( statusBaseText );
+			}
 		}
 
 		function refreshUi() {
@@ -362,6 +353,7 @@
 			generated = Math.floor( Date.now() / 1000 );
 			wrap.setAttribute( 'data-generated', String( generated ) );
 			statusMode = 'just';
+			statusBaseText = t( spec.just, spec.justFb );
 		}
 
 		function clearContent() {

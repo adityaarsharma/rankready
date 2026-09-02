@@ -647,7 +647,7 @@ class RNRD_Faq {
 			return new \WP_Error(
 				'no_api_key',
 				sprintf(
-					/* translators: %s: provider label */
+					/* translators: %s: AI provider name */
 					__( 'No %s API key configured.', 'rankready-ai-llm-seo' ),
 					RNRD_LLM::get_provider_label( RNRD_LLM::get_active_provider() )
 				)

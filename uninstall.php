@@ -289,6 +289,9 @@ foreach ( $rnrd_options as $rnrd_option ) {
 // ── Delete transients ─────────────────────────────────────────────────────────
 delete_transient( 'rnrd_llms_txt_cache' );
 delete_transient( 'rnrd_llms_full_txt_cache' );
+if ( class_exists( 'RNRD_LLM' ) ) {
+	RNRD_LLM::purge_models_cache();
+}
 
 // ── Delete post meta ──────────────────────────────────────────────────────────
 global $wpdb;

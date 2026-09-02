@@ -73,7 +73,7 @@ class RNRD_Admin {
 		add_action( 'wp_loaded', array( self::class, 'register_status_columns' ) );
 	}
 
-	// ── "What's new" banner + tutorial dismiss handlers ─────────────────────────
+	// ── "What's new" banner dismiss handlers ────────────────────────────────────
 
 	/**
 	 * Records the most recently installed plugin version. When the running
@@ -125,6 +125,19 @@ class RNRD_Admin {
 		if ( ! empty( $queued ) ) {
 			update_option( 'rnrd_model_migrations', $queued, false );
 		}
+	}
+
+	/**
+	 * Back-compat shim for extensions that called this before 1.3.1.
+	 *
+	 * @deprecated 1.3.1 Use RNRD_LLM::get_models_for() instead.
+	 * @return array<string, string> Model ID => label.
+	 */
+	public static function get_allowed_models( string $provider = 'openai' ): array {
+		if ( class_exists( 'RNRD_LLM' ) ) {
+			return RNRD_LLM::get_models_for( $provider );
+		}
+		return array();
 	}
 
 	/**
@@ -194,9 +207,8 @@ class RNRD_Admin {
 	}
 
 	/**
-	 * Handles the "Dismiss" action on the what's new banner and the
-	 * tutorial card. Both are GET-based with nonces — single-click,
-	 * no JS required, no AJAX surface.
+	 * Handles the "Dismiss" action on the what's new banner.
+	 * GET-based with a nonce — single-click, no JS required.
 	 */
 	public static function handle_dismiss_actions(): void {
 		if ( ! is_user_logged_in() ) {
@@ -208,12 +220,6 @@ class RNRD_Admin {
 		if ( isset( $_GET['rnrd_dismiss_whatsnew'] ) && check_admin_referer( 'rnrd_dismiss_whatsnew' ) ) {
 			update_user_meta( $user_id, 'rnrd_whatsnew_dismissed_version', RNRD_VERSION );
 			wp_safe_redirect( remove_query_arg( array( 'rnrd_dismiss_whatsnew', '_wpnonce' ) ) );
-			exit;
-		}
-
-		if ( isset( $_GET['rnrd_dismiss_tutorial'] ) && check_admin_referer( 'rnrd_dismiss_tutorial' ) ) {
-			update_user_meta( $user_id, 'rnrd_tutorial_dismissed', 1 );
-			wp_safe_redirect( remove_query_arg( array( 'rnrd_dismiss_tutorial', '_wpnonce' ) ) );
 			exit;
 		}
 
@@ -379,7 +385,7 @@ class RNRD_Admin {
 				wp_enqueue_script(
 					'rnrd-metabox',
 					RNRD_URL . 'assets/metabox.js',
-					array(),
+					array( 'rnrd-i18n' ),
 					self::asset_ver( 'assets/metabox.js' ),
 					true
 				);
@@ -387,32 +393,7 @@ class RNRD_Admin {
 					'restUrl'  => esc_url_raw( rest_url( 'rankready/v1/' ) ),
 					'nonce'    => wp_create_nonce( 'wp_rest' ),
 					'cooldown' => 60,
-					'i18n'     => array(
-						'generate'         => __( 'Generate Summary', 'rankready-ai-llm-seo' ),
-						'regenerate'       => __( 'Regenerate Summary', 'rankready-ai-llm-seo' ),
-						'generating'       => __( 'Generating Summary…', 'rankready-ai-llm-seo' ),
-						'regenerating'     => __( 'Regenerating Summary…', 'rankready-ai-llm-seo' ),
-						'generateFaq'      => __( 'Generate FAQ', 'rankready-ai-llm-seo' ),
-						'regenerateFaq'    => __( 'Regenerate FAQ', 'rankready-ai-llm-seo' ),
-						'generatingFaq'    => __( 'Generating FAQ…', 'rankready-ai-llm-seo' ),
-						'regeneratingFaq'  => __( 'Regenerating FAQ…', 'rankready-ai-llm-seo' ),
-						/* translators: %d: seconds until regeneration is allowed */
-						'regenIn'          => __( 'Regenerate available in %ds.', 'rankready-ai-llm-seo' ),
-						/* translators: %d: seconds until regeneration is allowed */
-						'regenInShort'     => __( 'You can regenerate again in %ds.', 'rankready-ai-llm-seo' ),
-						'failed'           => __( 'Generation failed.', 'rankready-ai-llm-seo' ),
-						'saveFirst'        => __( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ),
-						'generatedJust'    => __( 'Summary generated just now.', 'rankready-ai-llm-seo' ),
-						'generatedFaqJust' => __( 'FAQ generated just now.', 'rankready-ai-llm-seo' ),
-						'deleteSummary'    => __( 'Delete summary', 'rankready-ai-llm-seo' ),
-						'deleteFaq'        => __( 'Delete FAQ', 'rankready-ai-llm-seo' ),
-						'deleting'         => __( 'Deleting…', 'rankready-ai-llm-seo' ),
-						'deletedSummary'   => __( 'Summary removed.', 'rankready-ai-llm-seo' ),
-						'deletedFaq'       => __( 'FAQ removed.', 'rankready-ai-llm-seo' ),
-						'deleteFailed'     => __( 'Could not delete. Try again.', 'rankready-ai-llm-seo' ),
-						'confirmSummary'   => __( 'Remove the generated summary for this post? It will no longer appear on the frontend, in Markdown, or in schema.', 'rankready-ai-llm-seo' ),
-						'confirmFaq'       => __( 'Remove the generated FAQ for this post? It will no longer appear on the frontend, in Markdown, or in schema.', 'rankready-ai-llm-seo' ),
-					),
+					'i18n'     => self::metabox_js_i18n(),
 				) );
 			}
 			return;
@@ -430,19 +411,20 @@ class RNRD_Admin {
 		// (-apple-system, Segoe UI, sans-serif), so the UI renders correctly
 		// without it. Do NOT re-add a remote font request.
 		wp_enqueue_style( 'rnrd-admin', RNRD_URL . 'assets/admin.css', array( 'rnrd-design-tokens' ), $admin_ver );
-		wp_enqueue_script( 'rnrd-admin', RNRD_URL . 'assets/admin.js', array(), $js_ver, true );
+		wp_enqueue_script( 'rnrd-admin', RNRD_URL . 'assets/admin.js', array( 'rnrd-i18n' ), $js_ver, true );
 		wp_localize_script( 'rnrd-admin', 'rnrdAdmin', array(
-			'nonce'           => wp_create_nonce( 'wp_rest' ),
-			'apiBase'         => rest_url( 'rankready/v1' ),
-			'minOnePostType'  => __( 'Select at least one post type.', 'rankready-ai-llm-seo' ),
+			'nonce'   => wp_create_nonce( 'wp_rest' ),
+			'apiBase' => rest_url( 'rankready/v1' ),
+			'i18n'    => self::admin_js_i18n(),
 		) );
 
 		// v1.1.0 — Inline Cloudflare card controller. Kept inline so the card's
 		// connect / disconnect flow ships in the Free build without bloating
-		// admin.js. ~50 lines.
+		// admin.js. ~50 lines. Strings come from rnrdAdmin.i18n (admin_js_i18n).
 		wp_add_inline_script(
 			'rnrd-admin',
 			"(function(){\n" .
+			"  var t = window.rnrdI18n.bind((window.rnrdAdmin||{}).i18n||{}).t;\n" .
 			"  var btnConnect = document.getElementById('rnrd-cf-connect');\n" .
 			"  var btnDisco   = document.getElementById('rnrd-cf-disconnect');\n" .
 			"  function apiCall(path, body) {\n" .
@@ -461,23 +443,23 @@ class RNRD_Admin {
 			"  if (btnConnect) {\n" .
 			"    btnConnect.addEventListener('click', function(){\n" .
 			"      var token = (document.getElementById('rnrd-cf-token') || {}).value || '';\n" .
-			"      if (!token) { setMsg('A Cloudflare API token is required.', false); return; }\n" .
+			"      if (!token) { setMsg(t('cfTokenRequired','A Cloudflare API token is required.'), false); return; }\n" .
 			"      var body = { mode: 'token', token: token };\n" .
 			"      btnConnect.disabled = true;\n" .
-			"      setMsg('Connecting...', true);\n" .
+			"      setMsg(t('cfConnecting','Connecting…'), true);\n" .
 			"      apiCall('/cloudflare/connect', body)\n" .
 			"        .then(function(parts){\n" .
 			"          var status = parts[0], data = parts[1];\n" .
 			"          btnConnect.disabled = false;\n" .
-			"          if (status >= 200 && status < 300 && data.success) { setMsg('Rule created. Reloading...', true); setTimeout(function(){ location.reload(); }, 800); }\n" .
-			"          else { setMsg((data && data.error) || 'Failed to connect.', false); }\n" .
+			"          if (status >= 200 && status < 300 && data.success) { setMsg(t('cfRuleCreated','Rule created. Reloading…'), true); setTimeout(function(){ location.reload(); }, 800); }\n" .
+			"          else { setMsg((data && data.error) || t('cfConnectFailed','Failed to connect.'), false); }\n" .
 			"        })\n" .
-			"        .catch(function(){ btnConnect.disabled = false; setMsg('Network error.', false); });\n" .
+			"        .catch(function(){ btnConnect.disabled = false; setMsg(t('cfNetworkError','Network error.'), false); });\n" .
 			"    });\n" .
 			"  }\n" .
 			"  if (btnDisco) {\n" .
 			"    btnDisco.addEventListener('click', function(){\n" .
-			"      if (!confirm('Remove the Cloudflare cache rule? AI markdown requests will hit APO again.')) return;\n" .
+			"      if (!confirm(t('cfDisconnectConfirm','Remove the Cloudflare cache rule? AI markdown requests will hit APO again.'))) return;\n" .
 			"      btnDisco.disabled = true;\n" .
 			"      apiCall('/cloudflare/disconnect', {}).then(function(){ location.reload(); });\n" .
 			"    });\n" .
@@ -3856,9 +3838,9 @@ class RNRD_Admin {
 							<fieldset id="rnrd-llm-provider-picker" class="rnrd-radio-list">
 								<?php
 								$providers = array(
-									'openai'    => array( 'OpenAI',    __( 'GPT-4o, GPT-4o mini', 'rankready-ai-llm-seo' ) ),
+									'openai'    => array( 'OpenAI',    __( 'GPT-5.4 nano, mini, GPT-5.4, GPT-5.5', 'rankready-ai-llm-seo' ) ),
 									'anthropic' => array( 'Claude',    __( 'Haiku 4.5, Sonnet 4.6, Opus 4.7', 'rankready-ai-llm-seo' ) ),
-									'gemini'    => array( 'Gemini',    __( 'Gemini 2.5 Flash, 2.5 Pro', 'rankready-ai-llm-seo' ) ),
+									'gemini'    => array( 'Gemini',    __( '3.1 Flash Lite, 2.5 Flash, 3.5 Flash, 2.5 Pro', 'rankready-ai-llm-seo' ) ),
 									'deepseek'  => array( 'DeepSeek',  __( 'V4 Flash, V4 Pro', 'rankready-ai-llm-seo' ) ),
 								);
 								foreach ( $providers as $id => $info ) :
@@ -4463,7 +4445,7 @@ class RNRD_Admin {
 									echo esc_html( sprintf( __( 'Disabled — %s handles Article schema.', 'rankready-ai-llm-seo' ), $seo_plugin ) );
 									?>
 								</p>
-								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_SCHEMA_ARTICLE ); ?>" value="on" />
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_SCHEMA_ARTICLE ); ?>" value="<?php echo esc_attr( $article ); ?>" />
 							<?php else : ?>
 								<p class="description" style="margin-top:4px;">
 									<?php esc_html_e( 'Injects Article JSON-LD on all published posts/pages. Includes headline, author, publisher, image, description, about (categories), mentions (tags).', 'rankready-ai-llm-seo' ); ?>
@@ -5130,7 +5112,7 @@ class RNRD_Admin {
 								$md_enable   = (string) get_option( RNRD_OPT_MD_ENABLE, 'off' );
 								$use_md_urls = (string) get_option( RNRD_OPT_LLMS_USE_MD_URLS, 'on' );
 								?>
-								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_LLMS_USE_MD_URLS ); ?>" value="off" />
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_LLMS_USE_MD_URLS ); ?>" value="<?php echo esc_attr( 'on' === $md_enable ? 'off' : $use_md_urls ); ?>" />
 								<label>
 									<input type="checkbox"
 										   name="<?php echo esc_attr( RNRD_OPT_LLMS_USE_MD_URLS ); ?>"
@@ -5185,6 +5167,9 @@ class RNRD_Admin {
 										<?php endforeach; ?>
 									</fieldset>
 								<?php else : ?>
+									<?php foreach ( $exclude_cats as $cat_id ) : ?>
+										<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_LLMS_EXCLUDE_CATS ); ?>[]" value="<?php echo esc_attr( (string) (int) $cat_id ); ?>" />
+									<?php endforeach; ?>
 									<p class="description"><?php esc_html_e( 'No categories found.', 'rankready-ai-llm-seo' ); ?></p>
 								<?php endif; ?>
 								<p class="description"><?php esc_html_e( 'Posts in checked categories will be excluded from llms.txt. Useful for filtering out demo, test, or irrelevant content.', 'rankready-ai-llm-seo' ); ?></p>
@@ -5209,6 +5194,9 @@ class RNRD_Admin {
 										<?php endforeach; ?>
 									</fieldset>
 								<?php else : ?>
+									<?php foreach ( $exclude_tags as $tag_id ) : ?>
+										<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_LLMS_EXCLUDE_TAGS ); ?>[]" value="<?php echo esc_attr( (string) (int) $tag_id ); ?>" />
+									<?php endforeach; ?>
 									<p class="description"><?php esc_html_e( 'No tags found.', 'rankready-ai-llm-seo' ); ?></p>
 								<?php endif; ?>
 								<p class="description"><?php esc_html_e( 'Posts with checked tags will be excluded from llms.txt.', 'rankready-ai-llm-seo' ); ?></p>
@@ -5635,6 +5623,12 @@ class RNRD_Admin {
 										</p>
 									<?php endif; ?>
 								</details>
+								<?php endif; ?>
+								<?php if ( empty( $rnrd_detected_cpts ) || ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?>
+									<?php foreach ( $rnrd_enabled_cpts as $rnrd_preserved_cpt ) : ?>
+										<?php if ( '' === (string) $rnrd_preserved_cpt ) { continue; } ?>
+										<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_MCP_EXPOSE_CPTS ); ?>[]" value="<?php echo esc_attr( (string) $rnrd_preserved_cpt ); ?>" />
+									<?php endforeach; ?>
 								<?php endif; ?>
 
 								<p style="margin:0;padding:10px 12px;background:var(--rnrd-color-brand-soft,#f0f6fc);border-left:3px solid var(--rnrd-color-brand,#2271b1);border-radius:0 var(--rnrd-radius-md,6px) var(--rnrd-radius-md,6px) 0;font-size:11px;color:var(--rnrd-color-info-text,#135e96);line-height:1.5;">
@@ -6988,5 +6982,169 @@ class RNRD_Admin {
 			esc_html( $label ),
 			esc_html__( 'enabled. Scroll down to configure.', 'rankready-ai-llm-seo' )
 		);
+	}
+
+	/**
+	 * Translatable strings for assets/metabox.js.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function metabox_js_i18n(): array {
+		return array(
+			'generate'         => __( 'Generate Summary', 'rankready-ai-llm-seo' ),
+			'regenerate'       => __( 'Regenerate Summary', 'rankready-ai-llm-seo' ),
+			'generating'       => __( 'Generating Summary…', 'rankready-ai-llm-seo' ),
+			'regenerating'     => __( 'Regenerating Summary…', 'rankready-ai-llm-seo' ),
+			'generateFaq'      => __( 'Generate FAQ', 'rankready-ai-llm-seo' ),
+			'regenerateFaq'    => __( 'Regenerate FAQ', 'rankready-ai-llm-seo' ),
+			'generatingFaq'    => __( 'Generating FAQ…', 'rankready-ai-llm-seo' ),
+			'regeneratingFaq'  => __( 'Regenerating FAQ…', 'rankready-ai-llm-seo' ),
+			/* translators: %d: seconds until regeneration is allowed */
+			'regenIn'          => __( 'Regenerate available in %ds.', 'rankready-ai-llm-seo' ),
+			/* translators: %d: seconds until regeneration is allowed */
+			'regenInShort'     => __( 'You can regenerate again in %ds.', 'rankready-ai-llm-seo' ),
+			'failed'           => __( 'Generation failed.', 'rankready-ai-llm-seo' ),
+			'saveFirst'        => __( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ),
+			'generatedJust'    => __( 'Summary generated just now.', 'rankready-ai-llm-seo' ),
+			'generatedFaqJust' => __( 'FAQ generated just now.', 'rankready-ai-llm-seo' ),
+			'deleteSummary'    => __( 'Delete summary', 'rankready-ai-llm-seo' ),
+			'deleteFaq'        => __( 'Delete FAQ', 'rankready-ai-llm-seo' ),
+			'deleting'         => __( 'Deleting…', 'rankready-ai-llm-seo' ),
+			'deletedSummary'   => __( 'Summary removed.', 'rankready-ai-llm-seo' ),
+			'deletedFaq'       => __( 'FAQ removed.', 'rankready-ai-llm-seo' ),
+			'deleteFailed'     => __( 'Could not delete. Try again.', 'rankready-ai-llm-seo' ),
+			'confirmSummary'   => __( 'Remove the generated summary for this post? It will no longer appear on the frontend, in Markdown, or in schema.', 'rankready-ai-llm-seo' ),
+			'confirmFaq'       => __( 'Remove the generated FAQ for this post? It will no longer appear on the frontend, in Markdown, or in schema.', 'rankready-ai-llm-seo' ),
+		);
+	}
+
+	/**
+	 * Translatable strings for assets/admin.js.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function admin_js_i18n(): array {
+		return array(
+		'modelsUpdatedOne'              => __( '1 model updated', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of models loaded */
+		'modelsUpdatedMany'             => __( '%d models updated', 'rankready-ai-llm-seo' ),
+		'minOnePostType'                => __( 'Select at least one post type.', 'rankready-ai-llm-seo' ),
+		'selectTargetAuthor'            => __( 'Select a target author (To).', 'rankready-ai-llm-seo' ),
+		'checking'                      => __( 'Checking…', 'rankready-ai-llm-seo' ),
+		'previewCount'                  => __( 'Preview Count', 'rankready-ai-llm-seo' ),
+		'running'                       => __( 'Running…', 'rankready-ai-llm-seo' ),
+		'starting'                      => __( 'Starting…', 'rankready-ai-llm-seo' ),
+		'resuming'                      => __( 'Resuming…', 'rankready-ai-llm-seo' ),
+		'execute'                       => __( 'Execute', 'rankready-ai-llm-seo' ),
+		'stopped'                       => __( 'Stopped.', 'rankready-ai-llm-seo' ),
+		'unknownError'                  => __( 'Unknown error', 'rankready-ai-llm-seo' ),
+		'previewRequestFailed'          => __( 'Preview request failed.', 'rankready-ai-llm-seo' ),
+		'failedToStart'                 => __( 'Failed to start.', 'rankready-ai-llm-seo' ),
+		'requestFailed'                 => __( 'Request failed.', 'rankready-ai-llm-seo' ),
+		'noMatchingPosts'               => __( 'No matching posts found.', 'rankready-ai-llm-seo' ),
+		'noPublishedPosts'              => __( 'No published posts found.', 'rankready-ai-llm-seo' ),
+		'loading'                       => __( 'Loading…', 'rankready-ai-llm-seo' ),
+		'refreshing'                    => __( 'Refreshing…', 'rankready-ai-llm-seo' ),
+		'verifying'                     => __( 'Verifying…', 'rankready-ai-llm-seo' ),
+		'verifyKey'                     => __( 'Verify Key', 'rankready-ai-llm-seo' ),
+		'verifyDfs'                     => __( 'Verify DataForSEO', 'rankready-ai-llm-seo' ),
+		'refreshList'                   => __( 'Refresh list', 'rankready-ai-llm-seo' ),
+		'couldNotRefreshModels'         => __( 'Could not refresh models.', 'rankready-ai-llm-seo' ),
+		'saving'                        => __( 'Saving…', 'rankready-ai-llm-seo' ),
+		'saved'                         => __( 'Saved ✓', 'rankready-ai-llm-seo' ),
+		'saveFailed'                    => __( 'Save failed', 'rankready-ai-llm-seo' ),
+		'notSavedReload'                => __( 'Not saved — reload page', 'rankready-ai-llm-seo' ),
+		'clearCache'                    => __( 'Clear cache', 'rankready-ai-llm-seo' ),
+		'clearing'                      => __( 'Clearing…', 'rankready-ai-llm-seo' ),
+		'cacheCleared'                  => __( 'Cache cleared.', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: completed count, %2$d: total count, %3$d: percent complete */
+		'postsUpdatedProgress'          => __( '%1$d / %2$d posts updated (%3$d%%)', 'rankready-ai-llm-seo' ),
+		'postsReassignedOne'            => __( 'Done! 1 post reassigned.', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of posts reassigned */
+		'postsReassignedMany'           => __( 'Done! %d posts reassigned.', 'rankready-ai-llm-seo' ),
+		'retryIn3s'                     => __( 'Request failed — retrying in 3s…', 'rankready-ai-llm-seo' ),
+		'retryIn5s'                     => __( 'Request failed — retrying in 5s…', 'rankready-ai-llm-seo' ),
+		'confirmReassignAuthors'        => __( 'This will permanently reassign post authors. Continue?', 'rankready-ai-llm-seo' ),
+		'errorPrefix'                   => __( 'Error:', 'rankready-ai-llm-seo' ),
+		'refreshListBtn'                => __( 'Refresh List', 'rankready-ai-llm-seo' ),
+		'loadFaqPosts'                  => __( 'Load FAQ Posts', 'rankready-ai-llm-seo' ),
+		'noFaqPosts'                    => __( 'No posts with FAQ found.', 'rankready-ai-llm-seo' ),
+		'faqPostsOne'                   => __( '1 post with FAQ', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of posts */
+		'faqPostsMany'                  => __( '%d posts with FAQ', 'rankready-ai-llm-seo' ),
+		'failedToLoad'                  => __( 'Failed to load.', 'rankready-ai-llm-seo' ),
+		'editFaq'                       => __( 'Edit FAQ', 'rankready-ai-llm-seo' ),
+		'editPost'                      => __( 'Edit Post', 'rankready-ai-llm-seo' ),
+		'edit'                          => __( 'Edit', 'rankready-ai-llm-seo' ),
+		'view'                          => __( 'View', 'rankready-ai-llm-seo' ),
+		/* translators: %s: post title */
+		'editFaqTitle'                  => __( 'Edit FAQ — %s', 'rankready-ai-llm-seo' ),
+		'saveChanges'                   => __( 'Save Changes', 'rankready-ai-llm-seo' ),
+		'remove'                        => __( 'Remove', 'rankready-ai-llm-seo' ),
+		'noFaqData'                     => __( 'No FAQ data found.', 'rankready-ai-llm-seo' ),
+		'savedExclaim'                  => __( 'Saved!', 'rankready-ai-llm-seo' ),
+		'refreshDetails'                => __( 'Refresh Details', 'rankready-ai-llm-seo' ),
+		'loadPerPostDetails'            => __( 'Load Per-Post Details', 'rankready-ai-llm-seo' ),
+		'noTokenUsage'                  => __( 'No token usage recorded yet.', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: post count, %2$s: formatted token total */
+		'tokenUsageSummary'             => __( '%1$d posts | %2$s total tokens', 'rankready-ai-llm-seo' ),
+		/* translators: %s: formatted token total */
+		'tokenUsageOne'                 => __( '1 post | %s total tokens', 'rankready-ai-llm-seo' ),
+		'refreshLog'                    => __( 'Refresh Log', 'rankready-ai-llm-seo' ),
+		'loadErrorLog'                  => __( 'Load Error Log', 'rankready-ai-llm-seo' ),
+		'noErrorsLogged'                => __( 'No errors logged.', 'rankready-ai-llm-seo' ),
+		'logCleared'                    => __( 'Log cleared.', 'rankready-ai-llm-seo' ),
+		'errorsOne'                     => __( '1 error', 'rankready-ai-llm-seo' ),
+		/* translators: %d: error count */
+		'errorsMany'                    => __( '%d errors', 'rankready-ai-llm-seo' ),
+		'startOverBulk'                 => __( 'Start Over — Bulk Regenerate', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: done count, %2$d: total count */
+		'bulkRegenDone'                 => __( 'Done! %1$d/%2$d posts regenerated.', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: done count, %2$d: total count, %3$d: percent */
+		'bulkProgress'                  => __( '%1$d / %2$d (%3$d%%)', 'rankready-ai-llm-seo' ),
+		'freshnessStaleEmpty'           => __( 'No stale posts. Every published post has been touched within the last 60 days.', 'rankready-ai-llm-seo' ),
+		'freshnessGoingStaleEmpty'      => __( 'Nothing in the 30–60 day window. Plenty of time before any post goes stale.', 'rankready-ai-llm-seo' ),
+		'freshnessFreshEmpty'           => __( 'Newly published or refreshed content shows up here.', 'rankready-ai-llm-seo' ),
+		'noTitle'                       => __( '(no title)', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of posts */
+		'freshnessRefreshing'           => __( 'Refreshing %d post(s)…', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of posts refreshed */
+		'freshnessRefreshed'            => __( 'Refreshed %d post(s). Reloading…', 'rankready-ai-llm-seo' ),
+		'refreshFailed'                 => __( 'Refresh failed.', 'rankready-ai-llm-seo' ),
+		'cfTokenRequired'               => __( 'A Cloudflare API token is required.', 'rankready-ai-llm-seo' ),
+		'cfConnecting'                  => __( 'Connecting…', 'rankready-ai-llm-seo' ),
+		'cfRuleCreated'                 => __( 'Rule created. Reloading…', 'rankready-ai-llm-seo' ),
+		'cfConnectFailed'               => __( 'Failed to connect.', 'rankready-ai-llm-seo' ),
+		'cfNetworkError'                => __( 'Network error.', 'rankready-ai-llm-seo' ),
+		'cfDisconnectConfirm'           => __( 'Remove the Cloudflare cache rule? AI markdown requests will hit APO again.', 'rankready-ai-llm-seo' ),
+		'runDiagnostics'                => __( 'Run Diagnostics', 'rankready-ai-llm-seo' ),
+		'probingEndpoints'              => __( 'Probing endpoints…', 'rankready-ai-llm-seo' ),
+		'noResults'                     => __( 'No results.', 'rankready-ai-llm-seo' ),
+		'diagnosticsCompleted'          => __( 'Completed.', 'rankready-ai-llm-seo' ),
+		'copiedToClipboard'             => __( 'Copied to clipboard', 'rankready-ai-llm-seo' ),
+		'copyFailedManual'              => __( 'Copy failed — select text manually from preview below.', 'rankready-ai-llm-seo' ),
+		'reportGenerationFailed'        => __( 'Report generation failed. Please try again.', 'rankready-ai-llm-seo' ),
+		'fixLabel'                      => __( 'Fix:', 'rankready-ai-llm-seo' ),
+		'scanContentFreshness'          => __( 'Scan Content Freshness', 'rankready-ai-llm-seo' ),
+		'scanning'                      => __( 'Scanning…', 'rankready-ai-llm-seo' ),
+		'allContentFresh'               => __( 'All content is fresh.', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: completed count, %2$d: total count */
+		'stoppedAtProgress'             => __( 'Stopped at %1$d / %2$d.', 'rankready-ai-llm-seo' ),
+		/* translators: %d: remaining queue count */
+		'queueRemainingResume'          => __( '%d remaining — click Resume to continue.', 'rankready-ai-llm-seo' ),
+		'freshnessKpiLabel'             => __( 'Content fresh', 'rankready-ai-llm-seo' ),
+		'freshnessKpiPeriod'            => __( 'Share of catalog', 'rankready-ai-llm-seo' ),
+		/* translators: %d: day threshold */
+		'freshnessKpiFoot'              => __( 'last modified within %d days', 'rankready-ai-llm-seo' ),
+		'stalePostsLabel'               => __( 'Stale posts', 'rankready-ai-llm-seo' ),
+		/* translators: %d: day threshold */
+		'stalePostsPeriod'              => __( 'Over %d days old', 'rankready-ai-llm-seo' ),
+		'stalePostsFoot'                => __( 'needs a refresh for AI citations', 'rankready-ai-llm-seo' ),
+		'totalPublishedLabel'           => __( 'Total published', 'rankready-ai-llm-seo' ),
+		'totalPublishedPeriod'          => __( 'All post types', 'rankready-ai-llm-seo' ),
+		'totalPublishedFoot'            => __( 'indexed for freshness scan', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of stale posts */
+		'stalePostsFound'               => __( '%d stale posts found (showing top 50)', 'rankready-ai-llm-seo' ),
+	);
 	}
 }

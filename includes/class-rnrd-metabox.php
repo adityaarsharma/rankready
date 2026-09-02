@@ -280,7 +280,7 @@ class RNRD_Metabox {
 		$visible = $has_content || $generated_ts > 0;
 		?>
 		<p class="rnrd-mb__hint rnrd-mb__generated"<?php echo $visible ? '' : ' hidden'; ?>>
-			<span data-rnrd-mb-status-text><?php echo esc_html( $status_text ); ?></span><?php
+			<span data-rnrd-mb-status-text data-status-base="<?php echo esc_attr( $status_text ); ?>"><?php echo esc_html( $status_text ); ?></span><?php
 			if ( $has_content ) :
 				?><span data-rnrd-mb-delete-wrap> <?php
 				?><button type="button" class="rnrd-mb__delete" data-rnrd-delete><?php

@@ -5136,7 +5136,7 @@ class RNRD_Admin {
 											sprintf(
 												/* translators: %s: Markdown settings subtab URL */
 												__( 'Enable <a href="%s">Markdown Endpoints</a> first to use Markdown URLs in llms.txt links.', 'rankready-ai-llm-seo' ),
-												esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=visibility&sub=markdown' ) )
+												esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=crawlers&sub=markdown' ) )
 											)
 										);
 										?>

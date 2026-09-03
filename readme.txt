@@ -31,7 +31,6 @@ Traditional SEO plugins optimize for Google's classic results. RankReady adds th
 * **Author, Article, Speakable and FAQPage schema.** E-E-A-T structured data merged into your SEO plugin, never duplicated
 * **AI visibility insights.** Which AI crawlers visited, and who arrived from ChatGPT, Perplexity, Claude or Gemini
 
-Your WordPress SEO plugin handles Google. RankReady handles what comes after. That is **ChatGPT SEO**, **AEO** (answer engine optimization), **GEO optimization** (generative engine optimization) and **LLM SEO**, all from one plugin.
 
 Built by [HostMyBlog](https://hostmy.blog/).
 
@@ -39,13 +38,6 @@ Built by [HostMyBlog](https://hostmy.blog/).
 
 RankReady is not a WordPress SEO plugin and does not replace one. It is the LLM SEO layer that sits on top of the SEO plugin you already run, handling AEO (answer engine optimization) and GEO (generative engine optimization). Compatible with Yoast SEO, Rank Math, AIOSEO, SEOPress, The SEO Framework, Slim SEO and Squirrly SEO. Every release is tested against all seven.
 
-* **Yoast SEO**
-* **Rank Math**
-* **All in One SEO (AIOSEO)**
-* **SEOPress**
-* **The SEO Framework**
-* **Slim SEO**
-* **Squirrly SEO**
 
 In every one of those combinations:
 
@@ -186,22 +178,13 @@ On Cloudflare it can create the cache rule for you from the **Settings** tab.
 
 ## Coming soon in RankReady AI SEO
 
-Everything above is free AI SEO, with no caps on manual generation. These are in development:
-
-* **Auto-generate on publish.** AI Summaries and FAQs written automatically as you publish
-* **Bulk-generate** AI Summaries and FAQs across your whole library
-* **HowTo and ItemList schema**
-* **Deeper author schema.** Credentials, education, certifications, memberships, awards, Wikidata, ORCID, Google Scholar, LinkedIn, editorial and fact-check policies
-* **Custom post types** beyond posts and pages
-* **Headless and WPGraphQL** for decoupled front ends
-
-You will see these marked "Coming soon" inside the plugin. They are not available yet.
+Everything above is free AI SEO, with no caps on manual generation. In development: auto-generate and bulk-generate AI Summaries and FAQs, HowTo and ItemList schema, deeper author schema, custom post types, and headless plus WPGraphQL support. These are marked "Coming soon" inside the plugin and are not available yet.
 
 == Privacy & Third-Party Services ==
 
 Your post content never leaves your site unless you ask for it. Your API keys stay in your own database, and every AI service below runs on your own key.
 
-**Plugin usage data (Freemius).** [Terms](https://freemius.com/terms/) · [Privacy](https://freemius.com/privacy/). RankReady uses the Freemius SDK to understand how the plugin is being used, so we know what to fix and build next. **It is opt-in.** On activation you are asked to connect, and you can skip it. If you allow it, Freemius receives your site URL, your WordPress and PHP versions, your name and email address, your active plugins and theme, and plugin activation and deactivation events. Your post content, your AI API keys and your visitor data are never sent. If you change your mind later, an "Opt Out" link appears next to RankReady on your Plugins page.
+**Plugin usage data (Freemius).** [Terms](https://freemius.com/terms/) · [Privacy](https://freemius.com/privacy/). Opt-in only, and skippable on activation. If you allow it, sends your site URL, WordPress and PHP versions, your name and email, active plugins and theme, and activation events. Never your post content, API keys or visitor data. Opt out any time from the Plugins page.
 
 **AI providers.** Pick one. When you click Generate, that post's title and text go to your chosen provider and the reply is saved on your site. Nothing else is shared.
 
@@ -454,34 +437,10 @@ Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, ho
 
 = 1.2.1 =
 
-**New**
+Adds AI crawler blocking in robots.txt, Cloudflare cache-rule setup and an nginx /.well-known/ fix. Fixes duplicate Content-Signal lines, multilingual summaries and FAQs, endpoint routing and DataForSEO diagnostics. Removes a remote Google Fonts request. Safe update, no settings change.
 
-* Block AI crawlers, pick bots to `Disallow` in robots.txt. Off by default; if a bot is in both lists, block wins.
-* Cloudflare connect using a scoped API token. Creates the Cache Rule that keeps APO from serving HTML to agents asking for Markdown, and removes it again on disconnect or uninstall.
-* Googlebot and Facebook's link crawler get their own robots.txt entry that repeats the rules your site already applies to every crawler. They are named for tools that check crawler access, while what they can reach stays exactly as you had it.
-* nginx `/.well-known/` notice, detects the 403 that blocks agent-discovery files and shows the exact server-config fix.
-
-**Fixed**
-
-* robots.txt collected a duplicate `Content-Signal` line every time you saved settings. Duplicates already in your file are cleared on the next save.
-* The Googlebot entry re-checks your site's own robots.txt rules hourly, so a rule you add through another plugin is picked up rather than missed.
-* Summaries and FAQs now generate in your site's language (WPML / Polylang / site locale), and keyword research uses the matching language and country instead of US English.
-* The "Key Takeaways" heading is now translatable, so a German site no longer shows an English heading above German content.
-* `llms.txt`, `.md`, `/okf/` and `mcp.json` resolve on stacks where another plugin intercepts routing.
-* Homepage advertised its Markdown alternate twice on sites using a static front page.
-* Diagnostics reported "No credentials configured" for DataForSEO even when credentials were saved and working.
-* AI Summary generation no longer fails on models that reject custom sampling settings.
-
-**Privacy and housekeeping**
-
-* Removed a remote Google Fonts request from the admin screens, no third-party asset loading, and your admin IP is no longer sent to Google.
-* Removed the `X-AEO-Version` response header. It advertised a draft convention that no standards body has adopted and that nothing reads.
-* Cloudflare and the dashboard walkthrough video are now documented in the Privacy section.
-* Removed unused stylesheet rules and tightened admin copy.
-
-Safe update, no settings or generated content change.
 = 1.2.0 =
-Adds an optional "AI SEO tips by email" opt-in, saves your AI keys and settings reliably, keeps Markdown pages out of Google even behind a cache, aligns the WebMCP toggles with what is actually served, and gives Nginx sites the exact fix for /.well-known/mcp.json. No data loss; safe to update.
+Adds an optional "AI SEO tips by email" opt-in, saves your AI keys and settings reliably, keeps Markdown pages out of Google behind a cache, aligns the WebMCP toggles with what is served, and fixes /.well-known/mcp.json on Nginx. No data loss; safe to update.
 
 = 1.1.1 =
 Fixes API keys not saving on first entry, and pages showing raw Markdown behind Cloudflare APO and similar caches. Adds multilingual support plus Squirrly SEO and SWIS Performance compatibility. No data loss. If you saved a key on an earlier version, re-enter it once after updating.

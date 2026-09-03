@@ -1009,7 +1009,7 @@ class RNRD_Diagnostics {
 		// Returned HTML when markdown was requested → cache layer is overriding.
 		$fix = '';
 		if ( '' !== $cf_cache && false !== stripos( $cf_cache, 'hit' ) ) {
-			$fix = 'Cloudflare is serving cached HTML to markdown requests (its default cache key does not vary by Accept). Fix: add a Cache Rule that bypasses cache when Accept contains text/markdown. Snippet in Settings → Diagnostics → Cloudflare Cache Rule.';
+			$fix = 'Cloudflare is serving cached HTML to markdown requests (its default cache key does not vary by Accept). Fix: connect under Settings → Cloudflare, or paste the Cache Rule snippet from Settings → Advanced → Diagnostics.';
 		} else {
 			$fix = 'Some intermediate cache is serving HTML to markdown requests. If on Cloudflare, apply the Cache Rule snippet. If on Varnish/Fastly/LSWS, ensure Vary: Accept is respected at the cache layer.';
 		}

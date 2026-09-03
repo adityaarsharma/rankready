@@ -25,9 +25,10 @@
 	var COOLDOWN_SECONDS = 60;
 	var cooldowns        = {}; // postId:kind → unix timestamp when next run allowed
 
-	function labelFor( key, fallback ) {
-		return ( window.rnrdElEditor && window.rnrdElEditor.labels && window.rnrdElEditor.labels[ key ] ) || fallback;
-	}
+	var editorCfg = window.rnrdElEditor || {};
+	var i18n      = window.rnrdI18n.bind( editorCfg.i18n || {} );
+	var t         = i18n.t;
+	var tr        = i18n.tr;
 
 	function statusEl( wrap ) { return wrap.querySelector( '.rnrd-el-regen__status' ); }
 	function btnEl( wrap )    { return wrap.querySelector( '.rnrd-el-regen__btn' ); }
@@ -39,18 +40,18 @@
 			return {
 				statePath: '/faq/get/',
 				genPath:   '/faq/generate/',
-				idle:      labelFor( 'generateFaq', 'Generate FAQ' ),
-				done:      labelFor( 'regenerateFaq', 'Regenerate FAQ' ),
-				busy:      labelFor( 'generatingFaq', 'Generating FAQ…' ),
+				idle:      t( 'generateFaq', 'Generate FAQ' ),
+				done:      t( 'regenerateFaq', 'Regenerate FAQ' ),
+				busy:      t( 'generatingFaq', 'Generating FAQ…' ),
 				has:       function ( body ) { return !! ( body && Array.isArray( body.faq ) && body.faq.length ); }
 			};
 		}
 		return {
 			statePath: '/summary/',
 			genPath:   '/regenerate/',
-			idle:      labelFor( 'generate', 'Generate Summary' ),
-			done:      labelFor( 'regenerate', 'Regenerate Summary' ),
-			busy:      labelFor( 'generating', 'Generating…' ),
+			idle:      t( 'generate', 'Generate Summary' ),
+			done:      t( 'regenerate', 'Regenerate Summary' ),
+			busy:      t( 'generating', 'Generating…' ),
 			has:       function ( body ) { return hasSummaryFromRaw( body && body.summary ); }
 		};
 	}
@@ -139,18 +140,23 @@
 		} );
 	}
 
-	function startCooldown( wrap, key ) {
+	function startCooldown( wrap, key, successMsg ) {
 		cooldowns[ key ] = Date.now() + COOLDOWN_SECONDS * 1000;
 		var btn = btnEl( wrap );
+		var c   = cfg( kindOf( wrap ) );
 		if ( ! btn ) return;
+		var idle = btn.getAttribute( 'data-idle-label' ) || c.done;
 		var tick = function () {
 			var remaining = Math.max( 0, Math.ceil( ( cooldowns[ key ] - Date.now() ) / 1000 ) );
 			if ( remaining <= 0 ) {
 				setBusy( wrap, false );
+				setStatus( wrap, successMsg || '', 'success' );
 				return;
 			}
 			btn.disabled = true;
-			btn.textContent = 'Wait ' + remaining + 's';
+			btn.textContent = idle;
+			var hint = tr( 'regenIn', 'Regenerate available in %ds.', remaining );
+			setStatus( wrap, successMsg ? ( successMsg + ' ' + hint ) : hint, 'success' );
 			setTimeout( tick, 1000 );
 		};
 		tick();
@@ -175,7 +181,7 @@
 
 		var settings = window.rnrdElEditor || {};
 		if ( ! settings.restUrl ) {
-			setStatus( wrap, 'REST URL unavailable.', 'error' );
+			setStatus( wrap, t( 'restUnavailable', 'REST URL unavailable.' ), 'error' );
 			return;
 		}
 
@@ -204,17 +210,18 @@
 			.then( function ( res ) {
 				var ok = res.status >= 200 && res.status < 300 && ( ! res.body || res.body.success !== false );
 				if ( ok ) {
-					setStatus( wrap, 'Updated. Refresh the preview to see the result.', 'success' );
+					var successMsg = t( 'updatedRefresh', 'Updated. Refresh the preview to see the result.' );
+					setStatus( wrap, successMsg, 'success' );
 					btn.setAttribute( 'data-idle-label', c.done ); // content now exists
-					startCooldown( wrap, key );
+					startCooldown( wrap, key, successMsg );
 				} else {
-					var msg = ( res.body && res.body.message ) || 'Generation failed.';
+					var msg = ( res.body && res.body.message ) || t( 'generationFailed', 'Generation failed.' );
 					setStatus( wrap, msg, 'error' );
 					setBusy( wrap, false );
 				}
 			} )
 			.catch( function () {
-				setStatus( wrap, 'Network error. Try again.', 'error' );
+				setStatus( wrap, t( 'networkError', 'Network error. Try again.' ), 'error' );
 				setBusy( wrap, false );
 			} );
 	}

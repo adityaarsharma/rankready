@@ -38,18 +38,11 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 				? RNRD_VERSION . '.' . filemtime( RNRD_DIR . 'assets/elementor-editor.js' )
 				: RNRD_VERSION;
 
-			wp_register_script( 'rnrd-elementor-editor', RNRD_URL . 'assets/elementor-editor.js', array(), $ver, true );
+			wp_register_script( 'rnrd-elementor-editor', RNRD_URL . 'assets/elementor-editor.js', array( 'rnrd-i18n' ), $ver, true );
 			wp_localize_script( 'rnrd-elementor-editor', 'rnrdElEditor', array(
 				'restUrl' => esc_url_raw( rest_url( 'rankready/v1' ) ),
 				'nonce'   => wp_create_nonce( 'wp_rest' ),
-				'labels'  => array(
-					'generate'      => esc_html__( 'Generate Summary', 'rankready-ai-llm-seo' ),
-					'regenerate'    => esc_html__( 'Regenerate Summary', 'rankready-ai-llm-seo' ),
-					'generating'    => esc_html__( 'Generating…', 'rankready-ai-llm-seo' ),
-					'generateFaq'   => esc_html__( 'Generate FAQ', 'rankready-ai-llm-seo' ),
-					'regenerateFaq' => esc_html__( 'Regenerate FAQ', 'rankready-ai-llm-seo' ),
-					'generatingFaq' => esc_html__( 'Generating FAQ…', 'rankready-ai-llm-seo' ),
-				),
+				'i18n'    => self::elementor_editor_js_i18n(),
 			) );
 			wp_enqueue_script( 'rnrd-elementor-editor' );
 
@@ -318,5 +311,27 @@ class RNRD_Elementor_Widget extends \Elementor\Widget_Base {
 				: (string) get_option( RNRD_OPT_HEADING_TAG, 'h4' ),
 		) );
 		// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	/**
+	 * Translatable strings for assets/elementor-editor.js.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function elementor_editor_js_i18n(): array {
+		return array(
+			'generate'         => __( 'Generate Summary', 'rankready-ai-llm-seo' ),
+			'regenerate'       => __( 'Regenerate Summary', 'rankready-ai-llm-seo' ),
+			'generating'       => __( 'Generating…', 'rankready-ai-llm-seo' ),
+			'generateFaq'      => __( 'Generate FAQ', 'rankready-ai-llm-seo' ),
+			'regenerateFaq'    => __( 'Regenerate FAQ', 'rankready-ai-llm-seo' ),
+			'generatingFaq'    => __( 'Generating FAQ…', 'rankready-ai-llm-seo' ),
+			/* translators: %d: seconds until regeneration is allowed */
+			'regenIn'          => __( 'Regenerate available in %ds.', 'rankready-ai-llm-seo' ),
+			'restUnavailable'  => __( 'REST URL unavailable.', 'rankready-ai-llm-seo' ),
+			'updatedRefresh'   => __( 'Updated. Refresh the preview to see the result.', 'rankready-ai-llm-seo' ),
+			'generationFailed' => __( 'Generation failed.', 'rankready-ai-llm-seo' ),
+			'networkError'     => __( 'Network error. Try again.', 'rankready-ai-llm-seo' ),
+		);
 	}
 }

@@ -5,7 +5,7 @@
  * Top tabs: Dashboard | AI Visibility | AI Content | Insights | Settings
  * AI Visibility subtabs (slug crawlers): Brand | Robots | LLMs.txt | Markdown | WebMCP | OKF
  * AI Content subtabs (slug content): AI Summary | AI FAQ Generator | Author Box | Schema
- * Settings subtabs: API Keys | Advanced
+ * Settings subtabs: API Keys | Cloudflare | Advanced
  *
  * @package RankReady
  */
@@ -73,7 +73,7 @@ class RNRD_Admin {
 		add_action( 'wp_loaded', array( self::class, 'register_status_columns' ) );
 	}
 
-	// ── "What's new" banner + tutorial dismiss handlers ─────────────────────────
+	// ── "What's new" banner dismiss handlers ────────────────────────────────────
 
 	/**
 	 * Records the most recently installed plugin version. When the running
@@ -125,6 +125,19 @@ class RNRD_Admin {
 		if ( ! empty( $queued ) ) {
 			update_option( 'rnrd_model_migrations', $queued, false );
 		}
+	}
+
+	/**
+	 * Back-compat shim for extensions that called this before 1.3.1.
+	 *
+	 * @deprecated 1.3.1 Use RNRD_LLM::get_models_for() instead.
+	 * @return array<string, string> Model ID => label.
+	 */
+	public static function get_allowed_models( string $provider = 'openai' ): array {
+		if ( class_exists( 'RNRD_LLM' ) ) {
+			return RNRD_LLM::get_models_for( $provider );
+		}
+		return array();
 	}
 
 	/**
@@ -194,9 +207,8 @@ class RNRD_Admin {
 	}
 
 	/**
-	 * Handles the "Dismiss" action on the what's new banner and the
-	 * tutorial card. Both are GET-based with nonces — single-click,
-	 * no JS required, no AJAX surface.
+	 * Handles the "Dismiss" action on the what's new banner.
+	 * GET-based with a nonce — single-click, no JS required.
 	 */
 	public static function handle_dismiss_actions(): void {
 		if ( ! is_user_logged_in() ) {
@@ -208,12 +220,6 @@ class RNRD_Admin {
 		if ( isset( $_GET['rnrd_dismiss_whatsnew'] ) && check_admin_referer( 'rnrd_dismiss_whatsnew' ) ) {
 			update_user_meta( $user_id, 'rnrd_whatsnew_dismissed_version', RNRD_VERSION );
 			wp_safe_redirect( remove_query_arg( array( 'rnrd_dismiss_whatsnew', '_wpnonce' ) ) );
-			exit;
-		}
-
-		if ( isset( $_GET['rnrd_dismiss_tutorial'] ) && check_admin_referer( 'rnrd_dismiss_tutorial' ) ) {
-			update_user_meta( $user_id, 'rnrd_tutorial_dismissed', 1 );
-			wp_safe_redirect( remove_query_arg( array( 'rnrd_dismiss_tutorial', '_wpnonce' ) ) );
 			exit;
 		}
 
@@ -379,7 +385,7 @@ class RNRD_Admin {
 				wp_enqueue_script(
 					'rnrd-metabox',
 					RNRD_URL . 'assets/metabox.js',
-					array(),
+					array( 'rnrd-i18n' ),
 					self::asset_ver( 'assets/metabox.js' ),
 					true
 				);
@@ -387,22 +393,7 @@ class RNRD_Admin {
 					'restUrl'  => esc_url_raw( rest_url( 'rankready/v1/' ) ),
 					'nonce'    => wp_create_nonce( 'wp_rest' ),
 					'cooldown' => 60,
-					'i18n'     => array(
-						'generate'         => __( 'Generate Summary', 'rankready-ai-llm-seo' ),
-						'regenerate'       => __( 'Regenerate Summary', 'rankready-ai-llm-seo' ),
-						'generating'       => __( 'Generating Summary…', 'rankready-ai-llm-seo' ),
-						'regenerating'     => __( 'Regenerating Summary…', 'rankready-ai-llm-seo' ),
-						'generateFaq'      => __( 'Generate FAQ', 'rankready-ai-llm-seo' ),
-						'regenerateFaq'    => __( 'Regenerate FAQ', 'rankready-ai-llm-seo' ),
-						'generatingFaq'    => __( 'Generating FAQ…', 'rankready-ai-llm-seo' ),
-						'regeneratingFaq'  => __( 'Regenerating FAQ…', 'rankready-ai-llm-seo' ),
-						/* translators: %d: seconds remaining before the next generate is allowed */
-						'wait'             => __( 'Wait %ds', 'rankready-ai-llm-seo' ),
-						'failed'           => __( 'Generation failed.', 'rankready-ai-llm-seo' ),
-						'saveFirst'        => __( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ),
-						'generatedJust'    => __( 'Summary generated just now', 'rankready-ai-llm-seo' ),
-						'generatedFaqJust' => __( 'FAQ generated just now', 'rankready-ai-llm-seo' ),
-					),
+					'i18n'     => self::metabox_js_i18n(),
 				) );
 			}
 			return;
@@ -420,19 +411,20 @@ class RNRD_Admin {
 		// (-apple-system, Segoe UI, sans-serif), so the UI renders correctly
 		// without it. Do NOT re-add a remote font request.
 		wp_enqueue_style( 'rnrd-admin', RNRD_URL . 'assets/admin.css', array( 'rnrd-design-tokens' ), $admin_ver );
-		wp_enqueue_script( 'rnrd-admin', RNRD_URL . 'assets/admin.js', array(), $js_ver, true );
+		wp_enqueue_script( 'rnrd-admin', RNRD_URL . 'assets/admin.js', array( 'rnrd-i18n' ), $js_ver, true );
 		wp_localize_script( 'rnrd-admin', 'rnrdAdmin', array(
-			'nonce'           => wp_create_nonce( 'wp_rest' ),
-			'apiBase'         => rest_url( 'rankready/v1' ),
-			'minOnePostType'  => __( 'Select at least one post type.', 'rankready-ai-llm-seo' ),
+			'nonce'   => wp_create_nonce( 'wp_rest' ),
+			'apiBase' => rest_url( 'rankready/v1' ),
+			'i18n'    => self::admin_js_i18n(),
 		) );
 
 		// v1.1.0 — Inline Cloudflare card controller. Kept inline so the card's
 		// connect / disconnect flow ships in the Free build without bloating
-		// admin.js. ~50 lines.
+		// admin.js. ~50 lines. Strings come from rnrdAdmin.i18n (admin_js_i18n).
 		wp_add_inline_script(
 			'rnrd-admin',
 			"(function(){\n" .
+			"  var t = window.rnrdI18n.bind((window.rnrdAdmin||{}).i18n||{}).t;\n" .
 			"  var btnConnect = document.getElementById('rnrd-cf-connect');\n" .
 			"  var btnDisco   = document.getElementById('rnrd-cf-disconnect');\n" .
 			"  function apiCall(path, body) {\n" .
@@ -451,23 +443,23 @@ class RNRD_Admin {
 			"  if (btnConnect) {\n" .
 			"    btnConnect.addEventListener('click', function(){\n" .
 			"      var token = (document.getElementById('rnrd-cf-token') || {}).value || '';\n" .
-			"      if (!token) { setMsg('A Cloudflare API token is required.', false); return; }\n" .
+			"      if (!token) { setMsg(t('cfTokenRequired','A Cloudflare API token is required.'), false); return; }\n" .
 			"      var body = { mode: 'token', token: token };\n" .
 			"      btnConnect.disabled = true;\n" .
-			"      setMsg('Connecting...', true);\n" .
+			"      setMsg(t('cfConnecting','Connecting…'), true);\n" .
 			"      apiCall('/cloudflare/connect', body)\n" .
 			"        .then(function(parts){\n" .
 			"          var status = parts[0], data = parts[1];\n" .
 			"          btnConnect.disabled = false;\n" .
-			"          if (status >= 200 && status < 300 && data.success) { setMsg('Rule created. Reloading...', true); setTimeout(function(){ location.reload(); }, 800); }\n" .
-			"          else { setMsg((data && data.error) || 'Failed to connect.', false); }\n" .
+			"          if (status >= 200 && status < 300 && data.success) { setMsg(t('cfRuleCreated','Rule created. Reloading…'), true); setTimeout(function(){ location.reload(); }, 800); }\n" .
+			"          else { setMsg((data && data.error) || t('cfConnectFailed','Failed to connect.'), false); }\n" .
 			"        })\n" .
-			"        .catch(function(){ btnConnect.disabled = false; setMsg('Network error.', false); });\n" .
+			"        .catch(function(){ btnConnect.disabled = false; setMsg(t('cfNetworkError','Network error.'), false); });\n" .
 			"    });\n" .
 			"  }\n" .
 			"  if (btnDisco) {\n" .
 			"    btnDisco.addEventListener('click', function(){\n" .
-			"      if (!confirm('Remove the Cloudflare cache rule? AI markdown requests will hit APO again.')) return;\n" .
+			"      if (!confirm(t('cfDisconnectConfirm','Remove the Cloudflare cache rule? AI markdown requests will hit APO again.'))) return;\n" .
 			"      btnDisco.disabled = true;\n" .
 			"      apiCall('/cloudflare/disconnect', {}).then(function(){ location.reload(); });\n" .
 			"    });\n" .
@@ -497,8 +489,8 @@ class RNRD_Admin {
 		) );
 		register_setting( self::SETTINGS_GROUP, RNRD_OPT_MODEL, array(
 			'type'              => 'string',
-			'sanitize_callback' => array( self::class, 'sanitize_model' ),
-			'default'           => 'gpt-4o-mini',
+			'sanitize_callback' => array( self::class, 'sanitize_provider_model' ),
+			'default'           => 'gpt-5.4-mini',
 		) );
 
 		// Anthropic (Claude) key + model.
@@ -676,6 +668,12 @@ class RNRD_Admin {
 		) );
 
 		register_setting( self::LLMS_GROUP, RNRD_OPT_LLMS_SHOW_CATEGORIES, array(
+			'type'              => 'string',
+			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
+			'default'           => 'on',
+		) );
+
+		register_setting( self::LLMS_GROUP, RNRD_OPT_LLMS_USE_MD_URLS, array(
 			'type'              => 'string',
 			'sanitize_callback' => array( self::class, 'sanitize_on_off' ),
 			'default'           => 'on',
@@ -1238,15 +1236,14 @@ class RNRD_Admin {
 	}
 
 	/**
-	 * Generic provider model sanitizer. Accepts any model ID listed in the
-	 * provider's RNRD_LLM::get_models_for() list, falls back to provider
-	 * default. Resolves the provider from the option name being sanitized.
+	 * Model ID sanitizer for every LLM provider (OpenAI, Anthropic, Gemini, DeepSeek).
+	 * Light validation only — no hard allowlist — so curated / future model IDs
+	 * save correctly without a plugin update.
 	 */
 	public static function sanitize_provider_model( $value ): string {
 		$value = sanitize_text_field( (string) $value );
-		// Light validation — no strict allowlist so future model IDs work
-		// without a plugin update. We just strip anything that isn't a safe
-		// model-ID character (alphanumerics, dot, dash, underscore, slash).
+		// Strip anything that isn't a safe model-ID character
+		// (alphanumerics, dot, dash, underscore, slash).
 		$value = preg_replace( '/[^a-zA-Z0-9._\-\/]/', '', $value );
 		return (string) $value;
 	}
@@ -1282,12 +1279,6 @@ class RNRD_Admin {
 		}
 		// Real password — store as-is (no sanitize_text_field, it can mangle hex strings).
 		return trim( $value );
-	}
-
-	public static function sanitize_model( $value ): string {
-		$allowed = array_keys( self::get_allowed_models() );
-		$value   = sanitize_text_field( (string) $value );
-		return in_array( $value, $allowed, true ) ? $value : 'gpt-4o-mini';
 	}
 
 	public static function sanitize_post_types( $value ): array {
@@ -1466,7 +1457,7 @@ class RNRD_Admin {
 			'crawlers'  => __( 'AI Visibility', 'rankready-ai-llm-seo' ), // subtabs: Brand | Robots | LLMs.txt | Markdown | WebMCP | OKF
 			'content'   => __( 'AI Content', 'rankready-ai-llm-seo' ), // subtabs: AI Summary | AI FAQ Generator | Author Box | Schema
 			'insights'  => __( 'Insights', 'rankready-ai-llm-seo' ),  // v1.2.0-beta.7 — Bot Activity / Citation / Referral / Freshness
-			'settings'  => __( 'Settings', 'rankready-ai-llm-seo' ),  // subtabs: API Keys | Advanced
+			'settings'  => __( 'Settings', 'rankready-ai-llm-seo' ),  // subtabs: API Keys | Cloudflare | Advanced
 		);
 
 		if ( ! array_key_exists( $active_tab, $tabs ) ) {
@@ -1819,13 +1810,6 @@ class RNRD_Admin {
 			$stale_count = (int) ( $buckets['stale'] ?? 0 );
 		}
 
-		$user_id            = get_current_user_id();
-		$tutorial_dismissed = (bool) get_user_meta( $user_id, 'rnrd_tutorial_dismissed', true );
-		$tutorial_dismiss   = wp_nonce_url(
-			admin_url( 'admin.php?page=' . self::MENU_SLUG . '&rnrd_dismiss_tutorial=1' ),
-			'rnrd_dismiss_tutorial'
-		);
-
 		$content_url         = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content' );
 		$content_summary_url = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=summary' );
 		$content_faq_url     = admin_url( 'admin.php?page=rankready-ai-llm-seo&tab=content&sub=faq' );
@@ -2017,31 +2001,10 @@ class RNRD_Admin {
 			</div>
 		</div>
 
-		<?php if ( ! $tutorial_dismissed ) : ?>
-		<div class="rnrd-card rnrd-tutorial-card" style="margin-bottom:24px;">
-			<div class="rnrd-tutorial-card__head">
-				<h2 class="rnrd-card-title" style="margin:0;"><?php esc_html_e( 'New to RankReady? Watch the video', 'rankready-ai-llm-seo' ); ?></h2>
-				<a href="<?php echo esc_url( $tutorial_dismiss ); ?>" class="rnrd-aside-card__close" aria-label="<?php esc_attr_e( 'Dismiss tutorial', 'rankready-ai-llm-seo' ); ?>" title="<?php esc_attr_e( 'Dismiss', 'rankready-ai-llm-seo' ); ?>">
-					<span class="dashicons dashicons-no-alt" aria-hidden="true"></span>
-				</a>
-			</div>
-			<p class="rnrd-card-desc" style="margin-top:0;"><?php esc_html_e( 'Aditya walks through every RankReady setting — AI Summary, FAQ Generator, Author Box, llms.txt, AI crawler controls — so you can ship a 100/100 AI-ready site.', 'rankready-ai-llm-seo' ); ?></p>
-			<div style="position:relative;width:100%;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:6px;background:#000;">
-				<iframe
-					style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"
-					src="https://www.youtube-nocookie.com/embed/JA-rEwMbqNo?rel=0&modestbranding=1"
-					title="<?php esc_attr_e( 'RankReady walkthrough', 'rankready-ai-llm-seo' ); ?>"
-					loading="lazy"
-					allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-					allowfullscreen></iframe>
-			</div>
-		</div>
-		<?php else : ?>
-			<p style="margin:0 0 14px;font-size:12px;color:var(--rnrd-color-text-muted,#646970);">
-				<?php esc_html_e( 'Need to start over?', 'rankready-ai-llm-seo' ); ?>
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-welcome' ) ); ?>"><?php esc_html_e( 'Re-run the setup wizard →', 'rankready-ai-llm-seo' ); ?></a>
-			</p>
-		<?php endif; ?>
+		<p style="margin:0 0 14px;font-size:12px;color:var(--rnrd-color-text-muted,#646970);">
+			<?php esc_html_e( 'Need to start over?', 'rankready-ai-llm-seo' ); ?>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=rankready-welcome' ) ); ?>"><?php esc_html_e( 'Re-run the setup wizard →', 'rankready-ai-llm-seo' ); ?></a>
+		</p>
 
 		<?php
 	}
@@ -3773,14 +3736,15 @@ class RNRD_Admin {
 	}
 
 	/**
-	 * Settings tab — API Keys + Advanced subtabs (mirrors Insights subnav pattern).
+	 * Settings tab — API Keys | Cloudflare | Advanced subtabs (mirrors Insights subnav pattern).
 	 */
 	private static function render_tab_settings(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only $_GET[sub] for sub-tab display routing.
 		$sub = isset( $_GET['sub'] ) ? sanitize_key( wp_unslash( $_GET['sub'] ) ) : 'api-keys';
 		$sub_tabs = array(
-			'api-keys' => __( 'API Keys', 'rankready-ai-llm-seo' ),
-			'advanced' => __( 'Advanced', 'rankready-ai-llm-seo' ),
+			'api-keys'    => __( 'API Keys', 'rankready-ai-llm-seo' ),
+			'cloudflare' => __( 'Cloudflare', 'rankready-ai-llm-seo' ),
+			'advanced'    => __( 'Advanced', 'rankready-ai-llm-seo' ),
 		);
 		if ( ! isset( $sub_tabs[ $sub ] ) ) {
 			$sub = 'api-keys';
@@ -3805,6 +3769,9 @@ class RNRD_Admin {
 
 		<?php
 		switch ( $sub ) {
+			case 'cloudflare':
+				self::render_tab_cloudflare();
+				break;
 			case 'advanced':
 				self::render_tab_advanced();
 				break;
@@ -3812,6 +3779,16 @@ class RNRD_Admin {
 			default:
 				self::render_tab_api();
 				break;
+		}
+	}
+
+	/**
+	 * Settings → Cloudflare — always visible; connect form works even when CF
+	 * is not auto-detected (staging / DNS-only false negatives).
+	 */
+	private static function render_tab_cloudflare(): void {
+		if ( class_exists( 'RNRD_Cloudflare' ) ) {
+			RNRD_Cloudflare::render_card();
 		}
 	}
 
@@ -3861,9 +3838,9 @@ class RNRD_Admin {
 							<fieldset id="rnrd-llm-provider-picker" class="rnrd-radio-list">
 								<?php
 								$providers = array(
-									'openai'    => array( 'OpenAI',    __( 'GPT-4o, GPT-4o mini', 'rankready-ai-llm-seo' ) ),
+									'openai'    => array( 'OpenAI',    __( 'GPT-5.4 nano, mini, GPT-5.4, GPT-5.5', 'rankready-ai-llm-seo' ) ),
 									'anthropic' => array( 'Claude',    __( 'Haiku 4.5, Sonnet 4.6, Opus 4.7', 'rankready-ai-llm-seo' ) ),
-									'gemini'    => array( 'Gemini',    __( 'Gemini 2.5 Flash, 2.5 Pro', 'rankready-ai-llm-seo' ) ),
+									'gemini'    => array( 'Gemini',    __( '3.1 Flash Lite, 2.5 Flash, 3.5 Flash, 2.5 Pro', 'rankready-ai-llm-seo' ) ),
 									'deepseek'  => array( 'DeepSeek',  __( 'V4 Flash, V4 Pro', 'rankready-ai-llm-seo' ) ),
 								);
 								foreach ( $providers as $id => $info ) :
@@ -3884,15 +3861,38 @@ class RNRD_Admin {
 				</table>
 
 				<?php
-				// Helper for the per-provider verify button row.
-				$render_verify_row = function ( $provider_id ) {
+				$render_key_field = function ( $provider_id, $input_id, $option_name, $display_value ) {
 					?>
-					<div class="rnrd-verify-row">
+					<div class="rnrd-input-action-row">
+						<input type="password" id="<?php echo esc_attr( $input_id ); ?>" name="<?php echo esc_attr( $option_name ); ?>"
+							   value="<?php echo esc_attr( $display_value ); ?>" class="regular-text"
+							   autocomplete="new-password" spellcheck="false"
+							   data-rnrd-key-for="<?php echo esc_attr( $provider_id ); ?>" />
 						<button type="button" class="button button-secondary" data-rnrd-verify-provider="<?php echo esc_attr( $provider_id ); ?>">
 							<?php esc_html_e( 'Verify Key', 'rankready-ai-llm-seo' ); ?>
 						</button>
-						<span class="rnrd-verify-row__status" data-rnrd-verify-status="<?php echo esc_attr( $provider_id ); ?>"></span>
 					</div>
+					<span class="rnrd-input-action-row__status" data-rnrd-verify-status="<?php echo esc_attr( $provider_id ); ?>"></span>
+					<?php
+				};
+
+				$render_model_field = function ( $provider_id, $select_id, $option_name ) {
+					$cur     = RNRD_LLM::get_model( $provider_id );
+					$models  = RNRD_LLM::get_models_for( $provider_id );
+					?>
+					<div class="rnrd-input-action-row">
+						<select name="<?php echo esc_attr( $option_name ); ?>" id="<?php echo esc_attr( $select_id ); ?>" data-rnrd-model-for="<?php echo esc_attr( $provider_id ); ?>">
+							<?php foreach ( $models as $value => $label ) : ?>
+								<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
+									<?php echo esc_html( $label ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+						<button type="button" class="button button-secondary" data-rnrd-refresh-models="<?php echo esc_attr( $provider_id ); ?>">
+							<?php esc_html_e( 'Refresh list', 'rankready-ai-llm-seo' ); ?>
+						</button>
+					</div>
+					<span class="rnrd-input-action-row__status" data-rnrd-models-status="<?php echo esc_attr( $provider_id ); ?>"></span>
 					<?php
 				};
 				?>
@@ -3906,11 +3906,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_api_key"><?php esc_html_e( 'API Key', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<input type="password" id="rnrd_api_key" name="<?php echo esc_attr( RNRD_OPT_KEY ); ?>"
-								   value="<?php echo esc_attr( $openai_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false"
-								   data-rnrd-key-for="openai" />
-							<?php $render_verify_row( 'openai' ); ?>
+							<?php $render_key_field( 'openai', 'rnrd_api_key', RNRD_OPT_KEY, $openai_disp ); ?>
 							<p class="description"><?php
 								printf(
 									/* translators: %s: link to the OpenAI API keys page */
@@ -3923,15 +3919,8 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_model"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( RNRD_OPT_MODEL ); ?>" id="rnrd_model">
-								<?php $current_model = RNRD_LLM::get_model( 'openai' ); ?>
-								<?php foreach ( RNRD_LLM::get_models_for( 'openai' ) as $value => $label ) : ?>
-									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $current_model, $value ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-							<p class="description"><?php esc_html_e( 'gpt-4o-mini is the cheapest and recommended for most sites.', 'rankready-ai-llm-seo' ); ?></p>
+							<?php $render_model_field( 'openai', 'rnrd_model', RNRD_OPT_MODEL ); ?>
+							<p class="description"><?php esc_html_e( 'gpt-5.4-nano is the cheapest and fastest. gpt-5.4-mini is recommended for most sites. gpt-5.4 is balanced. gpt-5.5 is highest quality.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -3946,11 +3935,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_anthropic_key"><?php esc_html_e( 'API Key', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<input type="password" id="rnrd_anthropic_key" name="<?php echo esc_attr( RNRD_OPT_ANTHROPIC_KEY ); ?>"
-								   value="<?php echo esc_attr( $anthropic_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false"
-								   data-rnrd-key-for="anthropic" />
-							<?php $render_verify_row( 'anthropic' ); ?>
+							<?php $render_key_field( 'anthropic', 'rnrd_anthropic_key', RNRD_OPT_ANTHROPIC_KEY, $anthropic_disp ); ?>
 							<p class="description"><?php
 								printf(
 									/* translators: %s: link to the Anthropic Console API keys page */
@@ -3963,15 +3948,8 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_anthropic_model"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( RNRD_OPT_ANTHROPIC_MODEL ); ?>" id="rnrd_anthropic_model">
-								<?php $cur = RNRD_LLM::get_model( 'anthropic' ); ?>
-								<?php foreach ( RNRD_LLM::get_models_for( 'anthropic' ) as $value => $label ) : ?>
-									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-							<p class="description"><?php esc_html_e( 'Haiku 4.5 is the cheapest and fastest. Sonnet 4.6 is the balanced pick. Opus 4.7 is highest quality (most expensive).', 'rankready-ai-llm-seo' ); ?></p>
+							<?php $render_model_field( 'anthropic', 'rnrd_anthropic_model', RNRD_OPT_ANTHROPIC_MODEL ); ?>
+							<p class="description"><?php esc_html_e( 'claude-haiku-4-5 is the cheapest and fastest. claude-sonnet-4-6 is the balanced pick. claude-opus-4-7 is highest quality (most expensive).', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -3986,11 +3964,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_gemini_key"><?php esc_html_e( 'API Key', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<input type="password" id="rnrd_gemini_key" name="<?php echo esc_attr( RNRD_OPT_GEMINI_KEY ); ?>"
-								   value="<?php echo esc_attr( $gemini_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false"
-								   data-rnrd-key-for="gemini" />
-							<?php $render_verify_row( 'gemini' ); ?>
+							<?php $render_key_field( 'gemini', 'rnrd_gemini_key', RNRD_OPT_GEMINI_KEY, $gemini_disp ); ?>
 							<p class="description"><?php
 								printf(
 									/* translators: %s: link to the Google AI Studio API key page */
@@ -4003,15 +3977,8 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_gemini_model"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( RNRD_OPT_GEMINI_MODEL ); ?>" id="rnrd_gemini_model">
-								<?php $cur = RNRD_LLM::get_model( 'gemini' ); ?>
-								<?php foreach ( RNRD_LLM::get_models_for( 'gemini' ) as $value => $label ) : ?>
-									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-							<p class="description"><?php esc_html_e( 'Gemini 2.5 Flash is recommended for both summaries and FAQ.', 'rankready-ai-llm-seo' ); ?></p>
+							<?php $render_model_field( 'gemini', 'rnrd_gemini_model', RNRD_OPT_GEMINI_MODEL ); ?>
+							<p class="description"><?php esc_html_e( 'gemini-2.5-flash is recommended for both summaries and FAQ.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -4026,11 +3993,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_deepseek_key"><?php esc_html_e( 'API Key', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<input type="password" id="rnrd_deepseek_key" name="<?php echo esc_attr( RNRD_OPT_DEEPSEEK_KEY ); ?>"
-								   value="<?php echo esc_attr( $deepseek_disp ); ?>" class="regular-text"
-								   autocomplete="new-password" spellcheck="false"
-								   data-rnrd-key-for="deepseek" />
-							<?php $render_verify_row( 'deepseek' ); ?>
+							<?php $render_key_field( 'deepseek', 'rnrd_deepseek_key', RNRD_OPT_DEEPSEEK_KEY, $deepseek_disp ); ?>
 							<p class="description"><?php
 								printf(
 									/* translators: %s: link to the DeepSeek API keys page */
@@ -4043,14 +4006,7 @@ class RNRD_Admin {
 					<tr>
 						<th scope="row"><label for="rnrd_deepseek_model"><?php esc_html_e( 'Model', 'rankready-ai-llm-seo' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( RNRD_OPT_DEEPSEEK_MODEL ); ?>" id="rnrd_deepseek_model">
-								<?php $cur = RNRD_LLM::get_model( 'deepseek' ); ?>
-								<?php foreach ( RNRD_LLM::get_models_for( 'deepseek' ) as $value => $label ) : ?>
-									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $cur, $value ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
+							<?php $render_model_field( 'deepseek', 'rnrd_deepseek_model', RNRD_OPT_DEEPSEEK_MODEL ); ?>
 						</td>
 					</tr>
 				</table>
@@ -4085,16 +4041,16 @@ class RNRD_Admin {
 						<td>
 							<?php $dfs_pw = (string) get_option( RNRD_OPT_DFS_PASSWORD, '' ); ?>
 							<?php $dfs_pw_display = ! empty( $dfs_pw ) ? str_repeat( '••••', 4 ) : ''; ?>
-							<input type="password" id="rnrd_dfs_password" name="<?php echo esc_attr( RNRD_OPT_DFS_PASSWORD ); ?>"
-							       value="<?php echo esc_attr( $dfs_pw_display ); ?>"
-							       class="regular-text" autocomplete="new-password" />
-							<p class="description"><?php esc_html_e( 'Your DataForSEO API password. Enter a new value to change.', 'rankready-ai-llm-seo' ); ?></p>
-							<div class="rnrd-verify-row">
+							<div class="rnrd-input-action-row">
+								<input type="password" id="rnrd_dfs_password" name="<?php echo esc_attr( RNRD_OPT_DFS_PASSWORD ); ?>"
+								       value="<?php echo esc_attr( $dfs_pw_display ); ?>"
+								       class="regular-text" autocomplete="new-password" />
 								<button type="button" id="rnrd-verify-dfs" class="button button-secondary">
 									<?php esc_html_e( 'Verify DataForSEO', 'rankready-ai-llm-seo' ); ?>
 								</button>
-								<span id="rnrd-verify-dfs-status" class="rnrd-verify-row__status"></span>
 							</div>
+							<span id="rnrd-verify-dfs-status" class="rnrd-input-action-row__status"></span>
+							<p class="description"><?php esc_html_e( 'Your DataForSEO API password. Enter a new value to change.', 'rankready-ai-llm-seo' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -4114,16 +4070,6 @@ class RNRD_Admin {
 		// (rnrd_token_usage, rnrd_dfs_usage) and JS hooks (#rr-tokens-load,
 		// #rr-tokens-tbody, etc.) preserved verbatim from rc.5.
 		self::render_card_api_usage();
-		?>
-
-		<?php
-		// v1.1.0 — Cloudflare auto-fix card. Detects cf-ray header; if Cloudflare
-		// is fronting the site, offers a one-click Cache Rule that bypasses APO
-		// for AI markdown requests. Self-contained card (its own REST endpoint,
-		// not the Settings API form), so it sits below the API form.
-		if ( class_exists( 'RNRD_Cloudflare' ) ) {
-			RNRD_Cloudflare::render_card();
-		}
 		?>
 		<?php
 	}
@@ -4499,7 +4445,7 @@ class RNRD_Admin {
 									echo esc_html( sprintf( __( 'Disabled — %s handles Article schema.', 'rankready-ai-llm-seo' ), $seo_plugin ) );
 									?>
 								</p>
-								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_SCHEMA_ARTICLE ); ?>" value="on" />
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_SCHEMA_ARTICLE ); ?>" value="<?php echo esc_attr( $article ); ?>" />
 							<?php else : ?>
 								<p class="description" style="margin-top:4px;">
 									<?php esc_html_e( 'Injects Article JSON-LD on all published posts/pages. Includes headline, author, publisher, image, description, about (categories), mentions (tags).', 'rankready-ai-llm-seo' ); ?>
@@ -4688,6 +4634,7 @@ class RNRD_Admin {
 				RNRD_OPT_LLMS_CACHE_TTL,
 				RNRD_OPT_LLMS_FULL_ENABLE,
 				RNRD_OPT_LLMS_SHOW_CATEGORIES,
+				RNRD_OPT_LLMS_USE_MD_URLS,
 				RNRD_OPT_HIDE_BRANDING,
 			),
 			'markdown' => array(
@@ -4698,17 +4645,22 @@ class RNRD_Admin {
 				RNRD_OPT_MD_ACCEPT_NEGOTIATION,
 				RNRD_OPT_MD_BOT_AUTO_SERVE,
 			),
-			'webmcp'   => array(
-				RNRD_OPT_MCP_ENABLE,
-				RNRD_OPT_MCP_EXPOSE_POSTS,
-				RNRD_OPT_MCP_EXPOSE_PAGES,
-				RNRD_OPT_MCP_EXPOSE_AUTHORS,
-				RNRD_OPT_MCP_EXPOSE_TAXONOMIES,
-				RNRD_OPT_MCP_EXPOSE_SITEMAP,
-				RNRD_OPT_MCP_EXPOSE_MENUS,
-				RNRD_OPT_MCP_EXPOSE_LLMS_TXT,
-				RNRD_OPT_MCP_EXPOSE_RR_AI,
-				RNRD_OPT_MCP_EXPOSE_FRESHNESS,
+			// Expose toggles render only when WebMCP is already on; when off, preserve-hiddens must carry them so the first "Enable" save does not null them.
+			'webmcp'   => array_merge(
+				array( RNRD_OPT_MCP_ENABLE ),
+				'on' === (string) get_option( RNRD_OPT_MCP_ENABLE, 'off' )
+					? array(
+						RNRD_OPT_MCP_EXPOSE_POSTS,
+						RNRD_OPT_MCP_EXPOSE_PAGES,
+						RNRD_OPT_MCP_EXPOSE_AUTHORS,
+						RNRD_OPT_MCP_EXPOSE_TAXONOMIES,
+						RNRD_OPT_MCP_EXPOSE_SITEMAP,
+						RNRD_OPT_MCP_EXPOSE_MENUS,
+						RNRD_OPT_MCP_EXPOSE_LLMS_TXT,
+						RNRD_OPT_MCP_EXPOSE_RR_AI,
+						RNRD_OPT_MCP_EXPOSE_FRESHNESS,
+					)
+					: array()
 			),
 		);
 
@@ -4718,6 +4670,7 @@ class RNRD_Admin {
 			RNRD_OPT_LLMS_CACHE_TTL              => 3600,
 			RNRD_OPT_LLMS_FULL_ENABLE            => 'off',
 			RNRD_OPT_LLMS_SHOW_CATEGORIES        => 'on',
+			RNRD_OPT_LLMS_USE_MD_URLS            => 'on',
 			RNRD_OPT_HIDE_BRANDING               => 'off',
 			RNRD_OPT_ROBOTS_ENABLE               => 'on',
 			RNRD_OPT_MD_ENABLE                   => 'off',
@@ -5158,6 +5111,40 @@ class RNRD_Admin {
 							</td>
 						</tr>
 						<tr>
+							<th scope="row"><?php esc_html_e( 'Markdown URLs in links', 'rankready-ai-llm-seo' ); ?></th>
+							<td>
+								<?php
+								$md_enable   = (string) get_option( RNRD_OPT_MD_ENABLE, 'off' );
+								$use_md_urls = (string) get_option( RNRD_OPT_LLMS_USE_MD_URLS, 'on' );
+								?>
+								<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_LLMS_USE_MD_URLS ); ?>" value="<?php echo esc_attr( 'on' === $md_enable ? 'off' : $use_md_urls ); ?>" />
+								<label>
+									<input type="checkbox"
+										   name="<?php echo esc_attr( RNRD_OPT_LLMS_USE_MD_URLS ); ?>"
+										   value="on"
+										   <?php checked( $use_md_urls, 'on' ); ?>
+										   <?php disabled( 'on' !== $md_enable ); ?> />
+									<?php esc_html_e( 'Use .md URLs in post links', 'rankready-ai-llm-seo' ); ?>
+								</label>
+								<p class="description">
+									<?php esc_html_e( 'List /post-slug.md instead of the HTML page URL in llms.txt. Posts without a Markdown endpoint keep their normal URL.', 'rankready-ai-llm-seo' ); ?>
+								</p>
+								<?php if ( 'on' !== $md_enable ) : ?>
+									<p class="description">
+										<?php
+										echo wp_kses_post(
+											sprintf(
+												/* translators: %s: Markdown settings subtab URL */
+												__( 'Enable <a href="%s">Markdown Endpoints</a> first to use Markdown URLs in llms.txt links.', 'rankready-ai-llm-seo' ),
+												esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '&tab=crawlers&sub=markdown' ) )
+											)
+										);
+										?>
+									</p>
+								<?php endif; ?>
+							</td>
+						</tr>
+						<tr>
 							<th scope="row"><label for="rnrd_llms_max"><?php esc_html_e( 'Max Posts per Type', 'rankready-ai-llm-seo' ); ?></label></th>
 							<td>
 								<input type="number" id="rnrd_llms_max" name="<?php echo esc_attr( RNRD_OPT_LLMS_MAX_POSTS ); ?>"
@@ -5185,6 +5172,9 @@ class RNRD_Admin {
 										<?php endforeach; ?>
 									</fieldset>
 								<?php else : ?>
+									<?php foreach ( $exclude_cats as $cat_id ) : ?>
+										<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_LLMS_EXCLUDE_CATS ); ?>[]" value="<?php echo esc_attr( (string) (int) $cat_id ); ?>" />
+									<?php endforeach; ?>
 									<p class="description"><?php esc_html_e( 'No categories found.', 'rankready-ai-llm-seo' ); ?></p>
 								<?php endif; ?>
 								<p class="description"><?php esc_html_e( 'Posts in checked categories will be excluded from llms.txt. Useful for filtering out demo, test, or irrelevant content.', 'rankready-ai-llm-seo' ); ?></p>
@@ -5209,6 +5199,9 @@ class RNRD_Admin {
 										<?php endforeach; ?>
 									</fieldset>
 								<?php else : ?>
+									<?php foreach ( $exclude_tags as $tag_id ) : ?>
+										<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_LLMS_EXCLUDE_TAGS ); ?>[]" value="<?php echo esc_attr( (string) (int) $tag_id ); ?>" />
+									<?php endforeach; ?>
 									<p class="description"><?php esc_html_e( 'No tags found.', 'rankready-ai-llm-seo' ); ?></p>
 								<?php endif; ?>
 								<p class="description"><?php esc_html_e( 'Posts with checked tags will be excluded from llms.txt.', 'rankready-ai-llm-seo' ); ?></p>
@@ -5228,20 +5221,35 @@ class RNRD_Admin {
 						<tr>
 							<th scope="row"><label><?php esc_html_e( 'Cache Duration', 'rankready-ai-llm-seo' ); ?></label></th>
 							<td>
-								<select name="<?php echo esc_attr( RNRD_OPT_LLMS_CACHE_TTL ); ?>">
-									<?php $current_ttl = (int) get_option( RNRD_OPT_LLMS_CACHE_TTL, 3600 ); ?>
-									<?php foreach ( array(
-										900   => __( '15 minutes', 'rankready-ai-llm-seo' ),
-										3600  => __( '1 hour', 'rankready-ai-llm-seo' ),
-										21600 => __( '6 hours', 'rankready-ai-llm-seo' ),
-										86400 => __( '24 hours', 'rankready-ai-llm-seo' ),
-									) as $seconds => $label ) : ?>
-										<option value="<?php echo esc_attr( $seconds ); ?>" <?php selected( $current_ttl, $seconds ); ?>>
-											<?php echo esc_html( $label ); ?>
-										</option>
-									<?php endforeach; ?>
-								</select>
-								<p class="description"><?php esc_html_e( 'How long to cache the generated llms.txt output.', 'rankready-ai-llm-seo' ); ?></p>
+								<div class="rnrd-input-action-row">
+									<select name="<?php echo esc_attr( RNRD_OPT_LLMS_CACHE_TTL ); ?>">
+										<?php $current_ttl = (int) get_option( RNRD_OPT_LLMS_CACHE_TTL, 3600 ); ?>
+										<?php foreach ( array(
+											900   => __( '15 minutes', 'rankready-ai-llm-seo' ),
+											3600  => __( '1 hour', 'rankready-ai-llm-seo' ),
+											21600 => __( '6 hours', 'rankready-ai-llm-seo' ),
+											86400 => __( '24 hours', 'rankready-ai-llm-seo' ),
+										) as $seconds => $label ) : ?>
+											<option value="<?php echo esc_attr( $seconds ); ?>" <?php selected( $current_ttl, $seconds ); ?>>
+												<?php echo esc_html( $label ); ?>
+											</option>
+										<?php endforeach; ?>
+									</select>
+									<button
+										type="button"
+										class="button button-secondary"
+										id="rnrd-flush-llms-cache"
+										data-label-default="<?php echo esc_attr__( 'Clear cache', 'rankready-ai-llm-seo' ); ?>"
+										data-label-busy="<?php echo esc_attr__( 'Clearing…', 'rankready-ai-llm-seo' ); ?>"
+									><?php esc_html_e( 'Clear cache', 'rankready-ai-llm-seo' ); ?></button>
+								</div>
+								<span
+									id="rnrd-flush-status"
+									class="rnrd-input-action-row__status"
+									data-success-msg="<?php echo esc_attr__( 'Cache cleared.', 'rankready-ai-llm-seo' ); ?>"
+									aria-live="polite"
+								></span>
+								<p class="description"><?php esc_html_e( 'How long to cache the generated llms.txt output. Use Clear cache to rebuild /llms.txt and /llms-full.txt immediately.', 'rankready-ai-llm-seo' ); ?></p>
 							</td>
 						</tr>
 						<tr>
@@ -5620,6 +5628,12 @@ class RNRD_Admin {
 										</p>
 									<?php endif; ?>
 								</details>
+								<?php endif; ?>
+								<?php if ( empty( $rnrd_detected_cpts ) || ! ( function_exists( 'rnrd_is_pro' ) && rnrd_is_pro() ) ) : ?>
+									<?php foreach ( $rnrd_enabled_cpts as $rnrd_preserved_cpt ) : ?>
+										<?php if ( '' === (string) $rnrd_preserved_cpt ) { continue; } ?>
+										<input type="hidden" name="<?php echo esc_attr( RNRD_OPT_MCP_EXPOSE_CPTS ); ?>[]" value="<?php echo esc_attr( (string) $rnrd_preserved_cpt ); ?>" />
+									<?php endforeach; ?>
 								<?php endif; ?>
 
 								<p style="margin:0;padding:10px 12px;background:var(--rnrd-color-brand-soft,#f0f6fc);border-left:3px solid var(--rnrd-color-brand,#2271b1);border-radius:0 var(--rnrd-radius-md,6px) var(--rnrd-radius-md,6px) 0;font-size:11px;color:var(--rnrd-color-info-text,#135e96);line-height:1.5;">
@@ -6174,31 +6188,40 @@ class RNRD_Admin {
 		?>
 
 		<?php
-		// v1.0.22 — Cloudflare advisory. Renders ONLY when Cloudflare is actually
-		// in front of the site (cf-ray detected), so non-Cloudflare users never see
-		// noise. Plain-language explanation of how RankReady's Markdown + caching
-		// behave behind Cloudflare, and a clear reassurance that RankReady changes
-		// NOTHING in the user's Cloudflare configuration.
+		// Short pointer when Cloudflare is in front — full connect UI lives on
+		// Settings → Cloudflare so Advanced stays diagnostics-focused.
 		$rnrd_cf = class_exists( 'RNRD_Cloudflare' ) ? RNRD_Cloudflare::detect() : array( 'detected' => false );
 		if ( ! empty( $rnrd_cf['detected'] ) ) :
+			$rnrd_cf_url = add_query_arg(
+				array(
+					'page' => self::MENU_SLUG,
+					'tab'  => 'settings',
+					'sub'  => 'cloudflare',
+				),
+				admin_url( 'admin.php' )
+			);
 			?>
 			<div class="rnrd-card" id="rnrd-cf-advisory">
 				<h2 class="rnrd-card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
 					<?php esc_html_e( 'Cloudflare detected', 'rankready-ai-llm-seo' ); ?>
-					<span style="display:inline-block;background:var(--rnrd-color-success-bg,#d1ecdf);color:var(--rnrd-color-success-text,#0a6c39);font-size:10px;font-weight:700;padding:2px 9px;border-radius:9999px;text-transform:uppercase;letter-spacing:.04em;"><?php esc_html_e( 'No action needed', 'rankready-ai-llm-seo' ); ?></span>
+					<span style="display:inline-block;background:var(--rnrd-color-success-bg,#d1ecdf);color:var(--rnrd-color-success-text,#0a6c39);font-size:10px;font-weight:700;padding:2px 9px;border-radius:9999px;text-transform:uppercase;letter-spacing:.04em;"><?php esc_html_e( 'Optional setup', 'rankready-ai-llm-seo' ); ?></span>
 				</h2>
-				<p class="rnrd-card-desc">
-					<?php esc_html_e( 'Your site is served through Cloudflare. Here is what that means for RankReady, in plain language:', 'rankready-ai-llm-seo' ); ?>
-				</p>
-				<ul style="margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.7;color:var(--rnrd-text-secondary,#3c434a);">
-					<li><strong><?php esc_html_e( 'RankReady sends Markdown with proper cache headers.', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'Every /post.md is served as public, cacheable content, so browsers and standard CDNs can store it. RankReady changes none of your Cloudflare settings — it only sets the right response headers.', 'rankready-ai-llm-seo' ); ?></li>
-					<li><strong><?php esc_html_e( 'Cloudflare will not cache .md on its own — and that is fine.', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'Cloudflare caches your HTML pages automatically, but it does not cache non-HTML files like .md unless you add a "Cache Everything" Cache Rule for /*.md. Without one, .md is served fresh from your origin: still fast, and always current (no stale Markdown). Adding that rule is optional.', 'rankready-ai-llm-seo' ); ?></li>
-					<li><strong><?php esc_html_e( 'If you use APO, one harmless quirk:', 'rankready-ai-llm-seo' ); ?></strong> <?php esc_html_e( 'An AI tool that asks for Markdown via the "Accept: text/markdown" header on a normal page URL may receive the cached HTML page instead, because Cloudflare APO ignores that header. This does not matter — AI tools fetch the /post.md URL, which always returns clean Markdown.', 'rankready-ai-llm-seo' ); ?></li>
-				</ul>
 				<p class="rnrd-card-desc" style="margin:0;">
 					<?php
-					/* translators: %s: Cloudflare ray id */
-					echo esc_html( sprintf( __( 'In short: point AI tools at your /post.md URLs (RankReady already advertises them on every page) — they work whether or not Cloudflare caches them. Detected via Cloudflare ray %s.', 'rankready-ai-llm-seo' ), (string) ( $rnrd_cf['ray'] ?? '—' ) ) );
+					echo wp_kses(
+						sprintf(
+							/* translators: 1: Cloudflare ray id, 2: opening anchor, 3: closing anchor */
+							__( 'Your site is served through Cloudflare (ray %1$s). Manage the Markdown cache-bypass rule under %2$sSettings → Cloudflare%3$s.', 'rankready-ai-llm-seo' ),
+							esc_html( (string) ( $rnrd_cf['ray'] ?? '—' ) ),
+							'<a href="' . esc_url( $rnrd_cf_url ) . '">',
+							'</a>'
+						),
+						array(
+							'a' => array(
+								'href' => true,
+							),
+						)
+					);
 					?>
 				</p>
 			</div>
@@ -6701,14 +6724,6 @@ class RNRD_Admin {
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
-	public static function get_allowed_models(): array {
-		return array(
-			'gpt-4o-mini'   => 'GPT-4o Mini -- fast & cheap (recommended)',
-			'gpt-4o'        => 'GPT-4o -- more powerful, higher cost',
-			'gpt-3.5-turbo' => 'GPT-3.5 Turbo -- legacy',
-		);
-	}
-
 	/**
 	 * Hard-exclude list shared by all post-type pickers in the plugin.
 	 *
@@ -6972,5 +6987,169 @@ class RNRD_Admin {
 			esc_html( $label ),
 			esc_html__( 'enabled. Scroll down to configure.', 'rankready-ai-llm-seo' )
 		);
+	}
+
+	/**
+	 * Translatable strings for assets/metabox.js.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function metabox_js_i18n(): array {
+		return array(
+			'generate'         => __( 'Generate Summary', 'rankready-ai-llm-seo' ),
+			'regenerate'       => __( 'Regenerate Summary', 'rankready-ai-llm-seo' ),
+			'generating'       => __( 'Generating Summary…', 'rankready-ai-llm-seo' ),
+			'regenerating'     => __( 'Regenerating Summary…', 'rankready-ai-llm-seo' ),
+			'generateFaq'      => __( 'Generate FAQ', 'rankready-ai-llm-seo' ),
+			'regenerateFaq'    => __( 'Regenerate FAQ', 'rankready-ai-llm-seo' ),
+			'generatingFaq'    => __( 'Generating FAQ…', 'rankready-ai-llm-seo' ),
+			'regeneratingFaq'  => __( 'Regenerating FAQ…', 'rankready-ai-llm-seo' ),
+			/* translators: %d: seconds until regeneration is allowed */
+			'regenIn'          => __( 'Regenerate available in %ds.', 'rankready-ai-llm-seo' ),
+			/* translators: %d: seconds until regeneration is allowed */
+			'regenInShort'     => __( 'You can regenerate again in %ds.', 'rankready-ai-llm-seo' ),
+			'failed'           => __( 'Generation failed.', 'rankready-ai-llm-seo' ),
+			'saveFirst'        => __( 'Save the post first, then generate.', 'rankready-ai-llm-seo' ),
+			'generatedJust'    => __( 'Summary generated just now.', 'rankready-ai-llm-seo' ),
+			'generatedFaqJust' => __( 'FAQ generated just now.', 'rankready-ai-llm-seo' ),
+			'deleteSummary'    => __( 'Delete summary', 'rankready-ai-llm-seo' ),
+			'deleteFaq'        => __( 'Delete FAQ', 'rankready-ai-llm-seo' ),
+			'deleting'         => __( 'Deleting…', 'rankready-ai-llm-seo' ),
+			'deletedSummary'   => __( 'Summary removed.', 'rankready-ai-llm-seo' ),
+			'deletedFaq'       => __( 'FAQ removed.', 'rankready-ai-llm-seo' ),
+			'deleteFailed'     => __( 'Could not delete. Try again.', 'rankready-ai-llm-seo' ),
+			'confirmSummary'   => __( 'Remove the generated summary for this post? It will no longer appear on the frontend, in Markdown, or in schema.', 'rankready-ai-llm-seo' ),
+			'confirmFaq'       => __( 'Remove the generated FAQ for this post? It will no longer appear on the frontend, in Markdown, or in schema.', 'rankready-ai-llm-seo' ),
+		);
+	}
+
+	/**
+	 * Translatable strings for assets/admin.js.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function admin_js_i18n(): array {
+		return array(
+		'modelsUpdatedOne'              => __( '1 model updated', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of models loaded */
+		'modelsUpdatedMany'             => __( '%d models updated', 'rankready-ai-llm-seo' ),
+		'minOnePostType'                => __( 'Select at least one post type.', 'rankready-ai-llm-seo' ),
+		'selectTargetAuthor'            => __( 'Select a target author (To).', 'rankready-ai-llm-seo' ),
+		'checking'                      => __( 'Checking…', 'rankready-ai-llm-seo' ),
+		'previewCount'                  => __( 'Preview Count', 'rankready-ai-llm-seo' ),
+		'running'                       => __( 'Running…', 'rankready-ai-llm-seo' ),
+		'starting'                      => __( 'Starting…', 'rankready-ai-llm-seo' ),
+		'resuming'                      => __( 'Resuming…', 'rankready-ai-llm-seo' ),
+		'execute'                       => __( 'Execute', 'rankready-ai-llm-seo' ),
+		'stopped'                       => __( 'Stopped.', 'rankready-ai-llm-seo' ),
+		'unknownError'                  => __( 'Unknown error', 'rankready-ai-llm-seo' ),
+		'previewRequestFailed'          => __( 'Preview request failed.', 'rankready-ai-llm-seo' ),
+		'failedToStart'                 => __( 'Failed to start.', 'rankready-ai-llm-seo' ),
+		'requestFailed'                 => __( 'Request failed.', 'rankready-ai-llm-seo' ),
+		'noMatchingPosts'               => __( 'No matching posts found.', 'rankready-ai-llm-seo' ),
+		'noPublishedPosts'              => __( 'No published posts found.', 'rankready-ai-llm-seo' ),
+		'loading'                       => __( 'Loading…', 'rankready-ai-llm-seo' ),
+		'refreshing'                    => __( 'Refreshing…', 'rankready-ai-llm-seo' ),
+		'verifying'                     => __( 'Verifying…', 'rankready-ai-llm-seo' ),
+		'verifyKey'                     => __( 'Verify Key', 'rankready-ai-llm-seo' ),
+		'verifyDfs'                     => __( 'Verify DataForSEO', 'rankready-ai-llm-seo' ),
+		'refreshList'                   => __( 'Refresh list', 'rankready-ai-llm-seo' ),
+		'couldNotRefreshModels'         => __( 'Could not refresh models.', 'rankready-ai-llm-seo' ),
+		'saving'                        => __( 'Saving…', 'rankready-ai-llm-seo' ),
+		'saved'                         => __( 'Saved ✓', 'rankready-ai-llm-seo' ),
+		'saveFailed'                    => __( 'Save failed', 'rankready-ai-llm-seo' ),
+		'notSavedReload'                => __( 'Not saved — reload page', 'rankready-ai-llm-seo' ),
+		'clearCache'                    => __( 'Clear cache', 'rankready-ai-llm-seo' ),
+		'clearing'                      => __( 'Clearing…', 'rankready-ai-llm-seo' ),
+		'cacheCleared'                  => __( 'Cache cleared.', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: completed count, %2$d: total count, %3$d: percent complete */
+		'postsUpdatedProgress'          => __( '%1$d / %2$d posts updated (%3$d%%)', 'rankready-ai-llm-seo' ),
+		'postsReassignedOne'            => __( 'Done! 1 post reassigned.', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of posts reassigned */
+		'postsReassignedMany'           => __( 'Done! %d posts reassigned.', 'rankready-ai-llm-seo' ),
+		'retryIn3s'                     => __( 'Request failed — retrying in 3s…', 'rankready-ai-llm-seo' ),
+		'retryIn5s'                     => __( 'Request failed — retrying in 5s…', 'rankready-ai-llm-seo' ),
+		'confirmReassignAuthors'        => __( 'This will permanently reassign post authors. Continue?', 'rankready-ai-llm-seo' ),
+		'errorPrefix'                   => __( 'Error:', 'rankready-ai-llm-seo' ),
+		'refreshListBtn'                => __( 'Refresh List', 'rankready-ai-llm-seo' ),
+		'loadFaqPosts'                  => __( 'Load FAQ Posts', 'rankready-ai-llm-seo' ),
+		'noFaqPosts'                    => __( 'No posts with FAQ found.', 'rankready-ai-llm-seo' ),
+		'faqPostsOne'                   => __( '1 post with FAQ', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of posts */
+		'faqPostsMany'                  => __( '%d posts with FAQ', 'rankready-ai-llm-seo' ),
+		'failedToLoad'                  => __( 'Failed to load.', 'rankready-ai-llm-seo' ),
+		'editFaq'                       => __( 'Edit FAQ', 'rankready-ai-llm-seo' ),
+		'editPost'                      => __( 'Edit Post', 'rankready-ai-llm-seo' ),
+		'edit'                          => __( 'Edit', 'rankready-ai-llm-seo' ),
+		'view'                          => __( 'View', 'rankready-ai-llm-seo' ),
+		/* translators: %s: post title */
+		'editFaqTitle'                  => __( 'Edit FAQ — %s', 'rankready-ai-llm-seo' ),
+		'saveChanges'                   => __( 'Save Changes', 'rankready-ai-llm-seo' ),
+		'remove'                        => __( 'Remove', 'rankready-ai-llm-seo' ),
+		'noFaqData'                     => __( 'No FAQ data found.', 'rankready-ai-llm-seo' ),
+		'savedExclaim'                  => __( 'Saved!', 'rankready-ai-llm-seo' ),
+		'refreshDetails'                => __( 'Refresh Details', 'rankready-ai-llm-seo' ),
+		'loadPerPostDetails'            => __( 'Load Per-Post Details', 'rankready-ai-llm-seo' ),
+		'noTokenUsage'                  => __( 'No token usage recorded yet.', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: post count, %2$s: formatted token total */
+		'tokenUsageSummary'             => __( '%1$d posts | %2$s total tokens', 'rankready-ai-llm-seo' ),
+		/* translators: %s: formatted token total */
+		'tokenUsageOne'                 => __( '1 post | %s total tokens', 'rankready-ai-llm-seo' ),
+		'refreshLog'                    => __( 'Refresh Log', 'rankready-ai-llm-seo' ),
+		'loadErrorLog'                  => __( 'Load Error Log', 'rankready-ai-llm-seo' ),
+		'noErrorsLogged'                => __( 'No errors logged.', 'rankready-ai-llm-seo' ),
+		'logCleared'                    => __( 'Log cleared.', 'rankready-ai-llm-seo' ),
+		'errorsOne'                     => __( '1 error', 'rankready-ai-llm-seo' ),
+		/* translators: %d: error count */
+		'errorsMany'                    => __( '%d errors', 'rankready-ai-llm-seo' ),
+		'startOverBulk'                 => __( 'Start Over — Bulk Regenerate', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: done count, %2$d: total count */
+		'bulkRegenDone'                 => __( 'Done! %1$d/%2$d posts regenerated.', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: done count, %2$d: total count, %3$d: percent */
+		'bulkProgress'                  => __( '%1$d / %2$d (%3$d%%)', 'rankready-ai-llm-seo' ),
+		'freshnessStaleEmpty'           => __( 'No stale posts. Every published post has been touched within the last 60 days.', 'rankready-ai-llm-seo' ),
+		'freshnessGoingStaleEmpty'      => __( 'Nothing in the 30–60 day window. Plenty of time before any post goes stale.', 'rankready-ai-llm-seo' ),
+		'freshnessFreshEmpty'           => __( 'Newly published or refreshed content shows up here.', 'rankready-ai-llm-seo' ),
+		'noTitle'                       => __( '(no title)', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of posts */
+		'freshnessRefreshing'           => __( 'Refreshing %d post(s)…', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of posts refreshed */
+		'freshnessRefreshed'            => __( 'Refreshed %d post(s). Reloading…', 'rankready-ai-llm-seo' ),
+		'refreshFailed'                 => __( 'Refresh failed.', 'rankready-ai-llm-seo' ),
+		'cfTokenRequired'               => __( 'A Cloudflare API token is required.', 'rankready-ai-llm-seo' ),
+		'cfConnecting'                  => __( 'Connecting…', 'rankready-ai-llm-seo' ),
+		'cfRuleCreated'                 => __( 'Rule created. Reloading…', 'rankready-ai-llm-seo' ),
+		'cfConnectFailed'               => __( 'Failed to connect.', 'rankready-ai-llm-seo' ),
+		'cfNetworkError'                => __( 'Network error.', 'rankready-ai-llm-seo' ),
+		'cfDisconnectConfirm'           => __( 'Remove the Cloudflare cache rule? AI markdown requests will hit APO again.', 'rankready-ai-llm-seo' ),
+		'runDiagnostics'                => __( 'Run Diagnostics', 'rankready-ai-llm-seo' ),
+		'probingEndpoints'              => __( 'Probing endpoints…', 'rankready-ai-llm-seo' ),
+		'noResults'                     => __( 'No results.', 'rankready-ai-llm-seo' ),
+		'diagnosticsCompleted'          => __( 'Completed.', 'rankready-ai-llm-seo' ),
+		'copiedToClipboard'             => __( 'Copied to clipboard', 'rankready-ai-llm-seo' ),
+		'copyFailedManual'              => __( 'Copy failed — select text manually from preview below.', 'rankready-ai-llm-seo' ),
+		'reportGenerationFailed'        => __( 'Report generation failed. Please try again.', 'rankready-ai-llm-seo' ),
+		'fixLabel'                      => __( 'Fix:', 'rankready-ai-llm-seo' ),
+		'scanContentFreshness'          => __( 'Scan Content Freshness', 'rankready-ai-llm-seo' ),
+		'scanning'                      => __( 'Scanning…', 'rankready-ai-llm-seo' ),
+		'allContentFresh'               => __( 'All content is fresh.', 'rankready-ai-llm-seo' ),
+		/* translators: %1$d: completed count, %2$d: total count */
+		'stoppedAtProgress'             => __( 'Stopped at %1$d / %2$d.', 'rankready-ai-llm-seo' ),
+		/* translators: %d: remaining queue count */
+		'queueRemainingResume'          => __( '%d remaining — click Resume to continue.', 'rankready-ai-llm-seo' ),
+		'freshnessKpiLabel'             => __( 'Content fresh', 'rankready-ai-llm-seo' ),
+		'freshnessKpiPeriod'            => __( 'Share of catalog', 'rankready-ai-llm-seo' ),
+		/* translators: %d: day threshold */
+		'freshnessKpiFoot'              => __( 'last modified within %d days', 'rankready-ai-llm-seo' ),
+		'stalePostsLabel'               => __( 'Stale posts', 'rankready-ai-llm-seo' ),
+		/* translators: %d: day threshold */
+		'stalePostsPeriod'              => __( 'Over %d days old', 'rankready-ai-llm-seo' ),
+		'stalePostsFoot'                => __( 'needs a refresh for AI citations', 'rankready-ai-llm-seo' ),
+		'totalPublishedLabel'           => __( 'Total published', 'rankready-ai-llm-seo' ),
+		'totalPublishedPeriod'          => __( 'All post types', 'rankready-ai-llm-seo' ),
+		'totalPublishedFoot'            => __( 'indexed for freshness scan', 'rankready-ai-llm-seo' ),
+		/* translators: %d: number of stale posts */
+		'stalePostsFound'               => __( '%d stale posts found (showing top 50)', 'rankready-ai-llm-seo' ),
+	);
 	}
 }

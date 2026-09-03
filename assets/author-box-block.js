@@ -27,6 +27,8 @@
 	var useSelect         = wp.data.useSelect;
 
 	var rrData = window.rnrdBlockData || { defaults: {}, users: [] };
+	var i18n   = window.rnrdI18n.bind( rrData.i18n || {} );
+	var t      = i18n.t;
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 	function colorControl( label, value, onChange, help ) {
@@ -42,7 +44,7 @@
 	 */
 	function useGlobalFonts() {
 		return useMemo( function () {
-			var opts = [ { label: '— Theme default —', value: '' } ];
+			var opts = [ { label: t( 'themeDefault', '— Theme default —' ), value: '' } ];
 			try {
 				var settings = wp.data.select( 'core/block-editor' ).getSettings();
 				var tree = settings && settings.__experimentalFeatures && settings.__experimentalFeatures.typography && settings.__experimentalFeatures.typography.fontFamilies;
@@ -83,7 +85,7 @@
 
 	function fontWeightOptions() {
 		return [
-			{ label: '— Inherit —', value: '' },
+			{ label: t( 'inherit', '— Inherit —' ), value: '' },
 			{ label: '100 Thin', value: '100' },
 			{ label: '200 Extra Light', value: '200' },
 			{ label: '300 Light', value: '300' },
@@ -98,28 +100,28 @@
 
 	function typographyPanel( title, prefix, attrs, setAttrs, fontOptions, extra ) {
 		return el( PanelBody, { title: title, initialOpen: false },
-			colorControl( 'Color', attrs[ prefix + 'Color' ], function ( v ) {
+			colorControl( t( 'color', 'Color' ), attrs[ prefix + 'Color' ], function ( v ) {
 				var patch = {}; patch[ prefix + 'Color' ] = v; setAttrs( patch );
 			} ),
 			el( SelectControl, {
-				label: 'Font Family',
-				help: 'Pulls from your theme.json fonts (Kadence, or any block theme). Leave blank to inherit.',
+				label: t( 'fontFamily', 'Font Family' ),
+				help: t( 'fontFamilyHelp', 'Pulls from your theme.json fonts (Kadence, or any block theme). Leave blank to inherit.' ),
 				value: attrs[ prefix + 'FontFamily' ] || '',
 				options: fontOptions,
 				onChange: function ( v ) { var p = {}; p[ prefix + 'FontFamily' ] = v; setAttrs( p ); },
 				__nextHasNoMarginBottom: true,
 			} ),
 			el( SelectControl, {
-				label: 'Font Weight',
-				help: 'Leave blank to inherit from the theme.',
+				label: t( 'fontWeight', 'Font Weight' ),
+				help: t( 'fontWeightHelp', 'Leave blank to inherit from the theme.' ),
 				value: attrs[ prefix + 'FontWeight' ] || '',
 				options: fontWeightOptions(),
 				onChange: function ( v ) { var p = {}; p[ prefix + 'FontWeight' ] = v; setAttrs( p ); },
 				__nextHasNoMarginBottom: true,
 			} ),
 			el( RangeControl, {
-				label: 'Font Size (px)',
-				help: '0 = inherit from theme',
+				label: t( 'fontSizePx', 'Font Size (px)' ),
+				help: t( 'zeroInheritTheme', '0 = inherit from theme' ),
 				value: attrs[ prefix + 'FontSize' ] || 0,
 				onChange: function ( v ) { var p = {}; p[ prefix + 'FontSize' ] = v; setAttrs( p ); },
 				min: 0, max: 60, step: 1,
@@ -253,10 +255,10 @@
 			} );
 
 			var HeadingTag = attrs.headingTag || 'h3';
-			var headingText = attrs.headingText || ( rrData.defaults && rrData.defaults.authorHeading ) || 'About the Author';
+			var headingText = attrs.headingText || ( rrData.defaults && rrData.defaults.authorHeading ) || t( 'aboutTheAuthor', 'About the Author' );
 
 			// Build users dropdown.
-			var userOptions = [ { label: '— Current post author —', value: 0 } ];
+			var userOptions = [ { label: t( 'authorPostOption', '— Current post author —' ), value: 0 } ];
 			if ( Array.isArray( rrData.users ) ) {
 				rrData.users.forEach( function ( u ) {
 					userOptions.push( { label: u.name + ' (#' + u.id + ')', value: u.id } );
@@ -269,21 +271,21 @@
 				el( InspectorControls, null,
 
 					// Content
-					el( PanelBody, { title: 'Content', initialOpen: true },
+					el( PanelBody, { title: t( 'panelContent', 'Content' ), initialOpen: true },
 						el( SelectControl, {
-							label: 'Author Source',
-							help: 'Defaults to the post author. Use "Specific" to pin a specific user (e.g. on a landing page).',
+							label: t( 'authorSource', 'Author Source' ),
+							help: t( 'authorSourceHelp', 'Defaults to the post author. Use "Specific" to pin a specific user (e.g. on a landing page).' ),
 							value: attrs.authorSource || 'post',
 							options: [
-								{ label: 'Current post author', value: 'post' },
-								{ label: 'Specific author', value: 'specific' },
+								{ label: t( 'authorPost', 'Current post author' ), value: 'post' },
+								{ label: t( 'authorSpecific', 'Specific author' ), value: 'specific' },
 							],
 							onChange: function ( v ) { setAttrs( { authorSource: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 						attrs.authorSource === 'specific' && el( SelectControl, {
-							label: 'Author',
-							help: 'Pick the user whose RankReady Author Box data should render here.',
+							label: t( 'authorPick', 'Author' ),
+							help: t( 'authorPickHelp', 'Pick the user whose RankReady Author Box data should render here.' ),
 							value: attrs.authorId || 0,
 							options: userOptions,
 							onChange: function ( v ) { setAttrs( { authorId: parseInt( v, 10 ) || 0 } ); },
@@ -291,35 +293,35 @@
 						} ),
 
 						el( SelectControl, {
-							label: 'Layout',
-							help: 'Card = full end-of-article box. Compact = sidebar-ready. Inline = minimal byline row.',
+							label: t( 'layout', 'Layout' ),
+							help: t( 'layoutHelp', 'Card = full end-of-article box. Compact = sidebar-ready. Inline = minimal byline row.' ),
 							value: attrs.layout || 'card',
 							options: [
-								{ label: 'Card (full box)', value: 'card' },
-								{ label: 'Compact', value: 'compact' },
-								{ label: 'Inline byline', value: 'inline' },
+								{ label: t( 'layoutCard', 'Card (full box)' ), value: 'card' },
+								{ label: t( 'layoutCompact', 'Compact' ), value: 'compact' },
+								{ label: t( 'layoutInline', 'Inline byline' ), value: 'inline' },
 							],
 							onChange: function ( v ) { setAttrs( { layout: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						attrs.layout !== 'inline' && el( ToggleControl, {
-							label: 'Show heading',
+							label: t( 'showHeading', 'Show heading' ),
 							checked: attrs.showHeading,
 							onChange: function ( v ) { setAttrs( { showHeading: v } ); },
-							help: 'Headline above the box. Hidden automatically in inline layout.',
+							help: t( 'showHeadingHelp', 'Headline above the box. Hidden automatically in inline layout.' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 						attrs.layout !== 'inline' && attrs.showHeading && el( TextControl, {
-							label: 'Heading text',
+							label: t( 'headingText', 'Heading text' ),
 							value: attrs.headingText,
 							placeholder: headingText,
-							help: 'Leave blank to use site default.',
+							help: t( 'headingBlankDefault', 'Leave blank to use site default.' ),
 							onChange: function ( v ) { setAttrs( { headingText: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 						attrs.layout !== 'inline' && attrs.showHeading && el( SelectControl, {
-							label: 'Heading tag',
+							label: t( 'headingTag', 'Heading tag' ),
 							value: attrs.headingTag || 'h3',
 							options: [
 								{ label: 'H2', value: 'h2' }, { label: 'H3', value: 'h3' },
@@ -333,17 +335,17 @@
 					),
 
 					// Visible Fields
-					el( PanelBody, { title: 'Visible Fields', initialOpen: false },
+					el( PanelBody, { title: t( 'panelVisibleFields', 'Visible Fields' ), initialOpen: false },
 						[
-							[ 'showHeadshot',    'Headshot' ],
-							[ 'showJobTitle',    'Job Title' ],
-							[ 'showEmployer',    'Employer' ],
-							[ 'showYearsExp',    'Years of Experience' ],
-							[ 'showBio',         'Bio' ],
-							[ 'showExpertise',   'Topics of Expertise' ],
-							[ 'showCredentials', 'Credentials (Education + Certs)' ],
-							[ 'showSocials',     'Social Links' ],
-							[ 'showReviewed',    'Reviewed-By / Last Reviewed' ],
+							[ 'showHeadshot',    t( 'fieldHeadshot', 'Headshot' ) ],
+							[ 'showJobTitle',    t( 'fieldJobTitle', 'Job Title' ) ],
+							[ 'showEmployer',    t( 'fieldEmployer', 'Employer' ) ],
+							[ 'showYearsExp',    t( 'fieldYearsExp', 'Years of Experience' ) ],
+							[ 'showBio',         t( 'fieldBio', 'Bio' ) ],
+							[ 'showExpertise',   t( 'fieldExpertise', 'Topics of Expertise' ) ],
+							[ 'showCredentials', t( 'fieldCredentials', 'Credentials (Education + Certs)' ) ],
+							[ 'showSocials',     t( 'fieldSocials', 'Social Links' ) ],
+							[ 'showReviewed',    t( 'fieldReviewed', 'Reviewed-By / Last Reviewed' ) ],
 						].map( function ( row, i ) {
 							return el( ToggleControl, {
 								key: i,
@@ -356,18 +358,18 @@
 					),
 
 					// Box Style
-					el( PanelBody, { title: 'Box Style', initialOpen: false },
-						colorControl( 'Background', attrs.boxBgColor, function ( v ) { setAttrs( { boxBgColor: v } ); } ),
-						colorControl( 'Border Color', attrs.boxBorderColor, function ( v ) { setAttrs( { boxBorderColor: v } ); } ),
+					el( PanelBody, { title: t( 'panelBoxStyle', 'Box Style' ), initialOpen: false },
+						colorControl( t( 'background', 'Background' ), attrs.boxBgColor, function ( v ) { setAttrs( { boxBgColor: v } ); } ),
+						colorControl( t( 'borderColor', 'Border Color' ), attrs.boxBorderColor, function ( v ) { setAttrs( { boxBorderColor: v } ); } ),
 						el( RangeControl, {
-							label: 'Border Radius (px)',
+							label: t( 'borderRadiusPx', 'Border Radius (px)' ),
 							value: attrs.boxBorderRadius || 0,
 							onChange: function ( v ) { setAttrs( { boxBorderRadius: v } ); },
 							min: 0, max: 40, step: 1,
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( RangeControl, {
-							label: 'Padding (px)',
+							label: t( 'paddingPx', 'Padding (px)' ),
 							value: attrs.boxPadding || 0,
 							onChange: function ( v ) { setAttrs( { boxPadding: v } ); },
 							min: 0, max: 60, step: 2,
@@ -376,13 +378,13 @@
 					),
 
 					// Typography panels (shared pattern).
-					typographyPanel( 'Heading Style', 'heading', attrs, setAttrs, fontOptions ),
-					typographyPanel( 'Name Style',    'name',    attrs, setAttrs, fontOptions ),
-					typographyPanel( 'Meta Style (job title / employer)', 'meta', attrs, setAttrs, fontOptions ),
-					typographyPanel( 'Bio Style',     'bio',     attrs, setAttrs, fontOptions,
+					typographyPanel( t( 'typographyHeading', 'Heading Style' ), 'heading', attrs, setAttrs, fontOptions ),
+					typographyPanel( t( 'typographyName', 'Name Style' ),    'name',    attrs, setAttrs, fontOptions ),
+					typographyPanel( t( 'typographyMeta', 'Meta Style (job title / employer)' ), 'meta', attrs, setAttrs, fontOptions ),
+					typographyPanel( t( 'typographyBio', 'Bio Style' ),     'bio',     attrs, setAttrs, fontOptions,
 						el( RangeControl, {
-							label: 'Line Height',
-							help: '0 = inherit from theme',
+							label: t( 'lineHeight', 'Line Height' ),
+							help: t( 'zeroInheritTheme', '0 = inherit from theme' ),
 							value: attrs.bioLineHeight || 0,
 							onChange: function ( v ) { setAttrs( { bioLineHeight: v } ); },
 							min: 0, max: 3, step: 0.05,
@@ -391,34 +393,34 @@
 					),
 
 					// Image Style
-					el( PanelBody, { title: 'Headshot Style', initialOpen: false },
+					el( PanelBody, { title: t( 'panelHeadshotStyle', 'Headshot Style' ), initialOpen: false },
 						el( RangeControl, {
-							label: 'Size (px)',
+							label: t( 'imageSizePx', 'Size (px)' ),
 							value: attrs.imageSize || 0,
 							onChange: function ( v ) { setAttrs( { imageSize: v } ); },
 							min: 0, max: 200, step: 2,
-							help: '0 = use layout default (card: 96px, compact: 64px)',
+							help: t( 'imageSizeHelp', '0 = use layout default (card: 96px, compact: 64px)' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( RangeControl, {
-							label: 'Border Radius (px)',
+							label: t( 'borderRadiusPx', 'Border Radius (px)' ),
 							value: attrs.imageRadius || 0,
 							onChange: function ( v ) { setAttrs( { imageRadius: v } ); },
 							min: 0, max: 100, step: 1,
-							help: '100 = perfect circle',
+							help: t( 'imageRadiusHelp', '100 = perfect circle' ),
 							__nextHasNoMarginBottom: true,
 						} )
 					),
 
 					// Social Style
-					el( PanelBody, { title: 'Social Style', initialOpen: false },
-						colorControl( 'Color', attrs.socialColor, function ( v ) { setAttrs( { socialColor: v } ); } ),
+					el( PanelBody, { title: t( 'panelSocialStyle', 'Social Style' ), initialOpen: false },
+						colorControl( t( 'color', 'Color' ), attrs.socialColor, function ( v ) { setAttrs( { socialColor: v } ); } ),
 						el( RangeControl, {
-							label: 'Font Size (px)',
+							label: t( 'fontSizePx', 'Font Size (px)' ),
 							value: attrs.socialSize || 0,
 							onChange: function ( v ) { setAttrs( { socialSize: v } ); },
 							min: 0, max: 24, step: 1,
-							help: '0 = inherit',
+							help: t( 'zeroInherit', '0 = inherit' ),
 							__nextHasNoMarginBottom: true,
 						} )
 					)
@@ -427,7 +429,7 @@
 				// ── Editor Preview ──────────────────────────────────────
 				el( 'div', blockProps,
 					! author && el( Notice, { status: 'info', isDismissible: false },
-						'Loading author…'
+						t( 'loadingAuthor', 'Loading author…' )
 					),
 
 					author && el( 'div', { className: 'rnrd-ab-preview' },
@@ -452,7 +454,7 @@
 									} )
 								),
 								el( 'p', { style: { fontSize: '11px', opacity: 0.55, fontStyle: 'italic', margin: '8px 0 0' } },
-									'Live render (socials, credentials, reviewed-by) appears on the front end.'
+									t( 'authorPreviewNote', 'Live render (socials, credentials, reviewed-by) appears on the front end.' )
 								)
 							)
 						)

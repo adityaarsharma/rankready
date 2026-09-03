@@ -562,10 +562,13 @@ class RNRD_Author_Box {
 		wp_enqueue_script(
 			'rnrd-author-profile',
 			RNRD_URL . 'assets/author-profile.js',
-			array(),
+			array( 'rnrd-i18n' ),
 			RNRD_VERSION,
 			true
 		);
+		wp_localize_script( 'rnrd-author-profile', 'rnrdAuthorProfile', array(
+			'i18n' => self::profile_js_i18n(),
+		) );
 	}
 
 	private static function render_repeater_rows( array $rows, array $field_labels ): void {
@@ -1462,5 +1465,17 @@ class RNRD_Author_Box {
 			'socialColor'       => array( 'type' => 'string',  'default' => '' ),
 			'socialSize'        => array( 'type' => 'number',  'default' => 0 ),
 		);
+	}
+
+	/**
+	 * Translatable strings for assets/author-profile.js.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function profile_js_i18n(): array {
+		return array(
+		'selectHeadshot' => __( 'Select Headshot', 'rankready-ai-llm-seo' ),
+		'useThisImage'   => __( 'Use this image', 'rankready-ai-llm-seo' ),
+	);
 	}
 }

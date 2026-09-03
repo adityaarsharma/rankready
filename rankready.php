@@ -3,7 +3,7 @@
  * Plugin Name:       RankReady – AI SEO, Schema, llms.txt, AEO and GEO for ChatGPT, Gemini and Perplexity
  * Plugin URI:        https://hostmy.blog/plugins/rankready/
  * Description:       Make your WordPress content readable by ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. AI summaries, FAQ schema, llms.txt, Markdown endpoints, agent discovery headers, WebMCP, and crawler controls — in one plugin.
- * Version:           1.3.0
+ * Version:           1.3.1
  * Requires at least: 6.9
  * Requires PHP:      7.4
  * Author:            HostMyBlog
@@ -91,7 +91,7 @@ if ( defined( 'RNRD_VERSION' ) ) {
 
 // ── Constants (guarded to prevent conflicts) ─────────────────────────────────
 if ( ! defined( 'RNRD_VERSION' ) ) {
-	define( 'RNRD_VERSION',  '1.3.0' );
+	define( 'RNRD_VERSION',  '1.3.1' );
 	define( 'RNRD_FILE',     __FILE__ );
 	define( 'RNRD_DIR',      plugin_dir_path( __FILE__ ) );
 	define( 'RNRD_URL',      plugin_dir_url( __FILE__ ) );
@@ -154,6 +154,7 @@ if ( ! defined( 'RNRD_VERSION' ) ) {
 	define( 'RNRD_OPT_LLMS_EXCLUDE_CATS',    'rnrd_llms_exclude_cats' );
 	define( 'RNRD_OPT_LLMS_EXCLUDE_TAGS',    'rnrd_llms_exclude_tags' );
 	define( 'RNRD_OPT_LLMS_SHOW_CATEGORIES', 'rnrd_llms_show_categories' );
+	define( 'RNRD_OPT_LLMS_USE_MD_URLS',     'rnrd_llms_use_md_urls' );
 
 	// Option keys — LLM Crawler robots.txt controls.
 	define( 'RNRD_OPT_ROBOTS_ENABLE',   'rnrd_robots_enable' );
@@ -617,6 +618,25 @@ add_action( 'plugins_loaded', function (): void {
 			update_option( 'rnrd_scorecard_corrected_v1121', 1, false );
 		}
 
+		// v1.3.1 — Seed llms .md-URL toggle: on for fresh installs, off for upgrades
+		// (silent-upgrade safety — do not change public /llms.txt output on update).
+		if ( false === get_option( RNRD_OPT_LLMS_USE_MD_URLS, false ) ) {
+			$md_urls_default = ( '' === $stored_version ) ? 'on' : 'off';
+			update_option( RNRD_OPT_LLMS_USE_MD_URLS, $md_urls_default, false );
+			if ( class_exists( 'RNRD_Llms_Txt' ) ) {
+				RNRD_Llms_Txt::bust_cache_and_purge_cdn();
+			}
+		}
+
+		// v1.3.1 — Drop legacy per-provider model-list transients (v4 keys and
+		// pre-fingerprint rows). Safe to re-run; only clears rnrd_models_* cache.
+		if ( '' !== $stored_version && version_compare( $stored_version, '1.3.1', '<' ) && ! get_option( 'rnrd_models_cache_migrated_v131' ) ) {
+			if ( class_exists( 'RNRD_LLM' ) ) {
+				RNRD_LLM::purge_models_cache();
+			}
+			update_option( 'rnrd_models_cache_migrated_v131', 1, false );
+		}
+
 		// v1.1.1 — One-shot UTF-8 rewrite of existing summary + FAQ post meta.
 		// Sites with non-Latin content (Turkish, CJK, Arabic, Hindi, Cyrillic,
 		// etc.) generated before 1.1.1 stored values as JSON with \uXXXX escapes
@@ -892,12 +912,25 @@ add_action( 'plugins_loaded', function (): void {
 		} );
 	}, 1 );
 
+	// Shared t/tr helpers for localized admin + block scripts.
+	add_action( 'init', function (): void {
+		if ( wp_script_is( 'rnrd-i18n', 'registered' ) ) {
+			return;
+		}
+		$path = RNRD_DIR . 'assets/rnrd-i18n.js';
+		$ver  = RNRD_VERSION;
+		if ( file_exists( $path ) ) {
+			$ver .= '.' . filemtime( $path );
+		}
+		wp_register_script( 'rnrd-i18n', RNRD_URL . 'assets/rnrd-i18n.js', array(), $ver, true );
+	}, 2 );
+
 	// v1.1.0 — Encrypts API secrets at rest. Must run BEFORE any class that
 	// reads RNRD_OPT_KEY / DataForSEO password, so the decryption filter is
 	// registered when the read happens.
 	RNRD_Crypto::init();
 
-	// v1.1.0 — Cloudflare auto-fix card (Settings tab) + REST endpoints for
+	// v1.1.0 — Cloudflare auto-fix (Settings → Cloudflare) + REST endpoints for
 	// connect / disconnect. Lives outside RNRD_Admin so the REST routes
 	// register on every admin AND front-end request.
 	RNRD_Cloudflare::init();
@@ -1079,6 +1112,9 @@ register_activation_hook( RNRD_FILE, function (): void {
 	// MCP enable and author auto-display are already seeded above.
 	if ( false === get_option( RNRD_OPT_AI_REFERRAL_ENABLE ) ) {
 		update_option( RNRD_OPT_AI_REFERRAL_ENABLE, 'on' );
+	}
+	if ( false === get_option( RNRD_OPT_LLMS_USE_MD_URLS ) ) {
+		update_option( RNRD_OPT_LLMS_USE_MD_URLS, 'on' );
 	}
 	if ( false === get_option( RNRD_OPT_LLMS_FULL_ENABLE ) ) {
 		update_option( RNRD_OPT_LLMS_FULL_ENABLE, 'off' );

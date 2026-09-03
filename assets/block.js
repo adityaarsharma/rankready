@@ -26,13 +26,18 @@
 	var useSelect         = wp.data.useSelect;
 	var apiFetch          = wp.apiFetch;
 
-	var defaults = ( window.rnrdBlockData && window.rnrdBlockData.defaults ) ? window.rnrdBlockData.defaults : {
+	var cfg  = window.rnrdBlockData || {};
+	var i18n = window.rnrdI18n.bind( cfg.i18n || {} );
+	var t    = i18n.t;
+	var tr   = i18n.tr;
+
+	var defaults = cfg.defaults || {
 		label: 'Key Takeaways', showLabel: true, headingTag: 'h4'
 	};
 
 	// ── Global fonts (theme.json → Nexter Theme / Nexter Blocks / Kadence / core) ─
 	function rnrdGlobalFontOptions() {
-		var opts = [ { label: '— Theme default —', value: '' } ];
+		var opts = [ { label: t( 'themeDefault', '— Theme default —' ), value: '' } ];
 		try {
 			var settings = wp.data.select( 'core/block-editor' ).getSettings();
 			var tree = settings && settings.__experimentalFeatures && settings.__experimentalFeatures.typography && settings.__experimentalFeatures.typography.fontFamilies;
@@ -58,7 +63,7 @@
 	}
 
 	var rnrdWeightOptions = [
-		{ label: '— Inherit —', value: '' },
+		{ label: t( 'inherit', '— Inherit —' ), value: '' },
 		{ label: '100 Thin', value: '100' },
 		{ label: '200 Extra Light', value: '200' },
 		{ label: '300 Light', value: '300' },
@@ -71,7 +76,7 @@
 	];
 
 	var rnrdTransformOptions = [
-		{ label: '— Inherit —', value: '' },
+		{ label: t( 'inherit', '— Inherit —' ), value: '' },
 		{ label: 'None', value: 'none' },
 		{ label: 'UPPERCASE', value: 'uppercase' },
 		{ label: 'lowercase', value: 'lowercase' },
@@ -205,7 +210,7 @@
 						setCooldown( 60 );
 					} )
 					.catch( function ( err ) {
-						var msg = ( err && err.message ) ? err.message : 'Generation failed.';
+						var msg = ( err && err.message ) ? err.message : t( 'generationFailed', 'Generation failed.' );
 						if ( err && err.code === 'rnrd_rate_limited' ) {
 							var seconds = parseInt( msg.match( /\d+/ ) );
 							if ( seconds ) setCooldown( seconds );
@@ -222,10 +227,8 @@
 			// whether the REST summary came back empty.
 			var hasSummary = summary.type !== 'empty';
 			var regenLabel = loading
-				? ( hasSummary ? 'Regenerating…' : 'Generating…' )
-				: cooldown > 0
-					? 'Wait ' + cooldown + 's'
-					: ( hasSummary ? 'Regenerate' : 'Generate' );
+				? ( hasSummary ? t( 'regenerating', 'Regenerating…' ) : t( 'generating', 'Generating…' ) )
+				: ( hasSummary ? t( 'regenerate', 'Regenerate' ) : t( 'generate', 'Generate' ) );
 
 			// Build preview styles
 			var boxStyle = {};
@@ -269,25 +272,25 @@
 				el( InspectorControls, null,
 
 					// Panel: Summary Settings
-					el( PanelBody, { title: 'Summary Settings', initialOpen: true },
+					el( PanelBody, { title: t( 'panelSummarySettings', 'Summary Settings' ), initialOpen: true },
 						el( ToggleControl, {
-							label: 'Show label',
+							label: t( 'showLabel', 'Show label' ),
 							checked: effectiveShowLabel,
 							onChange: function ( v ) { setAttrs( { showLabel: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						effectiveShowLabel && el( TextControl, {
-							label: 'Label text',
+							label: t( 'labelText', 'Label text' ),
 							value: effectiveLabel,
 							placeholder: defaults.label,
 							onChange: function ( v ) { setAttrs( { label: v } ); },
-							help: ! attrs.label ? '(Using global default)' : '',
+							help: ! attrs.label ? t( 'usingGlobalDefault', '(Using global default)' ) : '',
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						effectiveShowLabel && el( SelectControl, {
-							label: 'Label tag',
+							label: t( 'labelTag', 'Label tag' ),
 							value: effectiveTag,
 							options: [
 								{ label: 'H2', value: 'h2' }, { label: 'H3', value: 'h3' },
@@ -295,7 +298,7 @@
 								{ label: 'H6', value: 'h6' }, { label: 'P',  value: 'p'  },
 							],
 							onChange: function ( v ) { setAttrs( { headingTag: v } ); },
-							help: ! attrs.headingTag ? '(Global default: ' + defaults.headingTag + ')' : '',
+							help: ! attrs.headingTag ? tr( 'globalDefaultTag', '(Global default: %s)', defaults.headingTag ) : '',
 							__nextHasNoMarginBottom: true,
 						} ),
 
@@ -306,37 +309,40 @@
 								disabled: loading || cooldown > 0 || ! postId || ! hasKey,
 								onClick: handleRegenerate,
 								style: { width: '100%', justifyContent: 'center' },
-							}, regenLabel )
+							}, regenLabel ),
+							cooldown > 0 && el( 'p', { style: { color: '#757575', fontSize: '11px', margin: '8px 0 0' } },
+								tr( 'regenIn', 'Regenerate available in %ds.', cooldown )
+							)
 						),
 
 						! hasKey && el( 'p', { style: { color: '#d63638', fontSize: '12px', margin: '8px 0 0' } },
-							'API key missing \u2014 Settings \u2192 RankReady.'
+							t( 'apiKeyMissing', 'API key missing — Settings → RankReady.' )
 						),
 
 						el( 'p', { style: { color: '#757575', fontSize: '11px', margin: '8px 0 0', fontStyle: 'italic' } },
-							'Summary auto-generates on publish/update.'
+							t( 'summaryAutoGenerate', 'Summary auto-generates on publish/update.' )
 						)
 					),
 
 					// Panel: Box Style
-					el( PanelBody, { title: 'Box Style', initialOpen: false },
-						colorControl( 'Background Color', attrs.boxBgColor, function ( v ) { setAttrs( { boxBgColor: v } ); } ),
-						colorControl( 'Border Color', attrs.boxBorderColor, function ( v ) { setAttrs( { boxBorderColor: v } ); } ),
+					el( PanelBody, { title: t( 'panelBoxStyle', 'Box Style' ), initialOpen: false },
+						colorControl( t( 'bgColor', 'Background Color' ), attrs.boxBgColor, function ( v ) { setAttrs( { boxBgColor: v } ); } ),
+						colorControl( t( 'borderColor', 'Border Color' ), attrs.boxBorderColor, function ( v ) { setAttrs( { boxBorderColor: v } ); } ),
 
 						el( SelectControl, {
-							label: 'Border Position',
+							label: t( 'borderPosition', 'Border Position' ),
 							value: attrs.boxBorderPosition || 'left',
 							options: [
-								{ label: 'Left only', value: 'left' },
-								{ label: 'All sides', value: 'all' },
-								{ label: 'None', value: 'none' },
+								{ label: t( 'borderLeft', 'Left only' ), value: 'left' },
+								{ label: t( 'borderAll', 'All sides' ), value: 'all' },
+								{ label: t( 'borderNone', 'None' ), value: 'none' },
 							],
 							onChange: function ( v ) { setAttrs( { boxBorderPosition: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						el( RangeControl, {
-							label: 'Border Width',
+							label: t( 'borderWidth', 'Border Width' ),
 							value: attrs.boxBorderWidth || 3,
 							onChange: function ( v ) { setAttrs( { boxBorderWidth: v } ); },
 							min: 0, max: 10, step: 1,
@@ -344,7 +350,7 @@
 						} ),
 
 						el( RangeControl, {
-							label: 'Border Radius',
+							label: t( 'borderRadius', 'Border Radius' ),
 							value: attrs.boxBorderRadius || 0,
 							onChange: function ( v ) { setAttrs( { boxBorderRadius: v } ); },
 							min: 0, max: 30, step: 1,
@@ -352,22 +358,22 @@
 						} ),
 
 						el( RangeControl, {
-							label: 'Padding',
+							label: t( 'padding', 'Padding' ),
 							value: attrs.boxPadding || 0,
 							onChange: function ( v ) { setAttrs( { boxPadding: v } ); },
 							min: 0, max: 60, step: 2,
-							help: '0 = use default CSS',
+							help: t( 'zeroUseDefault', '0 = use default CSS' ),
 							__nextHasNoMarginBottom: true,
 						} )
 					),
 
 					// Panel: Label Style (full typography + global fonts)
-					effectiveShowLabel && el( PanelBody, { title: 'Label Style', initialOpen: false },
-						colorControl( 'Label Color', attrs.labelColor, function ( v ) { setAttrs( { labelColor: v } ); } ),
+					effectiveShowLabel && el( PanelBody, { title: t( 'panelLabelStyle', 'Label Style' ), initialOpen: false },
+						colorControl( t( 'labelColor', 'Label Color' ), attrs.labelColor, function ( v ) { setAttrs( { labelColor: v } ); } ),
 
 						el( SelectControl, {
-							label: 'Font Family',
-							help: 'Pulls from your theme.json fonts (Kadence, or any block theme). Leave blank to inherit from theme.',
+							label: t( 'fontFamily', 'Font Family' ),
+							help: t( 'fontFamilyHelp', 'Pulls from your theme.json fonts (Kadence, or any block theme). Leave blank to inherit from theme.' ),
 							value: attrs.labelFontFamily || '',
 							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { labelFontFamily: v } ); },
@@ -375,8 +381,8 @@
 						} ),
 
 						el( SelectControl, {
-							label: 'Font Weight',
-							help: 'Leave blank to inherit.',
+							label: t( 'fontWeight', 'Font Weight' ),
+							help: t( 'fontWeightHelp', 'Leave blank to inherit.' ),
 							value: attrs.labelFontWeight || '',
 							options: rnrdWeightOptions,
 							onChange: function ( v ) { setAttrs( { labelFontWeight: v } ); },
@@ -384,34 +390,34 @@
 						} ),
 
 						el( RangeControl, {
-							label: 'Font Size (px)',
+							label: t( 'fontSizePx', 'Font Size (px)' ),
 							value: attrs.labelFontSize || 0,
 							onChange: function ( v ) { setAttrs( { labelFontSize: v } ); },
 							min: 0, max: 48, step: 1,
-							help: '0 = inherit from theme',
+							help: t( 'zeroInheritTheme', '0 = inherit from theme' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						el( RangeControl, {
-							label: 'Line Height',
+							label: t( 'lineHeight', 'Line Height' ),
 							value: attrs.labelLineHeight || 0,
 							onChange: function ( v ) { setAttrs( { labelLineHeight: v } ); },
 							min: 0, max: 3, step: 0.05,
-							help: '0 = inherit',
+							help: t( 'zeroInherit', '0 = inherit' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						el( RangeControl, {
-							label: 'Letter Spacing (px)',
+							label: t( 'letterSpacingPx', 'Letter Spacing (px)' ),
 							value: attrs.labelLetterSpacing || 0,
 							onChange: function ( v ) { setAttrs( { labelLetterSpacing: v } ); },
 							min: -2, max: 10, step: 0.1,
-							help: '0 = inherit',
+							help: t( 'zeroInherit', '0 = inherit' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						el( SelectControl, {
-							label: 'Text Transform',
+							label: t( 'textTransform', 'Text Transform' ),
 							value: attrs.labelTextTransform || '',
 							options: rnrdTransformOptions,
 							onChange: function ( v ) { setAttrs( { labelTextTransform: v } ); },
@@ -420,13 +426,13 @@
 					),
 
 					// Panel: Bullets Style (full typography + global fonts)
-					el( PanelBody, { title: 'Bullets Style', initialOpen: false },
-						colorControl( 'Text Color', attrs.bulletColor, function ( v ) { setAttrs( { bulletColor: v } ); } ),
-						colorControl( 'Marker Color', attrs.bulletMarkerColor, function ( v ) { setAttrs( { bulletMarkerColor: v } ); } ),
+					el( PanelBody, { title: t( 'panelBulletsStyle', 'Bullets Style' ), initialOpen: false },
+						colorControl( t( 'textColor', 'Text Color' ), attrs.bulletColor, function ( v ) { setAttrs( { bulletColor: v } ); } ),
+						colorControl( t( 'markerColor', 'Marker Color' ), attrs.bulletMarkerColor, function ( v ) { setAttrs( { bulletMarkerColor: v } ); } ),
 
 						el( SelectControl, {
-							label: 'Font Family',
-							help: 'Pulls from your theme.json fonts. Leave blank to inherit from theme.',
+							label: t( 'fontFamily', 'Font Family' ),
+							help: t( 'fontFamilyHelpShort', 'Pulls from your theme.json fonts. Leave blank to inherit from theme.' ),
 							value: attrs.bulletFontFamily || '',
 							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { bulletFontFamily: v } ); },
@@ -434,7 +440,7 @@
 						} ),
 
 						el( SelectControl, {
-							label: 'Font Weight',
+							label: t( 'fontWeight', 'Font Weight' ),
 							value: attrs.bulletFontWeight || '',
 							options: rnrdWeightOptions,
 							onChange: function ( v ) { setAttrs( { bulletFontWeight: v } ); },
@@ -442,25 +448,25 @@
 						} ),
 
 						el( RangeControl, {
-							label: 'Font Size (px)',
+							label: t( 'fontSizePx', 'Font Size (px)' ),
 							value: attrs.bulletFontSize || 0,
 							onChange: function ( v ) { setAttrs( { bulletFontSize: v } ); },
 							min: 0, max: 24, step: 1,
-							help: '0 = inherit',
+							help: t( 'zeroInherit', '0 = inherit' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						el( RangeControl, {
-							label: 'Line Height',
+							label: t( 'lineHeight', 'Line Height' ),
 							value: attrs.bulletLineHeight || 0,
 							onChange: function ( v ) { setAttrs( { bulletLineHeight: v } ); },
 							min: 0, max: 3, step: 0.05,
-							help: '0 = inherit',
+							help: t( 'zeroInherit', '0 = inherit' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						el( RangeControl, {
-							label: 'Letter Spacing (px)',
+							label: t( 'letterSpacingPx', 'Letter Spacing (px)' ),
 							value: attrs.bulletLetterSpacing || 0,
 							onChange: function ( v ) { setAttrs( { bulletLetterSpacing: v } ); },
 							min: -2, max: 10, step: 0.1,
@@ -468,11 +474,11 @@
 						} ),
 
 						el( RangeControl, {
-							label: 'Space Between (px)',
+							label: t( 'spaceBetweenPx', 'Space Between (px)' ),
 							value: attrs.bulletSpacing || 0,
 							onChange: function ( v ) { setAttrs( { bulletSpacing: v } ); },
 							min: 0, max: 30, step: 1,
-							help: '0 = use default',
+							help: t( 'zeroUseDefaultBullet', '0 = use default' ),
 							__nextHasNoMarginBottom: true,
 						} )
 					)
@@ -490,7 +496,7 @@
 
 					loading
 						? el( 'div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
-							el( Spinner ), el( 'span', null, 'Generating...' )
+							el( Spinner ), el( 'span', null, t( 'generatingEllipsis', 'Generating…' ) )
 						)
 						: summary.type === 'bullets'
 							? el( 'ul', { className: 'rnrd-bullets' },
@@ -502,8 +508,8 @@
 								? el( 'p', { className: 'rnrd-text', style: bulletStyle }, summary.data )
 								: el( 'p', { style: { opacity: 0.5, fontStyle: 'italic', margin: 0 } },
 									! hasKey
-										? 'Add API key in Settings \u2192 RankReady.'
-										: 'Summary will appear here after you publish this post.'
+										? t( 'addApiKey', 'Add API key in Settings → RankReady.' )
+										: t( 'summaryAfterPublish', 'Summary will appear here after you publish this post.' )
 								)
 				)
 			);

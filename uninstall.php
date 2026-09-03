@@ -210,6 +210,7 @@ $rnrd_options = array(
 	'rnrd_llms_exclude_cats',
 	'rnrd_llms_exclude_tags',
 	'rnrd_llms_show_categories',
+	'rnrd_llms_use_md_urls',
 	// Robots.txt crawler settings.
 	'rnrd_robots_enable',
 	'rnrd_robots_crawlers',
@@ -288,6 +289,9 @@ foreach ( $rnrd_options as $rnrd_option ) {
 // ── Delete transients ─────────────────────────────────────────────────────────
 delete_transient( 'rnrd_llms_txt_cache' );
 delete_transient( 'rnrd_llms_full_txt_cache' );
+if ( class_exists( 'RNRD_LLM' ) ) {
+	RNRD_LLM::purge_models_cache();
+}
 
 // ── Delete post meta ──────────────────────────────────────────────────────────
 global $wpdb;

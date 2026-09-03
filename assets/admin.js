@@ -8,6 +8,9 @@
 
 	var nonce   = rnrdAdmin.nonce;
 	var apiBase = rnrdAdmin.apiBase;
+	var i18n    = window.rnrdI18n.bind( ( window.rnrdAdmin && window.rnrdAdmin.i18n ) || {} );
+	var t       = i18n.t;
+	var tr      = i18n.tr;
 
 	function rnrdFetch( path, method, body ) {
 		// Defensive URL construction — works whether the site uses pretty
@@ -87,11 +90,11 @@
 
 	function bacValidate( params ) {
 		if ( ! params.post_types.length ) {
-			alert( 'Select at least one post type.' );
+			alert( t( 'minOnePostType', 'Select at least one post type.' ) );
 			return false;
 		}
 		if ( ! params.to_author ) {
-			alert( 'Select a target author (To).' );
+			alert( t( 'selectTargetAuthor', 'Select a target author (To).' ) );
 			return false;
 		}
 		return true;
@@ -103,7 +106,7 @@
 			if ( ! bacValidate( params ) ) return;
 
 			bacPreview.disabled    = true;
-			bacPreview.textContent = 'Checking...';
+			bacPreview.textContent = t( 'checking', 'Checking…' );
 			if ( bacPrevResult ) bacPrevResult.style.display = 'none';
 			if ( bacDone ) bacDone.style.display = 'none';
 			bacExecute.disabled = true;
@@ -111,10 +114,10 @@
 			rnrdFetch( '/author/preview', 'POST', params )
 				.then( function ( data ) {
 					bacPreview.disabled    = false;
-					bacPreview.textContent = 'Preview Count';
+					bacPreview.textContent = t( 'previewCount', 'Preview Count' );
 
 					if ( data.code ) {
-						bacPrevResult.textContent  = 'Error: ' + ( data.message || 'Unknown error' );
+						bacPrevResult.textContent  = t( 'errorPrefix', 'Error:' ) + ' ' + ( data.message || t( 'unknownError', 'Unknown error' ) );
 						bacPrevResult.className    = 'rnrd-notice rnrd-notice--error';
 						bacPrevResult.style.display = 'block';
 						return;
@@ -127,8 +130,8 @@
 				} )
 				.catch( function () {
 					bacPreview.disabled    = false;
-					bacPreview.textContent = 'Preview Count';
-					bacPrevResult.textContent  = 'Preview request failed.';
+					bacPreview.textContent = t( 'previewCount', 'Preview Count' );
+					bacPrevResult.textContent  = t( 'previewRequestFailed', 'Preview request failed.' );
 					bacPrevResult.className    = 'rnrd-notice rnrd-notice--error';
 					bacPrevResult.style.display = 'block';
 				} );
@@ -137,26 +140,26 @@
 		bacExecute.addEventListener( 'click', function () {
 			var params = bacGetParams();
 			if ( ! bacValidate( params ) ) return;
-			if ( ! confirm( 'This will permanently reassign post authors. Continue?' ) ) return;
+			if ( ! confirm( t( 'confirmReassignAuthors', 'This will permanently reassign post authors. Continue?' ) ) ) return;
 
 			bacRunning              = true;
 			bacExecute.disabled     = true;
-			bacExecute.textContent  = 'Running...';
+			bacExecute.textContent  = t( 'running', 'Running…' );
 			bacPreview.disabled     = true;
 			bacStop.style.display   = 'inline-block';
 			bacProgress.style.display = 'block';
 			bacBar.style.width      = '0%';
-			bacStatus.textContent   = 'Starting...';
+			bacStatus.textContent   = t( 'starting', 'Starting…' );
 			if ( bacDone ) bacDone.style.display = 'none';
 
 			rnrdFetch( '/author/execute', 'POST', params )
 				.then( function ( data ) {
 					if ( data.code ) {
-						bacSetFinished( 'Error: ' + ( data.message || 'Unknown error' ) );
+						bacSetFinished( t( 'errorPrefix', 'Error:' ) + ' ' + ( ( data && data.message ) || t( 'unknownError', 'Unknown error' ) ) );
 						return;
 					}
 					if ( data.total === 0 ) {
-						bacDone.textContent   = 'No matching posts found.';
+						bacDone.textContent   = t( 'noMatchingPosts', 'No matching posts found.' );
 						bacDone.style.display = 'block';
 						bacSetFinished();
 						return;
@@ -165,14 +168,14 @@
 					bacProcessNext();
 				} )
 				.catch( function () {
-					bacSetFinished( 'Failed to start.' );
+					bacSetFinished( t( 'failedToStart', 'Failed to start.' ) );
 				} );
 		} );
 
 		bacStop.addEventListener( 'click', function () {
 			bacRunning = false;
 			rnrdFetch( '/author/stop', 'POST' );
-			bacStatus.textContent = 'Stopped.';
+			bacStatus.textContent = t( 'stopped', 'Stopped.' );
 			bacSetFinished();
 		} );
 	}
@@ -180,7 +183,7 @@
 	function bacUpdateProgress( data ) {
 		var pct = data.total > 0 ? Math.round( ( data.done / data.total ) * 100 ) : 0;
 		bacBar.style.width     = pct + '%';
-		bacStatus.textContent  = data.done + ' / ' + data.total + ' posts updated (' + pct + '%)';
+		bacStatus.textContent  = tr( 'postsUpdatedProgress', '%1$d / %2$d posts updated (%3$d%%)', data.done, data.total, pct );
 	}
 
 	function bacProcessNext() {
@@ -188,21 +191,23 @@
 		rnrdFetch( '/author/process', 'POST' )
 			.then( function ( data ) {
 				if ( data.code ) {
-					bacSetFinished( 'Error: ' + ( data.message || 'Unknown' ) );
+					bacSetFinished( t( 'errorPrefix', 'Error:' ) + ' ' + ( data.message || t( 'unknownError', 'Unknown error' ) ) );
 					return;
 				}
 				bacUpdateProgress( data );
 				if ( data.running ) {
 					setTimeout( bacProcessNext, 200 );
 				} else {
-					bacDone.textContent  = 'Done! ' + data.done + ' post' + ( data.done !== 1 ? 's' : '' ) + ' reassigned.';
+					bacDone.textContent  = data.done === 1
+						? t( 'postsReassignedOne', 'Done! 1 post reassigned.' )
+						: tr( 'postsReassignedMany', 'Done! %d posts reassigned.', data.done );
 					bacDone.style.display = 'block';
 					bacSetFinished();
 				}
 			} )
 			.catch( function () {
 				if ( bacRunning ) {
-					bacStatus.textContent = 'Request failed — retrying in 3s...';
+					bacStatus.textContent = t( 'retryIn3s', 'Request failed — retrying in 3s…' );
 					setTimeout( bacProcessNext, 3000 );
 				}
 			} );
@@ -211,7 +216,7 @@
 	function bacSetFinished( errorMsg ) {
 		bacRunning              = false;
 		bacExecute.disabled     = false;
-		bacExecute.textContent  = 'Execute';
+		bacExecute.textContent  = t( 'execute', 'Execute' );
 		bacStop.style.display   = 'none';
 		bacPreview.disabled     = false;
 
@@ -230,24 +235,34 @@
 	var flushStatus = document.getElementById( 'rnrd-flush-status' );
 
 	if ( flushBtn ) {
+		var flushLabelDefault = flushBtn.getAttribute( 'data-label-default' ) || flushBtn.textContent || t( 'clearCache', 'Clear cache' );
+		var flushLabelBusy    = flushBtn.getAttribute( 'data-label-busy' ) || t( 'clearing', 'Clearing…' );
+		var flushSuccessMsg   = ( flushStatus && flushStatus.getAttribute( 'data-success-msg' ) ) || t( 'cacheCleared', 'Cache cleared.' );
+
 		flushBtn.addEventListener( 'click', function () {
 			flushBtn.disabled    = true;
-			flushBtn.textContent = 'Flushing...';
+			flushBtn.textContent = flushLabelBusy;
+			if ( flushStatus ) {
+				flushStatus.textContent = '';
+				flushStatus.classList.remove( 'is-success' );
+			}
 
 			rnrdFetch( '/llms/flush-cache', 'POST' )
 				.then( function () {
 					flushBtn.disabled    = false;
-					flushBtn.textContent = 'Flush LLMs.txt Cache';
+					flushBtn.textContent = flushLabelDefault;
 					if ( flushStatus ) {
-						flushStatus.style.display = 'inline';
+						flushStatus.classList.add( 'is-success' );
+						flushStatus.textContent = '✓ ' + flushSuccessMsg;
 						setTimeout( function () {
-							flushStatus.style.display = 'none';
+							flushStatus.textContent = '';
+							flushStatus.classList.remove( 'is-success' );
 						}, 3000 );
 					}
 				} )
 				.catch( function () {
 					flushBtn.disabled    = false;
-					flushBtn.textContent = 'Flush LLMs.txt Cache';
+					flushBtn.textContent = flushLabelDefault;
 				} );
 		} );
 	}
@@ -270,21 +285,23 @@
 	if ( faqLoadBtn ) {
 		faqLoadBtn.addEventListener( 'click', function () {
 			faqLoadBtn.disabled    = true;
-			faqLoadBtn.textContent = 'Loading...';
+			faqLoadBtn.textContent = t( 'loading', 'Loading…' );
 
 			rnrdFetch( '/faq/posts', 'GET' )
 				.then( function ( data ) {
 					faqLoadBtn.disabled    = false;
-					faqLoadBtn.textContent = 'Refresh List';
+					faqLoadBtn.textContent = t( 'refreshListBtn', 'Refresh List' );
 
 					if ( ! data.posts || ! data.posts.length ) {
-						faqPostsCount.textContent   = 'No posts with FAQ found.';
+						faqPostsCount.textContent   = t( 'noFaqPosts', 'No posts with FAQ found.' );
 						faqPostsCount.style.display = 'inline';
 						faqPostsList.style.display  = 'none';
 						return;
 					}
 
-					faqPostsCount.textContent   = data.total + ' post' + ( data.total !== 1 ? 's' : '' ) + ' with FAQ';
+					faqPostsCount.textContent   = data.total === 1
+						? t( 'faqPostsOne', '1 post with FAQ' )
+						: tr( 'faqPostsMany', '%d posts with FAQ', data.total );
 					faqPostsCount.style.display = 'inline';
 
 					var html = '';
@@ -294,12 +311,12 @@
 						html += '<td><code style="font-size:12px;">' + escHtml( post.type ) + '</code></td>';
 						html += '<td>' + escHtml( post.generated || '—' ) + '</td>';
 						html += '<td>';
-						html += '<a href="#" onclick="rrEditFaq(' + post.id + ',\'' + escHtml( post.title ).replace( /'/g, '\\&#39;' ) + '\');return false;" style="margin-right:8px;">Edit FAQ</a>';
+						html += '<a href="#" onclick="rrEditFaq(' + post.id + ',\'' + escHtml( post.title ).replace( /'/g, '\\&#39;' ) + '\');return false;" style="margin-right:8px;">' + escHtml( t( 'editFaq', 'Edit FAQ' ) ) + '</a>';
 						if ( post.edit_url ) {
-							html += '<a href="' + post.edit_url + '" target="_blank" style="margin-right:8px;">Edit Post</a>';
+							html += '<a href="' + post.edit_url + '" target="_blank" style="margin-right:8px;">' + escHtml( t( 'editPost', 'Edit Post' ) ) + '</a>';
 						}
 						if ( post.view_url ) {
-							html += '<a href="' + post.view_url + '" target="_blank">View</a>';
+							html += '<a href="' + post.view_url + '" target="_blank">' + escHtml( t( 'view', 'View' ) ) + '</a>';
 						}
 						html += '</td>';
 						html += '</tr>';
@@ -310,8 +327,8 @@
 				} )
 				.catch( function () {
 					faqLoadBtn.disabled    = false;
-					faqLoadBtn.textContent = 'Load FAQ Posts';
-					faqPostsCount.textContent   = 'Failed to load.';
+					faqLoadBtn.textContent = t( 'loadFaqPosts', 'Load FAQ Posts' );
+					faqPostsCount.textContent   = t( 'failedToLoad', 'Failed to load.' );
 					faqPostsCount.style.display = 'inline';
 				} );
 		} );
@@ -343,12 +360,12 @@
 
 		faqModal.innerHTML = '<div style="background:#fff;border-radius:8px;max-width:700px;width:95%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,0.2);">'
 			+ '<div style="padding:16px 20px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;">'
-			+ '<h3 style="margin:0;font-size:15px;">Edit FAQ — ' + escHtml( postTitle ) + '</h3>'
+			+ '<h3 style="margin:0;font-size:15px;">' + escHtml( tr( 'editFaqTitle', 'Edit FAQ — %s', postTitle ) ) + '</h3>'
 			+ '<button id="rnrd-faq-modal-close" type="button" style="background:none;border:none;font-size:20px;cursor:pointer;color:#666;">&times;</button>'
 			+ '</div>'
-			+ '<div id="rnrd-faq-modal-body" style="padding:20px;overflow-y:auto;flex:1;">Loading...</div>'
+			+ '<div id="rnrd-faq-modal-body" style="padding:20px;overflow-y:auto;flex:1;">' + escHtml( t( 'loading', 'Loading…' ) ) + '</div>'
 			+ '<div style="padding:12px 20px;border-top:1px solid #ddd;display:flex;gap:8px;justify-content:flex-end;">'
-			+ '<button id="rnrd-faq-modal-save" class="button button-primary" disabled>Save Changes</button>'
+			+ '<button id="rnrd-faq-modal-save" class="button button-primary" disabled>' + escHtml( t( 'saveChanges', 'Save Changes' ) ) + '</button>'
 			+ '<span id="rnrd-faq-modal-status" style="font-size:13px;line-height:30px;margin-right:auto;"></span>'
 			+ '</div>'
 			+ '</div>';
@@ -361,7 +378,7 @@
 
 		rnrdFetch( '/faq/get/' + postId, 'GET' ).then( function ( data ) {
 			if ( ! data || ! data.faq || ! data.faq.length ) {
-				document.getElementById( 'rnrd-faq-modal-body' ).innerHTML = '<p style="color:#999;">No FAQ data found.</p>';
+				document.getElementById( 'rnrd-faq-modal-body' ).innerHTML = '<p style="color:#999;">' + escHtml( t( 'noFaqData', 'No FAQ data found.' ) ) + '</p>';
 				return;
 			}
 			faqEditData = data.faq;
@@ -378,7 +395,7 @@
 			html += '<div class="rnrd-faq-edit-item" style="margin-bottom:16px;padding:12px;border:1px solid #e0e0e0;border-radius:4px;">';
 			html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
 			html += '<strong style="font-size:12px;color:#666;">Q' + ( i + 1 ) + '</strong>';
-			html += '<button type="button" class="rnrd-faq-delete-btn" data-index="' + i + '" style="background:none;border:none;color:#B42318;cursor:pointer;font-size:13px;">Remove</button>';
+			html += '<button type="button" class="rnrd-faq-delete-btn" data-index="' + i + '" style="background:none;border:none;color:#B42318;cursor:pointer;font-size:13px;">' + escHtml( t( 'remove', 'Remove' ) ) + '</button>';
 			html += '</div>';
 			html += '<input type="text" class="rnrd-faq-q-input" data-index="' + i + '" value="' + escHtml( item.question ) + '" style="width:100%;padding:6px 8px;margin-bottom:8px;border:1px solid #ddd;border-radius:3px;font-weight:600;" />';
 			html += '<textarea class="rnrd-faq-a-input" data-index="' + i + '" rows="3" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:3px;resize:vertical;">' + escHtml( item.answer ) + '</textarea>';
@@ -412,26 +429,26 @@
 		var saveBtn = document.getElementById( 'rnrd-faq-modal-save' );
 		var status  = document.getElementById( 'rnrd-faq-modal-status' );
 		saveBtn.disabled    = true;
-		saveBtn.textContent = 'Saving...';
+		saveBtn.textContent = t( 'saving', 'Saving…' );
 		status.textContent  = '';
 
 		rnrdFetch( '/faq/save/' + faqEditId, 'POST', { faq: faqEditData } )
 			.then( function ( data ) {
 				saveBtn.disabled    = false;
-				saveBtn.textContent = 'Save Changes';
+				saveBtn.textContent = t( 'saveChanges', 'Save Changes' );
 				if ( data && data.success ) {
-					status.textContent = 'Saved!';
+					status.textContent = t( 'savedExclaim', 'Saved!' );
 					status.style.color = '#0F9C70';
 					setTimeout( closeFaqEditor, 800 );
 				} else {
-					status.textContent = 'Save failed.';
+					status.textContent = t( 'saveFailed', 'Save failed' );
 					status.style.color = '#B42318';
 				}
 			} )
 			.catch( function () {
 				saveBtn.disabled    = false;
-				saveBtn.textContent = 'Save Changes';
-				status.textContent  = 'Request failed.';
+				saveBtn.textContent = t( 'saveChanges', 'Save Changes' );
+				status.textContent  = t( 'requestFailed', 'Request failed.' );
 				status.style.color  = '#B42318';
 			} );
 	}
@@ -455,15 +472,15 @@
 	if ( tokensLoad ) {
 		tokensLoad.addEventListener( 'click', function () {
 			tokensLoad.disabled    = true;
-			tokensLoad.textContent = 'Loading...';
+			tokensLoad.textContent = t( 'loading', 'Loading…' );
 			tokensCount.style.display = 'none';
 
 			rnrdFetch( '/token-usage', 'GET' ).then( function ( data ) {
 				tokensLoad.disabled    = false;
-				tokensLoad.textContent = 'Refresh Details';
+				tokensLoad.textContent = t( 'refreshDetails', 'Refresh Details' );
 
 				if ( ! data.posts || ! data.posts.length ) {
-					tokensCount.textContent   = 'No token usage recorded yet.';
+					tokensCount.textContent   = t( 'noTokenUsage', 'No token usage recorded yet.' );
 					tokensCount.style.color   = '#999';
 					tokensCount.style.display = 'inline';
 					tokensList.style.display  = 'none';
@@ -480,7 +497,7 @@
 					html += '<td style="font-weight:600;">' + post.tokens.toLocaleString() + '</td>';
 					html += '<td>';
 					if ( post.edit ) {
-						html += '<a href="' + escHtml( post.edit ) + '" target="_blank" style="font-size:12px;">Edit</a>';
+						html += '<a href="' + escHtml( post.edit ) + '" target="_blank" style="font-size:12px;">' + escHtml( t( 'edit', 'Edit' ) ) + '</a>';
 					}
 					html += '</td>';
 					html += '</tr>';
@@ -488,12 +505,14 @@
 
 				tokensTbody.innerHTML    = html;
 				tokensList.style.display = 'block';
-				tokensCount.textContent   = data.posts.length + ' post' + ( data.posts.length !== 1 ? 's' : '' ) + ' | ' + totalTokens.toLocaleString() + ' total tokens';
+				tokensCount.textContent   = data.posts.length === 1
+					? tr( 'tokenUsageOne', '1 post | %s total tokens', totalTokens.toLocaleString() )
+					: tr( 'tokenUsageSummary', '%1$d posts | %2$s total tokens', data.posts.length, totalTokens.toLocaleString() );
 				tokensCount.style.color   = '#2271b1';
 				tokensCount.style.display = 'inline';
 			} ).catch( function () {
 				tokensLoad.disabled    = false;
-				tokensLoad.textContent = 'Load Per-Post Details';
+				tokensLoad.textContent = t( 'loadPerPostDetails', 'Load Per-Post Details' );
 			} );
 		} );
 	}
@@ -511,15 +530,15 @@
 	if ( errorsLoad ) {
 		errorsLoad.addEventListener( 'click', function () {
 			errorsLoad.disabled    = true;
-			errorsLoad.textContent = 'Loading...';
+			errorsLoad.textContent = t( 'loading', 'Loading…' );
 			errorsStatus.style.display = 'none';
 
 			rnrdFetch( '/errors', 'GET' ).then( function ( data ) {
 				errorsLoad.disabled    = false;
-				errorsLoad.textContent = 'Refresh Log';
+				errorsLoad.textContent = t( 'refreshLog', 'Refresh Log' );
 
 				if ( ! data.errors || ! data.errors.length ) {
-					errorsStatus.textContent   = 'No errors logged.';
+					errorsStatus.textContent   = t( 'noErrorsLogged', 'No errors logged.' );
 					errorsStatus.style.color   = '#0F9C70';
 					errorsStatus.style.display = 'inline';
 					errorsList.style.display   = 'none';
@@ -538,12 +557,14 @@
 
 				errorsTbody.innerHTML    = html;
 				errorsList.style.display = 'block';
-				errorsStatus.textContent   = data.errors.length + ' error' + ( data.errors.length !== 1 ? 's' : '' );
+				errorsStatus.textContent   = data.errors.length === 1
+					? t( 'errorsOne', '1 error' )
+					: tr( 'errorsMany', '%d errors', data.errors.length );
 				errorsStatus.style.color   = '#B42318';
 				errorsStatus.style.display = 'inline';
 			} ).catch( function () {
 				errorsLoad.disabled    = false;
-				errorsLoad.textContent = 'Load Error Log';
+				errorsLoad.textContent = t( 'loadErrorLog', 'Load Error Log' );
 			} );
 		} );
 
@@ -551,57 +572,10 @@
 			rnrdFetch( '/errors/clear', 'POST' ).then( function () {
 				errorsTbody.innerHTML  = '';
 				errorsList.style.display   = 'none';
-				errorsStatus.textContent   = 'Log cleared.';
+				errorsStatus.textContent   = t( 'logCleared', 'Log cleared.' );
 				errorsStatus.style.color   = '#0F9C70';
 				errorsStatus.style.display = 'inline';
 			} );
-		} );
-	}
-
-	/* ═══════════════════════════════════════════════════════════════════════
-	 * VERIFY API KEY
-	 * ═══════════════════════════════════════════════════════════════════════ */
-
-	var verifyBtn    = document.getElementById( 'rnrd-verify-key' );
-	var verifyStatus = document.getElementById( 'rnrd-verify-status' );
-
-	if ( verifyBtn ) {
-		verifyBtn.addEventListener( 'click', function () {
-			var keyField = document.getElementById( 'rnrd_api_key' );
-			var key      = keyField ? keyField.value : '';
-
-			if ( ! key ) {
-				verifyStatus.textContent    = 'Enter an API key first.';
-				verifyStatus.style.color    = '#B42318';
-				verifyStatus.style.display  = 'inline';
-				return;
-			}
-
-			verifyBtn.disabled    = true;
-			verifyBtn.textContent = 'Verifying...';
-			verifyStatus.style.display = 'none';
-
-			rnrdFetch( '/verify-key', 'POST', { key: key } )
-				.then( function ( data ) {
-					verifyBtn.disabled    = false;
-					verifyBtn.textContent = 'Verify Key';
-
-					if ( data.valid ) {
-						verifyStatus.textContent   = '✓ ' + data.message;
-						verifyStatus.style.color   = '#0F9C70';
-					} else {
-						verifyStatus.textContent   = '✗ ' + data.message;
-						verifyStatus.style.color   = '#B42318';
-					}
-					verifyStatus.style.display = 'inline';
-				} )
-				.catch( function () {
-					verifyBtn.disabled    = false;
-					verifyBtn.textContent = 'Verify Key';
-					verifyStatus.textContent   = '✗ Request failed.';
-					verifyStatus.style.color   = '#B42318';
-					verifyStatus.style.display = 'inline';
-				} );
 		} );
 	}
 
@@ -627,13 +601,13 @@
 			}
 
 			dfsVerifyBtn.disabled    = true;
-			dfsVerifyBtn.textContent = 'Verifying...';
+			dfsVerifyBtn.textContent = t( 'verifying', 'Verifying…' );
 			dfsVerifyStatus.style.display = 'none';
 
 			rnrdFetch( '/verify-dfs', 'POST', payload )
 				.then( function ( data ) {
 					dfsVerifyBtn.disabled    = false;
-					dfsVerifyBtn.textContent = 'Verify DataForSEO';
+					dfsVerifyBtn.textContent = t( 'verifyDfs', 'Verify DataForSEO' );
 
 					if ( data.valid ) {
 						dfsVerifyStatus.textContent   = '\u2713 ' + data.message;
@@ -652,8 +626,8 @@
 				} )
 				.catch( function () {
 					dfsVerifyBtn.disabled    = false;
-					dfsVerifyBtn.textContent = 'Verify DataForSEO';
-					dfsVerifyStatus.textContent   = '\u2717 Request failed.';
+					dfsVerifyBtn.textContent = t( 'verifyDfs', 'Verify DataForSEO' );
+					dfsVerifyStatus.textContent   = '\u2717 ' + t( 'requestFailed', 'Request failed.' );
 					dfsVerifyStatus.style.color   = '#B42318';
 					dfsVerifyStatus.style.display = 'inline';
 				} );
@@ -709,7 +683,7 @@
 					types.push( cb.value );
 				} );
 				if ( ! types.length ) {
-					alert( 'Select at least one post type.' );
+					alert( t( 'minOnePostType', 'Select at least one post type.' ) );
 					return;
 				}
 				payload.post_types = types;
@@ -718,31 +692,31 @@
 			soRunning           = true;
 			soStart.disabled    = true;
 			if ( soResume ) soResume.disabled = true;
-			soStart.textContent = 'Running...';
+			soStart.textContent = t( 'running', 'Running…' );
 			soStop.style.display  = 'inline-block';
 			soProg.style.display  = 'block';
 			if ( ! isResume ) {
 				soBar.style.width = '0%';
 			}
-			soStat.textContent    = isResume ? 'Resuming...' : 'Starting...';
+			soStat.textContent    = isResume ? t( 'resuming', 'Resuming…' ) : t( 'starting', 'Starting…' );
 			soStat.style.display  = 'block';
 			soStat.style.color    = '';
 
 			rnrdFetch( '/startover-bulk/start', 'POST', payload ).then( function ( data ) {
 				if ( data.code ) {
-					soStat.textContent = 'Error: ' + ( data.message || 'Unknown error' );
+					soStat.textContent = t( 'errorPrefix', 'Error:' ) + ' ' + ( data.message || t( 'unknownError', 'Unknown error' ) );
 					soFinish();
 					return;
 				}
 				soUpdate( data );
 				if ( data.total === 0 ) {
-					soStat.textContent = 'No published posts found.';
+					soStat.textContent = t( 'noPublishedPosts', 'No published posts found.' );
 					soFinish();
 				} else {
 					soNext();
 				}
 			} ).catch( function () {
-				soStat.textContent = 'Request failed.';
+				soStat.textContent = t( 'requestFailed', 'Request failed.' );
 				soFinish();
 			} );
 		}
@@ -751,7 +725,7 @@
 			if ( ! soRunning ) return;
 			rnrdFetch( '/startover-bulk/process', 'POST' ).then( function ( data ) {
 				if ( data.code ) {
-					soStat.textContent = 'Error: ' + ( data.message || 'Unknown error' );
+					soStat.textContent = t( 'errorPrefix', 'Error:' ) + ' ' + ( data.message || t( 'unknownError', 'Unknown error' ) );
 					soFinish();
 					return;
 				}
@@ -779,14 +753,14 @@
 				}
 
 				if ( data.done >= data.total ) {
-					soStat.textContent = 'Done! ' + data.done + '/' + data.total + ' posts regenerated.';
+					soStat.textContent = tr( 'bulkRegenDone', 'Done! %1$d/%2$d posts regenerated.', data.done, data.total );
 					soStat.style.color = '#0F9C70';
 					soFinish();
 				} else {
 					setTimeout( soNext, 500 );
 				}
 			} ).catch( function () {
-				soStat.textContent = 'Request failed — retrying in 5s...';
+				soStat.textContent = t( 'retryIn5s', 'Request failed — retrying in 5s…' );
 				if ( soRunning ) setTimeout( soNext, 5000 );
 			} );
 		}
@@ -794,13 +768,13 @@
 		function soUpdate( data ) {
 			var pct = data.total > 0 ? Math.round( ( data.done / data.total ) * 100 ) : 0;
 			soBar.style.width  = pct + '%';
-			soStat.textContent = data.done + ' / ' + data.total + ' (' + pct + '%)';
+			soStat.textContent = tr( 'bulkProgress', '%1$d / %2$d (%3$d%%)', data.done, data.total, pct );
 		}
 
 		function soFinish() {
 			soRunning           = false;
 			soStart.disabled    = false;
-			soStart.textContent = 'Start Over — Bulk Regenerate';
+			soStart.textContent = t( 'startOverBulk', 'Start Over — Bulk Regenerate' );
 			soStop.style.display = 'none';
 			if ( soResume ) soResume.disabled = false;
 		}
@@ -813,9 +787,9 @@
 		soStop.addEventListener( 'click', function () {
 			soRunning = false;
 			rnrdFetch( '/startover-bulk/stop', 'POST' ).then( function ( data ) {
-				var msg = 'Stopped at ' + data.done + ' / ' + data.total + '.';
+				var msg = tr( 'stoppedAtProgress', 'Stopped at %1$d / %2$d.', data.done, data.total );
 				if ( data.queue_remaining > 0 ) {
-					msg += ' ' + data.queue_remaining + ' remaining — click Resume to continue.';
+					msg += ' ' + tr( 'queueRemainingResume', '%d remaining — click Resume to continue.', data.queue_remaining );
 				}
 				soStat.textContent = msg;
 			} );
@@ -851,7 +825,7 @@
 			var includeApi = diagIncludeApi && diagIncludeApi.checked ? 1 : 0;
 
 			diagRunBtn.disabled    = true;
-			diagRunBtn.textContent = 'Probing endpoints…';
+			diagRunBtn.textContent = t( 'probingEndpoints', 'Probing endpoints…' );
 			diagStatus.style.display = 'none';
 			diagSummary.style.display = 'none';
 			diagResults.style.display = 'none';
@@ -859,23 +833,23 @@
 
 			rnrdFetch( '/diagnostics?include_api=' + includeApi, 'GET' ).then( function ( data ) {
 				diagRunBtn.disabled    = false;
-				diagRunBtn.textContent = 'Run Diagnostics';
+				diagRunBtn.textContent = t( 'runDiagnostics', 'Run Diagnostics' );
 
 				if ( ! data.checks || ! data.checks.length ) {
-					diagStatus.textContent   = 'No results.';
+					diagStatus.textContent   = t( 'noResults', 'No results.' );
 					diagStatus.style.color   = '#999';
 					diagStatus.style.display = 'inline';
 					return;
 				}
 
-				var t = data.totals || { pass: 0, warn: 0, fail: 0, info: 0 };
+				var totals = data.totals || { pass: 0, warn: 0, fail: 0, info: 0 };
 
 				// Summary chips
 				diagSummary.innerHTML =
-					'<span style="display:inline-block;padding:4px 12px;background:#d1ecdf;color:#0a6c39;border-radius:12px;font-weight:600;margin-right:8px;">✓ ' + t.pass + ' pass</span>' +
-					( t.warn ? '<span style="display:inline-block;padding:4px 12px;background:#fcf4d6;color:#7a5d00;border-radius:12px;font-weight:600;margin-right:8px;">⚠ ' + t.warn + ' warn</span>' : '' ) +
-					( t.fail ? '<span style="display:inline-block;padding:4px 12px;background:#f9d7d8;color:#8a1f1f;border-radius:12px;font-weight:600;margin-right:8px;">✗ ' + t.fail + ' fail</span>' : '' ) +
-					( t.info ? '<span style="display:inline-block;padding:4px 12px;background:#e5f1f9;color:#0b4b75;border-radius:12px;font-weight:600;margin-right:8px;">ℹ ' + t.info + ' info</span>' : '' );
+					'<span style="display:inline-block;padding:4px 12px;background:#d1ecdf;color:#0a6c39;border-radius:12px;font-weight:600;margin-right:8px;">✓ ' + totals.pass + ' pass</span>' +
+					( totals.warn ? '<span style="display:inline-block;padding:4px 12px;background:#fcf4d6;color:#7a5d00;border-radius:12px;font-weight:600;margin-right:8px;">⚠ ' + totals.warn + ' warn</span>' : '' ) +
+					( totals.fail ? '<span style="display:inline-block;padding:4px 12px;background:#f9d7d8;color:#8a1f1f;border-radius:12px;font-weight:600;margin-right:8px;">✗ ' + totals.fail + ' fail</span>' : '' ) +
+					( totals.info ? '<span style="display:inline-block;padding:4px 12px;background:#e5f1f9;color:#0b4b75;border-radius:12px;font-weight:600;margin-right:8px;">ℹ ' + totals.info + ' info</span>' : '' );
 				diagSummary.style.display = 'block';
 
 				// Results table
@@ -900,7 +874,7 @@
 					rows += '<td>';
 					rows += '<div>' + escHtml( c.detail ) + '</div>';
 					if ( c.fix ) {
-						rows += '<div style="margin-top:4px;font-size:12px;color:#5d6770;"><strong>Fix:</strong> ' + escHtml( c.fix ) + '</div>';
+						rows += '<div style="margin-top:4px;font-size:12px;color:#5d6770;"><strong>' + escHtml( t( 'fixLabel', 'Fix:' ) ) + '</strong> ' + escHtml( c.fix ) + '</div>';
 					}
 					if ( c.meta && c.meta.url ) {
 						rows += '<div style="margin-top:4px;font-size:11px;color:#8c8f94;font-family:Menlo,Consolas,monospace;">' + escHtml( c.meta.url ) + '</div>';
@@ -912,14 +886,14 @@
 				diagResults.style.display = 'block';
 				diagCopyRow.style.display = 'block';
 
-				var summaryColor = t.fail > 0 ? '#B42318' : ( t.warn > 0 ? '#dba617' : '#0F9C70' );
-				diagStatus.textContent   = 'Completed.';
+				var summaryColor = totals.fail > 0 ? '#B42318' : ( totals.warn > 0 ? '#dba617' : '#0F9C70' );
+				diagStatus.textContent   = t( 'diagnosticsCompleted', 'Completed.' );
 				diagStatus.style.color   = summaryColor;
 				diagStatus.style.display = 'inline';
 			} ).catch( function () {
 				diagRunBtn.disabled    = false;
-				diagRunBtn.textContent = 'Run Diagnostics';
-				diagStatus.textContent   = 'Request failed.';
+				diagRunBtn.textContent = t( 'runDiagnostics', 'Run Diagnostics' );
+				diagStatus.textContent   = t( 'requestFailed', 'Request failed.' );
 				diagStatus.style.color   = '#B42318';
 				diagStatus.style.display = 'inline';
 			} );
@@ -942,7 +916,7 @@
 				// Copy to clipboard. Mint-700 for success (DESIGN.md §1).
 				// Friendly message — no byte counts (engineery jargon).
 				function showOk() {
-					diagCopyStatus.textContent   = '✓ Copied to clipboard';
+					diagCopyStatus.textContent   = '✓ ' + t( 'copiedToClipboard', 'Copied to clipboard' );
 					diagCopyStatus.style.color   = '#0F9C70'; // mint-700
 					diagCopyStatus.style.display = 'inline';
 					// Auto-dismiss after 4s — copy feedback shouldn't linger.
@@ -965,7 +939,7 @@
 							document.execCommand( 'copy' );
 							showOk();
 						} catch ( e ) {
-							diagCopyStatus.textContent   = 'Copy failed — select text manually from preview below.';
+							diagCopyStatus.textContent   = t( 'copyFailedManual', 'Copy failed — select text manually from preview below.' );
 							diagCopyStatus.style.color   = '#B42318'; // error
 							diagCopyStatus.style.display = 'inline';
 						}
@@ -973,7 +947,7 @@
 				}
 			} ).catch( function () {
 				diagCopyBtn.disabled = false;
-				diagCopyStatus.textContent   = 'Report generation failed. Please try again.';
+				diagCopyStatus.textContent   = t( 'reportGenerationFailed', 'Report generation failed. Please try again.' );
 				diagCopyStatus.style.color   = '#B42318'; // error
 				diagCopyStatus.style.display = 'inline';
 			} );
@@ -994,7 +968,7 @@
 	if ( freshBtn ) {
 		freshBtn.addEventListener( 'click', function () {
 			freshBtn.disabled    = true;
-			freshBtn.textContent = 'Scanning...';
+			freshBtn.textContent = t( 'scanning', 'Scanning…' );
 			// v1.1.5 — class-driven visibility (no inline style flicker)
 			freshStatus.className      = 'rnrd-fw-status';
 			freshSummary.style.display = 'none';
@@ -1005,7 +979,7 @@
 			wp.apiFetch( { path: '/rankready/v1/freshness?days=' + days } )
 				.then( function ( data ) {
 					freshBtn.disabled    = false;
-					freshBtn.textContent = 'Scan Content Freshness';
+					freshBtn.textContent = t( 'scanContentFreshness', 'Scan Content Freshness' );
 
 					var s = data.summary;
 					var freshPct = s.fresh_pct;
@@ -1013,28 +987,28 @@
 					freshSummary.innerHTML =
 						'<div class="rnrd-kpi-row">' +
 						'<div class="rnrd-kpi" data-intent="citation">' +
-						'<div class="rnrd-kpi__label">Content fresh</div>' +
-						'<div class="rnrd-kpi__period">Share of catalog</div>' +
+						'<div class="rnrd-kpi__label">' + escHtml( t( 'freshnessKpiLabel', 'Content fresh' ) ) + '</div>' +
+						'<div class="rnrd-kpi__period">' + escHtml( t( 'freshnessKpiPeriod', 'Share of catalog' ) ) + '</div>' +
 						'<div class="rnrd-kpi__value">' + freshPct + '%</div>' +
-						'<div class="rnrd-kpi__foot">last modified within ' + s.threshold_days + ' days</div>' +
+						'<div class="rnrd-kpi__foot">' + escHtml( tr( 'freshnessKpiFoot', 'last modified within %d days', s.threshold_days ) ) + '</div>' +
 						'</div>' +
 						'<div class="rnrd-kpi">' +
-						'<div class="rnrd-kpi__label">Stale posts</div>' +
-						'<div class="rnrd-kpi__period">Over ' + s.threshold_days + ' days old</div>' +
+						'<div class="rnrd-kpi__label">' + escHtml( t( 'stalePostsLabel', 'Stale posts' ) ) + '</div>' +
+						'<div class="rnrd-kpi__period">' + escHtml( tr( 'stalePostsPeriod', 'Over %d days old', s.threshold_days ) ) + '</div>' +
 						'<div class="rnrd-kpi__value">' + s.total_stale + '</div>' +
-						'<div class="rnrd-kpi__foot">needs a refresh for AI citations</div>' +
+						'<div class="rnrd-kpi__foot">' + escHtml( t( 'stalePostsFoot', 'needs a refresh for AI citations' ) ) + '</div>' +
 						'</div>' +
 						'<div class="rnrd-kpi">' +
-						'<div class="rnrd-kpi__label">Total published</div>' +
-						'<div class="rnrd-kpi__period">All post types</div>' +
+						'<div class="rnrd-kpi__label">' + escHtml( t( 'totalPublishedLabel', 'Total published' ) ) + '</div>' +
+						'<div class="rnrd-kpi__period">' + escHtml( t( 'totalPublishedPeriod', 'All post types' ) ) + '</div>' +
 						'<div class="rnrd-kpi__value">' + s.total_published + '</div>' +
-						'<div class="rnrd-kpi__foot">indexed for freshness scan</div>' +
+						'<div class="rnrd-kpi__foot">' + escHtml( t( 'totalPublishedFoot', 'indexed for freshness scan' ) ) + '</div>' +
 						'</div>' +
 						'</div>';
 					freshSummary.style.display = 'block';
 
 					if ( data.stale.length === 0 ) {
-						freshStatus.textContent = 'All content is fresh.';
+						freshStatus.textContent = t( 'allContentFresh', 'All content is fresh.' );
 						freshStatus.className   = 'rnrd-fw-status is-visible is-ok';
 						return;
 					}
@@ -1053,19 +1027,19 @@
 						html += '<td style="color:' + urgColor + ';font-weight:600;">' + p.days_ago + 'd</td>';
 						html += '<td>' + ( p.has_summary ? '\u2705' : '\u274c' ) + '</td>';
 						html += '<td>' + ( p.has_faq ? '\u2705' : '\u274c' ) + '</td>';
-						html += '<td><a href="' + escHtml( p.edit_url ) + '" target="_blank" class="button button-small">Edit</a></td>';
+						html += '<td><a href="' + escHtml( p.edit_url ) + '" target="_blank" class="button button-small">' + escHtml( t( 'edit', 'Edit' ) ) + '</a></td>';
 						html += '</tr>';
 					} );
 
 					freshTbody.innerHTML       = html;
 					freshResults.style.display = 'block';
 
-					freshStatus.textContent = data.stale.length + ' stale posts found (showing top 50)';
+					freshStatus.textContent = tr( 'stalePostsFound', '%d stale posts found (showing top 50)', data.stale.length );
 					freshStatus.className   = 'rnrd-fw-status is-visible';
 				} ).catch( function () {
 					freshBtn.disabled    = false;
-					freshBtn.textContent = 'Scan Content Freshness';
-					freshStatus.textContent = 'Request failed.';
+					freshBtn.textContent = t( 'scanContentFreshness', 'Scan Content Freshness' );
+					freshStatus.textContent = t( 'requestFailed', 'Request failed.' );
 					freshStatus.className   = 'rnrd-fw-status is-visible is-err';
 				} );
 		} );
@@ -1111,6 +1085,76 @@
 	// the matching key field's value (or the saved key if masked) and pings
 	// the REST verify endpoint with the chosen provider.
 	//
+	function rebuildModelSelect( select, models, selectedValue ) {
+		if ( ! select ) { return; }
+		var keep = selectedValue || select.value;
+		select.innerHTML = '';
+		Object.keys( models ).forEach( function ( id ) {
+			var opt = document.createElement( 'option' );
+			opt.value = id;
+			opt.textContent = models[ id ];
+			if ( id === keep ) {
+				opt.selected = true;
+			}
+			select.appendChild( opt );
+		} );
+		if ( keep && ! models[ keep ] ) {
+			var deprecated = document.createElement( 'option' );
+			deprecated.value = keep;
+			deprecated.textContent = keep;
+			deprecated.selected = true;
+			select.appendChild( deprecated );
+		}
+	}
+
+	function refreshModelsForProvider( provider, key, statusEl, btn ) {
+		var select = document.querySelector( '[data-rnrd-model-for="' + provider + '"]' );
+		var label  = btn ? ( btn.textContent || t( 'refreshList', 'Refresh list' ) ) : t( 'refreshList', 'Refresh list' );
+
+		if ( btn ) {
+			btn.disabled    = true;
+			btn.textContent = t( 'refreshing', 'Refreshing…' );
+		}
+		if ( statusEl ) {
+			statusEl.style.display = 'inline';
+			statusEl.style.color   = '#646970';
+			statusEl.textContent   = t( 'refreshing', 'Refreshing…' );
+		}
+
+		return rnrdFetch( '/models/refresh', 'POST', { provider: provider, key: key || '' } )
+			.then( function ( data ) {
+				if ( btn ) {
+					btn.disabled    = false;
+					btn.textContent = label;
+				}
+				if ( data && data.models ) {
+					rebuildModelSelect( select, data.models, select ? select.value : '' );
+				}
+				if ( statusEl ) {
+					if ( data && data.ok ) {
+						statusEl.style.color = '#0F9C70';
+						statusEl.textContent = '✓ ' + ( data.count === 1
+							? t( 'modelsUpdatedOne', '1 model updated' )
+							: tr( 'modelsUpdatedMany', '%d models updated', data.count ) );
+					} else {
+						statusEl.style.color = '#B42318';
+						statusEl.textContent = '✗ ' + ( ( data && data.message ) ? data.message : t( 'couldNotRefreshModels', 'Could not refresh models.' ) );
+					}
+				}
+				return data;
+			} )
+			.catch( function () {
+				if ( btn ) {
+					btn.disabled    = false;
+					btn.textContent = label;
+				}
+				if ( statusEl ) {
+					statusEl.style.color = '#B42318';
+					statusEl.textContent = '✗ ' + t( 'requestFailed', 'Request failed.' );
+				}
+			} );
+	}
+
 	function bindVerifyButtons() {
 		var buttons = document.querySelectorAll( '[data-rnrd-verify-provider]' );
 		buttons.forEach( function ( btn ) {
@@ -1122,28 +1166,50 @@
 				if ( ! keyInput || ! status ) { return; }
 
 				var key = keyInput.value;
+				var modelSelect = document.querySelector( '[data-rnrd-model-for="' + provider + '"]' );
+				var model = modelSelect ? modelSelect.value : '';
+				var label = btn.textContent || t( 'verifyKey', 'Verify Key' );
 				status.style.display = 'inline';
 				status.style.color   = '#646970';
-				status.textContent   = 'Verifying…';
+				status.textContent   = t( 'verifying', 'Verifying…' );
 				btn.disabled = true;
 
-				// rnrdFetch already parses the JSON response — do NOT call .json() again
-				// (would throw TypeError and force the catch branch).
-				rnrdFetch( '/verify-key', 'POST', { key: key, provider: provider } )
+				rnrdFetch( '/verify-key', 'POST', { key: key, provider: provider, model: model } )
 					.then( function ( data ) {
 						btn.disabled       = false;
+						btn.textContent    = label;
 						status.style.color = data.valid ? '#0F9C70' : '#B42318';
 						status.textContent = data.valid ? '✓ ' + data.message : '✗ ' + data.message;
+						if ( data.valid ) {
+							var modelsStatus = document.querySelector( '[data-rnrd-models-status="' + provider + '"]' );
+							refreshModelsForProvider( provider, key, modelsStatus, null );
+						}
 					} )
 					.catch( function () {
 						btn.disabled       = false;
+						btn.textContent    = label;
 						status.style.color = '#B42318';
-						status.textContent = '✗ Request failed.';
+						status.textContent = '✗ ' + t( 'requestFailed', 'Request failed.' );
 					} );
 			} );
 		} );
 	}
+
+	function bindRefreshModels() {
+		var buttons = document.querySelectorAll( '[data-rnrd-refresh-models]' );
+		buttons.forEach( function ( btn ) {
+			btn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				var provider = btn.getAttribute( 'data-rnrd-refresh-models' );
+				var keyInput = document.querySelector( '[data-rnrd-key-for="' + provider + '"]' );
+				var status   = document.querySelector( '[data-rnrd-models-status="' + provider + '"]' );
+				var key      = keyInput ? keyInput.value : '';
+				refreshModelsForProvider( provider, key, status, btn );
+			} );
+		} );
+	}
 	bindVerifyButtons();
+	bindRefreshModels();
 
 	/* ─────────────────────────────────────────────────────────────────────────
 	 * AJAX form submit — no page reload on Save (rc.16).
@@ -1187,7 +1253,7 @@
 				}
 
 				btn.disabled = true;
-				setBtn( 'Saving…', 'rnrd-saving' );
+				setBtn( t( 'saving', 'Saving…' ), 'rnrd-saving' );
 
 				var formData = new FormData( form );
 
@@ -1208,11 +1274,11 @@
 						}
 						// v1.2 — verify the save actually persisted (options.php adds settings-updated=true only on success; a stale nonce / admin_init fatal returns 200 without it). Fixes 'Saved but reverts to disabled' (Keith, 1/5).
 							if ( response.url && response.url.indexOf( 'settings-updated=true' ) === -1 ) { throw new Error( 'not-saved' ); }
-							setBtn( 'Saved ✓', 'rnrd-saved' );
+							setBtn( t( 'saved', 'Saved ✓' ), 'rnrd-saved' );
 						setTimeout( restoreBtn, 2000 );
 					} )
 					.catch( function ( err ) {
-						setBtn( ( err && err.message === 'not-saved' ) ? 'Not saved — reload page' : 'Save failed', 'rnrd-save-error' );
+						setBtn( ( err && err.message === 'not-saved' ) ? t( 'notSavedReload', 'Not saved — reload page' ) : t( 'saveFailed', 'Save failed' ), 'rnrd-save-error' );
 						setTimeout( restoreBtn, 4500 );
 					} );
 			} );
@@ -1329,7 +1395,7 @@
 			}
 
 			function load() {
-				renderEmpty( 'Loading…' );
+				renderEmpty( t( 'loading', 'Loading…' ) );
 				selAll.checked = false;
 				btnRefr.disabled = true;
 				fetch( api + '/freshness/list?bucket=' + encodeURIComponent( current ), {
@@ -1338,10 +1404,10 @@
 				} ).then( function ( r ) { return r.json(); } ).then( function ( data ) {
 					if ( ! data || ! data.posts || ! data.posts.length ) {
 						var msg = current === 'stale'
-							? 'No stale posts. Every published post has been touched within the last 60 days.'
+							? t( 'freshnessStaleEmpty', 'No stale posts. Every published post has been touched within the last 60 days.' )
 							: ( current === 'going_stale'
-								? 'Nothing in the 30–60 day window. Plenty of time before any post goes stale.'
-								: 'Newly published or refreshed content shows up here.' );
+								? t( 'freshnessGoingStaleEmpty', 'Nothing in the 30–60 day window. Plenty of time before any post goes stale.' )
+								: t( 'freshnessFreshEmpty', 'Newly published or refreshed content shows up here.' ) );
 						renderEmpty( msg );
 						return;
 					}
@@ -1363,7 +1429,7 @@
 						link.href = editUrl;
 						link.target = '_blank';
 						link.rel = 'noopener noreferrer';
-						link.textContent = String( p.title || '(no title)' );
+						link.textContent = String( p.title || t( 'noTitle', '(no title)' ) );
 						titleEl.appendChild( link );
 						label.appendChild( cb );
 						label.appendChild( titleEl );
@@ -1375,7 +1441,7 @@
 						ul.appendChild( li );
 					} );
 					listEl.appendChild( ul );
-				} ).catch( function () { renderError( 'Failed to load.' ); } );
+				} ).catch( function () { renderError( t( 'failedToLoad', 'Failed to load.' ) ); } );
 			}
 
 			tabs.forEach( function ( t ) {
@@ -1392,17 +1458,17 @@
 				).map( function ( cb ) { return parseInt( cb.value, 10 ); } );
 				if ( ! ids.length ) return;
 				btnRefr.disabled = true;
-				statusEl.textContent = 'Refreshing ' + ids.length + ' post(s)…';
+				statusEl.textContent = tr( 'freshnessRefreshing', 'Refreshing %d post(s)…', ids.length );
 				fetch( api + '/freshness/refresh', {
 					method: 'POST',
 					headers: { 'X-WP-Nonce': nonce, 'Content-Type': 'application/json', Accept: 'application/json' },
 					credentials: 'same-origin',
 					body: JSON.stringify( { post_ids: ids } )
 				} ).then( function ( r ) { return r.json(); } ).then( function ( data ) {
-					statusEl.textContent = 'Refreshed ' + ( data.refreshed || 0 ) + ' post(s). Reloading…';
+					statusEl.textContent = tr( 'freshnessRefreshed', 'Refreshed %d post(s). Reloading…', data.refreshed || 0 );
 					setTimeout( load, 600 );
 				} ).catch( function () {
-					statusEl.textContent = 'Refresh failed.';
+					statusEl.textContent = t( 'refreshFailed', 'Refresh failed.' );
 					btnRefr.disabled = false;
 				} );
 			} );
@@ -1419,9 +1485,7 @@
 	 * ═══════════════════════════════════════════════════════════════════════ */
 
 	function bindMinOneCheckboxGroups() {
-		var fallback = ( window.rnrdAdmin && rnrdAdmin.minOnePostType )
-			? rnrdAdmin.minOnePostType
-			: 'Select at least one post type.';
+		var fallback = t( 'minOnePostType', 'Select at least one post type.' );
 
 		document.querySelectorAll( '[data-rnrd-min-one-checkboxes]' ).forEach( function ( group ) {
 			var boxes = group.querySelectorAll( 'input[type="checkbox"][value]' );

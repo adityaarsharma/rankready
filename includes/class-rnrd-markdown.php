@@ -664,8 +664,43 @@ class RNRD_Markdown {
 		return isset( $types[ $type ] ) ? (float) $types[ $type ] : 0.0;
 	}
 
-	private static function home_surfaces_enabled(): bool {
+	public static function home_surfaces_enabled(): bool {
 		return 'on' === get_option( RNRD_OPT_MD_HOME_ENABLE, 'on' );
+	}
+
+	/**
+	 * Whether a post's distinct .md URL is actually served (not 404).
+	 *
+	 * Mirrors the gates in handle_request() so llms.txt never advertises dead .md links.
+	 */
+	public static function post_has_servable_md_url( WP_Post $post ): bool {
+		$enabled_types = (array) get_option( RNRD_OPT_MD_POST_TYPES, array( 'post', 'page' ) );
+		if ( ! in_array( $post->post_type, $enabled_types, true ) ) {
+			return false;
+		}
+
+		if ( class_exists( 'RNRD_Llms_Txt' ) && RNRD_Llms_Txt::should_exclude_from_llms( $post ) ) {
+			return false;
+		}
+
+		if ( 'publish' !== $post->post_status || ! empty( $post->post_password ) ) {
+			return false;
+		}
+
+		// Plain permalinks produce ?p=123.md paths the .md router cannot match.
+		if ( '' === (string) get_option( 'permalink_structure', '' ) ) {
+			return false;
+		}
+
+		if ( ! self::home_surfaces_enabled() ) {
+			$front_id = (int) get_option( 'page_on_front', 0 );
+			$blog_id  = self::posts_page_id();
+			if ( ( $front_id > 0 && (int) $post->ID === $front_id ) || ( $blog_id > 0 && (int) $post->ID === $blog_id ) ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**

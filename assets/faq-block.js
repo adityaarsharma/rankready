@@ -25,6 +25,11 @@
 	var useSelect         = wp.data.useSelect;
 	var apiFetch          = wp.apiFetch;
 
+	var cfg  = window.rnrdBlockData || {};
+	var i18n = window.rnrdI18n.bind( cfg.i18n || {} );
+	var t    = i18n.t;
+	var tr   = i18n.tr;
+
 	function colorControl( label, value, onChange ) {
 		return el( BaseControl, { label: label, __nextHasNoMarginBottom: true },
 			el( ColorPalette, {
@@ -37,7 +42,7 @@
 
 	// ── Global fonts (theme.json → Nexter Theme / Nexter Blocks / Kadence / core) ─
 	function rnrdGlobalFontOptions() {
-		var opts = [ { label: '— Theme default —', value: '' } ];
+		var opts = [ { label: t( 'themeDefault', '— Theme default —' ), value: '' } ];
 		try {
 			var settings = wp.data.select( 'core/block-editor' ).getSettings();
 			var tree = settings && settings.__experimentalFeatures && settings.__experimentalFeatures.typography && settings.__experimentalFeatures.typography.fontFamilies;
@@ -63,7 +68,7 @@
 	}
 
 	var rnrdWeightOptions = [
-		{ label: '— Inherit —', value: '' },
+		{ label: t( 'inherit', '— Inherit —' ), value: '' },
 		{ label: '100 Thin', value: '100' },
 		{ label: '200 Extra Light', value: '200' },
 		{ label: '300 Light', value: '300' },
@@ -168,12 +173,12 @@
 					.then( function ( data ) {
 						if ( data && data.faq ) {
 							setFaq( data.faq );
-							setGenerated( 'Just now' );
+							setGenerated( t( 'justNow', 'Just now' ) );
 						}
 						setLoading( false );
 					} )
 					.catch( function ( err ) {
-						var msg = ( err && err.message ) ? err.message : 'FAQ generation failed.';
+						var msg = ( err && err.message ) ? err.message : t( 'faqGenerationFailed', 'FAQ generation failed.' );
 						setError( msg );
 						setLoading( false );
 					} );
@@ -214,33 +219,33 @@
 				el( InspectorControls, null,
 
 					// Panel: FAQ Settings
-					el( PanelBody, { title: 'FAQ Settings', initialOpen: true },
+					el( PanelBody, { title: t( 'panelFaqSettings', 'FAQ Settings' ), initialOpen: true },
 
 						el( TextControl, {
-							label: 'Focus Keyword',
+							label: t( 'focusKeyword', 'Focus Keyword' ),
 							value: attrs.keyword || '',
-							placeholder: 'Auto-detected from Rank Math/Yoast',
+							placeholder: t( 'keywordPlaceholder', 'Auto-detected from Rank Math/Yoast' ),
 							onChange: function ( v ) { setAttrs( { keyword: v } ); },
-							help: 'Leave empty to use SEO plugin focus keyword.',
+							help: t( 'keywordHelp', 'Leave empty to use SEO plugin focus keyword.' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						el( ToggleControl, {
-							label: 'Show title',
+							label: t( 'showTitle', 'Show title' ),
 							checked: attrs.showTitle,
 							onChange: function ( v ) { setAttrs( { showTitle: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						attrs.showTitle && el( TextControl, {
-							label: 'Title text',
-							value: attrs.titleText || 'Frequently Asked Questions',
+							label: t( 'titleText', 'Title text' ),
+							value: attrs.titleText || t( 'faqTitleDefault', 'Frequently Asked Questions' ),
 							onChange: function ( v ) { setAttrs( { titleText: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 
 						attrs.showTitle && el( SelectControl, {
-							label: 'Title tag',
+							label: t( 'titleTag', 'Title tag' ),
 							value: attrs.headingTag || 'h3',
 							options: [
 								{ label: 'H2', value: 'h2' }, { label: 'H3', value: 'h3' },
@@ -252,7 +257,7 @@
 						} ),
 
 						el( ToggleControl, {
-							label: 'Show "Last reviewed" date',
+							label: t( 'showLastReviewed', 'Show "Last reviewed" date' ),
 							checked: attrs.showReviewed,
 							onChange: function ( v ) { setAttrs( { showReviewed: v } ); },
 							__nextHasNoMarginBottom: true,
@@ -265,21 +270,21 @@
 								disabled: loading || ! postId,
 								onClick: handleGenerate,
 								style: { width: '100%', justifyContent: 'center' },
-							}, loading ? 'Generating FAQ...' : faq.length ? 'Regenerate FAQ' : 'Generate FAQ' )
+							}, loading ? t( 'generatingFaq', 'Generating FAQ…' ) : faq.length ? t( 'regenerateFaq', 'Regenerate FAQ' ) : t( 'generateFaq', 'Generate FAQ' ) )
 						),
 
 						generated && el( 'p', { style: { color: '#757575', fontSize: '11px', margin: '8px 0 0', fontStyle: 'italic' } },
-							'Last generated: ' + generated
+							tr( 'lastGenerated', 'Last generated: %s', generated )
 						)
 					),
 
 					// Panel: Box Style
-					el( PanelBody, { title: 'Box Style', initialOpen: false },
-						colorControl( 'Background', attrs.boxBgColor, function ( v ) { setAttrs( { boxBgColor: v } ); } ),
-						colorControl( 'Border Color', attrs.boxBorderColor, function ( v ) { setAttrs( { boxBorderColor: v } ); } ),
+					el( PanelBody, { title: t( 'panelBoxStyle', 'Box Style' ), initialOpen: false },
+						colorControl( t( 'background', 'Background' ), attrs.boxBgColor, function ( v ) { setAttrs( { boxBgColor: v } ); } ),
+						colorControl( t( 'borderColor', 'Border Color' ), attrs.boxBorderColor, function ( v ) { setAttrs( { boxBorderColor: v } ); } ),
 
 						el( RangeControl, {
-							label: 'Border Width',
+							label: t( 'borderWidth', 'Border Width' ),
 							value: attrs.boxBorderWidth || 0,
 							onChange: function ( v ) { setAttrs( { boxBorderWidth: v } ); },
 							min: 0, max: 5, step: 1,
@@ -287,7 +292,7 @@
 						} ),
 
 						el( RangeControl, {
-							label: 'Border Radius',
+							label: t( 'borderRadius', 'Border Radius' ),
 							value: attrs.boxBorderRadius || 0,
 							onChange: function ( v ) { setAttrs( { boxBorderRadius: v } ); },
 							min: 0, max: 20, step: 1,
@@ -295,86 +300,86 @@
 						} ),
 
 						el( RangeControl, {
-							label: 'Padding',
+							label: t( 'padding', 'Padding' ),
 							value: attrs.boxPadding || 0,
 							onChange: function ( v ) { setAttrs( { boxPadding: v } ); },
 							min: 0, max: 60, step: 2,
-							help: '0 = no extra padding',
+							help: t( 'zeroNoPadding', '0 = no extra padding' ),
 							__nextHasNoMarginBottom: true,
 						} )
 					),
 
 					// Panel: Question Style (full typography + global fonts)
-					el( PanelBody, { title: 'Question Style', initialOpen: false },
-						colorControl( 'Color', attrs.questionColor, function ( v ) { setAttrs( { questionColor: v } ); } ),
+					el( PanelBody, { title: t( 'panelQuestionStyle', 'Question Style' ), initialOpen: false },
+						colorControl( t( 'color', 'Color' ), attrs.questionColor, function ( v ) { setAttrs( { questionColor: v } ); } ),
 						el( SelectControl, {
-							label: 'Font Family',
-							help: 'Pulls from your theme.json fonts (Kadence, or any block theme). Leave blank to inherit.',
+							label: t( 'fontFamily', 'Font Family' ),
+							help: t( 'fontFamilyHelp', 'Pulls from your theme.json fonts (Kadence, or any block theme). Leave blank to inherit.' ),
 							value: attrs.questionFontFamily || '',
 							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { questionFontFamily: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( SelectControl, {
-							label: 'Font Weight',
+							label: t( 'fontWeight', 'Font Weight' ),
 							value: attrs.questionFontWeight || '',
 							options: rnrdWeightOptions,
 							onChange: function ( v ) { setAttrs( { questionFontWeight: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( RangeControl, {
-							label: 'Font Size (px)',
+							label: t( 'fontSizePx', 'Font Size (px)' ),
 							value: attrs.questionFontSize || 0,
 							onChange: function ( v ) { setAttrs( { questionFontSize: v } ); },
 							min: 0, max: 32, step: 1,
-							help: '0 = inherit',
+							help: t( 'zeroInherit', '0 = inherit' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( RangeControl, {
-							label: 'Line Height',
+							label: t( 'lineHeight', 'Line Height' ),
 							value: attrs.questionLineHeight || 0,
 							onChange: function ( v ) { setAttrs( { questionLineHeight: v } ); },
 							min: 0, max: 3, step: 0.05,
-							help: '0 = inherit',
+							help: t( 'zeroInherit', '0 = inherit' ),
 							__nextHasNoMarginBottom: true,
 						} )
 					),
 
 					// Panel: Answer Style (full typography + global fonts)
-					el( PanelBody, { title: 'Answer Style', initialOpen: false },
-						colorControl( 'Color', attrs.answerColor, function ( v ) { setAttrs( { answerColor: v } ); } ),
+					el( PanelBody, { title: t( 'panelAnswerStyle', 'Answer Style' ), initialOpen: false },
+						colorControl( t( 'color', 'Color' ), attrs.answerColor, function ( v ) { setAttrs( { answerColor: v } ); } ),
 						el( SelectControl, {
-							label: 'Font Family',
-							help: 'Pulls from your theme.json fonts. Leave blank to inherit from theme.',
+							label: t( 'fontFamily', 'Font Family' ),
+							help: t( 'fontFamilyHelpShort', 'Pulls from your theme.json fonts. Leave blank to inherit from theme.' ),
 							value: attrs.answerFontFamily || '',
 							options: rnrdGlobalFontOptions(),
 							onChange: function ( v ) { setAttrs( { answerFontFamily: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( SelectControl, {
-							label: 'Font Weight',
+							label: t( 'fontWeight', 'Font Weight' ),
 							value: attrs.answerFontWeight || '',
 							options: rnrdWeightOptions,
 							onChange: function ( v ) { setAttrs( { answerFontWeight: v } ); },
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( RangeControl, {
-							label: 'Font Size (px)',
+							label: t( 'fontSizePx', 'Font Size (px)' ),
 							value: attrs.answerFontSize || 0,
 							onChange: function ( v ) { setAttrs( { answerFontSize: v } ); },
 							min: 0, max: 24, step: 1,
-							help: '0 = inherit',
+							help: t( 'zeroInherit', '0 = inherit' ),
 							__nextHasNoMarginBottom: true,
 						} ),
 						el( RangeControl, {
-							label: 'Line Height',
+							label: t( 'lineHeight', 'Line Height' ),
 							value: attrs.answerLineHeight || 0,
 							onChange: function ( v ) { setAttrs( { answerLineHeight: v } ); },
 							min: 0, max: 3, step: 0.05,
-							help: '0 = inherit',
+							help: t( 'zeroInherit', '0 = inherit' ),
 							__nextHasNoMarginBottom: true,
 						} ),
-						colorControl( 'Divider Color', attrs.dividerColor, function ( v ) { setAttrs( { dividerColor: v } ); } )
+						colorControl( t( 'dividerColor', 'Divider Color' ), attrs.dividerColor, function ( v ) { setAttrs( { dividerColor: v } ); } )
 					)
 				),
 
@@ -384,7 +389,7 @@
 					attrs.showTitle && el( HeadingTag, {
 						className: 'rnrd-faq-title',
 						style: attrs.questionColor ? { color: attrs.questionColor } : {},
-					}, attrs.titleText || 'Frequently Asked Questions' ),
+					}, attrs.titleText || t( 'faqTitleDefault', 'Frequently Asked Questions' ) ),
 
 					error && el( Notice, {
 						status: 'error', isDismissible: true,
@@ -393,7 +398,7 @@
 
 					loading
 						? el( 'div', { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 0' } },
-							el( Spinner ), el( 'span', null, 'Generating FAQ from DataForSEO + OpenAI...' )
+							el( Spinner ), el( 'span', null, t( 'generatingFaqLong', 'Generating FAQ from DataForSEO + OpenAI…' ) )
 						)
 						: faq.length > 0
 							? el( 'div', { className: 'rnrd-faq-list' },
@@ -443,10 +448,10 @@
 								} ),
 								attrs.showReviewed && generated && el( 'p', {
 									className: 'rnrd-faq-reviewed',
-								}, 'Last reviewed: ' + generated )
+								}, tr( 'lastReviewed', 'Last reviewed: %s', generated ) )
 							)
 							: el( 'p', { style: { opacity: 0.5, fontStyle: 'italic', margin: 0, padding: '12px 0' } },
-								'Click "Generate FAQ" in the sidebar to create FAQ items for this post.'
+								t( 'clickGenerateFaq', 'Click "Generate FAQ" in the sidebar to create FAQ items for this post.' )
 							)
 				)
 			);

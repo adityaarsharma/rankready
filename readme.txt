@@ -4,7 +4,7 @@ Tags: seo, schema, ai seo, aeo, llms.txt
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -31,11 +31,6 @@ Traditional SEO plugins optimize for Google's classic results. RankReady adds th
 * **Author, Article, Speakable and FAQPage schema.** E-E-A-T structured data merged into your SEO plugin, never duplicated
 * **AI visibility insights.** Which AI crawlers visited, and who arrived from ChatGPT, Perplexity, Claude or Gemini
 
-Your WordPress SEO plugin handles Google. RankReady handles what comes after. That is **ChatGPT SEO**, **AEO** (answer engine optimization), **GEO optimization** (generative engine optimization) and **LLM SEO**, all from one plugin.
-
-## A quick walkthrough of the whole plugin.
-
-https://www.youtube.com/watch?v=JA-rEwMbqNo
 
 Built by [HostMyBlog](https://hostmy.blog/).
 
@@ -43,13 +38,6 @@ Built by [HostMyBlog](https://hostmy.blog/).
 
 RankReady is not a WordPress SEO plugin and does not replace one. It is the LLM SEO layer that sits on top of the SEO plugin you already run, handling AEO (answer engine optimization) and GEO (generative engine optimization). Compatible with Yoast SEO, Rank Math, AIOSEO, SEOPress, The SEO Framework, Slim SEO and Squirrly SEO. Every release is tested against all seven.
 
-* **Yoast SEO**
-* **Rank Math**
-* **All in One SEO (AIOSEO)**
-* **SEOPress**
-* **The SEO Framework**
-* **Slim SEO**
-* **Squirrly SEO**
 
 In every one of those combinations:
 
@@ -190,22 +178,13 @@ On Cloudflare it can create the cache rule for you from the **Settings** tab.
 
 ## Coming soon in RankReady AI SEO
 
-Everything above is free AI SEO, with no caps on manual generation. These are in development:
-
-* **Auto-generate on publish.** AI Summaries and FAQs written automatically as you publish
-* **Bulk-generate** AI Summaries and FAQs across your whole library
-* **HowTo and ItemList schema**
-* **Deeper author schema.** Credentials, education, certifications, memberships, awards, Wikidata, ORCID, Google Scholar, LinkedIn, editorial and fact-check policies
-* **Custom post types** beyond posts and pages
-* **Headless and WPGraphQL** for decoupled front ends
-
-You will see these marked "Coming soon" inside the plugin. They are not available yet.
+Everything above is free AI SEO, with no caps on manual generation. In development: auto-generate and bulk-generate AI Summaries and FAQs, HowTo and ItemList schema, deeper author schema, custom post types, and headless plus WPGraphQL support. These are marked "Coming soon" inside the plugin and are not available yet.
 
 == Privacy & Third-Party Services ==
 
 Your post content never leaves your site unless you ask for it. Your API keys stay in your own database, and every AI service below runs on your own key.
 
-**Plugin usage data (Freemius).** [Terms](https://freemius.com/terms/) · [Privacy](https://freemius.com/privacy/). RankReady uses the Freemius SDK to understand how the plugin is being used, so we know what to fix and build next. **It is opt-in.** On activation you are asked to connect, and you can skip it. If you allow it, Freemius receives your site URL, your WordPress and PHP versions, your name and email address, your active plugins and theme, and plugin activation and deactivation events. Your post content, your AI API keys and your visitor data are never sent. If you change your mind later, an "Opt Out" link appears next to RankReady on your Plugins page.
+**Plugin usage data (Freemius).** [Terms](https://freemius.com/terms/) · [Privacy](https://freemius.com/privacy/). Opt-in only, and skippable on activation. If you allow it, sends your site URL, WordPress and PHP versions, your name and email, active plugins and theme, and activation events. Never your post content, API keys or visitor data. Opt out any time from the Plugins page.
 
 **AI providers.** Pick one. When you click Generate, that post's title and text go to your chosen provider and the reply is saved on your site. Nothing else is shared.
 
@@ -219,8 +198,6 @@ Your post content never leaves your site unless you ask for it. Your API keys st
 * **DataForSEO.** [Terms](https://dataforseo.com/terms-of-service) · [Privacy](https://dataforseo.com/privacy-policy). Sends your focus keyword when you run the FAQ Generator. Never your article text.
 * **Cloudflare.** [Terms](https://www.cloudflare.com/terms/) · [Privacy](https://www.cloudflare.com/privacypolicy/). Only if you connect it. Sends your zone ID and API credentials so RankReady can add or remove one cache rule and clear changed pages. No post content is ever sent.
 * **HostMyBlog tips email.** [Terms](https://hostmy.blog/terms/) · [Privacy](https://hostmy.blog/privacy/). Only if you opt in from the setup wizard or the dashboard. Sends your first name and email address once for that admin account. Leave it unticked / don't submit and nothing is sent.
-
-The plugin dashboard also embeds one YouTube walkthrough using Google's no-cookie player. It appears inside wp-admin only, never on your public site.
 
 == Installation ==
 
@@ -351,6 +328,24 @@ Yes. RankReady is open source under GPL-2.0-or-later. The complete source ships 
 
 == Changelog ==
 
+= 1.3.1, 2026-09-01 =
+
+* New: Cloudflare has its own Settings subtab (API Keys → Cloudflare → Advanced). The connect form is always available, with a warning when Cloudflare is not detected, so staging and DNS-only sites can still connect.
+* Fixed: OpenAI "Verify Key" no longer fails on GPT-5.x with "max_tokens or model output limit was reached" — the probe now allows enough completion tokens for reasoning models.
+* Improved: LLM model dropdowns load live model lists from each provider when an API key is saved; a small offline fallback is used only when no key is set or the fetch fails.
+* Improved: Model dropdown labels use exact provider model IDs (e.g. `claude-sonnet-4-6`) so each option is unambiguous; tier guidance remains in the field description below.
+* New: "Refresh list" button next to each model dropdown fetches the latest models on demand without waiting for the cache to expire. A successful "Verify Key" also refreshes that provider's list.
+* Improved: "Verify Key" sits inline beside each API key field (all four LLM providers and DataForSEO).
+* Fixed: OpenAI model selection no longer reverts after save — removed the hardcoded GPT-4o allowlist that rejected newer model IDs.
+* Improved: OpenAI model list hides chat-only variants (IDs containing `-chat`). Gemini hides non-text models (robotics, TTS, image, transcribe, computer-use, and similar).
+* Improved: If your saved model is retired and missing from the live list, it stays visible with a deprecated notice so you can pick a replacement.
+* New: Delete generated Summary or FAQ from the post editor metabox — an inline danger link in the status line (e.g. "Summary generated 8 minutes ago. Delete summary").
+* Improved: Regenerate cooldown countdown shows in the status line ("You can regenerate again in 59s.") instead of changing the button label to "Wait 59s".
+* New: llms.txt setting to use .md URLs in post links (on by default when Markdown endpoints are enabled). Hides the redundant "Append .md to any page URL" hint when active.
+* Improved: llms-full.txt `Source:` lines use the same .md URLs when that setting is on.
+* New: "Clear cache" button on the llms.txt settings screen rebuilds /llms.txt and /llms-full.txt on demand and purges CDN/page-cache layers for those endpoints.
+* Removed: Dashboard YouTube walkthrough embed (no third-party video in wp-admin).
+
 = 1.3.0, 2026-08-24 =
 
 * Improved: Settings are reorganized into focused tabs, Dashboard, AI Visibility, AI Content, Insights, and Settings, with subtabs so Brand Identity, robots.txt, llms.txt, Markdown, WebMCP, OKF, Summary, FAQ, Author Box, and Schema are easier to find.
@@ -434,39 +429,18 @@ First public release. The AI-search layer for WordPress: unlimited manual AI Sum
 
 == Upgrade Notice ==
 
+= 1.3.1 =
+Live model lists with Refresh list and inline Verify Key. Metabox delete + regenerate cooldown. llms.txt .md post links are opt-in on upgrade (Settings → llms.txt). Cloudflare tab always available. No data loss; safe to update.
+
 = 1.3.0 =
 Reorganized settings and post-edit metaboxes, in-editor Generate Summary/FAQ, homepage Markdown, and AI Snippet defaults. Also fixes physical robots.txt sync and stale 404s after turning off llms.txt, Markdown, or OKF. No data loss; safe to update.
 
 = 1.2.1 =
 
-**New**
+Adds AI crawler blocking in robots.txt, Cloudflare cache-rule setup and an nginx /.well-known/ fix. Fixes duplicate Content-Signal lines, multilingual summaries and FAQs, endpoint routing and DataForSEO diagnostics. Removes a remote Google Fonts request. Safe update, no settings change.
 
-* Block AI crawlers, pick bots to `Disallow` in robots.txt. Off by default; if a bot is in both lists, block wins.
-* Cloudflare connect using a scoped API token. Creates the Cache Rule that keeps APO from serving HTML to agents asking for Markdown, and removes it again on disconnect or uninstall.
-* Googlebot and Facebook's link crawler get their own robots.txt entry that repeats the rules your site already applies to every crawler. They are named for tools that check crawler access, while what they can reach stays exactly as you had it.
-* nginx `/.well-known/` notice, detects the 403 that blocks agent-discovery files and shows the exact server-config fix.
-
-**Fixed**
-
-* robots.txt collected a duplicate `Content-Signal` line every time you saved settings. Duplicates already in your file are cleared on the next save.
-* The Googlebot entry re-checks your site's own robots.txt rules hourly, so a rule you add through another plugin is picked up rather than missed.
-* Summaries and FAQs now generate in your site's language (WPML / Polylang / site locale), and keyword research uses the matching language and country instead of US English.
-* The "Key Takeaways" heading is now translatable, so a German site no longer shows an English heading above German content.
-* `llms.txt`, `.md`, `/okf/` and `mcp.json` resolve on stacks where another plugin intercepts routing.
-* Homepage advertised its Markdown alternate twice on sites using a static front page.
-* Diagnostics reported "No credentials configured" for DataForSEO even when credentials were saved and working.
-* AI Summary generation no longer fails on models that reject custom sampling settings.
-
-**Privacy and housekeeping**
-
-* Removed a remote Google Fonts request from the admin screens, no third-party asset loading, and your admin IP is no longer sent to Google.
-* Removed the `X-AEO-Version` response header. It advertised a draft convention that no standards body has adopted and that nothing reads.
-* Cloudflare and the dashboard walkthrough video are now documented in the Privacy section.
-* Removed unused stylesheet rules and tightened admin copy.
-
-Safe update, no settings or generated content change.
 = 1.2.0 =
-Adds an optional "AI SEO tips by email" opt-in, saves your AI keys and settings reliably, keeps Markdown pages out of Google even behind a cache, aligns the WebMCP toggles with what is actually served, and gives Nginx sites the exact fix for /.well-known/mcp.json. No data loss; safe to update.
+Adds an optional "AI SEO tips by email" opt-in, saves your AI keys and settings reliably, keeps Markdown pages out of Google behind a cache, aligns the WebMCP toggles with what is served, and fixes /.well-known/mcp.json on Nginx. No data loss; safe to update.
 
 = 1.1.1 =
 Fixes API keys not saving on first entry, and pages showing raw Markdown behind Cloudflare APO and similar caches. Adds multilingual support plus Squirrly SEO and SWIS Performance compatibility. No data loss. If you saved a key on an earlier version, re-enter it once after updating.

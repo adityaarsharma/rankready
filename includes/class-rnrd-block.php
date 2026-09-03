@@ -208,6 +208,7 @@ class RNRD_Block {
 		'lastGenerated'                 => __( 'Last generated: %s', 'rankready-ai-llm-seo' ),
 		'generatingFaqLong'             => __( 'Generating FAQ from DataForSEO + OpenAI…', 'rankready-ai-llm-seo' ),
 		'clickGenerateFaq'              => __( 'Click "Generate FAQ" in the sidebar to create FAQ items for this post.', 'rankready-ai-llm-seo' ),
+		/* translators: %s: relative or absolute time */
 		'lastReviewed'                  => __( 'Last reviewed: %s', 'rankready-ai-llm-seo' ),
 		'faqTitleDefault'               => __( 'Frequently Asked Questions', 'rankready-ai-llm-seo' ),
 		'loadingAuthor'                 => __( 'Loading author…', 'rankready-ai-llm-seo' ),
